@@ -1,0 +1,8 @@
+.gitignore.idea/
+*.iml
+target/
+*.swp
+*~
+bazel-*
+.ijwb/
+out/
