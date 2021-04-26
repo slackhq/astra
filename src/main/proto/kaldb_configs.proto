@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package slack.proto.kaldb;
+
+option java_package = "com.slack.kaldb.proto.config";
+
+message KaldbConfig {
+    KafkaConfig kafkaConfig = 1;
+    S3Config s3Config = 2;
+    IndexerConfig indexerConfig = 3;
+}
+
+message KafkaConfig {
+    string kafkaTopic = 1;
+    string kafkaTopicPartition = 2;
+    string kafkaBootStrapServers = 3;
+    string kafkaClientGroup = 4;
+    string enableKafkaAutoCommit = 5;
+    string kafkaAutoCommitInterval = 6;
+    string kafkaSessionTimeout = 7;
+}
+
+message S3Config {
+    string s3AccessKey = 1;
+    string s3SecretKey = 2;
+    string s3Region = 3;
+    string s3EndPoint = 4;
+    string s3Bucket = 5;
+}
+
+message IndexerConfig {
+    int64 maxMessagesPerChunk = 1;
+    int64 maxBytesPerChunk = 2;
+    int64 commitDurationSecs = 3;
+    int64 refreshDurationSecs = 4;
+    int64 staleDurationSecs= 5;
+    string dataTransformer = 6;
+    string dataDirectory = 7;
+}

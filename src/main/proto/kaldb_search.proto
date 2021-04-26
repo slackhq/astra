@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package slack.proto.kaldb;
+
+option java_package = "com.slack.kaldb.proto.service";
+
+message SearchRequest {
+  string chunk_id = 1;
+  string index_name = 2;
+  string query_string = 3;
+  int64 start_time_epoch_ms = 4;
+  int64 end_time_epoch_ms = 5;
+  int32 how_many = 6;
+  int32 bucket_count = 7;
+}
+
+message SearchResult {
+  int64 count = 1;
+  int64 total_count = 2;
+  repeated string hits = 3;
+  repeated HistogramBucket buckets = 4;
+  int64 took_micros = 5;
+
+  int32 failed_nodes = 6;
+  int32 total_nodes = 7;
+  int32 total_snapshots = 8;
+  int32 snapshots_with_replicas = 9;
+}
+
+message HistogramBucket {
+  double low = 1;
+  double high = 2;
+  double count = 3;
+}
+
+service KaldbService {
+  rpc Search (SearchRequest) returns (SearchResult) {}
+}
