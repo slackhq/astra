@@ -319,7 +319,7 @@ public class ChunkManager<T> {
     LOG.info("Closed chunk manager.");
   }
 
-  public void removeStaleChunks(List<Map.Entry<Long, Chunk<T>>> staleChunks) {
+  public void removeStaleChunks(List<Map.Entry<String, Chunk<T>>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
