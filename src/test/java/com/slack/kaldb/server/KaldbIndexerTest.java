@@ -1,0 +1,192 @@
+package com.slack.kaldb.server;
+
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.server.Server;
+import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.grpc.GrpcService;
+import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
+import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.RollOverChunkTask;
+import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
+import com.slack.kaldb.testlib.ChunkManagerUtil;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
+import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.TestKafkaServer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.concurrent.ExecutionException;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+public class KaldbIndexerTest {
+
+  private static final String TEST_KAFKA_TOPIC = "test-topic";
+
+  // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
+  private static final int TEST_KAFKA_PARTITION = 0;
+
+  private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
+  private static final String TEST_S3_BUCKET = "test-s3-bucket";
+
+  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  private ChunkManagerUtil<LogMessage> chunkManagerUtil;
+  private SimpleMeterRegistry metricsRegistry;
+  private Server server;
+  private TestKafkaServer kafkaServer;
+
+  @Before
+  public void setUp() throws Exception {
+    KaldbConfigUtil.initEmptyConfig();
+    metricsRegistry = new SimpleMeterRegistry();
+    chunkManagerUtil =
+        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+
+    kafkaServer = new TestKafkaServer();
+  }
+
+  @After
+  public void tearDown() throws IOException, ExecutionException, InterruptedException {
+    if (server != null) {
+      server.stop().join();
+    }
+    if (chunkManagerUtil != null) {
+      chunkManagerUtil.close();
+    }
+
+    kafkaServer.close();
+  }
+
+  // TODO: Add a test to ensure Indexer can be shut down cleanly.
+
+  private KaldbConfigs.KaldbConfig makeKaldbConfig(String bootstrapServers) {
+    KaldbConfigs.KafkaConfig kafkaConfig =
+        KaldbConfigs.KafkaConfig.newBuilder()
+            .setKafkaTopic(TEST_KAFKA_TOPIC)
+            .setKafkaTopicPartition(String.valueOf(TEST_KAFKA_PARTITION))
+            .setKafkaBootStrapServers(bootstrapServers)
+            .setKafkaClientGroup(KALDB_TEST_CLIENT)
+            .setEnableKafkaAutoCommit("true")
+            .setKafkaAutoCommitInterval("5000")
+            .setKafkaSessionTimeout("5000")
+            .build();
+
+    KaldbConfigs.S3Config s3Config =
+        KaldbConfigs.S3Config.newBuilder()
+            .setS3Bucket(TEST_S3_BUCKET)
+            .setS3Region("us-east-1")
+            .build();
+
+    KaldbConfigs.IndexerConfig indexerConfig =
+        KaldbConfigs.IndexerConfig.newBuilder()
+            .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
+            .setMaxMessagesPerChunk(100)
+            .setCommitDurationSecs(10)
+            .setRefreshDurationSecs(10)
+            .setStaleDurationSecs(7200)
+            .build();
+
+    return KaldbConfigs.KaldbConfig.newBuilder()
+        .setKafkaConfig(kafkaConfig)
+        .setS3Config(s3Config)
+        .setIndexerConfig(indexerConfig)
+        .build();
+  }
+
+  private String uri() {
+    return "gproto+http://127.0.0.1:" + server.activeLocalPort() + '/';
+  }
+
+  private KaldbSearch.SearchResult searchUsingGrpcApi(
+      String queryString, long startTimeMs, long endTimeMs) {
+    KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
+        Clients.newClient(uri(), KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+
+    return kaldbService.search(
+        KaldbSearch.SearchRequest.newBuilder()
+            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+            .setQueryString(queryString)
+            .setStartTimeEpochMs(startTimeMs)
+            .setEndTimeEpochMs(endTimeMs)
+            .setHowMany(10)
+            .setBucketCount(2)
+            .build());
+  }
+
+  @Test
+  public void testIndexFromKafkaSearchViaGrpcSearchApi() throws Exception {
+    EphemeralKafkaBroker broker = kafkaServer.getBroker();
+    assertThat(broker.isRunning()).isTrue();
+    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+
+    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+
+    // Initialize kaldb config.
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig("localhost:" + broker.getKafkaPort().get());
+    KaldbConfig.initFromConfigObject(kaldbCfg);
+
+    // Create an indexer, an armeria server and register the grpc service.
+    ServerBuilder sb = Server.builder();
+    sb.http(0);
+    sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
+    GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
+    KaldbIndexer indexer =
+        new KaldbIndexer(
+            searchServiceBuilder, chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"));
+    server = sb.service(searchServiceBuilder.build()).build();
+    server.start().join();
+
+    indexer.start();
+    Thread.sleep(1000); // Wait for consumer start.
+
+    // Produce messages to kafka, so the indexer can consume them.
+    produceMessagesToKafka(broker, startTime);
+    Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
+
+    // No need to commit the active chunk since the last chunk is already closed.
+    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+
+    // Search for the messages via the grpc API
+    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    KaldbSearch.SearchResult searchResponse =
+        searchUsingGrpcApi("Message1", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
+
+    // Validate search response
+    assertThat(searchResponse.getHitsCount()).isEqualTo(1);
+    assertThat(searchResponse.getTookMicros()).isNotZero();
+    assertThat(searchResponse.getTotalCount()).isEqualTo(1);
+    assertThat(searchResponse.getFailedNodes()).isZero();
+    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(0);
+    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(0);
+
+    // TODO: Close indexer cleanly.
+    // TODO: delete expired data cleanly.
+  }
+}

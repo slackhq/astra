@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package slack.proto.murron;
+
+option java_package = "com.slack.service.murron";
+
+message MurronMessage {
+  reserved 11;
+  reserved "container_app";
+  int64 timestamp         = 1;
+  string host             = 2;
+  string type             = 3;
+  int64 offset            = 4;
+  bytes message           = 5;
+  int32 pid               = 6;
+  map<string,string> tags = 7;
+  string origin_host      = 8;
+  string container_name   = 9;
+  string pod_name         = 10;
+  bytes signature         = 12;
+  string kube_image       = 16; // 16 & beyond are 2 bytes; reserve the smaller indices for other data.
+}
+
+message MurronBatch {
+  repeated MurronMessage batch = 1;
+}
+
+message MurronReply {
+  bool ok = 1;
+}
+
+service MurronService {
+  rpc SendMurron (MurronMessage) returns (MurronReply) {}
+  rpc StreamMurron (stream MurronMessage) returns (MurronReply) {}
+  rpc BatchMurron (MurronBatch) returns (MurronReply) {}
+}
