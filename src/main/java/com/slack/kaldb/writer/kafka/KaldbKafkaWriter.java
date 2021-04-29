@@ -4,6 +4,8 @@ import com.google.common.base.Stopwatch;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.MessageWriter;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -19,14 +21,16 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
 
   public static long END_OFFSET_STALE_DELAY_SECS = 10;
 
-  public static KaldbKafkaWriter fromConfig(MessageWriter messageWriter) {
+  public static KaldbKafkaWriter fromConfig(
+      MessageWriter messageWriter, MeterRegistry meterRegistry) {
     KaldbConfigs.KafkaConfig kafkaCfg = KaldbConfig.get().getKafkaConfig();
-    return fromConfig(kafkaCfg, messageWriter);
+    return fromConfig(kafkaCfg, messageWriter, meterRegistry);
   }
 
   public static KaldbKafkaWriter fromConfig(
-      KaldbConfigs.KafkaConfig kafkaCfg, MessageWriter messageWriter) {
+      KaldbConfigs.KafkaConfig kafkaCfg, MessageWriter messageWriter, MeterRegistry meterRegistry) {
     return new KaldbKafkaWriter(
+        meterRegistry,
         kafkaCfg.getKafkaTopic(),
         kafkaCfg.getKafkaTopicPartition(),
         kafkaCfg.getKafkaBootStrapServers(),
@@ -44,10 +48,14 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
   private final long endOffsetStaleSecs;
   private long cachedPartitionEndOffset;
 
-  // TODO: Add counters for failures, success, messages ingested.
+  public static final String RECORDS_RECEIVED_COUNTER = "records_received";
+  public static final String RECORDS_FAILED_COUNTER = "records_failed";
+  private final Counter recordsReceivedCounter;
+  private final Counter recordsFailedCounter;
 
   // TODO: Convert kafka fields into a Properties Object.
   public KaldbKafkaWriter(
+      MeterRegistry meterRegistry,
       String kafkaTopic,
       String kafkaTopicPartitionStr,
       String kafkaBootStrapServers,
@@ -69,6 +77,8 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
     this.endOffsetTimer = Stopwatch.createStarted();
     this.endOffsetStaleSecs = endOffsetStaleSecs;
     this.cachedPartitionEndOffset = 0;
+    recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
+    recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
   }
 
   private long getLatestOffSet() {
@@ -95,11 +105,12 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
     LOG.debug("Fetched records." + records.count());
 
     int recordCount = records.count();
+    recordsReceivedCounter.increment(recordCount);
     int recordFailures = 0;
     for (ConsumerRecord<String, byte[]> record : records) {
       if (!messageWriter.insertRecord(record)) recordFailures++;
     }
-
+    recordsFailedCounter.increment(recordFailures);
     LOG.info(
         "Processed {} records. Success: {}, Failed: {}",
         recordCount,

@@ -25,6 +25,7 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -153,7 +154,10 @@ public class KaldbIndexerTest {
     GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
     KaldbIndexer indexer =
         new KaldbIndexer(
-            searchServiceBuilder, chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"));
+            searchServiceBuilder,
+            chunkManager,
+            KaldbIndexer.dataTransformerMap.get("api_log"),
+            metricsRegistry);
     server = sb.service(searchServiceBuilder.build()).build();
     server.start().join();
 
@@ -171,6 +175,8 @@ public class KaldbIndexerTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
+    assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();

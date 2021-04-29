@@ -78,7 +78,7 @@ public class KaldbIndexer {
     if (dataTransformer == null) {
       throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
     }
-    return new KaldbIndexer(serviceBuilder, chunkManager, dataTransformer);
+    return new KaldbIndexer(serviceBuilder, chunkManager, dataTransformer, meterRegistry);
   }
 
   private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
@@ -124,7 +124,8 @@ public class KaldbIndexer {
   public KaldbIndexer(
       GrpcServiceBuilder grpcServiceBuilder,
       ChunkManager<LogMessage> chunkManager,
-      LogMessageTransformer messageTransformer) {
+      LogMessageTransformer messageTransformer,
+      MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
 
@@ -135,7 +136,7 @@ public class KaldbIndexer {
 
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
-    kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl);
+    kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
   }
 
   public void start() {
