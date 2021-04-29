@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.logstore.IndexCommitRefHolder;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,9 +133,10 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
     LOG.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
-    try {
+    try (IndexCommitRefHolder ref = logStore.acquireLatestCommit()) {
       Path dirPath = logStore.getDirectory().toAbsolutePath();
-      Collection<String> activeFiles = logStore.activeFiles();
+      IndexCommit indexCommit = ref.getIndexCommit();
+      Collection<String> activeFiles = indexCommit.getFileNames();
       LOG.info("{} active files in {} in index", activeFiles.size(), dirPath);
       for (String fileName : activeFiles) {
         LOG.debug("File name is {}}", fileName);

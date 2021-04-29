@@ -359,7 +359,11 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
       Path dirPath = logStore.getDirectory().toAbsolutePath();
-      Collection<String> activeFiles = logStore.activeFiles();
+      Collection<String> activeFiles;
+      try (IndexCommitRefHolder ref = logStore.acquireLatestCommit()) {
+        activeFiles = ref.getIndexCommit().getFileNames();
+      }
+      assertThat(activeFiles).isNotNull();
 
       LocalBlobFs localBlobFs = new LocalBlobFs();
       logStore.close();
@@ -423,7 +427,11 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
       Path dirPath = logStore.getDirectory().toAbsolutePath();
-      Collection<String> activeFiles = logStore.activeFiles();
+      Collection<String> activeFiles;
+      try (IndexCommitRefHolder ref = logStore.acquireLatestCommit()) {
+        activeFiles = ref.getIndexCommit().getFileNames();
+      }
+      assertThat(activeFiles).isNotNull();
       LocalBlobFs blobFs = new LocalBlobFs();
       logStore.close();
       strictLogStore.logSearcher.close();
