@@ -12,7 +12,8 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -26,15 +27,13 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private final SimpleMeterRegistry meterRegistry;
+  private final PrometheusMeterRegistry prometheusMeterRegistry;
 
   public Kaldb(Path configFilePath) throws IOException {
     LOG.info("Starting Metrics setup.");
     // TODO: Initialize metrics and set up a metrics end point.
-    // Metrics.addRegistry(Metrics.globalRegistry);
-    meterRegistry = new SimpleMeterRegistry();
-    Metrics.addRegistry(meterRegistry);
-    // TODO: Expose a metrics scraper endpoint.
+    prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    Metrics.addRegistry(prometheusMeterRegistry);
     LOG.info("Finished metrics setup.");
 
     KaldbConfig.initFromFile(configFilePath);
@@ -47,12 +46,13 @@ public class Kaldb {
 
     // Create an indexer and a grpc search service.
     GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
-    KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, meterRegistry);
+    KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, prometheusMeterRegistry);
 
     // Create an API server to serve the search requests.
     ServerBuilder sb = Server.builder();
     sb.http(8080);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
+    sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.service(searchServiceBuilder.build());
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
@@ -70,11 +70,11 @@ public class Kaldb {
   private void setupMetrics() {
     // TODO: Setup prom metrics.
     // Expose JVM metrics.
-    new ClassLoaderMetrics().bindTo(meterRegistry);
-    new JvmMemoryMetrics().bindTo(meterRegistry);
-    new JvmGcMetrics().bindTo(meterRegistry);
-    new ProcessorMetrics().bindTo(meterRegistry);
-    new JvmThreadMetrics().bindTo(meterRegistry);
+    new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
+    new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
+    new JvmGcMetrics().bindTo(prometheusMeterRegistry);
+    new ProcessorMetrics().bindTo(prometheusMeterRegistry);
+    new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
   }
 
   public void close() {
