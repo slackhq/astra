@@ -31,7 +31,6 @@ public class Kaldb {
 
   public Kaldb(Path configFilePath) throws IOException {
     LOG.info("Starting Metrics setup.");
-    // TODO: Initialize metrics and set up a metrics end point.
     prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Metrics.addRegistry(prometheusMeterRegistry);
     LOG.info("Finished metrics setup.");
