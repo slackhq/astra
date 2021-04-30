@@ -67,7 +67,6 @@ public class Kaldb {
   }
 
   private void setupMetrics() {
-    // TODO: Setup prom metrics.
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
     new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
