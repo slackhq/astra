@@ -20,8 +20,8 @@ public class BlobFsUtils {
   public static final String FILE_FORMAT = "%s://%s/%s";
 
   public static int copyToS3(
-          Path sourceDirPath, Collection<String> files, String bucket, String prefix, S3BlobFs blobFs)
-          throws Exception {
+      Path sourceDirPath, Collection<String> files, String bucket, String prefix, S3BlobFs blobFs)
+      throws Exception {
     int success = 0;
     for (String fileName : files) {
       File fileToCopy = new File(sourceDirPath.toString(), fileName);
@@ -33,10 +33,10 @@ public class BlobFsUtils {
         continue;
       }
       URI destUri =
-              (prefix != null && !prefix.isEmpty())
-                      ? URI.create(
-                      String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
-                      : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
+          (prefix != null && !prefix.isEmpty())
+              ? URI.create(
+                  String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
+              : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
       blobFs.copyFromLocalFile(fileToCopy, destUri);
       success++;
     }

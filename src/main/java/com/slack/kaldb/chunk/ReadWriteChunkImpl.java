@@ -9,6 +9,8 @@ import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -28,18 +30,23 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   // TODO: Add a global UUID to identify each chunk uniquely.
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
-  public static final String INDEX_FILES_COUNT = "index_files_count";
-  public static final String MISSING_INDEX_FILES = "missing_index_files";
+  public static final String INDEX_FILES_UPLOAD = "index_files_upload";
+  public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
   private final LogIndexSearcher<T> logSearcher;
+  private final Counter fileUploadAttempts;
+  private final Counter fileUploadFailures;
+  // TODO: Add a timer for s3 upload.
+  // TODO: Export file size uploaded as a metric.
+  // TODO: Add chunk info as tags?.
 
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
 
-
-  public ReadWriteChunkImpl(LogStore<T> logStore, String chunkDataPrefix) {
+  public ReadWriteChunkImpl(
+      LogStore<T> logStore, String chunkDataPrefix, MeterRegistry meterRegistry) {
     this.logStore = logStore;
     this.logSearcher =
         (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
@@ -51,6 +58,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
             chunkCreationTime.getEpochSecond());
     this.readOnly = false;
+    this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
+    this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
@@ -126,7 +135,9 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       for (String fileName : activeFiles) {
         LOG.info("File name is %s", fileName);
       }
-      copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
+      this.fileUploadAttempts.increment(activeFiles.size());
+      final int success = copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
+      this.fileUploadFailures.increment(activeFiles.size() - success);
       LOG.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {

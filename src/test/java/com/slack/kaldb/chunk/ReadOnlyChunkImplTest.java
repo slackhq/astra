@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.MessageUtil;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +26,7 @@ public class ReadOnlyChunkImplTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private SimpleMeterRegistry registry;
+  private MeterRegistry registry;
   private String localIndexPath;
   private SearchQuery searchQuery;
 
@@ -38,7 +39,8 @@ public class ReadOnlyChunkImplTest {
     LuceneIndexStoreImpl logStore =
         LuceneIndexStoreImpl.makeLogStore(
             localStore, Duration.ofSeconds(5 * 60), Duration.ofSeconds(5 * 60), registry);
-    ReadWriteChunkImpl<LogMessage> chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet");
+    ReadWriteChunkImpl<LogMessage> chunk =
+        new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
     localIndexPath = logStore.getDirectory().toAbsolutePath().toString();
 
     // Add messages to the store using a ReadWriteChunkImpl.
