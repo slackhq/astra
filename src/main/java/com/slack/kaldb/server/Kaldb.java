@@ -61,7 +61,7 @@ public class Kaldb {
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.join();
-    LOG.info("Started server on port: %d", serverPort);
+    LOG.info("Started server on port: {}", serverPort);
 
     // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
     // subclass of this class?
