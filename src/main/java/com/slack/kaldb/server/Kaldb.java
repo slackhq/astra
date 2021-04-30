@@ -49,17 +49,19 @@ public class Kaldb {
     GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
     KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, prometheusMeterRegistry);
 
+    final int serverPort = KaldbConfig.get().getServerPort();
     // Create an API server to serve the search requests.
     ServerBuilder sb = Server.builder();
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-    sb.http(8080);
+    sb.http(serverPort);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.service(searchServiceBuilder.build());
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.join();
+    LOG.info("Started server on port: %d", serverPort);
 
     // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
     // subclass of this class?
