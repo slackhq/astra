@@ -1,10 +1,12 @@
 package com.slack.kaldb.server;
 
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
+import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -49,6 +51,8 @@ public class Kaldb {
 
     // Create an API server to serve the search requests.
     ServerBuilder sb = Server.builder();
+    sb.decorator(
+        MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.http(8080);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
