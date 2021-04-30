@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -32,13 +33,14 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
+  public static final String SNAPSHOT_TIMER = "snapshot.timer";
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
   private final LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
-  // TODO: Add a timer for s3 upload.
+  private final MeterRegistry meterRegistry;
   // TODO: Export file size uploaded as a metric.
   // TODO: Add chunk info as tags?.
 
@@ -60,6 +62,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.readOnly = false;
     this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
+    this.meterRegistry = meterRegistry;
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
@@ -136,7 +139,9 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
         LOG.info("File name is %s", fileName);
       }
       this.fileUploadAttempts.increment(activeFiles.size());
+      Timer.Sample snapshotTimer = Timer.start(meterRegistry);
       final int success = copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
+      snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(activeFiles.size() - success);
       LOG.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
