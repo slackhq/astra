@@ -1,5 +1,7 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -346,6 +348,8 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "invalid-bucket";
@@ -379,6 +383,8 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
@@ -389,6 +395,9 @@ public class ReadWriteChunkImplTest {
 
       // Snapshot to S3
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
+
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(15);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // Post snapshot cleanup.
       chunk.postSnapshot();
