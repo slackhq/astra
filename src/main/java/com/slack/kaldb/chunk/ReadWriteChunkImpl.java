@@ -28,6 +28,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   // TODO: Add a global UUID to identify each chunk uniquely.
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
+  public static final String INDEX_FILES_COUNT = "index_files_count";
+  public static final String MISSING_INDEX_FILES = "missing_index_files";
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
@@ -35,6 +37,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
+
 
   public ReadWriteChunkImpl(LogStore<T> logStore, String chunkDataPrefix) {
     this.logStore = logStore;
