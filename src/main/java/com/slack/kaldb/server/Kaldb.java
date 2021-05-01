@@ -76,7 +76,7 @@ public class Kaldb {
     new JvmGcMetrics().bindTo(prometheusMeterRegistry);
     new ProcessorMetrics().bindTo(prometheusMeterRegistry);
     new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
-    LOG.info("Done Registering standard JVM metrics.");
+    LOG.info("Done registering standard JVM metrics.");
   }
 
   public void close() {
