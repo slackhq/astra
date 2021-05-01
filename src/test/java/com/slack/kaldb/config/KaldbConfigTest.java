@@ -108,6 +108,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
 
     assertThat(config).isNotNull();
+    assertThat(config.getServerPort()).isEqualTo(8080);
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
@@ -138,6 +139,7 @@ public class KaldbConfigTest {
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{}");
 
+    assertThat(config.getServerPort()).isZero();
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
@@ -154,12 +156,12 @@ public class KaldbConfigTest {
     assertThat(s3Config.getS3EndPoint()).isEmpty();
 
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
-    assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(0);
-    assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(0);
-    assertThat(indexerConfig.getCommitDurationSecs()).isEqualTo(0);
-    assertThat(indexerConfig.getRefreshDurationSecs()).isEqualTo(0);
-    assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(0);
-    assertThat(indexerConfig.getDataDirectory()).isEqualTo("");
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("");
+    assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
+    assertThat(indexerConfig.getMaxBytesPerChunk()).isZero();
+    assertThat(indexerConfig.getCommitDurationSecs()).isZero();
+    assertThat(indexerConfig.getRefreshDurationSecs()).isZero();
+    assertThat(indexerConfig.getStaleDurationSecs()).isZero();
+    assertThat(indexerConfig.getDataDirectory()).isEmpty();
+    assertThat(indexerConfig.getDataTransformer()).isEmpty();
   }
 }
