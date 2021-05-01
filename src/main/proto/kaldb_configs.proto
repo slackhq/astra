@@ -8,6 +8,7 @@ message KaldbConfig {
     KafkaConfig kafkaConfig = 1;
     S3Config s3Config = 2;
     IndexerConfig indexerConfig = 3;
+    int32 serverPort = 4;
 }
 
 message KafkaConfig {

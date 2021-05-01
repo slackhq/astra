@@ -1,10 +1,12 @@
 package com.slack.kaldb.server;
 
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
+import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -12,7 +14,8 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -26,17 +29,11 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private final SimpleMeterRegistry meterRegistry;
+  private static final PrometheusMeterRegistry prometheusMeterRegistry =
+      new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
   public Kaldb(Path configFilePath) throws IOException {
-    LOG.info("Starting Metrics setup.");
-    // TODO: Initialize metrics and set up a metrics end point.
-    // Metrics.addRegistry(Metrics.globalRegistry);
-    meterRegistry = new SimpleMeterRegistry();
-    Metrics.addRegistry(meterRegistry);
-    // TODO: Expose a metrics scraper endpoint.
-    LOG.info("Finished metrics setup.");
-
+    Metrics.addRegistry(prometheusMeterRegistry);
     KaldbConfig.initFromFile(configFilePath);
   }
 
@@ -47,16 +44,21 @@ public class Kaldb {
 
     // Create an indexer and a grpc search service.
     GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
-    KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, meterRegistry);
+    KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, prometheusMeterRegistry);
 
+    final int serverPort = KaldbConfig.get().getServerPort();
     // Create an API server to serve the search requests.
     ServerBuilder sb = Server.builder();
-    sb.http(8080);
+    sb.decorator(
+        MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
+    sb.http(serverPort);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
+    sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.service(searchServiceBuilder.build());
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.join();
+    LOG.info("Started server on port: {}", serverPort);
 
     // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
     // subclass of this class?
@@ -68,13 +70,13 @@ public class Kaldb {
   }
 
   private void setupMetrics() {
-    // TODO: Setup prom metrics.
     // Expose JVM metrics.
-    new ClassLoaderMetrics().bindTo(meterRegistry);
-    new JvmMemoryMetrics().bindTo(meterRegistry);
-    new JvmGcMetrics().bindTo(meterRegistry);
-    new ProcessorMetrics().bindTo(meterRegistry);
-    new JvmThreadMetrics().bindTo(meterRegistry);
+    new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
+    new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
+    new JvmGcMetrics().bindTo(prometheusMeterRegistry);
+    new ProcessorMetrics().bindTo(prometheusMeterRegistry);
+    new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
+    LOG.info("Done registering standard JVM metrics.");
   }
 
   public void close() {
