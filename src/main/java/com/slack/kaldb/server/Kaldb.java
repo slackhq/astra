@@ -29,11 +29,11 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private final PrometheusMeterRegistry prometheusMeterRegistry;
+  private static final PrometheusMeterRegistry prometheusMeterRegistry =
+      new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
   public Kaldb(Path configFilePath) throws IOException {
     LOG.info("Starting Metrics setup.");
-    prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Metrics.addRegistry(prometheusMeterRegistry);
     LOG.info("Finished metrics setup.");
 
