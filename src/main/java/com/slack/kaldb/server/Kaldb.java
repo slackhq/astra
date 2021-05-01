@@ -33,10 +33,7 @@ public class Kaldb {
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
   public Kaldb(Path configFilePath) throws IOException {
-    LOG.info("Starting Metrics setup.");
     Metrics.addRegistry(prometheusMeterRegistry);
-    LOG.info("Finished metrics setup.");
-
     KaldbConfig.initFromFile(configFilePath);
   }
 
@@ -79,6 +76,7 @@ public class Kaldb {
     new JvmGcMetrics().bindTo(prometheusMeterRegistry);
     new ProcessorMetrics().bindTo(prometheusMeterRegistry);
     new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
+    LOG.info("Done Registering standard JVM metrics.");
   }
 
   public void close() {
