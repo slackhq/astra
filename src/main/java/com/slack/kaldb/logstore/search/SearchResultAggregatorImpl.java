@@ -55,7 +55,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             .collect(Collectors.toList());
 
     return new SearchResult<T>(
-        resultHits.size(),
         resultHits,
         tookMicros,
         totalCount,

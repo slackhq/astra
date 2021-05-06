@@ -25,7 +25,6 @@ public class SearchResultAggregatorImplTest {
       int totalSnapshots,
       int snapshotsWithReplicas) {
     return new SearchResult<>(
-        messages.size(),
         messages,
         tookMs,
         totalCount,
@@ -298,7 +297,6 @@ public class SearchResultAggregatorImplTest {
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
 
-    assertThat(aggSearchResult.count).isEqualTo(0);
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.failedNodes).isEqualTo(0);
@@ -395,7 +393,6 @@ public class SearchResultAggregatorImplTest {
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
 
-    assertThat(aggSearchResult.count).isEqualTo(0);
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.failedNodes).isEqualTo(0);

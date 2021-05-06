@@ -91,7 +91,7 @@ public class KaldbServiceTest {
                 .setBucketCount(2)
                 .build());
 
-    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
@@ -153,7 +153,7 @@ public class KaldbServiceTest {
                 .setBucketCount(2)
                 .build());
 
-    assertThat(response.getCount()).isZero();
+    assertThat(response.getHitsCount()).isZero();
     assertThat(response.getTotalCount()).isZero();
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isZero();
@@ -203,7 +203,7 @@ public class KaldbServiceTest {
                 .build());
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
-    assertThat(response.getCount()).isEqualTo(0);
+    assertThat(response.getHitsCount()).isEqualTo(0);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
@@ -250,7 +250,7 @@ public class KaldbServiceTest {
                 .setBucketCount(0)
                 .build());
 
-    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
@@ -350,7 +350,7 @@ public class KaldbServiceTest {
                 .build());
 
     // Validate search response
-    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();

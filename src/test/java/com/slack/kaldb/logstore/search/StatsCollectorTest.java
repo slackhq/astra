@@ -53,7 +53,6 @@ public class StatsCollectorTest {
             TEST_INDEX_NAME, "", timeEpochMs(time), timeEpochMs(time.plusSeconds(4 * 60)), 0, 5);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
-    assertThat(allIndexItems.count).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);
     assertThat(allIndexItems.buckets.size()).isEqualTo(5);
 
