@@ -77,7 +77,8 @@ public class KaldbConfigTest {
             + "    \"kafkaClientGroup\":  \"kaldb-test\",\n"
             + "    \"enableKafkaAutoCommit\":  \"true\",\n"
             + "    \"kafkaAutoCommitInterval\":  \"5000\",\n"
-            + "    \"kafkaSessionTimeout\": \"30000\"\n"
+            + "    \"kafkaSessionTimeout\": \"30000\",\n"
+            + "    \"ignoreExtraFieldKafkaSessionTimeout1\": \"30000\"\n"
             + "  }\n"
             + "}\n";
 

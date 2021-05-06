@@ -101,7 +101,6 @@ public class ChunkManagerTest {
     chunkManager.getActiveChunk().commit();
 
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
-    assertThat(metricsRegistry.getMeters().size()).isEqualTo(6);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(100);
@@ -363,8 +362,6 @@ public class ChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(3);
-
-    assertThat(metricsRegistry.getMeters().size()).isEqualTo(9);
 
     // Search all messages.
     for (int i = 1; i <= 25; i++) {

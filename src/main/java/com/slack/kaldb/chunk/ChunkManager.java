@@ -244,7 +244,7 @@ public class ChunkManager<T> {
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
-      Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix);
+      Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
       synchronized (chunkMapSync) {
         chunkMap.put(newChunk.id(), newChunk);
         activeChunk = newChunk;

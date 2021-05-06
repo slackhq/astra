@@ -1,5 +1,8 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -16,6 +19,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.MessageUtil;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +27,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -43,7 +48,7 @@ public class ReadWriteChunkImplTest {
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
     private final String chunkDataPrefix = "testDataSet";
 
-    private SimpleMeterRegistry registry;
+    private MeterRegistry registry;
     private final Duration commitInterval = Duration.ofSeconds(5 * 60);
     private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private Chunk<LogMessage> chunk;
@@ -54,7 +59,7 @@ public class ReadWriteChunkImplTest {
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix);
+      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry);
     }
 
     @After
@@ -76,7 +81,6 @@ public class ReadWriteChunkImplTest {
               new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(results.hits.size()).isEqualTo(1);
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
@@ -92,7 +96,6 @@ public class ReadWriteChunkImplTest {
       chunk.addMessage(testMessage);
       chunk.commit();
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
@@ -110,7 +113,6 @@ public class ReadWriteChunkImplTest {
       }
       chunk.commit();
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
@@ -157,7 +159,6 @@ public class ReadWriteChunkImplTest {
       }
       chunk.commit();
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(200);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(2);
@@ -243,7 +244,6 @@ public class ReadWriteChunkImplTest {
               new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(results.hits.size()).isEqualTo(1);
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
@@ -322,7 +322,7 @@ public class ReadWriteChunkImplTest {
       LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet");
+      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
     }
 
     @After
@@ -346,11 +346,12 @@ public class ReadWriteChunkImplTest {
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "invalid-bucket";
@@ -380,11 +381,12 @@ public class ReadWriteChunkImplTest {
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
 
-      assertThat(registry.getMeters().size()).isEqualTo(4);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
@@ -395,6 +397,10 @@ public class ReadWriteChunkImplTest {
 
       // Snapshot to S3
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
+
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(15);
+      assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
+      assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
 
       // Post snapshot cleanup.
       chunk.postSnapshot();

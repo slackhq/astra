@@ -19,9 +19,10 @@ public class BlobFsUtils {
   public static final String DELIMITER = "/";
   public static final String FILE_FORMAT = "%s://%s/%s";
 
-  public static void copyToS3(
+  public static int copyToS3(
       Path sourceDirPath, Collection<String> files, String bucket, String prefix, S3BlobFs blobFs)
       throws Exception {
+    int success = 0;
     for (String fileName : files) {
       File fileToCopy = new File(sourceDirPath.toString(), fileName);
       // TODO: Fix the bug and remove this warning.
@@ -37,7 +38,9 @@ public class BlobFsUtils {
                   String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
               : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
       blobFs.copyFromLocalFile(fileToCopy, destUri);
+      success++;
     }
+    return success;
   }
 
   // TODO: Can we copy files without list files and a prefix only?

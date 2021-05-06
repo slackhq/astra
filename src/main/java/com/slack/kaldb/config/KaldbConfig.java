@@ -21,7 +21,7 @@ public class KaldbConfig {
   static KaldbConfigs.KaldbConfig fromJsonConfig(String jsonStr)
       throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig.Builder kaldbConfigBuilder = KaldbConfigs.KaldbConfig.newBuilder();
-    JsonFormat.parser().merge(jsonStr, kaldbConfigBuilder);
+    JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, kaldbConfigBuilder);
     return kaldbConfigBuilder.build();
   }
 
