@@ -99,11 +99,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         Collector collectorChain = MultiCollector.wrap(topFieldCollector, statsCollector);
 
         searcher.search(query, collectorChain);
-        int count = 0;
         List<LogMessage> results;
         if (howMany > 0) {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
-          count = hits.length;
           results =
               Stream.of(hits)
                   .map(hit -> buildLogMessage(searcher, hit))
@@ -116,7 +114,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
         elapsedTime.stop();
         return new SearchResult<>(
-            count,
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
             histogram.count(),

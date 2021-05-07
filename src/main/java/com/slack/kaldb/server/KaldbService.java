@@ -37,7 +37,6 @@ public class KaldbService<T> extends KaldbServiceGrpc.KaldbServiceImplBase {
       throws JsonProcessingException {
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
-    searchResultBuilder.setCount(searchResult.count);
     searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
     searchResultBuilder.setFailedNodes(searchResult.failedNodes);

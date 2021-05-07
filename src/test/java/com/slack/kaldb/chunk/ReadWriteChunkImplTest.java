@@ -77,9 +77,19 @@ public class ReadWriteChunkImplTest {
       chunk.commit();
 
       SearchResult<LogMessage> results =
+          chunk.query(new SearchQuery(MessageUtil.TEST_INDEX_NAME, "*:*", 0, MAX_TIME, 10, 1000));
+      assertThat(results.totalCount).isEqualTo(100);
+
+      results =
           chunk.query(
               new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
-      assertThat(results.hits.size()).isEqualTo(1);
+      assertThat(results.totalCount).isEqualTo(1);
+
+      results =
+          chunk.query(
+              new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message*", 0, MAX_TIME, 10, 1000));
+      assertThat(results.totalCount).isEqualTo(100);
+      assertThat(results.hits.size()).isEqualTo(10);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);

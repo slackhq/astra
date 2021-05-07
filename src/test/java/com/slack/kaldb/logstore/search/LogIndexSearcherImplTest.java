@@ -174,7 +174,6 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(2)), 10, 1);
     assertThat(babies.hits.size()).isEqualTo(1);
-    assertThat(babies.count).isEqualTo(1);
     assertThat(babies.totalCount).isEqualTo(1);
     assertThat(babies.buckets.size()).isEqualTo(1);
     assertThat(babies.buckets.get(0).getCount()).isEqualTo(1);
@@ -191,7 +190,6 @@ public class LogIndexSearcherImplTest {
     assertThat(apples.hits.stream().map(m -> m.id).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
-    assertThat(apples.count).isEqualTo(2);
     assertThat(apples.totalCount).isEqualTo(3); // total count is 3, hits is 2.
     assertThat(apples.buckets.size()).isEqualTo(1);
     assertThat(apples.buckets.get(0).getCount()).isEqualTo(3);
@@ -231,7 +229,6 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> car =
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
-    assertThat(car.count).isEqualTo(0);
     assertThat(car.totalCount).isEqualTo(0);
 
     // Commit but no refresh. Item is still not available for search.
@@ -245,7 +242,6 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> carAfterCommit =
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
-    assertThat(carAfterCommit.count).isEqualTo(0);
     assertThat(carAfterCommit.totalCount).isEqualTo(0);
 
     // Car can be searched after refresh.
@@ -259,7 +255,6 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> carAfterRefresh =
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
-    assertThat(carAfterRefresh.count).isEqualTo(1);
     assertThat(carAfterRefresh.totalCount).isEqualTo(1);
 
     // Add another message to search, refresh but don't commit.
@@ -299,7 +294,6 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(TEST_INDEX_NAME, "", 0, MAX_TIME, 1000, 1);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
-    assertThat(allIndexItems.count).isEqualTo(4);
     assertThat(allIndexItems.totalCount).isEqualTo(4);
     assertThat(allIndexItems.buckets.size()).isEqualTo(1);
     assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
@@ -322,7 +316,6 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(TEST_INDEX_NAME + "miss", "apple", 0, MAX_TIME, 1000, 1);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
-    assertThat(allIndexItems.count).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(0);
     assertThat(allIndexItems.buckets.size()).isEqualTo(1);
     assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(0);
@@ -336,7 +329,6 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> elephants =
         strictLogStore.logSearcher.search(TEST_INDEX_NAME, "elephant", 0, MAX_TIME, 1000, 1);
     assertThat(elephants.hits.size()).isEqualTo(0);
-    assertThat(elephants.count).isEqualTo(0);
     assertThat(elephants.totalCount).isEqualTo(0);
     assertThat(elephants.buckets.size()).isEqualTo(1);
     assertThat(elephants.buckets.get(0).getCount()).isEqualTo(0);
@@ -350,7 +342,6 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 0);
     assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.count).isEqualTo(2);
     assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.buckets.size()).isEqualTo(0);
   }
@@ -363,7 +354,6 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(
             TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 0, 1);
     assertThat(babies.hits.size()).isEqualTo(0);
-    assertThat(babies.count).isEqualTo(0);
     assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.buckets.size()).isEqualTo(1);
     assertThat(babies.buckets.get(0).getHigh()).isEqualTo(timeEpochMs(time.plusSeconds(10)));
@@ -455,7 +445,7 @@ public class LogIndexSearcherImplTest {
             try {
               SearchResult<LogMessage> babies =
                   strictLogStore.logSearcher.search(TEST_INDEX_NAME, "baby", 0, MAX_TIME, 100, 1);
-              if (babies.count != 2) {
+              if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
               } else {
                 successfulRuns.addAndGet(1);

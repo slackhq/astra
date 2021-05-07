@@ -15,7 +15,6 @@ message SearchRequest {
 }
 
 message SearchResult {
-  int64 count = 1;
   int64 total_count = 2;
   repeated string hits = 3;
   repeated HistogramBucket buckets = 4;

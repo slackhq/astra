@@ -4,7 +4,6 @@ import com.slack.kaldb.histogram.HistogramBucket;
 import java.util.List;
 
 public class SearchResult<T> {
-  public final int count;
   public final long totalCount;
 
   // TODO: Make hits an iterator.
@@ -24,7 +23,6 @@ public class SearchResult<T> {
   // TODO: Make search result a protobuf?
   // TODO: Move stats into a separate struct.
   public SearchResult(
-      int count,
       List<T> hits,
       long tookMicros,
       long totalCount,
@@ -33,7 +31,6 @@ public class SearchResult<T> {
       int totalNodes,
       int totalSnapshots,
       int snapshotsWithReplicas) {
-    this.count = count;
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
