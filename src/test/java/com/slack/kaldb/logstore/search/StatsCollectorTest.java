@@ -61,7 +61,6 @@ public class StatsCollectorTest {
       assertThat(bucket.getCount()).isEqualTo(1);
     }
 
-    assertThat(strictLogStore.metricsRegistry.getMeters().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(5);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);

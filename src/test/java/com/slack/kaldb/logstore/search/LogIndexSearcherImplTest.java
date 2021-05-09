@@ -55,7 +55,6 @@ public class LogIndexSearcherImplTest {
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
-    assertThat(strictLogStore.metricsRegistry.getMeters().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
@@ -119,7 +118,6 @@ public class LogIndexSearcherImplTest {
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
-    assertThat(strictLogStore.metricsRegistry.getMeters().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
@@ -211,7 +209,6 @@ public class LogIndexSearcherImplTest {
             TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).id).isEqualTo("2");
-    assertThat(strictLogStore.metricsRegistry.getMeters().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
