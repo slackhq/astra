@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.index.KalDBMergeScheduler;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -95,7 +96,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     this.documentBuilder = documentBuilder;
 
     this.analyzer = new StandardAnalyzer();
-    indexWriterConfig = buildIndexWriterConfig(this.analyzer, this.config);
+    indexWriterConfig = buildIndexWriterConfig(this.analyzer, this.config, registry);
     indexDirectory = new NIOFSDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
     this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
@@ -131,12 +132,13 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   private IndexWriterConfig buildIndexWriterConfig(
-      Analyzer analyzer, LuceneIndexStoreConfig config) {
+      Analyzer analyzer, LuceneIndexStoreConfig config, MeterRegistry metricsRegistry) {
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setRAMBufferSizeMB(config.ramBufferSizeMB)
             .setUseCompoundFile(false)
+            .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
             .setIndexDeletionPolicy(
                 new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy()));
 
