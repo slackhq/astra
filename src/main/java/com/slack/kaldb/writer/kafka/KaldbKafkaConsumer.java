@@ -6,7 +6,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.chunk.ChunkRollOverException;
-import com.slack.kaldb.util.ShutdownUtil;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Properties;
@@ -151,10 +151,10 @@ abstract class KaldbKafkaConsumer {
         // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
         // the program, since consuming more messages from Kafka would only make the issue worse.
         LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
-        ShutdownUtil.fatalShutdown();
+        new RuntimeHalterImpl().handleFatal(e);
       } catch (Exception e) {
         LOG.error("FATAL: Unhandled exception ", e);
-        ShutdownUtil.fatalShutdown();
+        new RuntimeHalterImpl().handleFatal(e);
       }
     }
   }
