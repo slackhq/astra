@@ -29,9 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Metadata Store implements a store in zookeeper. This class interacts with ZK using the apache
- * curator library. It also abstracts it's users from the details of ZK and provides a simpler
- * higher level API.
+ * ZookeeperMetadataStore implements a store in zookeeper. This class interacts with ZK using the
+ * apache curator library. It also abstracts it's users from the details of ZK and provides a
+ * simpler higher level API.
  *
  * <p>All the public calls in this class are executed in it's own thread pool which makes the API
  * non-blocking while allowing for parallelism. The actual methods are implemented as private
