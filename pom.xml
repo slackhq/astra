@@ -21,6 +21,7 @@
         <micrometer.version>1.5.1</micrometer.version>
         <jackson.version>2.11.1</jackson.version>
         <lucene.version>8.4.1</lucene.version>
+        <curator.version>5.1.0</curator.version>
     </properties>
 
     <repositories>
@@ -77,6 +78,18 @@
                     <artifactId>grpc-core</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- Apache curator dependencies -->
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-framework</artifactId>
+            <version>${curator.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-client</artifactId>
+            <version>${curator.version}</version>
         </dependency>
 
         <!-- Lucene dependencies -->
@@ -264,6 +277,13 @@
             <artifactId>assertj-core</artifactId>
             <version>3.17.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- Apache curator dependencies -->
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-test</artifactId>
+            <version>${curator.version}</version>
         </dependency>
 
         <!-- BlobFs test dependencies -->
