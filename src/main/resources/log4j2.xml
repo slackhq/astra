@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="30" status="WARN">
+
+    <Appenders>
+<!--        <RollingRandomAccessFile-->
+<!--                name="file"-->
+<!--                immediateFlush="false"-->
+<!--                append="false"-->
+<!--                fileName="${sys:KALDB_LOG_DIR}/kaldb.log"-->
+<!--                filePattern="${sys:KALDB_LOG_DIR}/kaldb.log.%i" >-->
+<!--            <PatternLayout>-->
+<!--                <Pattern>-->
+<!--                    [%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n-->
+<!--                </Pattern>-->
+<!--            </PatternLayout>-->
+<!--            <Policies>-->
+<!--                <OnStartupTriggeringPolicy />-->
+<!--                <SizeBasedTriggeringPolicy size="100MB"/>-->
+<!--            </Policies>-->
+<!--            <DefaultRolloverStrategy max="10"/>-->
+<!--        </RollingRandomAccessFile>-->
+
+        <Console name="console" target="SYSTEM_OUT">
+<!--            <PatternLayout   pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n" />-->
+            <PatternLayout pattern="%p{length=1} %d{MMdd HH:mm:ss.SSS000} %pid %F:%L %notEmpty{{&quot;exception&quot;:&quot;%enc{%ex{10}}{JSON}&quot;}}\t%m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="com.slack.kaldb.logstore.index.KalDBMergeScheduler" level="debug" additivity="true">
+            <appender-ref ref="console" />
+        </Logger>
+        <AsyncRoot level="info">
+            <AppenderRef ref="console"/>
+<!--            <AppenderRef ref="file"/>-->
+        </AsyncRoot>
+    </Loggers>
+
+</Configuration>
