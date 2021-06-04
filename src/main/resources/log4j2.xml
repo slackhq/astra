@@ -11,7 +11,7 @@
         <Logger name="com.slack.kaldb.logstore.index.KalDBMergeScheduler" level="debug" additivity="true">
             <appender-ref ref="console" />
         </Logger>
-        <AsyncRoot level="info">
+        <AsyncRoot level="${env:LOG_LEVEL:-info}">
             <AppenderRef ref="console"/>
         </AsyncRoot>
     </Loggers>

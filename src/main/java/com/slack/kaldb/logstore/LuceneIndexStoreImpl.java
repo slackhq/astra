@@ -200,10 +200,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   @Override
   public void commit() {
-    LOG.info("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
+    LOG.debug("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
     try {
       syncCommit();
-      LOG.info("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
+      LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
       commitsCounter.increment();
     } catch (IOException e) {
       handleNonFatal(e);
@@ -212,10 +212,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   @Override
   public void refresh() {
-    LOG.info("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
+    LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
     try {
       syncRefresh();
-      LOG.info("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
+      LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
       refreshesCounter.increment();
     } catch (IOException e) {
       handleNonFatal(e);
