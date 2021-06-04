@@ -25,12 +25,8 @@ public class BlobFsUtils {
     int success = 0;
     for (String fileName : files) {
       File fileToCopy = new File(sourceDirPath.toString(), fileName);
-      // TODO: Fix the bug and remove this warning.
-      // For some reason some files returned by index commit don't exist on the file system.
-      // For now log a warning but this bug needs to be fixed.
       if (!fileToCopy.exists()) {
-        LOG.warn("File doesn't exist at path: " + fileToCopy.getAbsolutePath());
-        continue;
+        throw new IOException("File doesn't exist at path: " + fileToCopy.getAbsolutePath());
       }
       URI destUri =
           (prefix != null && !prefix.isEmpty())
