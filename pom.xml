@@ -13,7 +13,7 @@
         <jmh.version>1.19</jmh.version>
         <javac.target>11</javac.target>
         <uberjar.name>kaldb</uberjar.name>
-        <http.client.version>4.5.9</http.client.version>
+        <http.client.version>4.5.13</http.client.version>
         <http.core.version>4.4.9</http.core.version>
         <protobuf.version>3.12.0</protobuf.version>
         <grpc.version>1.30.0</grpc.version>
