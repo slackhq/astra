@@ -38,6 +38,7 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
         kafkaCfg.getEnableKafkaAutoCommit(),
         kafkaCfg.getKafkaAutoCommitInterval(),
         kafkaCfg.getKafkaSessionTimeout(),
+        kafkaCfg.getKafkaOffsetPosition(),
         messageWriter,
         END_OFFSET_STALE_DELAY_SECS);
   }
@@ -63,6 +64,7 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
       String kafkaSessionTimeout,
+      String kafkaOffsetPosition,
       MessageWriter messageWriter,
       long endOffsetStaleSecs) {
     super(
@@ -72,7 +74,8 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
         kafkaClientGroup,
         enableKafkaAutoCommit,
         kafkaAutoCommitInterval,
-        kafkaSessionTimeout);
+        kafkaSessionTimeout,
+        kafkaOffsetPosition);
     this.messageWriter = messageWriter;
     this.endOffsetTimer = Stopwatch.createStarted();
     this.endOffsetStaleSecs = endOffsetStaleSecs;

@@ -42,20 +42,22 @@ abstract class KaldbKafkaConsumer {
       String kafkaClientGroup,
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout) {
+      String kafkaSessionTimeout,
+      String kafkaOffsetPosition) {
 
     stop = false;
     LOG.info(
         "Kafka params are: kafkaTopicName: {}, kafkaTopicPartition: {}, "
             + "kafkaBootstrapServers:{}, kafkaClientGroup: {}, kafkaAutoCommit:{}, "
-            + "kafkaAutoCommitInterval: {}, kafkaSessionTimeout: {}",
+            + "kafkaAutoCommitInterval: {}, kafkaSessionTimeout: {}, kafkaOffsetPosition: {}",
         kafkaTopic,
         kafkaTopicPartitionStr,
         kafkaBootStrapServers,
         kafkaClientGroup,
         enableKafkaAutoCommit,
         kafkaAutoCommitInterval,
-        kafkaSessionTimeout);
+        kafkaSessionTimeout,
+        kafkaOffsetPosition);
 
     if (kafkaTopicPartitionStr == null
         || kafkaTopic == null
@@ -82,7 +84,8 @@ abstract class KaldbKafkaConsumer {
             kafkaBootStrapServers,
             kafkaClientGroup,
             enableKafkaAutoCommit,
-            kafkaAutoCommitInterval);
+            kafkaAutoCommitInterval,
+            kafkaOffsetPosition);
 
     if (kafkaTopicPartitionStr.isEmpty()) {
       LOG.info("Subscribing to kafka topic {}", kafkaTopic);
@@ -92,8 +95,8 @@ abstract class KaldbKafkaConsumer {
       // TODO: Consider using sticky consumer instead of assign?
       LOG.info(
           "Assigned to kafka topic {} and partition {}", this.kafkaTopic, this.kafkaTopicPartition);
-      consumer.assign(
-          Collections.singletonList(new TopicPartition(this.kafkaTopic, kafkaTopicPartition)));
+      TopicPartition topicPartition = new TopicPartition(this.kafkaTopic, kafkaTopicPartition);
+      consumer.assign(Collections.singletonList(topicPartition));
     }
 
     kafkaConsumerService =
@@ -106,7 +109,8 @@ abstract class KaldbKafkaConsumer {
       String kafkaBootStrapServers,
       String kafkaClientGroup,
       String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval) {
+      String kafkaAutoCommitInterval,
+      String kafkaOffsetPosition) {
 
     Properties props = new Properties();
     props.put("bootstrap.servers", kafkaBootStrapServers);
@@ -114,6 +118,9 @@ abstract class KaldbKafkaConsumer {
     // TODO: Consider committing manual consumer offset?
     props.put("enable.auto.commit", enableKafkaAutoCommit);
     props.put("auto.commit.interval.ms", kafkaAutoCommitInterval);
+    if (kafkaOffsetPosition != null) {
+      props.put("auto.offset.reset", kafkaOffsetPosition);
+    }
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
     // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
     // not.

@@ -19,6 +19,7 @@ message KafkaConfig {
     string enableKafkaAutoCommit = 5;
     string kafkaAutoCommitInterval = 6;
     string kafkaSessionTimeout = 7;
+    string kafkaOffsetPosition = 8; // "auto.offset.reset" - valid values [latest, earliest, none]
 }
 
 message S3Config {
