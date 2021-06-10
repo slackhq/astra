@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,9 +132,11 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
     LOG.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
+    IndexCommit indexCommit = null;
     try {
       Path dirPath = logStore.getDirectory().toAbsolutePath();
-      Collection<String> activeFiles = logStore.activeFiles();
+      indexCommit = logStore.getIndexCommit();
+      Collection<String> activeFiles = indexCommit.getFileNames();
       LOG.info("{} active files in {} in index", activeFiles.size(), dirPath);
       for (String fileName : activeFiles) {
         LOG.debug("File name is {}}", fileName);
@@ -148,6 +151,10 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     } catch (Exception e) {
       LOG.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
       return false;
+    } finally {
+      if (indexCommit != null) {
+        logStore.decIndexCommitRef(indexCommit);
+      }
     }
   }
 
