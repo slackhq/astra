@@ -7,6 +7,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
+import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
@@ -53,7 +54,7 @@ public class Kaldb {
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.http(serverPort);
-    sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
+    sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());
     sb.service(searchServiceBuilder.build());

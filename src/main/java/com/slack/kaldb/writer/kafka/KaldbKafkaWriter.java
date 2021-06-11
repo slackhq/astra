@@ -111,7 +111,7 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
       if (!messageWriter.insertRecord(record)) recordFailures++;
     }
     recordsFailedCounter.increment(recordFailures);
-    LOG.info(
+    LOG.debug(
         "Processed {} records. Success: {}, Failed: {}",
         recordCount,
         recordCount - recordFailures,

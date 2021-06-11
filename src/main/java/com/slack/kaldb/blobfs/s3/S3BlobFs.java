@@ -433,7 +433,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public void copyFromLocalFile(File srcFile, URI dstUri) throws Exception {
-    LOGGER.info("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
+    LOGGER.debug("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
     URI base = getBase(dstUri);
     String prefix = sanitizePath(base.relativize(dstUri).getPath());
     PutObjectRequest putObjectRequest =

@@ -134,9 +134,9 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     try {
       Path dirPath = logStore.getDirectory().toAbsolutePath();
       Collection<String> activeFiles = logStore.activeFiles();
-      LOG.info("%d active files in %d in index %s.", activeFiles.size(), dirPath);
+      LOG.info("{} active files in {} in index", activeFiles.size(), dirPath);
       for (String fileName : activeFiles) {
-        LOG.info("File name is %s", fileName);
+        LOG.debug("File name is {}}", fileName);
       }
       this.fileUploadAttempts.increment(activeFiles.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
