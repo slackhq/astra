@@ -1,12 +1,17 @@
 package com.slack.kaldb.server;
 
+import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
+import com.linecorp.armeria.common.logging.LogLevel;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
+import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
@@ -20,6 +25,8 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,9 +59,14 @@ public class Kaldb {
     ServerBuilder sb = Server.builder();
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
+    sb.decorator(getLoggingServiceBuilder().newDecorator());
     sb.http(serverPort);
+    // TODO: ScheduledExecutorService is unbounded . Wrap in a ThreadPoolExecutor and bound it in the future
+    // Configure num threads based on CPU core count?
+    sb.blockingTaskExecutor(Executors.newScheduledThreadPool(10), true);
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
+    sb.serviceUnder("/docs", new DocService());
     sb.service(searchServiceBuilder.build());
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
@@ -69,6 +81,24 @@ public class Kaldb {
     // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
     // ServiceManager?
   }
+
+  private LoggingServiceBuilder getLoggingServiceBuilder() {
+    return LoggingService.builder()
+        .successfulResponseLogLevel(LogLevel.INFO)
+        .failureResponseLogLevel(LogLevel.ERROR)
+        .requestHeadersSanitizer((ctx, headers) -> {
+          if (headers.contains(HttpHeaderNames.AUTHORIZATION)) {
+            headers =
+                headers
+                    .toBuilder()
+                    .removeAndThen(HttpHeaderNames.AUTHORIZATION)
+                    .add(HttpHeaderNames.AUTHORIZATION, "present_but_scrubbed")
+                    .build();
+          }
+          return headers;
+        });
+  }
+
 
   private void setupMetrics() {
     // Expose JVM metrics.
