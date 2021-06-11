@@ -152,7 +152,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       LOG.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
       return false;
     } finally {
-      logStore.releaseIndexCommitRef(indexCommit);
+      logStore.releaseIndexCommit(indexCommit);
     }
   }
 

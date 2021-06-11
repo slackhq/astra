@@ -406,7 +406,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(newResults.size()).isEqualTo(1);
 
       // Clean up
-      logStore.releaseIndexCommitRef(indexCommit);
+      logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
       s3BlobFs.close();
     }
@@ -447,7 +447,7 @@ public class LuceneIndexStoreImplTest {
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_INDEX_NAME, "Message1", 100, 1);
       assertThat(newResults.size()).isEqualTo(1);
-      logStore.releaseIndexCommitRef(indexCommit);
+      logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
     }
   }
