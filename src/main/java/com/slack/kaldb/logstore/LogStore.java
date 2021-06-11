@@ -24,9 +24,12 @@ public interface LogStore<T> {
 
   Path getDirectory();
 
-  /*
-   * This commit is protected from deletion
-   * Users need to call releaseIndexCommitRef(IndexCommit) to free the underlying lucene resources once the work is complete
+  /**
+   * After a commit, lucene may merge multiple segments into one in the background. So, getting a listing of files in a lucene index will not return a stable set of files. 
+   * To address this, we can get an IndexCommit, which provides a consistent set of files at a given point in time and also protects the files from deletion.
+   * If a background merge happens after an indexCommit is created, lucene holds on to those files on disk even if the background merge has marked that file for deletion. 
+   * So, we need to release the index commit object once it's no longer needed using the releaseIndexCommit api call. 
+   * Since lucene can always decide to run background merges on an index, multiple calls to getIndexCommit, may return different lists of active files, even if no new commits are performed on the index.
    */
   public IndexCommit getIndexCommit();
 
