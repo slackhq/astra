@@ -27,5 +27,5 @@ public interface LogStore<T> {
   public IndexCommit getIndexCommit();
   // TODO: Add an isReadOnly and setReadOnly API here.
 
-  public void decIndexCommitRef(IndexCommit indexCommit);
+  public void releaseIndexCommitRef(IndexCommit indexCommit);
 }

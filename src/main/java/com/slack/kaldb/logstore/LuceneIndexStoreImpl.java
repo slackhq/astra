@@ -251,7 +251,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     return null;
   }
 
-  public void decIndexCommitRef(IndexCommit indexCommit) {
+  public void releaseIndexCommitRef(IndexCommit indexCommit) {
     try {
       snapshotDeletionPolicy.release(indexCommit);
     } catch (IOException e) {

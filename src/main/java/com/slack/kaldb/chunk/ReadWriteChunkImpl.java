@@ -153,7 +153,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       return false;
     } finally {
       if (indexCommit != null) {
-        logStore.decIndexCommitRef(indexCommit);
+        logStore.releaseIndexCommitRef(indexCommit);
       }
     }
   }
