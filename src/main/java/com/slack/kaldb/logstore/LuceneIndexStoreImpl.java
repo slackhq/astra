@@ -7,8 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -16,7 +14,6 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -52,6 +49,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final IndexWriterConfig indexWriterConfig;
   private final FSDirectory indexDirectory;
   private final Timer timer;
+  private final SnapshotDeletionPolicy snapshotDeletionPolicy;
   private Optional<IndexWriter> indexWriter;
 
   // Stats counters.
@@ -96,7 +94,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     this.documentBuilder = documentBuilder;
 
     this.analyzer = new StandardAnalyzer();
-    indexWriterConfig = buildIndexWriterConfig(this.analyzer, this.config, registry);
+    this.snapshotDeletionPolicy =
+        new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
+    indexWriterConfig =
+        buildIndexWriterConfig(this.analyzer, this.snapshotDeletionPolicy, this.config, registry);
     indexDirectory = new NIOFSDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
     this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
@@ -132,15 +133,17 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   private IndexWriterConfig buildIndexWriterConfig(
-      Analyzer analyzer, LuceneIndexStoreConfig config, MeterRegistry metricsRegistry) {
+      Analyzer analyzer,
+      SnapshotDeletionPolicy snapshotDeletionPolicy,
+      LuceneIndexStoreConfig config,
+      MeterRegistry metricsRegistry) {
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setRAMBufferSizeMB(config.ramBufferSizeMB)
             .setUseCompoundFile(false)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
-            .setIndexDeletionPolicy(
-                new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy()));
+            .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
     if (config.enableTracing) {
       indexWriterCfg.setInfoStream(System.out);
@@ -239,21 +242,23 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   @Override
-  public Collection<String> activeFiles() {
-    if (indexWriter.isEmpty()) {
-      throw new IllegalStateException(
-          "This function shouldn't be called when index writer is null");
-    }
-
-    DirectoryReader directoryReader;
+  public IndexCommit getIndexCommit() {
     try {
-      directoryReader = DirectoryReader.open(indexDirectory);
-      IndexCommit indexCommit = directoryReader.getIndexCommit();
-      return indexCommit.getFileNames();
+      return snapshotDeletionPolicy.snapshot();
     } catch (IOException e) {
-      LOG.error("Error getting activeFiles for index writer: " + id, e);
+      LOG.error("Tried to snapshot index commit but failed", e);
     }
-    return Collections.emptyList();
+    return null;
+  }
+
+  public void releaseIndexCommit(IndexCommit indexCommit) {
+    if (indexCommit != null) {
+      try {
+        snapshotDeletionPolicy.release(indexCommit);
+      } catch (IOException e) {
+        LOG.warn("Tried to release snapshot index commit but failed", e);
+      }
+    }
   }
 
   /**
