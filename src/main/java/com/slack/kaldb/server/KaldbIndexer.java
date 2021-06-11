@@ -129,9 +129,7 @@ public class KaldbIndexer {
     this.chunkManager = chunkManager;
 
     // Create a protobuf handler service that calls chunkManager on search.
-    grpcServiceBuilder
-        .addService(new KaldbService<>(chunkManager))
-        .enableUnframedRequests(true);
+    grpcServiceBuilder.addService(new KaldbService<>(chunkManager)).enableUnframedRequests(true);
 
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
