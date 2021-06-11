@@ -169,6 +169,8 @@ public class ChunkManager<T> {
           currentIndexedMessages,
           currentIndexedBytes,
           currentChunk.id());
+      currentChunk.info().setNumDocs(currentIndexedMessages);
+      currentChunk.info().setChunkSize(currentIndexedBytes);
       doRollover(currentChunk);
     }
   }

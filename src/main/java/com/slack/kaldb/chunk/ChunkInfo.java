@@ -44,6 +44,28 @@ public class ChunkInfo {
   // and snapshotting and is not useful afterwards.
   private long chunkSnapshotTimeEpochSecs;
 
+  public long getNumDocs() {
+    return numDocs;
+  }
+
+  public void setNumDocs(long numDocs) {
+    this.numDocs = numDocs;
+  }
+
+  public long getChunkSize() {
+    return chunkSize;
+  }
+
+  public void setChunkSize(long chunkSize) {
+    this.chunkSize = chunkSize;
+  }
+
+  // Number of docs in this chunk
+  private long numDocs;
+
+  // Size of the chunk
+  private long chunkSize;
+
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochSecs) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
@@ -134,6 +156,10 @@ public class ChunkInfo {
         + dataEndTimeEpochSecs
         + ", chunkSnapshotTime="
         + chunkSnapshotTimeEpochSecs
+        + ", numDocs="
+        + numDocs
+        + ", chunkSize="
+        + chunkSize
         + '}';
   }
 
@@ -147,7 +173,9 @@ public class ChunkInfo {
         && dataStartTimeEpochSecs == chunkInfo.dataStartTimeEpochSecs
         && dataEndTimeEpochSecs == chunkInfo.dataEndTimeEpochSecs
         && chunkSnapshotTimeEpochSecs == chunkInfo.chunkSnapshotTimeEpochSecs
-        && Objects.equals(chunkId, chunkInfo.chunkId);
+        && Objects.equals(chunkId, chunkInfo.chunkId)
+        && numDocs == chunkInfo.numDocs
+        && chunkSize == chunkInfo.chunkSize;
   }
 
   @Override
@@ -158,6 +186,8 @@ public class ChunkInfo {
         chunkLastUpdatedTimeSecsEpochSecs,
         dataStartTimeEpochSecs,
         dataEndTimeEpochSecs,
-        chunkSnapshotTimeEpochSecs);
+        chunkSnapshotTimeEpochSecs,
+        numDocs,
+        chunkSize);
   }
 }
