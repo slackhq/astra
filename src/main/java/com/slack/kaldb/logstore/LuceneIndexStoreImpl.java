@@ -252,10 +252,12 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   }
 
   public void releaseIndexCommitRef(IndexCommit indexCommit) {
-    try {
-      snapshotDeletionPolicy.release(indexCommit);
-    } catch (IOException e) {
-      LOG.warn("Tried to release snapshot index commit but failed", e);
+    if (indexCommit != null) {
+      try {
+        snapshotDeletionPolicy.release(indexCommit);
+      } catch (IOException e) {
+        LOG.warn("Tried to release snapshot index commit but failed", e);
+      }
     }
   }
 

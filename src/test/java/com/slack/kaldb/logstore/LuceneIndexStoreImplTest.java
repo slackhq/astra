@@ -363,6 +363,7 @@ public class LuceneIndexStoreImplTest {
       IndexCommit indexCommit = logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
       LocalBlobFs localBlobFs = new LocalBlobFs();
+
       logStore.close();
       strictLogStore.logSearcher.close();
       strictLogStore.logStore = null;
@@ -405,6 +406,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(newResults.size()).isEqualTo(1);
 
       // Clean up
+      logStore.releaseIndexCommitRef(indexCommit);
       newSearcher.close();
       s3BlobFs.close();
     }
@@ -445,6 +447,7 @@ public class LuceneIndexStoreImplTest {
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_INDEX_NAME, "Message1", 100, 1);
       assertThat(newResults.size()).isEqualTo(1);
+      logStore.releaseIndexCommitRef(indexCommit);
       newSearcher.close();
     }
   }

@@ -24,8 +24,14 @@ public interface LogStore<T> {
 
   Path getDirectory();
 
+  /*
+   * This commit is protected from deletion
+   * Users need to call releaseIndexCommitRef(IndexCommit) to free the underlying lucene resources once the work is complete
+   */
   public IndexCommit getIndexCommit();
-  // TODO: Add an isReadOnly and setReadOnly API here.
 
   public void releaseIndexCommitRef(IndexCommit indexCommit);
+
+  // TODO: Add an isReadOnly and setReadOnly API here.
+
 }
