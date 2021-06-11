@@ -63,9 +63,6 @@ public class Kaldb {
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.decorator(getLoggingServiceBuilder().newDecorator());
     sb.http(serverPort);
-    // TODO: ScheduledExecutorService is unbounded . Wrap in a ThreadPoolExecutor and bound it in the future
-    // Configure num threads based on CPU core count?
-    sb.blockingTaskExecutor(Executors.newScheduledThreadPool(10), true);
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());

@@ -428,6 +428,8 @@
                                         <Main-Class>com.slack.kaldb.server.Kaldb</Main-Class>
                                     </manifestEntries>
                                 </transformer>
+                                <!-- Needed for Armeria DocService -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
