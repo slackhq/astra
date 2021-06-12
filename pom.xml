@@ -428,6 +428,7 @@
                                         <Main-Class>com.slack.kaldb.server.Kaldb</Main-Class>
                                     </manifestEntries>
                                 </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -471,6 +472,11 @@
                     <pluginId>grpc-java</pluginId>
                     <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}
                     </pluginArtifact>
+                    <writeDescriptorSet>true</writeDescriptorSet>
+                    <includeDependenciesInDescriptorSet>true</includeDependenciesInDescriptorSet>
+                    <includeSourceInfoInDescriptorSet>true</includeSourceInfoInDescriptorSet>
+                    <descriptorSetOutputDirectory>${project.build.outputDirectory}/META-INF/armeria/grpc</descriptorSetOutputDirectory>
+                    <descriptorSetFileName>${project.build.finalName}.dsc</descriptorSetFileName>
                 </configuration>
                 <executions>
                     <execution>

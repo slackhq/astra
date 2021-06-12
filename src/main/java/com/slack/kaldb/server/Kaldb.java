@@ -4,6 +4,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
@@ -55,6 +56,7 @@ public class Kaldb {
     sb.http(serverPort);
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
+    sb.serviceUnder("/docs", new DocService());
     sb.service(searchServiceBuilder.build());
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();

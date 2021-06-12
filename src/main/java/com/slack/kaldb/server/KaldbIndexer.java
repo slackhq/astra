@@ -17,7 +17,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
-import io.grpc.protobuf.services.ProtoReflectionService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -130,9 +129,7 @@ public class KaldbIndexer {
     this.chunkManager = chunkManager;
 
     // Create a protobuf handler service that calls chunkManager on search.
-    grpcServiceBuilder
-        .addService(new KaldbService<>(chunkManager))
-        .addService(ProtoReflectionService.newInstance());
+    grpcServiceBuilder.addService(new KaldbService<>(chunkManager)).enableUnframedRequests(true);
 
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
