@@ -1,9 +1,11 @@
 package com.slack.kaldb.server;
 
 import com.linecorp.armeria.common.HttpHeaderNames;
+import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
+import com.linecorp.armeria.common.logging.RegexBasedSanitizer;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
@@ -25,6 +27,8 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,17 +85,8 @@ public class Kaldb {
     return LoggingService.builder()
         .successfulResponseLogLevel(LogLevel.DEBUG)
         .failureResponseLogLevel(LogLevel.ERROR)
-        .requestHeadersSanitizer((ctx, headers) -> {
-          if (headers.contains(HttpHeaderNames.AUTHORIZATION)) {
-            headers =
-                headers
-                    .toBuilder()
-                    .removeAndThen(HttpHeaderNames.AUTHORIZATION)
-                    .add(HttpHeaderNames.AUTHORIZATION, "present_but_scrubbed")
-                    .build();
-          }
-          return headers;
-        });
+        // Remove all headers to be sure we aren't leaking any auth/cookie info
+        .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
 
   private void setupMetrics() {
