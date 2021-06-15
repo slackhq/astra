@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
@@ -77,7 +76,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       int bucketCount) {
 
-    ensureNonEmptyString(indexName, "indexName should be a non-empty string");
+    if (indexName == null) {
+      indexName = "";
+    }
     ensureNonNullString(queryStr, "query should be a non-empty string");
     ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
     ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
@@ -167,7 +168,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       String indexName, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
       throws ParseException {
     Builder queryBuilder = new Builder();
-    queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)), Occur.MUST);
+    if (!indexName.isEmpty()) {
+      queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)), Occur.MUST);
+    }
     queryBuilder.add(
         LongPoint.newRangeQuery(
             SystemField.TIME_SINCE_EPOCH.fieldName, startTimeMsEpoch, endTimeMsEpoch),

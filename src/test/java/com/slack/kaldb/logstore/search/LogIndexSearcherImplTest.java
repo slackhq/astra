@@ -148,6 +148,14 @@ public class LogIndexSearcherImplTest {
     assertThat(
             strictLogStore
                 .logSearcher
+                .search("", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+
+    assertThat(
+            strictLogStore
+                .logSearcher
                 .search(
                     "idx12", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 1)
                 .hits
@@ -358,18 +366,12 @@ public class LogIndexSearcherImplTest {
     assertThat(babies.buckets.get(0).getCount()).isEqualTo(2);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyIndexName() {
     LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
     loadTestData(time);
-    strictLogStore.logSearcher.search("", "test", 0, MAX_TIME, 1000, 1);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testNullIndexName() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
-    loadTestData(time);
-    strictLogStore.logSearcher.search(null, "test", 0, MAX_TIME, 1000, 1);
+    assertThat(strictLogStore.logSearcher.search("", "*:*", 0, MAX_TIME, 1000, 1).hits.size())
+        .isEqualTo(5);
   }
 
   @Test(expected = IllegalArgumentException.class)
