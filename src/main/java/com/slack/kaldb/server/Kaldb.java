@@ -2,12 +2,15 @@ package com.slack.kaldb.server;
 
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
+import com.linecorp.armeria.common.logging.LogLevel;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
+import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
@@ -18,6 +21,7 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +57,7 @@ public class Kaldb {
     ServerBuilder sb = Server.builder();
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
+    sb.decorator(getLoggingServiceBuilder().newDecorator());
     sb.http(serverPort);
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
@@ -70,6 +75,15 @@ public class Kaldb {
 
     // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
     // ServiceManager?
+  }
+
+  private LoggingServiceBuilder getLoggingServiceBuilder() {
+    return LoggingService.builder()
+        // Not logging any successful response, say prom scraping /metrics every 30 seconds at INFO
+        .successfulResponseLogLevel(LogLevel.DEBUG)
+        .failureResponseLogLevel(LogLevel.ERROR)
+        // Remove all headers to be sure we aren't leaking any auth/cookie info
+        .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
 
   private void setupMetrics() {
