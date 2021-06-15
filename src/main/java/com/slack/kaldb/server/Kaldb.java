@@ -1,11 +1,8 @@
 package com.slack.kaldb.server;
 
-import com.linecorp.armeria.common.HttpHeaderNames;
-import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
-import com.linecorp.armeria.common.logging.RegexBasedSanitizer;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
@@ -24,11 +21,10 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,6 +79,7 @@ public class Kaldb {
 
   private LoggingServiceBuilder getLoggingServiceBuilder() {
     return LoggingService.builder()
+        // Not logging any successful response, say prom scraping /metrics every 30 seconds at INFO
         .successfulResponseLogLevel(LogLevel.DEBUG)
         .failureResponseLogLevel(LogLevel.ERROR)
         // Remove all headers to be sure we aren't leaking any auth/cookie info
