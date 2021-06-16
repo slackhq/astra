@@ -21,5 +21,7 @@ jobs:
       with:
         java-version: '11'
         distribution: 'adopt'
+    - name: Ensure code is formatted. 
+      run: mvn com.coveo:fmt-maven-plugin:check --file pom.xml
     - name: Build with Maven
       run: mvn -B package --file pom.xml
