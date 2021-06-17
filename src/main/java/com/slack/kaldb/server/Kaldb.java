@@ -49,8 +49,7 @@ public class Kaldb {
     setupMetrics();
 
     // Create an indexer and a grpc search service.
-    GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
-    KaldbIndexer indexer = KaldbIndexer.fromConfig(searchServiceBuilder, prometheusMeterRegistry);
+    KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
 
     final int serverPort = KaldbConfig.get().getServerPort();
     // Create an API server to serve the search requests.
@@ -62,7 +61,14 @@ public class Kaldb {
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());
-    sb.service(searchServiceBuilder.build());
+
+    // Create a protobuf handler service that calls chunkManager on search.
+    GrpcServiceBuilder searchBuilder =
+        GrpcService.builder()
+            .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))
+            .enableUnframedRequests(true);
+    sb.service(searchBuilder.build());
+
     Server server = sb.build();
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.join();
