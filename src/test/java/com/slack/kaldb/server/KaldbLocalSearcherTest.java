@@ -33,13 +33,13 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 
-public class KaldbServiceTest {
+public class KaldbLocalSearcherTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
   @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
-  private KaldbService<LogMessage> kaldbService;
+  private KaldbLocalSearcher<LogMessage> kaldbLocalSearcher;
   private SimpleMeterRegistry metricsRegistry;
 
   @Before
@@ -48,7 +48,7 @@ public class KaldbServiceTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
-    kaldbService = new KaldbService<>(chunkManagerUtil.chunkManager);
+    kaldbLocalSearcher = new KaldbLocalSearcher<>(chunkManagerUtil.chunkManager);
   }
 
   @After
@@ -81,7 +81,7 @@ public class KaldbServiceTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbService.doSearch(
+        kaldbLocalSearcher.doSearch(
             searchRequestBuilder
                 .setIndexName(MessageUtil.TEST_INDEX_NAME)
                 .setQueryString("Message100")
@@ -143,7 +143,7 @@ public class KaldbServiceTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbService.doSearch(
+        kaldbLocalSearcher.doSearch(
             searchRequestBuilder
                 .setIndexName(MessageUtil.TEST_INDEX_NAME)
                 .setQueryString("blah")
@@ -192,7 +192,7 @@ public class KaldbServiceTest {
 
     // TODO: Query multiple chunks.
     KaldbSearch.SearchResult response =
-        kaldbService.doSearch(
+        kaldbLocalSearcher.doSearch(
             searchRequestBuilder
                 .setIndexName(MessageUtil.TEST_INDEX_NAME)
                 .setQueryString("Message1")
@@ -240,7 +240,7 @@ public class KaldbServiceTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbService.doSearch(
+        kaldbLocalSearcher.doSearch(
             searchRequestBuilder
                 .setIndexName(MessageUtil.TEST_INDEX_NAME)
                 .setQueryString("Message1")
@@ -293,7 +293,7 @@ public class KaldbServiceTest {
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
-    kaldbService.doSearch(
+    kaldbLocalSearcher.doSearch(
         searchRequestBuilder
             .setIndexName(MessageUtil.TEST_INDEX_NAME)
             .setQueryString("Message1")
@@ -324,7 +324,7 @@ public class KaldbServiceTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbService<>(chunkManager))
+            .addService(new KaldbLocalSearcher<>(chunkManager))
             .build()
             .start());
 
@@ -403,7 +403,7 @@ public class KaldbServiceTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbService<>(chunkManager))
+            .addService(new KaldbLocalSearcher<>(chunkManager))
             .build()
             .start());
 

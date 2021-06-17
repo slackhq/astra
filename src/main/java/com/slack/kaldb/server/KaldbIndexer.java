@@ -5,7 +5,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.chunk.ChunkManager;
@@ -52,9 +51,14 @@ public class KaldbIndexer {
   private static final String CHUNK_DATA_PREFIX = "log_data_";
 
   private final KaldbKafkaWriter kafkaWriter;
+
+  public ChunkManager<LogMessage> getChunkManager() {
+    return chunkManager;
+  }
+
   private final ChunkManager<LogMessage> chunkManager;
 
-  static KaldbIndexer fromConfig(GrpcServiceBuilder serviceBuilder, MeterRegistry meterRegistry) {
+  static KaldbIndexer fromConfig(MeterRegistry meterRegistry) {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
     // TODO: Read the config values for chunk manager from config file.
@@ -77,7 +81,7 @@ public class KaldbIndexer {
     if (dataTransformer == null) {
       throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
     }
-    return new KaldbIndexer(serviceBuilder, chunkManager, dataTransformer, meterRegistry);
+    return new KaldbIndexer(chunkManager, dataTransformer, meterRegistry);
   }
 
   private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
@@ -121,15 +125,11 @@ public class KaldbIndexer {
    * chunkManager and then the consumer,
    */
   public KaldbIndexer(
-      GrpcServiceBuilder grpcServiceBuilder,
       ChunkManager<LogMessage> chunkManager,
       LogMessageTransformer messageTransformer,
       MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
-
-    // Create a protobuf handler service that calls chunkManager on search.
-    grpcServiceBuilder.addService(new KaldbService<>(chunkManager)).enableUnframedRequests(true);
 
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);

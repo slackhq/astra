@@ -14,12 +14,12 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KaldbService<T> extends KaldbServiceGrpc.KaldbServiceImplBase {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbService.class);
+public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbLocalSearcher.class);
 
   private final ChunkManager<T> chunkManager;
 
-  public KaldbService(ChunkManager<T> chunkManager) {
+  public KaldbLocalSearcher(ChunkManager<T> chunkManager) {
     this.chunkManager = chunkManager;
   }
 

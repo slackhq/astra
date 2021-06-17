@@ -151,14 +151,14 @@ public class KaldbIndexerTest {
     ServerBuilder sb = Server.builder();
     sb.http(0);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    GrpcServiceBuilder searchServiceBuilder = GrpcService.builder();
     KaldbIndexer indexer =
         new KaldbIndexer(
-            searchServiceBuilder,
-            chunkManager,
-            KaldbIndexer.dataTransformerMap.get("api_log"),
-            metricsRegistry);
-    server = sb.service(searchServiceBuilder.build()).build();
+            chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"), metricsRegistry);
+    GrpcServiceBuilder searchBuilder =
+        GrpcService.builder()
+            .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))
+            .enableUnframedRequests(true);
+    server = sb.service(searchBuilder.build()).build();
     server.start().join();
 
     indexer.start();
