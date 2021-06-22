@@ -11,6 +11,7 @@ import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
+import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import io.micrometer.core.instrument.Metrics;
@@ -61,6 +62,7 @@ public class Kaldb {
     sb.service("/health", HealthCheckService.builder().build());
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());
+    sb.serviceUnder("/internal/management/", ManagementService.of());
 
     // Create a protobuf handler service that calls chunkManager on search.
     GrpcServiceBuilder searchBuilder =
