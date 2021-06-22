@@ -12,6 +12,7 @@ import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -44,10 +45,11 @@ public class KaldbLocalSearcherTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigs.KaldbConfig config = KaldbConfigUtil.initEmptyConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100, config);
     kaldbLocalSearcher = new KaldbLocalSearcher<>(chunkManagerUtil.chunkManager);
   }
 

@@ -7,6 +7,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +31,8 @@ public class ChunkManagerUtil<T> {
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
-      long maxMessagesPerChunk) {
+      long maxMessagesPerChunk,
+      KaldbConfigs.KaldbConfig config) {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     // create an S3 client and a bucket for test
@@ -52,11 +54,13 @@ public class ChunkManagerUtil<T> {
             s3BlobFs,
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
-            10000);
+            10000,
+            config);
   }
 
-  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry) {
-    this(s3MockRule, meterRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+  public ChunkManagerUtil(
+      S3MockRule s3MockRule, MeterRegistry meterRegistry, KaldbConfigs.KaldbConfig config) {
+    this(s3MockRule, meterRegistry, 10 * 1024 * 1024 * 1024L, 10L, config);
   }
 
   public void close() throws IOException {

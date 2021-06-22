@@ -2,8 +2,6 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.config.KaldbConfig;
-
 /**
  * This class implements a rolls over a chunk when the chunk reaches a specific size or when a chunk
  * hits a max message limit.
@@ -11,12 +9,6 @@ import com.slack.kaldb.config.KaldbConfig;
  * <p>TODO: Also consider rolling over a chunk based on the time range for messages in the chunk.
  */
 public class ChunkRollOverStrategyImpl implements ChunkRollOverStrategy {
-
-  public static ChunkRollOverStrategyImpl fromConfig() {
-    return new ChunkRollOverStrategyImpl(
-        KaldbConfig.get().getIndexerConfig().getMaxBytesPerChunk(),
-        KaldbConfig.get().getIndexerConfig().getMaxMessagesPerChunk());
-  }
 
   private final long maxBytesPerChunk;
   private final long maxMessagesPerChunk;

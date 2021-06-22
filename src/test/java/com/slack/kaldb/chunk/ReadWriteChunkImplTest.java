@@ -14,17 +14,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -49,16 +50,24 @@ public class ReadWriteChunkImplTest {
     private final String chunkDataPrefix = "testDataSet";
 
     private MeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private Chunk<LogMessage> chunk;
 
     @Before
     public void setUp() throws IOException {
       registry = new SimpleMeterRegistry();
+
+      final String testIndexerCfg =
+          "{\n"
+              + "  \"indexerConfig\" : {\n"
+              + "    \"commitDurationSecs\": 300,\n"
+              + "    \"refreshDurationSecs\": 300\n"
+              + "  }\n"
+              + "}\n";
+
+      KaldbConfigs.KaldbConfig config = KaldbConfig.initFromJsonStr(testIndexerCfg);
+
       final LuceneIndexStoreImpl logStore =
-          LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
+          LuceneIndexStoreImpl.makeLogStore(temporaryFolder.newFolder(), registry, config);
       chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry);
     }
 
@@ -322,16 +331,23 @@ public class ReadWriteChunkImplTest {
     @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
 
     private SimpleMeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private Chunk<LogMessage> chunk;
 
     @Before
     public void setUp() throws IOException {
       registry = new SimpleMeterRegistry();
+      final String testIndexerCfg =
+          "{\n"
+              + "  \"indexerConfig\" : {\n"
+              + "    \"commitDurationSecs\": 300,\n"
+              + "    \"refreshDurationSecs\": 300\n"
+              + "  }\n"
+              + "}\n";
+
+      KaldbConfigs.KaldbConfig config = KaldbConfig.initFromJsonStr(testIndexerCfg);
+
       LuceneIndexStoreImpl logStore =
-          LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
+          LuceneIndexStoreImpl.makeLogStore(temporaryFolder.newFolder(), registry, config);
       chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
     }
 

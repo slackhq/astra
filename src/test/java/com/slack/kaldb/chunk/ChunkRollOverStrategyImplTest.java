@@ -19,15 +19,11 @@ public class ChunkRollOverStrategyImplTest {
             + "  }\n"
             + "}\n";
 
-    KaldbConfig.initFromJsonStr(testIndexerCfg);
+    KaldbConfigs.KaldbConfig config = KaldbConfig.initFromJsonStr(testIndexerCfg);
 
-    final KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
+    final KaldbConfigs.IndexerConfig indexerCfg = config.getIndexerConfig();
     assertThat(indexerCfg.getMaxMessagesPerChunk()).isEqualTo(1);
     assertThat(indexerCfg.getMaxBytesPerChunk()).isEqualTo(100);
-
-    ChunkRollOverStrategyImpl chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
-    assertThat(chunkRollOverStrategy.getMaxBytesPerChunk()).isEqualTo(100);
-    assertThat(chunkRollOverStrategy.getMaxMessagesPerChunk()).isEqualTo(1);
   }
 
   @Test(expected = IllegalArgumentException.class)

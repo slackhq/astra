@@ -16,7 +16,6 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.RollOverChunkTask;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -59,10 +58,11 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigs.KaldbConfig config = KaldbConfigUtil.initEmptyConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100, config);
 
     kafkaServer = new TestKafkaServer();
   }
@@ -144,8 +144,7 @@ public class KaldbIndexerTest {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
 
     // Initialize kaldb config.
-    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig("localhost:" + broker.getKafkaPort().get());
-    KaldbConfig.initFromConfigObject(kaldbCfg);
+    KaldbConfigs.KaldbConfig config = makeKaldbConfig("localhost:" + broker.getKafkaPort().get());
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
@@ -153,7 +152,7 @@ public class KaldbIndexerTest {
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     KaldbIndexer indexer =
         new KaldbIndexer(
-            chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"), metricsRegistry);
+            chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"), metricsRegistry, config);
     GrpcServiceBuilder searchBuilder =
         GrpcService.builder()
             .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))

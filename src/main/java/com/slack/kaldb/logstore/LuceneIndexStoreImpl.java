@@ -1,12 +1,12 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.logstore.index.KalDBMergeScheduler;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -58,26 +58,18 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final Counter commitsCounter;
   private final Counter refreshesCounter;
 
-  public static LuceneIndexStoreImpl makeLogStore(File dataDirectory, MeterRegistry metricsRegistry)
-      throws IOException {
-    return makeLogStore(
-        dataDirectory,
-        LuceneIndexStoreConfig.getCommitDuration(),
-        LuceneIndexStoreConfig.getRefreshDuration(),
-        metricsRegistry);
-  }
-
   public static LuceneIndexStoreImpl makeLogStore(
-      File dataDirectory,
-      Duration commitInterval,
-      Duration refreshInterval,
-      MeterRegistry metricsRegistry)
+      File dataDirectory, MeterRegistry metricsRegistry, KaldbConfigs.KaldbConfig config)
       throws IOException {
     // TODO: Move all these config values into chunk?
     // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), 8, false);
+            LuceneIndexStoreConfig.getCommitDuration(config),
+            LuceneIndexStoreConfig.getRefreshDuration(config),
+            dataDirectory.getAbsolutePath(),
+            8,
+            false);
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(

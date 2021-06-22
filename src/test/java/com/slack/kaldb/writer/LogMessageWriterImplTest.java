@@ -19,6 +19,7 @@ import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -51,10 +52,11 @@ public class LogMessageWriterImplTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigs.KaldbConfig config = KaldbConfigUtil.initEmptyConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100, config);
   }
 
   @After
@@ -454,8 +456,9 @@ public class LogMessageWriterImplTest {
     final String msgType = "test_message_type";
 
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
+    KaldbConfigs.KaldbConfig config = KaldbConfigUtil.initEmptyConfig();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, localMetricsRegistry, 1000L, 100);
+        new ChunkManagerUtil<>(S3_MOCK_RULE, localMetricsRegistry, 1000L, 100, config);
 
     List<Trace.Span> spans =
         IntStream.range(0, 15)

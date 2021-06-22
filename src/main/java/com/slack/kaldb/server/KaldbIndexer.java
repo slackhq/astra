@@ -10,7 +10,6 @@ import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -51,51 +50,13 @@ public class KaldbIndexer {
   private static final String CHUNK_DATA_PREFIX = "log_data_";
 
   private final KaldbKafkaWriter kafkaWriter;
+  private final KaldbConfigs.KaldbConfig config;
 
   public ChunkManager<LogMessage> getChunkManager() {
     return chunkManager;
   }
 
   private final ChunkManager<LogMessage> chunkManager;
-
-  static KaldbIndexer fromConfig(MeterRegistry meterRegistry) {
-    ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
-
-    // TODO: Read the config values for chunk manager from config file.
-    ChunkManager<LogMessage> chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            KaldbConfig.get().getIndexerConfig().getDataDirectory(),
-            chunkRollOverStrategy,
-            meterRegistry,
-            getS3BlobFsClient(KaldbConfig.get()),
-            KaldbConfig.get().getS3Config().getS3Bucket(),
-            ChunkManager.makeDefaultRollOverExecutor(),
-            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS);
-
-    String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
-    if (dataTransformerConfig.isEmpty()) {
-      throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
-    }
-    LogMessageTransformer dataTransformer = dataTransformerMap.get(dataTransformerConfig);
-    if (dataTransformer == null) {
-      throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
-    }
-    return new KaldbIndexer(chunkManager, dataTransformer, meterRegistry);
-  }
-
-  private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
-    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
-    S3BlobFsConfig s3BlobFsConfig =
-        new S3BlobFsConfig(
-            s3Config.getS3AccessKey(),
-            s3Config.getS3SecretKey(),
-            s3Config.getS3Region(),
-            s3Config.getS3EndPoint());
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3BlobFsConfig);
-    return s3BlobFs;
-  }
 
   /**
    * This class contains the code to needed to run a single instance of an Kaldb indexer. A single
@@ -124,16 +85,68 @@ public class KaldbIndexer {
    * messages, persist the indexed messages and metadata successfully and then close the
    * chunkManager and then the consumer,
    */
+  public KaldbIndexer(MeterRegistry meterRegistry, KaldbConfigs.KaldbConfig config) {
+
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(
+            config.getIndexerConfig().getMaxBytesPerChunk(),
+            config.getIndexerConfig().getMaxMessagesPerChunk());
+
+    // TODO: Read the config values for chunk manager from config file.
+    ChunkManager<LogMessage> chunkManager =
+        new ChunkManager<>(
+            CHUNK_DATA_PREFIX,
+            config.getIndexerConfig().getDataDirectory(),
+            chunkRollOverStrategy,
+            meterRegistry,
+            getS3BlobFsClient(config),
+            config.getS3Config().getS3Bucket(),
+            ChunkManager.makeDefaultRollOverExecutor(),
+            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
+            config);
+
+    String dataTransformerConfig = config.getIndexerConfig().getDataTransformer();
+    if (dataTransformerConfig.isEmpty()) {
+      throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
+    }
+    LogMessageTransformer dataTransformer = dataTransformerMap.get(dataTransformerConfig);
+    if (dataTransformer == null) {
+      throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
+    }
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManager, dataTransformer);
+
+    this.kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry, config);
+    this.chunkManager = chunkManager;
+    this.config = config;
+  }
+
+  @VisibleForTesting
   public KaldbIndexer(
       ChunkManager<LogMessage> chunkManager,
-      LogMessageTransformer messageTransformer,
-      MeterRegistry meterRegistry) {
+      LogMessageTransformer dataTransformer,
+      MeterRegistry meterRegistry,
+      KaldbConfigs.KaldbConfig config) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
+    this.config = config;
 
     LogMessageWriterImpl logMessageWriterImpl =
-        new LogMessageWriterImpl(chunkManager, messageTransformer);
-    kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
+        new LogMessageWriterImpl(chunkManager, dataTransformer);
+    kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry, config);
+  }
+
+  private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
+    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
+    S3BlobFsConfig s3BlobFsConfig =
+        new S3BlobFsConfig(
+            s3Config.getS3AccessKey(),
+            s3Config.getS3SecretKey(),
+            s3Config.getS3Region(),
+            s3Config.getS3EndPoint());
+    S3BlobFs s3BlobFs = new S3BlobFs();
+    s3BlobFs.init(s3BlobFsConfig);
+    return s3BlobFs;
   }
 
   public void start() {

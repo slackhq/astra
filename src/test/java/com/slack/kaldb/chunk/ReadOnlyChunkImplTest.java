@@ -3,17 +3,17 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.List;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.junit.After;
@@ -33,12 +33,20 @@ public class ReadOnlyChunkImplTest {
   @Before
   public void setUp() throws IOException {
     registry = new SimpleMeterRegistry();
-    File localStore = temporaryFolder.newFolder();
 
-    // Create a lucene index for reads.
+    final String testIndexerCfg =
+        "{\n"
+            + "  \"indexerConfig\" : {\n"
+            + "    \"commitDurationSecs\": 300,\n"
+            + "    \"refreshDurationSecs\": 300\n"
+            + "  }\n"
+            + "}\n";
+
+    KaldbConfigs.KaldbConfig config = KaldbConfig.initFromJsonStr(testIndexerCfg);
+
     LuceneIndexStoreImpl logStore =
-        LuceneIndexStoreImpl.makeLogStore(
-            localStore, Duration.ofSeconds(5 * 60), Duration.ofSeconds(5 * 60), registry);
+        LuceneIndexStoreImpl.makeLogStore(temporaryFolder.newFolder(), registry, config);
+
     ReadWriteChunkImpl<LogMessage> chunk =
         new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
     localIndexPath = logStore.getDirectory().toAbsolutePath().toString();

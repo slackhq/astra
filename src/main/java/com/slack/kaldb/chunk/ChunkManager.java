@@ -16,6 +16,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -60,6 +61,7 @@ public class ChunkManager<T> {
   private final S3BlobFs s3BlobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
+  private final KaldbConfigs.KaldbConfig config;
   private Chunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
@@ -109,13 +111,15 @@ public class ChunkManager<T> {
       S3BlobFs s3BlobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      long rollOverFutureTimeoutMs) {
+      long rollOverFutureTimeoutMs,
+      KaldbConfigs.KaldbConfig config) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
     this.chunkDataPrefix = chunkDataPrefix;
     this.chunkRollOverStrategy = chunkRollOverStrategy;
     this.meterRegistry = registry;
+    this.config = config;
 
     // TODO: Pass in id of index in LuceneIndexStore to track this info.
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
@@ -245,7 +249,7 @@ public class ChunkManager<T> {
       // TODO: Move this line into sync block if make chunk is fast.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
-          (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
+          (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry, config);
       Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
       synchronized (chunkMapSync) {
         chunkMap.put(newChunk.id(), newChunk);

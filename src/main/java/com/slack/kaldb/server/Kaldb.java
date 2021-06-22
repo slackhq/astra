@@ -14,6 +14,7 @@ import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -39,9 +40,11 @@ public class Kaldb {
   private static final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
+  public final KaldbConfigs.KaldbConfig config;
+
   public Kaldb(Path configFilePath) throws IOException {
     Metrics.addRegistry(prometheusMeterRegistry);
-    KaldbConfig.initFromFile(configFilePath);
+    this.config = KaldbConfig.initFromFile(configFilePath);
   }
 
   public void setup() {
@@ -50,9 +53,9 @@ public class Kaldb {
     setupMetrics();
 
     // Create an indexer and a grpc search service.
-    KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
+    KaldbIndexer indexer = new KaldbIndexer(prometheusMeterRegistry, config);
 
-    final int serverPort = KaldbConfig.get().getServerPort();
+    final int serverPort = config.getServerPort();
     // Create an API server to serve the search requests.
     ServerBuilder sb = Server.builder();
     sb.decorator(

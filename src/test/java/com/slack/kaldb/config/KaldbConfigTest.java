@@ -7,21 +7,9 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 public class KaldbConfigTest {
-
-  @Before
-  public void setUp() {
-    KaldbConfig.reset();
-  }
-
-  @After
-  public void tearDown() {
-    KaldbConfig.reset();
-  }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInitWithMissingConfigFile() throws IOException {
@@ -104,8 +92,7 @@ public class KaldbConfigTest {
   public void testParseKaldbConfigFile() throws IOException {
     final File cfgFile =
         new File(getClass().getClassLoader().getResource("test_config.json").getFile());
-    KaldbConfig.initFromFile(cfgFile.toPath());
-    final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
+    final KaldbConfigs.KaldbConfig config = KaldbConfig.initFromFile(cfgFile.toPath());
 
     assertThat(config).isNotNull();
     assertThat(config.getServerPort()).isEqualTo(8080);

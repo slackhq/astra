@@ -2,7 +2,6 @@ package com.slack.kaldb.logstore;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.time.Duration;
@@ -38,15 +37,15 @@ public class LuceneIndexStoreConfig {
   static final Duration defaultCommitDuration = Duration.ofSeconds(15);
   static final Duration defaultRefreshDuration = Duration.ofSeconds(15);
 
-  public static Duration getCommitDuration() {
-    KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
+  public static Duration getCommitDuration(KaldbConfigs.KaldbConfig config) {
+    KaldbConfigs.IndexerConfig indexerCfg = config.getIndexerConfig();
     return indexerCfg.getCommitDurationSecs() != 0
         ? Duration.ofSeconds(indexerCfg.getCommitDurationSecs())
         : defaultCommitDuration;
   }
 
-  public static Duration getRefreshDuration() {
-    KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
+  public static Duration getRefreshDuration(KaldbConfigs.KaldbConfig config) {
+    KaldbConfigs.IndexerConfig indexerCfg = config.getIndexerConfig();
     return indexerCfg.getRefreshDurationSecs() != 0
         ? Duration.ofSeconds(indexerCfg.getRefreshDurationSecs())
         : defaultRefreshDuration;
