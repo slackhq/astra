@@ -1,5 +1,8 @@
 package com.slack.kaldb.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
@@ -7,6 +10,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.commons.text.StringSubstitutor;
 
 /**
  * KaldbConfig contains the config params used in the project.
@@ -25,6 +29,18 @@ public class KaldbConfig {
     return kaldbConfigBuilder.build();
   }
 
+  // Parse a yaml string as a KaldbConfig proto struct
+  @VisibleForTesting
+  static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
+      throws InvalidProtocolBufferException, JsonProcessingException {
+    StringSubstitutor substitute = new StringSubstitutor(System::getenv);
+    ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
+    ObjectMapper jsonWriter = new ObjectMapper();
+
+    Object obj = yamlReader.readValue(substitute.replace(yamlStr), Object.class);
+    return fromJsonConfig(jsonWriter.writeValueAsString(obj));
+  }
+
   @VisibleForTesting
   public static void reset() {
     _instance = null;
@@ -34,15 +50,28 @@ public class KaldbConfig {
     if (_instance == null) {
       if (Files.notExists(cfgFilePath)) {
         throw new IllegalArgumentException(
-            "Missing config file at: " + cfgFilePath.toAbsolutePath().toString());
+            "Missing config file at: " + cfgFilePath.toAbsolutePath());
       }
 
-      initFromJsonStr(Files.readString(cfgFilePath));
+      String filename = cfgFilePath.getFileName().toString();
+      if (filename.endsWith(".yaml")) {
+        initFromYamlStr(Files.readString(cfgFilePath));
+      } else if (filename.endsWith(".json")) {
+        initFromJsonStr(Files.readString(cfgFilePath));
+      } else {
+        throw new RuntimeException(
+            "Invalid config file format provided - must be either .json or .yaml");
+      }
     }
   }
 
   public static void initFromJsonStr(String jsonCfgString) throws InvalidProtocolBufferException {
     initFromConfigObject(fromJsonConfig(jsonCfgString));
+  }
+
+  public static void initFromYamlStr(String yamlString)
+      throws InvalidProtocolBufferException, JsonProcessingException {
+    initFromConfigObject(fromYamlConfig(yamlString));
   }
 
   public static void initFromConfigObject(KaldbConfigs.KaldbConfig config) {

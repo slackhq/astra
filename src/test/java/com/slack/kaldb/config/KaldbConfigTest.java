@@ -2,6 +2,7 @@ package com.slack.kaldb.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
@@ -29,7 +30,7 @@ public class KaldbConfigTest {
   }
 
   @Test(expected = InvalidProtocolBufferException.class)
-  public void testEmptyCfgFile() throws InvalidProtocolBufferException {
+  public void testEmptyJsonCfgFile() throws InvalidProtocolBufferException {
     KaldbConfig.initFromJsonStr("");
   }
 
@@ -101,7 +102,7 @@ public class KaldbConfigTest {
   }
 
   @Test
-  public void testParseKaldbConfigFile() throws IOException {
+  public void testParseKaldbJsonConfigFile() throws IOException {
     final File cfgFile =
         new File(getClass().getClassLoader().getResource("test_config.json").getFile());
     KaldbConfig.initFromFile(cfgFile.toPath());
@@ -136,8 +137,92 @@ public class KaldbConfigTest {
   }
 
   @Test
+  public void testParseKaldbYamlConfigFile() throws IOException {
+    final File cfgFile =
+        new File(getClass().getClassLoader().getResource("test_config.yaml").getFile());
+
+    KaldbConfig.initFromFile(cfgFile.toPath());
+    final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
+
+    assertThat(config).isNotNull();
+    assertThat(config.getServerPort()).isEqualTo(8080);
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+
+    // todo - for testing env var substitution we could use something like Mockito (or similar) in
+    // the future
+    assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("test-topic");
+
+    // uses default fallback as we expect the env var NOT_PRESENT to not be set
+    assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("0");
+
+    assertThat(kafkaCfg.getKafkaBootStrapServers()).isEqualTo("localhost:9092");
+    assertThat(kafkaCfg.getKafkaClientGroup()).isEqualTo("kaldb-test");
+    assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEqualTo("true");
+    assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
+    assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
+
+    final KaldbConfigs.S3Config s3Config = config.getS3Config();
+    assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
+    assertThat(s3Config.getS3SecretKey()).isEqualTo("secret");
+    assertThat(s3Config.getS3Region()).isEqualTo("us-east-1");
+    assertThat(s3Config.getS3EndPoint()).isEqualTo("localhost:9090");
+    assertThat(s3Config.getS3Bucket()).isEqualTo("test-s3-bucket");
+
+    final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
+    assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(100);
+    assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(100000);
+    assertThat(indexerConfig.getCommitDurationSecs()).isEqualTo(10);
+    assertThat(indexerConfig.getRefreshDurationSecs()).isEqualTo(11);
+    assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
+    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testParseFormats() throws IOException {
+    // only json/yaml file extentions are supported
+    KaldbConfig.initFromFile(Path.of("README.md"));
+  }
+
+  @Test(expected = InvalidProtocolBufferException.class)
+  public void testMalformedYaml() throws InvalidProtocolBufferException, JsonProcessingException {
+    KaldbConfig.initFromYamlStr(":test");
+  }
+
+  @Test
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{}");
+
+    assertThat(config.getServerPort()).isZero();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
+    assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
+    assertThat(kafkaCfg.getKafkaClientGroup()).isEmpty();
+    assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEmpty();
+    assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEmpty();
+    assertThat(kafkaCfg.getKafkaSessionTimeout()).isEmpty();
+    assertThat(kafkaCfg.getKafkaTopic()).isEmpty();
+
+    final KaldbConfigs.S3Config s3Config = config.getS3Config();
+    assertThat(s3Config.getS3AccessKey()).isEmpty();
+    assertThat(s3Config.getS3SecretKey()).isEmpty();
+    assertThat(s3Config.getS3Region()).isEmpty();
+    assertThat(s3Config.getS3EndPoint()).isEmpty();
+
+    final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
+    assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
+    assertThat(indexerConfig.getMaxBytesPerChunk()).isZero();
+    assertThat(indexerConfig.getCommitDurationSecs()).isZero();
+    assertThat(indexerConfig.getRefreshDurationSecs()).isZero();
+    assertThat(indexerConfig.getStaleDurationSecs()).isZero();
+    assertThat(indexerConfig.getDataDirectory()).isEmpty();
+    assertThat(indexerConfig.getDataTransformer()).isEmpty();
+  }
+
+  @Test
+  public void testEmptyYamlStringInit()
+      throws InvalidProtocolBufferException, JsonProcessingException {
+    KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig("{}");
 
     assertThat(config.getServerPort()).isZero();
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
