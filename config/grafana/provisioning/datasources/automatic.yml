@@ -1,0 +1,26 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: KalDB
+    orgId: 1
+
+datasources:
+  - name: KalDB
+    type: elasticsearch
+    access: proxy
+    url: "host.docker.internal:8080"
+    password:
+    user:
+    database: api_log
+    basicAuth: false
+    basicAuthUser:
+    basicAuthPassword:
+    withCredentials:
+    isDefault: true
+    jsonData:
+      esVersion: 7.0.0
+      logLevelField: "loglevel"
+      logMessageField: "message"
+      maxConcurrentShardRequests: 5
+      timeField: "@timestamp"
+    version: 1
