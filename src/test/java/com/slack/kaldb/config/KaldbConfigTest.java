@@ -109,7 +109,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
 
     assertThat(config).isNotNull();
-    assertThat(config.getServerPort()).isEqualTo(8080);
+
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
@@ -134,6 +134,10 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
+    assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
+
+    final KaldbConfigs.ReadConfig readConfig = config.getReadConfig();
+    assertThat(readConfig.getServerPort()).isEqualTo(8081);
   }
 
   @Test
@@ -145,7 +149,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
 
     assertThat(config).isNotNull();
-    assertThat(config.getServerPort()).isEqualTo(8080);
+
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
 
     // todo - for testing env var substitution we could use something like Mockito (or similar) in
@@ -176,6 +180,10 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
+    assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
+
+    final KaldbConfigs.ReadConfig readConfig = config.getReadConfig();
+    assertThat(readConfig.getServerPort()).isEqualTo(8081);
   }
 
   @Test(expected = RuntimeException.class)
@@ -193,7 +201,6 @@ public class KaldbConfigTest {
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{}");
 
-    assertThat(config.getServerPort()).isZero();
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
@@ -217,6 +224,10 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
+    assertThat(indexerConfig.getServerPort()).isZero();
+
+    final KaldbConfigs.ReadConfig readConfig = config.getReadConfig();
+    assertThat(readConfig.getServerPort()).isZero();
   }
 
   @Test
@@ -224,7 +235,6 @@ public class KaldbConfigTest {
       throws InvalidProtocolBufferException, JsonProcessingException {
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig("{}");
 
-    assertThat(config.getServerPort()).isZero();
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
@@ -248,5 +258,9 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
+    assertThat(indexerConfig.getServerPort()).isZero();
+
+    final KaldbConfigs.ReadConfig readConfig = config.getReadConfig();
+    assertThat(readConfig.getServerPort()).isZero();
   }
 }

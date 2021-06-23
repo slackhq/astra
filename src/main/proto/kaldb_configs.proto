@@ -8,7 +8,8 @@ message KaldbConfig {
     KafkaConfig kafkaConfig = 1;
     S3Config s3Config = 2;
     IndexerConfig indexerConfig = 3;
-    int32 serverPort = 4;
+    ReadConfig readConfig = 4;
+    repeated string nodeRoles = 5;
 }
 
 message KafkaConfig {
@@ -29,6 +30,10 @@ message S3Config {
     string s3Bucket = 5;
 }
 
+message ReadConfig {
+    int32 serverPort = 1;
+}
+
 message IndexerConfig {
     int64 maxMessagesPerChunk = 1;
     int64 maxBytesPerChunk = 2;
@@ -37,4 +42,5 @@ message IndexerConfig {
     int64 staleDurationSecs= 5;
     string dataTransformer = 6;
     string dataDirectory = 7;
+    int32 serverPort = 8;
 }

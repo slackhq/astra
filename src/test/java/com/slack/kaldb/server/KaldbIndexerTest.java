@@ -81,40 +81,6 @@ public class KaldbIndexerTest {
 
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
 
-  private KaldbConfigs.KaldbConfig makeKaldbConfig(String bootstrapServers) {
-    KaldbConfigs.KafkaConfig kafkaConfig =
-        KaldbConfigs.KafkaConfig.newBuilder()
-            .setKafkaTopic(TEST_KAFKA_TOPIC)
-            .setKafkaTopicPartition(String.valueOf(TEST_KAFKA_PARTITION))
-            .setKafkaBootStrapServers(bootstrapServers)
-            .setKafkaClientGroup(KALDB_TEST_CLIENT)
-            .setEnableKafkaAutoCommit("true")
-            .setKafkaAutoCommitInterval("5000")
-            .setKafkaSessionTimeout("5000")
-            .build();
-
-    KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder()
-            .setS3Bucket(TEST_S3_BUCKET)
-            .setS3Region("us-east-1")
-            .build();
-
-    KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigs.IndexerConfig.newBuilder()
-            .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-            .setMaxMessagesPerChunk(100)
-            .setCommitDurationSecs(10)
-            .setRefreshDurationSecs(10)
-            .setStaleDurationSecs(7200)
-            .build();
-
-    return KaldbConfigs.KaldbConfig.newBuilder()
-        .setKafkaConfig(kafkaConfig)
-        .setS3Config(s3Config)
-        .setIndexerConfig(indexerConfig)
-        .build();
-  }
-
   private String uri() {
     return "gproto+http://127.0.0.1:" + server.activeLocalPort() + '/';
   }
@@ -144,12 +110,20 @@ public class KaldbIndexerTest {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
 
     // Initialize kaldb config.
-    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig("localhost:" + broker.getKafkaPort().get());
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        KaldbConfigUtil.makeKaldbConfig(
+            "localhost:" + broker.getKafkaPort().get(),
+            8080,
+            TEST_KAFKA_TOPIC,
+            TEST_KAFKA_PARTITION,
+            KALDB_TEST_CLIENT,
+            TEST_S3_BUCKET,
+            8081);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
-    sb.http(0);
+    sb.http(8080);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     KaldbIndexer indexer =
         new KaldbIndexer(

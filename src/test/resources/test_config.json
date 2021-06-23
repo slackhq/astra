@@ -22,7 +22,10 @@
     "refreshDurationSecs": 11,
     "staleDurationSecs": 7200,
     "dataTransformer": "api_log",
-    "dataDirectory": "/tmp"
+    "dataDirectory": "/tmp",
+    "serverPort": 8080
   },
-  "serverPort": 8080
+  "readConfig": {
+    "serverPort": 8081
+  }
 }
