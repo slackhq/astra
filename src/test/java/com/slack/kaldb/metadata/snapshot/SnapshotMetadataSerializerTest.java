@@ -8,24 +8,17 @@ public class SnapshotMetadataSerializerTest {
 
   @Test
   public void testSnapshotMetadataSerializer() {
-    final String snapshotName = "testSnapshot";
-    final String snapshotPath = "/testPath_" + snapshotName;
-    final String snapshotId = snapshotName + "_id";
-    final long snapshotStartTime = 1;
-    final long snapshotEndTime = 100;
+    final String name = "testSnapshot";
+    final String path = "/testPath_" + name;
+    final String id = name + "_id";
+    final long startTime = 1;
+    final long endTime = 100;
     final long maxOffset = 123;
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(
-            snapshotName,
-            snapshotPath,
-            snapshotId,
-            snapshotStartTime,
-            snapshotEndTime,
-            maxOffset,
-            partitionId);
+        new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, partitionId);
 
-    assertThat(snapshotMetadata.name).isEqualTo(snapshotName);
+    assertThat(snapshotMetadata.name).isEqualTo(name);
   }
 }
