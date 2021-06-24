@@ -3,6 +3,9 @@ package com.slack.kaldb.metadata.snapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 
 public class SnapshotMetadataTest {
@@ -29,7 +32,7 @@ public class SnapshotMetadataTest {
   }
 
   @Test
-  public void testEquals() {
+  public void testEqualsAndHashCode() {
     final String name = "testSnapshot";
     final String path = "/testPath_" + name;
     final String id = name + "_id";
@@ -44,7 +47,13 @@ public class SnapshotMetadataTest {
         new SnapshotMetadata(name + "2", path, id, startTime, endTime, maxOffset, partitionId);
 
     assertThat(snapshot1).isEqualTo(snapshot1);
+    // Ensure the name field from super class is included.
     assertThat(snapshot1).isNotEqualTo(snapshot2);
+    Set<SnapshotMetadata> set = new HashSet<>();
+    set.add(snapshot1);
+    set.add(snapshot2);
+    assertThat(set.size()).isEqualTo(2);
+    assertThat(Map.of("1", snapshot1, "2", snapshot2).size()).isEqualTo(2);
   }
 
   @Test
