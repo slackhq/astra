@@ -16,7 +16,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-// TODO: Rename this test CachedMetadataImplTest?
 public class CachedMetadataStoreImplTest {
 
   private TestingServer testingServer;
