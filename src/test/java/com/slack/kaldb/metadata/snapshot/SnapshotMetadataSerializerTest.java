@@ -2,12 +2,14 @@ package com.slack.kaldb.metadata.snapshot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.Test;
 
 public class SnapshotMetadataSerializerTest {
+  private final SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
 
   @Test
-  public void testSnapshotMetadataSerializer() {
+  public void testSnapshotMetadataSerializer() throws InvalidProtocolBufferException {
     final String name = "testSnapshot";
     final String path = "/testPath_" + name;
     final String id = name + "_id";
@@ -19,6 +21,33 @@ public class SnapshotMetadataSerializerTest {
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, partitionId);
 
-    assertThat(snapshotMetadata.name).isEqualTo(name);
+    String serializedSnapshot = serDe.toJsonStr(snapshotMetadata);
+    assertThat(serializedSnapshot).isNotEmpty();
+
+    SnapshotMetadata deserializedSnapshotMetadata = serDe.fromJsonStr(serializedSnapshot);
+    assertThat(deserializedSnapshotMetadata).isEqualTo(snapshotMetadata);
+
+    assertThat(deserializedSnapshotMetadata.name).isEqualTo(name);
+    assertThat(deserializedSnapshotMetadata.snapshotPath).isEqualTo(path);
+    assertThat(deserializedSnapshotMetadata.snapshotId).isEqualTo(id);
+    assertThat(deserializedSnapshotMetadata.startTimeUtc).isEqualTo(startTime);
+    assertThat(deserializedSnapshotMetadata.endTimeUtc).isEqualTo(endTime);
+    assertThat(deserializedSnapshotMetadata.maxOffset).isEqualTo(maxOffset);
+    assertThat(deserializedSnapshotMetadata.partitionId).isEqualTo(partitionId);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void serializeNullObject() throws InvalidProtocolBufferException {
+    serDe.toJsonStr(null);
+  }
+
+  @Test(expected = InvalidProtocolBufferException.class)
+  public void deserializeNullObject() throws InvalidProtocolBufferException {
+    serDe.fromJsonStr(null);
+  }
+
+  @Test(expected = InvalidProtocolBufferException.class)
+  public void deserializeEmptyObject() throws InvalidProtocolBufferException {
+    serDe.fromJsonStr("");
   }
 }
