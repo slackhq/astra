@@ -50,4 +50,9 @@ public class SnapshotMetadataSerializerTest {
   public void deserializeEmptyObject() throws InvalidProtocolBufferException {
     serDe.fromJsonStr("");
   }
+
+  @Test(expected = InvalidProtocolBufferException.class)
+  public void deserializeTestString() throws InvalidProtocolBufferException {
+    serDe.fromJsonStr("test");
+  }
 }
