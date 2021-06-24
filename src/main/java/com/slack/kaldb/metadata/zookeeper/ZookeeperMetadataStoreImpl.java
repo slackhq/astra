@@ -23,8 +23,6 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorEventType;
-import org.apache.curator.framework.recipes.cache.CuratorCache;
-import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher;
@@ -338,43 +336,8 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     return metadataExecutorService.submit(() -> getChildrenImpl(path));
   }
 
-  public CuratorCache watchAndCacheNodeAndChildren(String path) {
-    // TODO: Add a counter on these changes?
-    CuratorCacheListener loggingListener =
-        CuratorCacheListener.builder()
-            .forCreates(node -> LOG.info(String.format("Node created: [%s]", node)))
-            .forChanges(
-                (oldNode, node) ->
-                    LOG.info(String.format("Node changed. Old: [%s] New: [%s]", oldNode, node)))
-            .forDeletes(
-                oldNode -> LOG.info(String.format("Node deleted. Old value: [%s]", oldNode)))
-            .forInitialized(() -> LOG.info("Cache initialized"))
-            .build();
-    return watchAndCacheNodeAndChildren(path, loggingListener);
-  }
-
-  public CuratorCache watchAndCacheNodeAndChildren(String path, CuratorCacheListener listener) {
-    if (!existsImpl(path)) {
-      throw new NoNodeException(path);
-    }
-    // TODO: Curator cache metrics.
-    // TODO: Add exception handling.
-    // TODO: get methods.
-    // TODO: close cache on client close? Should this class be responsible for cache also?
-    // TODO: Add a cache for a single node only? New method?
-    // TODO: Do we need a logging listener? What do we need to log when watching?
-    // TODO: How are child nodes loaded into memory?
-    CuratorCache cache = CuratorCache.build(curator, path);
-    cache.listenable().addListener(listener);
-    cache.start();
-    return cache;
-  }
-
-  /**
-   * This implementation uses a CachedMetadataStore which is a wrapper on curator cache without it's
-   * extensions.
-   */
-  public <T extends KaldbMetadata> CachedMetadataStore<T> watchAndCacheNodeAndChildren2(
+  /** Use a CachedMetadataStore to watch and cache a node and it's children. */
+  public <T extends KaldbMetadata> CachedMetadataStore<T> watchAndCacheNodeAndChildren(
       String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
       throws Exception {
     if (!existsImpl(path)) {
@@ -395,6 +358,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     return curator;
   }
 
+  @VisibleForTesting
   public ListeningExecutorService getMetadataExecutorService() {
     return metadataExecutorService;
   }
