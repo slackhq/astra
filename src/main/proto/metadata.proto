@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package slack.proto.kaldb;
+
+option java_package = "com.slack.kaldb.proto.metadata";
+
+message SnapshotMetadata {
+  // Name of the snapshot
+  string name = 1;
+  // Permanent id for a blob. This id is used to uniquely identify the blob incase it get's copied around.
+  string snapshotId = 2;
+
+  // Path of the file stored in blobstore.
+  string snapshotPath = 3;
+  // earliest timestamp of the event in the snapshot file.
+  int64 startTimeUtc = 4;
+  // End or latest timestamp of the event in the snapshot file.
+  int64 endTimeUtc = 5;
+
+  // Kafka partitionId.
+  string partitionId = 7;
+  // Kafka offset when this snapshot was taken for that partition.
+  int64 maxOffset = 6;
+}

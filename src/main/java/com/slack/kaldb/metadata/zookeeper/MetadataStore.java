@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
@@ -7,6 +7,7 @@ import java.util.List;
  * An interface for the physical metadata store that abstracts the details of the underlying
  * implementation.
  */
+// TODO: Consider removing or renaming this interface since it's name is confusing.
 public interface MetadataStore {
   void close();
 

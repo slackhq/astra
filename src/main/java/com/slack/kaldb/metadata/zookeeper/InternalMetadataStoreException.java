@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
 public class InternalMetadataStoreException extends RuntimeException {
   public InternalMetadataStoreException(String msg) {

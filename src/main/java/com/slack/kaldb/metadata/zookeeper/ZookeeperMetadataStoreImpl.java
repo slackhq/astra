@@ -1,26 +1,30 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.util.FatalErrorHandler;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorEventType;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher;
@@ -41,8 +45,8 @@ import org.slf4j.LoggerFactory;
  * <p>NOTE: We will use the async as a suffix for methods which run in the background in curator.
  * So, we don't use it for calls that run in a future pool even though they are technically async.
  */
-public class ZookeeperMetadataStore implements MetadataStore {
-  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperMetadataStore.class);
+public class ZookeeperMetadataStoreImpl implements MetadataStore {
+  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperMetadataStoreImpl.class);
 
   public static final String METADATA_FAILED_COUNTER = "metadata.failed";
   public static final String ZK_FAILED_COUNTER = "metadata.failed.zk";
@@ -58,7 +62,7 @@ public class ZookeeperMetadataStore implements MetadataStore {
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
 
-  public ZookeeperMetadataStore(
+  public ZookeeperMetadataStoreImpl(
       String zkHostPath,
       String zkPathPrefix,
       int sessionTimeoutMs,
@@ -110,9 +114,8 @@ public class ZookeeperMetadataStore implements MetadataStore {
     curator
         .getConnectionStateListenable()
         .addListener(
-            (curator, connectionState) -> {
-              LOG.info("Curator connection state changed to {}", connectionState);
-            });
+            (curator, connectionState) ->
+                LOG.info("Curator connection state changed to {}", connectionState));
 
     /*
      * If a ZK session expires, we need to create all the watches and ephemeral nodes again.
@@ -259,7 +262,7 @@ public class ZookeeperMetadataStore implements MetadataStore {
 
   // TODO: Consider fetching the data in background if it results in better perf due to batching.
   private String getImpl(String path) {
-    String result = "";
+    String result;
     try {
       metadataReadCounter.increment();
       LOG.debug("Fetching data for node at {}", path);
@@ -312,10 +315,10 @@ public class ZookeeperMetadataStore implements MetadataStore {
   }
 
   private List<String> getChildrenImpl(String path) {
-    List<String> result = Collections.emptyList();
+    List<String> result;
     try {
       metadataReadCounter.increment();
-      result = curator.getChildren().forPath(path).stream().collect(Collectors.toList());
+      result = new ArrayList<>(curator.getChildren().forPath(path));
     } catch (KeeperException.NoNodeException e) {
       throw new NoNodeException(path);
     } catch (KeeperException e) {
@@ -333,5 +336,66 @@ public class ZookeeperMetadataStore implements MetadataStore {
   @Override
   public ListenableFuture<List<String>> getChildren(String path) {
     return metadataExecutorService.submit(() -> getChildrenImpl(path));
+  }
+
+  public CuratorCache watchAndCacheNodeAndChildren(String path) {
+    // TODO: Add a counter on these changes?
+    CuratorCacheListener loggingListener =
+        CuratorCacheListener.builder()
+            .forCreates(node -> LOG.info(String.format("Node created: [%s]", node)))
+            .forChanges(
+                (oldNode, node) ->
+                    LOG.info(String.format("Node changed. Old: [%s] New: [%s]", oldNode, node)))
+            .forDeletes(
+                oldNode -> LOG.info(String.format("Node deleted. Old value: [%s]", oldNode)))
+            .forInitialized(() -> LOG.info("Cache initialized"))
+            .build();
+    return watchAndCacheNodeAndChildren(path, loggingListener);
+  }
+
+  public CuratorCache watchAndCacheNodeAndChildren(String path, CuratorCacheListener listener) {
+    if (!existsImpl(path)) {
+      throw new NoNodeException(path);
+    }
+    // TODO: Curator cache metrics.
+    // TODO: Add exception handling.
+    // TODO: get methods.
+    // TODO: close cache on client close? Should this class be responsible for cache also?
+    // TODO: Add a cache for a single node only? New method?
+    // TODO: Do we need a logging listener? What do we need to log when watching?
+    // TODO: How are child nodes loaded into memory?
+    CuratorCache cache = CuratorCache.build(curator, path);
+    cache.listenable().addListener(listener);
+    cache.start();
+    return cache;
+  }
+
+  /**
+   * This implementation uses a CachedMetadataStore which is a wrapper on curator cache without it's
+   * extensions.
+   */
+  public <T extends KaldbMetadata> CachedMetadataStore<T> watchAndCacheNodeAndChildren2(
+      String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
+      throws Exception {
+    if (!existsImpl(path)) {
+      throw new NoNodeException(path);
+    }
+
+    CachedMetadataStore<T> cachedMetadataStore =
+        new CachedMetadataStoreImpl<T>(path, metadataSerializer, curator, metadataExecutorService);
+    if (listener != null) {
+      cachedMetadataStore.addListener(listener);
+    }
+    cachedMetadataStore.start();
+    return cachedMetadataStore;
+  }
+
+  @VisibleForTesting
+  public CuratorFramework getCurator() {
+    return curator;
+  }
+
+  public ListeningExecutorService getMetadataExecutorService() {
+    return metadataExecutorService;
   }
 }

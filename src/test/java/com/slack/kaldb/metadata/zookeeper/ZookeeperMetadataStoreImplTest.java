@@ -1,9 +1,9 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
-import static com.slack.kaldb.metadata.ZookeeperMetadataStore.METADATA_FAILED_COUNTER;
-import static com.slack.kaldb.metadata.ZookeeperMetadataStore.METADATA_READ_COUNTER;
-import static com.slack.kaldb.metadata.ZookeeperMetadataStore.METADATA_WRITE_COUNTER;
-import static com.slack.kaldb.metadata.ZookeeperMetadataStore.ZK_FAILED_COUNTER;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.METADATA_FAILED_COUNTER;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.METADATA_READ_COUNTER;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.METADATA_WRITE_COUNTER;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.ZK_FAILED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -20,9 +20,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class ZookeeperMetadataStoreTest {
+public class ZookeeperMetadataStoreImplTest {
   private TestingServer testingServer;
-  private ZookeeperMetadataStore metadataStore;
+  private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private CountingFatalErrorHandler countingFatalErrorHandler;
 
@@ -33,7 +33,7 @@ public class ZookeeperMetadataStoreTest {
     testingServer = new TestingServer();
     countingFatalErrorHandler = new CountingFatalErrorHandler();
     metadataStore =
-        new ZookeeperMetadataStore(
+        new ZookeeperMetadataStoreImpl(
             testingServer.getConnectString(),
             "test",
             1000,
@@ -423,7 +423,7 @@ public class ZookeeperMetadataStoreTest {
     // Close and re-open the metadata store.
     metadataStore.close();
     metadataStore =
-        new ZookeeperMetadataStore(
+        new ZookeeperMetadataStoreImpl(
             testingServer.getConnectString(),
             "test",
             1000,
