@@ -6,7 +6,7 @@ import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.proto.metadata.Metadata;
 
 public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMetadata> {
-  public static Metadata.SnapshotMetadata toSnapshotMetadataProto(
+  private static Metadata.SnapshotMetadata toSnapshotMetadataProto(
       SnapshotMetadata snapshotMetadata) {
     return Metadata.SnapshotMetadata.newBuilder()
         .setName(snapshotMetadata.name)
@@ -19,7 +19,7 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         .build();
   }
 
-  public static SnapshotMetadata fromSnapshotMetadataProto(
+  private static SnapshotMetadata fromSnapshotMetadataProto(
       Metadata.SnapshotMetadata protoSnapshotMetadata) {
     return new SnapshotMetadata(
         protoSnapshotMetadata.getName(),
