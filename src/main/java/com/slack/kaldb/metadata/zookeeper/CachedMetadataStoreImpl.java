@@ -32,8 +32,8 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
   private final CuratorCacheBridge cache;
 
-  // TODO: Rename this field.
   private final ConcurrentMap<String, T> instances = Maps.newConcurrentMap();
+
   // TODO: is ensureContainers needed?
   private final EnsureContainers ensureContainers;
   private final CountDownLatch initializedLatch = new CountDownLatch(1);

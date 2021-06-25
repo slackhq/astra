@@ -99,20 +99,6 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.get("3").get()).isEqualTo(snapshot3);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3);
 
-    // TODO: Creating nesting when adding objects throws an exception in the cache since the nested
-    //  object
-    //  doesn't have a KalDbMetdata Type. Add a unit test to test for this use case.
-    // TODO: Always ensure createPath is false in the nested calls?
-    // TODO: Don't allow nested paths in cached objects?
-    // TODO: Move below code into it's own unit test because of above issues?
-    /*
-    // Nesting in existing paths are also cached.
-    String path333 = "/root/3/33/333";
-    SnapshotMetadata snapshot333 = makeSnapshot("test333");
-    assertThat(metadataStore.create(path333, serDe.toJsonStr(snapshot333), true).get()).isNull();
-    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(4));
-    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3, snapshot333);
-    */
 
     // TODO: Add metrics on cache metadata updates.
     // Updating data in a node refreshes the cache.
@@ -253,5 +239,21 @@ public class CachedMetadataStoreImplTest {
 
     // TODO: test node expiry
     cache.close();
+  }
+
+  @Test
+  public void testCachedStoreWorksForNestedPersistentNodes() {
+   /*
+    // TODO: Creating nesting when adding objects throws an exception in the cache since the nested
+    //  object
+    //  doesn't have a KalDbMetdata Type. Add a unit test to test for this use case.
+    // TODO: Move below code into it's own unit test because of above issues?
+    // Nesting in existing paths are also cached.
+    String path333 = "/root/3/33/333";
+    SnapshotMetadata snapshot333 = makeSnapshot("test333");
+    assertThat(metadataStore.create(path333, serDe.toJsonStr(snapshot333), true).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(4));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3, snapshot333);
+    */
   }
 }
