@@ -1,8 +1,10 @@
 package com.slack.kaldb.metadata.zookeeper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
@@ -10,6 +12,7 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -74,6 +77,7 @@ public class CachedMetadataStoreImplTest {
     String root = "/root";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
     CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore("/root", null, serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
 
     String path1 = "/root/1";
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
@@ -99,7 +103,6 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.get("3").get()).isEqualTo(snapshot3);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3);
 
-
     // TODO: Add metrics on cache metadata updates.
     // Updating data in a node refreshes the cache.
     SnapshotMetadata snapshot31 = makeSnapshot("snapshot31");
@@ -116,6 +119,24 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
 
     cache.close();
+
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
+
+    // Cache is not cleared after closing. The data grows stale.
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    assertThat(metadataStore.create(path3, serDe.toJsonStr(snapshot31), true).get()).isNull();
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    // Restarting the cache throws an exception.
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () -> {
+              cache.start();
+            });
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
+    // A stale cache can still be accessed.
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
   }
 
   // TODO: Add a test with a counting listener.
@@ -128,6 +149,7 @@ public class CachedMetadataStoreImplTest {
     String root = "/eroot";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
     CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
 
     String path1 = "/eroot/ephemeral1";
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
@@ -170,8 +192,24 @@ public class CachedMetadataStoreImplTest {
 
     // TODO: test node expiry
     cache.close();
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
 
-    // TODO: Test cache close semantics.
+    // Cache is not cleared after closing. The data grows stale.
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    assertThat(metadataStore.createEphemeralNode(path3, serDe.toJsonStr(snapshot31)).get())
+        .isNull();
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    // Restarting the cache throws an exception.
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () -> {
+              cache.start();
+            });
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
+    // A stale cache can still be accessed.
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
   }
 
   @Test
@@ -211,6 +249,8 @@ public class CachedMetadataStoreImplTest {
     cache.close();
   }
 
+  // TODO: Test a mixed node cache.
+
   // TODO: This test seems redundant?
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
@@ -242,8 +282,16 @@ public class CachedMetadataStoreImplTest {
   }
 
   @Test
-  public void testCachedStoreWorksForNestedPersistentNodes() {
-   /*
+  public void testCachedStoreWorksForNestedPersistentNodes()
+      throws ExecutionException, InterruptedException, InvalidProtocolBufferException {
+    final String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    final String node = "/root/node";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(node, serDe.toJsonStr(snapshot1), true).get()).isNull();
+
+    /*
     // TODO: Creating nesting when adding objects throws an exception in the cache since the nested
     //  object
     //  doesn't have a KalDbMetdata Type. Add a unit test to test for this use case.

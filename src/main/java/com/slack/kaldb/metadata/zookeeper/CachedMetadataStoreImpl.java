@@ -190,6 +190,11 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     }
   }
 
+  @VisibleForTesting
+  public boolean isStarted() {
+    return state.get().equals(State.STARTED);
+  }
+
   private void initialized() {
     initializedLatch.countDown();
   }
