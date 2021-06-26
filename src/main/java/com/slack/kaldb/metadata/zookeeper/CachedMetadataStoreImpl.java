@@ -71,7 +71,8 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     // Create a curator cache but don't store any data in it since CacheStorage only allows
     // storing data as a byte array. Instead use the curator cache implementation for
     // managing persistent watchers and other admin tasks. Instead add a listener which would
-    // cache the data locally as a POJO using a serializer.
+    // cache the data locally as a POJO using a serializer. In future, this also allows us to store
+    // the data in a custom data structure other than a hash table.
     cache =
         CuratorCache.bridgeBuilder(curator, path)
             .withExecutorService(executorService)
