@@ -65,7 +65,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
       ExecutorService executorService) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
-    Preconditions.checkNotNull(curator, "curator framrwork cannot be null");
+    Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
 
     // Create a curator cache but don't store any data in it since CacheStorage only allows
