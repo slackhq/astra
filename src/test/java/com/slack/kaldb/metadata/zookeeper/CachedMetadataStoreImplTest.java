@@ -185,7 +185,6 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.get(path3).isPresent()).isFalse();
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
 
-    // TODO: test node expiry
     cache.close();
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
 
