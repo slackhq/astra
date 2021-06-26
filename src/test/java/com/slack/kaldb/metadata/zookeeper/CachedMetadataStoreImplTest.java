@@ -269,8 +269,6 @@ public class CachedMetadataStoreImplTest {
     cache.close();
   }
 
-  // TODO: Test a mixed node cache.
-
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testWatchingEphermeralNode() throws Exception {
