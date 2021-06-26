@@ -54,7 +54,6 @@ public class CachedMetadataStoreImplTest {
     return new SnapshotMetadata(name, "/testPath_" + name, name + "snapshotId", 1, 100, 1, "1");
   }
 
-  // TODO: Consider using the ZK store config?
   private CachedMetadataStore<SnapshotMetadata> makeCachedStore(
       String path,
       CachedMetadataStoreListener listener,
@@ -211,7 +210,6 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.exists(root).get()).isTrue();
   }
 
-  // TODO: This test seems redundant?
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testWatchingPersistentNode() throws Exception {
@@ -273,7 +271,6 @@ public class CachedMetadataStoreImplTest {
 
   // TODO: Test a mixed node cache.
 
-  // TODO: This test seems redundant?
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testWatchingEphermeralNode() throws Exception {
