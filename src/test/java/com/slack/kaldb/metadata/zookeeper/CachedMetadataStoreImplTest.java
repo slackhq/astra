@@ -241,6 +241,36 @@ public class CachedMetadataStoreImplTest {
     cache.close();
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testCachingPersistentNodeOnCuratorShutdown() throws Exception {
+    final String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    final String node = "/root/node";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(node, serDe.toJsonStr(snapshot1), true).get()).isNull();
+
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+
+    await().untilAsserted(() -> assertThat(cache.get("node").get()).isEqualTo(snapshot1));
+    assertThat(cache.getInstances().size()).isEqualTo(1);
+    assertThat(metadataStore.exists(node).get()).isTrue();
+    assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+
+    SnapshotMetadata snapshot11 = makeSnapshot("test11");
+    assertThat(metadataStore.put(node, serDe.toJsonStr(snapshot11)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node").get()).isEqualTo(snapshot11));
+    assertThat(cache.getInstances().size()).isEqualTo(1);
+
+    // Closing the curator connection still keeps the persistent node around in the cache.
+    metadataStore.close();
+    await().untilAsserted(() -> assertThat(cache.getInstances().isEmpty()).isFalse());
+    assertThat(cache.getInstances().get(0)).isEqualTo(snapshot11);
+
+    cache.close();
+  }
+
   // TODO: Test a mixed node cache.
 
   // TODO: This test seems redundant?
