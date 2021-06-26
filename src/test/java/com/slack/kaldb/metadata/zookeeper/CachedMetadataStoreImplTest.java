@@ -327,6 +327,48 @@ public class CachedMetadataStoreImplTest {
     cache.close();
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testCacheCanHoldPersistentOrEphemeralNodes() throws Exception {
+    final String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    final String ephemeralNode = "/root/enode";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.createEphemeralNode(ephemeralNode, serDe.toJsonStr(snapshot1)).get())
+        .isNull();
+
+    final String persistentNode = "/root/node";
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.create(persistentNode, serDe.toJsonStr(snapshot2), true).get())
+        .isNull();
+
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(metadataStore.get(ephemeralNode).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+    assertThat(metadataStore.get(persistentNode).get()).isEqualTo(serDe.toJsonStr(snapshot2));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    SnapshotMetadata snapshot11 = makeSnapshot("test11");
+    assertThat(metadataStore.put(ephemeralNode, serDe.toJsonStr(snapshot11)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot2);
+
+    SnapshotMetadata snapshot21 = makeSnapshot("test21");
+    assertThat(metadataStore.put(persistentNode, serDe.toJsonStr(snapshot21)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node").get()).isEqualTo(snapshot21));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21);
+
+    // Closing the curator connection expires the ephemeral node and cache is left with
+    // persistent node.
+    metadataStore.close();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(1));
+    assertThat(cache.getInstances()).containsOnly(snapshot21);
+
+    cache.close();
+  }
+
   @Test
   public void testCachedStoreWorksForNestedPersistentNodes()
       throws ExecutionException, InterruptedException, InvalidProtocolBufferException {
