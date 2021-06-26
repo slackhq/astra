@@ -129,11 +129,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
 
     // Restarting the cache throws an exception.
-    assertThatIllegalStateException()
-        .isThrownBy(
-            () -> {
-              cache.start();
-            });
+    assertThatIllegalStateException().isThrownBy(cache::start);
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
     // A stale cache can still be accessed.
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
@@ -202,11 +198,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
 
     // Restarting the cache throws an exception.
-    assertThatIllegalStateException()
-        .isThrownBy(
-            () -> {
-              cache.start();
-            });
+    assertThatIllegalStateException().isThrownBy(cache::start);
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
     // A stale cache can still be accessed.
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
@@ -277,7 +269,34 @@ public class CachedMetadataStoreImplTest {
     await().untilAsserted(() -> assertThat(cache.get("enode").isPresent()).isFalse());
     assertThat(cache.getInstances()).isEmpty();
 
-    // TODO: test node expiry
+    cache.close();
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testEphermeralNodeExpiry() throws Exception {
+    final String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    final String node = "/root/enode";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.createEphemeralNode(node, serDe.toJsonStr(snapshot1)).get()).isNull();
+
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot1));
+    assertThat(cache.getInstances().size()).isEqualTo(1);
+    assertThat(metadataStore.exists(node).get()).isTrue();
+    assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+
+    SnapshotMetadata snapshot11 = makeSnapshot("test11");
+    assertThat(metadataStore.put(node, serDe.toJsonStr(snapshot11)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
+    assertThat(cache.getInstances().size()).isEqualTo(1);
+
+    // Closing the curator connection expires the ephemeral node and cache is updated also.
+    metadataStore.close();
+    await().untilAsserted(() -> assertThat(cache.getInstances().isEmpty()).isTrue());
+
     cache.close();
   }
 
