@@ -26,7 +26,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-public class KalDBReadServiceTest {
+public class KaldbQueryServiceTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry;
@@ -75,7 +75,7 @@ public class KalDBReadServiceTest {
     readServer.start().join();
 
     // We want to query the indexing server
-    KalDBReadService.servers = "gproto+http://127.0.0.1:8080/";
+    KaldbQueryService.servers = "gproto+http://127.0.0.1:8080/";
     readServiceStub =
         Clients.newClient(
             "gproto+http://127.0.0.1:8081/", KaldbServiceGrpc.KaldbServiceBlockingStub.class);
@@ -104,7 +104,7 @@ public class KalDBReadServiceTest {
   }
 
   private static Server newReadServer(KaldbConfigs.KaldbConfig kaldbConfig) {
-    KalDBReadService service = new KalDBReadService();
+    KaldbQueryService service = new KaldbQueryService();
     return Server.builder()
         .http(kaldbConfig.getReadConfig().getServerPort())
         .verboseResponses(true)

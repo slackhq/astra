@@ -7,9 +7,9 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KalDBReadService extends KaldbServiceGrpc.KaldbServiceImplBase {
+public class KaldbQueryService extends KaldbServiceGrpc.KaldbServiceImplBase {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KalDBReadService.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbQueryService.class);
 
   public static String servers = "gproto+http://127.0.0.1:8080/";
 

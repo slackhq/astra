@@ -109,7 +109,7 @@ public class Kaldb {
       ServerBuilder sb = Server.builder();
 
       GrpcServiceBuilder searchBuilder =
-          GrpcService.builder().addService(new KalDBReadService()).enableUnframedRequests(true);
+          GrpcService.builder().addService(new KaldbQueryService()).enableUnframedRequests(true);
       sb.service(searchBuilder.build());
 
       final int serverPort = KaldbConfig.get().getReadConfig().getServerPort();
