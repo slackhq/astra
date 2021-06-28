@@ -19,9 +19,9 @@ kafkaConfig:
   kafkaSessionTimeout: "30000"
 
 s3Config:
-  s3AccessKey: ${S3_ACCESS_KEY:-}
-  s3SecretKey: ${S3_SECRET_KEY:-}
+  s3AccessKey: ${S3_ACCESS_KEY:-access}
+  s3SecretKey: ${S3_SECRET_KEY:-key}
   s3Region: ${S3_REGION:-us-east-1}
-  s3EndPoint: ${S3_ENDPOINT:-localhost:9090}
+  s3EndPoint: ${S3_ENDPOINT:-http://localhost:9090}
   s3Bucket: ${S3_BUCKET:-test-s3-bucket}
 
