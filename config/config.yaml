@@ -1,22 +1,22 @@
-serverPort: 8080
+serverPort: ${KALDB_SERVER_PORT:-8080}
 
 indexerConfig:
-  maxMessagesPerChunk: 100
-  maxBytesPerChunk: 100000
-  commitDurationSecs: 10
-  refreshDurationSecs: 11
-  staleDurationSecs: 7200
+  maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100}
+  maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-100000}
+  commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
+  refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
+  staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
-  dataDirectory: "/tmp"
+  dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
   kafkaTopicPartition: ${KAFKA_TOPIC_PARTITION:-0}
   kafkaBootStrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
   kafkaClientGroup: ${KAFKA_CLIENT_GROUP:-kaldb-test}
-  enableKafkaAutoCommit: "true"
-  kafkaAutoCommitInterval: "5000"
-  kafkaSessionTimeout: "30000"
+  enableKafkaAutoCommit: ${KAFKA_AUTO_COMMIT:-true}
+  kafkaAutoCommitInterval: ${KAFKA_AUTO_COMMIT_INTERVAL:-5000}
+  kafkaSessionTimeout: ${KAFKA_SESSION_TIMEOUT:-30000}
 
 s3Config:
   s3AccessKey: ${S3_ACCESS_KEY:-access}
