@@ -17,7 +17,7 @@ public class KaldbConfigUtil {
       int kafkaPartition,
       String kafkaClientGroup,
       String s3Bucket,
-      int readPort) {
+      int queryPort) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -42,14 +42,14 @@ public class KaldbConfigUtil {
             .setStaleDurationSecs(7200)
             .build();
 
-    KaldbConfigs.ReadConfig readConfig =
-        KaldbConfigs.ReadConfig.newBuilder().setServerPort(readPort).build();
+    KaldbConfigs.QueryServiceConfig queryConfig =
+        KaldbConfigs.QueryServiceConfig.newBuilder().setServerPort(queryPort).build();
 
     return KaldbConfigs.KaldbConfig.newBuilder()
         .setKafkaConfig(kafkaConfig)
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
-        .setReadConfig(readConfig)
+        .setReadConfig(queryConfig)
         .build();
   }
 }

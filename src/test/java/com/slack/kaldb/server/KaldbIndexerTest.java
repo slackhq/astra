@@ -113,7 +113,7 @@ public class KaldbIndexerTest {
     KaldbConfigs.KaldbConfig kaldbCfg =
         KaldbConfigUtil.makeKaldbConfig(
             "localhost:" + broker.getKafkaPort().get(),
-            8080,
+            0,
             TEST_KAFKA_TOPIC,
             TEST_KAFKA_PARTITION,
             KALDB_TEST_CLIENT,
@@ -123,7 +123,7 @@ public class KaldbIndexerTest {
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
-    sb.http(8080);
+    sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     KaldbIndexer indexer =
         new KaldbIndexer(

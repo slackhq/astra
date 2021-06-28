@@ -21,6 +21,8 @@ import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -75,7 +77,9 @@ public class KaldbQueryServiceTest {
     readServer.start().join();
 
     // We want to query the indexing server
-    KaldbQueryService.servers = "gproto+http://127.0.0.1:8080/";
+    List<String> servers = new ArrayList<>();
+    servers.add("gproto+http://127.0.0.1:8080/");
+    KaldbQueryService.servers = servers;
     readServiceStub =
         Clients.newClient(
             "gproto+http://127.0.0.1:8081/", KaldbServiceGrpc.KaldbServiceBlockingStub.class);

@@ -95,11 +95,7 @@ public class Kaldb {
 
       // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
       // subclass of this class?
-      // TODO: Start in a background thread.
       indexer.start();
-
-      // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
-      // ServiceManager?
     }
 
     if (roles.contains(READ_NODE_ROLE)) {
@@ -121,6 +117,9 @@ public class Kaldb {
       serverFuture.join();
       LOG.info("Started read server on port: {}", serverPort);
     }
+
+    // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
+    // ServiceManager?
   }
 
   private LoggingServiceBuilder getLoggingServiceBuilder() {

@@ -8,7 +8,7 @@ message KaldbConfig {
     KafkaConfig kafkaConfig = 1;
     S3Config s3Config = 2;
     IndexerConfig indexerConfig = 3;
-    ReadConfig readConfig = 4;
+    QueryServiceConfig readConfig = 4;
     repeated string nodeRoles = 5;
 }
 
@@ -30,7 +30,7 @@ message S3Config {
     string s3Bucket = 5;
 }
 
-message ReadConfig {
+message QueryServiceConfig {
     int32 serverPort = 1;
 }
 
