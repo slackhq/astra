@@ -14,6 +14,7 @@ import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -36,10 +37,6 @@ import org.slf4j.LoggerFactory;
  */
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
-
-  public static String READ_NODE_ROLE = "read";
-  public static String CACHE_NODE_ROLE = "cache";
-  public static String INDEX_NODE_ROLE = "index";
 
   private static final PrometheusMeterRegistry indexerPromMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
@@ -67,9 +64,9 @@ public class Kaldb {
 
   public void setup() {
     LOG.info("Starting Kaldb server");
-    HashSet<String> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
+    HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
-    if (roles.contains(INDEX_NODE_ROLE)) {
+    if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       setupMetrics(indexerPromMeterRegistry);
       LOG.info("Done registering standard JVM metrics for indexer service");
 
@@ -98,7 +95,7 @@ public class Kaldb {
       indexer.start();
     }
 
-    if (roles.contains(READ_NODE_ROLE)) {
+    if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       setupMetrics(readPromMeterRegistry);
       LOG.info("Done registering standard JVM metrics for read service");
 
