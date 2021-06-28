@@ -136,7 +136,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getReadConfig();
+    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isEqualTo(8081);
   }
 
@@ -182,7 +182,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getReadConfig();
+    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isEqualTo(8081);
   }
 
@@ -226,7 +226,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
     assertThat(indexerConfig.getServerPort()).isZero();
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getReadConfig();
+    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isZero();
   }
 
@@ -260,7 +260,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
     assertThat(indexerConfig.getServerPort()).isZero();
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getReadConfig();
+    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isZero();
   }
 }

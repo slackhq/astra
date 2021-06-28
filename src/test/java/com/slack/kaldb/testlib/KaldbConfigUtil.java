@@ -49,7 +49,7 @@ public class KaldbConfigUtil {
         .setKafkaConfig(kafkaConfig)
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
-        .setReadConfig(queryConfig)
+        .setQueryConfig(queryConfig)
         .build();
   }
 }

@@ -110,7 +110,7 @@ public class KaldbQueryServiceTest {
   private static Server newReadServer(KaldbConfigs.KaldbConfig kaldbConfig) {
     KaldbQueryService service = new KaldbQueryService();
     return Server.builder()
-        .http(kaldbConfig.getReadConfig().getServerPort())
+        .http(kaldbConfig.getQueryConfig().getServerPort())
         .verboseResponses(true)
         .service(GrpcService.builder().addService(service).build())
         .build();

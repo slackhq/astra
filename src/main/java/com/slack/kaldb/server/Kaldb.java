@@ -67,7 +67,7 @@ public class Kaldb {
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      setupMetrics(indexerPromMeterRegistry);
+      setupSystemMetrics(indexerPromMeterRegistry);
       LOG.info("Done registering standard JVM metrics for indexer service");
 
       ServerBuilder sb = Server.builder();
@@ -96,7 +96,7 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
-      setupMetrics(readPromMeterRegistry);
+      setupSystemMetrics(readPromMeterRegistry);
       LOG.info("Done registering standard JVM metrics for read service");
 
       ServerBuilder sb = Server.builder();
@@ -105,7 +105,7 @@ public class Kaldb {
           GrpcService.builder().addService(new KaldbQueryService()).enableUnframedRequests(true);
       sb.service(searchBuilder.build());
 
-      final int serverPort = KaldbConfig.get().getReadConfig().getServerPort();
+      final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
       addManagementEndpoints(sb, serverPort, readPromMeterRegistry);
 
       Server server = sb.build();
@@ -128,7 +128,7 @@ public class Kaldb {
         .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
 
-  private void setupMetrics(PrometheusMeterRegistry meterRegistry) {
+  private void setupSystemMetrics(PrometheusMeterRegistry meterRegistry) {
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(meterRegistry);
     new JvmMemoryMetrics().bindTo(meterRegistry);

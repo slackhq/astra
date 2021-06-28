@@ -5,16 +5,16 @@ package slack.proto.kaldb;
 option java_package = "com.slack.kaldb.proto.config";
 
 enum NodeRole {
-    INDEX  = 0;
-    QUERY    = 1;
-    CACHE   = 2;
+    INDEX = 0;
+    QUERY = 1;
+    CACHE = 2;
 };
 
 message KaldbConfig {
     KafkaConfig kafkaConfig = 1;
     S3Config s3Config = 2;
     IndexerConfig indexerConfig = 3;
-    QueryServiceConfig readConfig = 4;
+    QueryServiceConfig queryConfig = 4;
     repeated NodeRole nodeRoles = 5;
 }
 
