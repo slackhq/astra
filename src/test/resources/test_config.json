@@ -25,7 +25,7 @@
     "dataDirectory": "/tmp",
     "serverPort": 8080
   },
-  "readConfig": {
+  "queryConfig": {
     "serverPort": 8081
   }
 }
