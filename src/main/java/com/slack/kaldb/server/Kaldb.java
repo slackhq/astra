@@ -14,6 +14,7 @@ import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -25,6 +26,7 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,17 +46,7 @@ public class Kaldb {
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  public void setup() {
-    LOG.info("Starting Kaldb server");
-
-    setupMetrics();
-
-    // Create an indexer and a grpc search service.
-    KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
-
-    final int serverPort = KaldbConfig.get().getServerPort();
-    // Create an API server to serve the search requests.
-    ServerBuilder sb = Server.builder();
+  private void addManagementEndpoints(ServerBuilder sb, int serverPort) {
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.decorator(getLoggingServiceBuilder().newDecorator());
@@ -63,23 +55,57 @@ public class Kaldb {
     sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());
     sb.serviceUnder("/internal/management/", ManagementService.of());
+  }
 
-    // Create a protobuf handler service that calls chunkManager on search.
-    GrpcServiceBuilder searchBuilder =
-        GrpcService.builder()
-            .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))
-            .enableUnframedRequests(true);
-    sb.service(searchBuilder.build());
+  public void setup() {
+    LOG.info("Starting Kaldb server");
+    HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
-    Server server = sb.build();
-    CompletableFuture<Void> serverFuture = server.start();
-    serverFuture.join();
-    LOG.info("Started server on port: {}", serverPort);
+    setupSystemMetrics();
+    if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
+      LOG.info("Done registering standard JVM metrics for indexer service");
 
-    // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
-    // subclass of this class?
-    // TODO: Start in a background thread.
-    indexer.start();
+      ServerBuilder sb = Server.builder();
+      // Create an indexer and a grpc search service.
+      KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
+
+      // Create a protobuf handler service that calls chunkManager on search.
+      GrpcServiceBuilder searchBuilder =
+          GrpcService.builder()
+              .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))
+              .enableUnframedRequests(true);
+      sb.service(searchBuilder.build());
+
+      final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
+      addManagementEndpoints(sb, serverPort);
+
+      Server server = sb.build();
+
+      CompletableFuture<Void> serverFuture = server.start();
+      serverFuture.join();
+      LOG.info("Started indexer server on port: {}", serverPort);
+
+      // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
+      // subclass of this class?
+      indexer.start();
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
+      ServerBuilder sb = Server.builder();
+
+      GrpcServiceBuilder searchBuilder =
+          GrpcService.builder().addService(new KaldbQueryService()).enableUnframedRequests(true);
+      sb.service(searchBuilder.build());
+
+      final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
+      addManagementEndpoints(sb, serverPort);
+
+      Server server = sb.build();
+
+      CompletableFuture<Void> serverFuture = server.start();
+      serverFuture.join();
+      LOG.info("Started query server on port: {}", serverPort);
+    }
 
     // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
     // ServiceManager?
@@ -94,14 +120,13 @@ public class Kaldb {
         .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
 
-  private void setupMetrics() {
+  private void setupSystemMetrics() {
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
     new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
     new JvmGcMetrics().bindTo(prometheusMeterRegistry);
     new ProcessorMetrics().bindTo(prometheusMeterRegistry);
     new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
-    LOG.info("Done registering standard JVM metrics.");
   }
 
   public void close() {
