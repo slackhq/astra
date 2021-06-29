@@ -139,12 +139,12 @@ public class KaldbQueryServiceTest {
       queryServer.stop().join();
     }
   }
-  
+
   // TODO: Add a test to query multiple servers and aggregate their results.
   // TODO: Add a test where one of the servers times out/throws error.
   // TODO: Add a test for a non-existent server.
   // TODO: Add a case where the time out is hit even server responses are successful.
-  
+
   @Test
   public void testSearch() {
     KaldbSearch.SearchResult searchResponse =
