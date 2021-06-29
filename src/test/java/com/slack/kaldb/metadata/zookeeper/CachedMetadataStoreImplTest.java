@@ -13,6 +13,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -25,6 +27,29 @@ public class CachedMetadataStoreImplTest {
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private final SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
+
+  static class CountingCachedMetadataListener implements CachedMetadataStoreListener {
+    private int cacheChangedCounter = 0;
+    private int stateChangedCounter = 0;
+
+    @Override
+    public void cacheChanged() {
+      cacheChangedCounter += 1;
+    }
+
+    @Override
+    public void stateChanged(CuratorFramework client, ConnectionState newState) {
+      stateChangedCounter += 1;
+    }
+
+    public int getCacheChangedCounter() {
+      return cacheChangedCounter;
+    }
+
+    public int getStateChangedCounter() {
+      return stateChangedCounter;
+    }
+  }
 
   @Before
   public void setUp() throws Exception {
@@ -75,7 +100,8 @@ public class CachedMetadataStoreImplTest {
   public void watchCachePersistentTreeTest() throws Exception {
     String root = "/root";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
-    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore("/root", null, serDe);
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore("/root", listener, serDe);
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
 
     String path1 = "/root/1";
@@ -85,6 +111,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path1).get()).isEqualTo(serDe.toJsonStr(snapshot1));
     assertThat(cache.get("1").get()).isEqualTo(snapshot1);
     assertThat(cache.getInstances().get(0)).isEqualTo(snapshot1);
+    // assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    // assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     String path2 = "/root/2";
     SnapshotMetadata snapshot2 = makeSnapshot("test2");
@@ -116,6 +144,8 @@ public class CachedMetadataStoreImplTest {
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
     assertThat(cache.get(path3).isPresent()).isFalse();
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(1);
 
     cache.close();
 
