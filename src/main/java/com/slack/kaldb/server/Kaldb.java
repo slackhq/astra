@@ -38,26 +38,21 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private static final PrometheusMeterRegistry indexerPromMeterRegistry =
-      new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-
-  private static final PrometheusMeterRegistry readPromMeterRegistry =
+  private static final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
   public Kaldb(Path configFilePath) throws IOException {
-    Metrics.addRegistry(indexerPromMeterRegistry);
-    Metrics.addRegistry(readPromMeterRegistry);
+    Metrics.addRegistry(prometheusMeterRegistry);
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  private void addManagementEndpoints(
-      ServerBuilder sb, int serverPort, PrometheusMeterRegistry meterRegistry) {
+  private void addManagementEndpoints(ServerBuilder sb, int serverPort) {
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.decorator(getLoggingServiceBuilder().newDecorator());
     sb.http(serverPort);
     sb.service("/health", HealthCheckService.builder().build());
-    sb.service("/metrics", (ctx, req) -> HttpResponse.of(meterRegistry.scrape()));
+    sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
     sb.serviceUnder("/docs", new DocService());
     sb.serviceUnder("/internal/management/", ManagementService.of());
   }
@@ -66,13 +61,13 @@ public class Kaldb {
     LOG.info("Starting Kaldb server");
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
+    setupSystemMetrics();
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      setupSystemMetrics(indexerPromMeterRegistry);
       LOG.info("Done registering standard JVM metrics for indexer service");
 
       ServerBuilder sb = Server.builder();
       // Create an indexer and a grpc search service.
-      KaldbIndexer indexer = KaldbIndexer.fromConfig(indexerPromMeterRegistry);
+      KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
 
       // Create a protobuf handler service that calls chunkManager on search.
       GrpcServiceBuilder searchBuilder =
@@ -82,7 +77,7 @@ public class Kaldb {
       sb.service(searchBuilder.build());
 
       final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
-      addManagementEndpoints(sb, serverPort, indexerPromMeterRegistry);
+      addManagementEndpoints(sb, serverPort);
 
       Server server = sb.build();
 
@@ -96,9 +91,6 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
-      setupSystemMetrics(readPromMeterRegistry);
-      LOG.info("Done registering standard JVM metrics for read service");
-
       ServerBuilder sb = Server.builder();
 
       GrpcServiceBuilder searchBuilder =
@@ -106,7 +98,7 @@ public class Kaldb {
       sb.service(searchBuilder.build());
 
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
-      addManagementEndpoints(sb, serverPort, readPromMeterRegistry);
+      addManagementEndpoints(sb, serverPort);
 
       Server server = sb.build();
 
@@ -128,13 +120,13 @@ public class Kaldb {
         .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
 
-  private void setupSystemMetrics(PrometheusMeterRegistry meterRegistry) {
+  private void setupSystemMetrics() {
     // Expose JVM metrics.
-    new ClassLoaderMetrics().bindTo(meterRegistry);
-    new JvmMemoryMetrics().bindTo(meterRegistry);
-    new JvmGcMetrics().bindTo(meterRegistry);
-    new ProcessorMetrics().bindTo(meterRegistry);
-    new JvmThreadMetrics().bindTo(meterRegistry);
+    new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
+    new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
+    new JvmGcMetrics().bindTo(prometheusMeterRegistry);
+    new ProcessorMetrics().bindTo(prometheusMeterRegistry);
+    new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
   }
 
   public void close() {

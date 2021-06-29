@@ -16,10 +16,8 @@ public class KaldbQueryService extends KaldbServiceGrpc.KaldbServiceImplBase {
   public static List<String> servers = new ArrayList<>();
 
   /**
-   * TODO once we have ZK integration we would have the servers variable be 1. a list 2. update when
-   * the ZK list entry changes 3. Figure out how in SearchRequest can we pass in the list of servers
-   * that we actually need to query on 4. Cache the stub as it creates a gRPC channel which is
-   * supposed to be reused
+   * TODO 1. Cache the stub 2. Run in parallel 3. Integrate with ZK to update list 4. Aggregate the
+   * responses instead of only returning the result from the first server
    */
   public KaldbSearch.SearchResult distributedSearch(KaldbSearch.SearchRequest request) {
     for (String server : servers) {

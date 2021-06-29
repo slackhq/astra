@@ -56,7 +56,7 @@ public class KaldbQueryServiceTest {
     KaldbConfigs.KaldbConfig kaldbConfig =
         KaldbConfigUtil.makeKaldbConfig(
             "localhost:" + broker.getKafkaPort().get(),
-            8080,
+            0,
             TEST_KAFKA_TOPIC,
             TEST_KAFKA_PARTITION,
             KALDB_TEST_CLIENT,
@@ -73,16 +73,20 @@ public class KaldbQueryServiceTest {
     Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry)).isEqualTo(100);
 
-    readServer = newReadServer(kaldbConfig);
+    // Don't respect the queryPort from the config - In case multiple tests run in parallel this
+    // gives us a better chance to avoid port collisions
+    readServer = newQueryServer(kaldbConfig, (indexingServer.activeLocalPort() + 1));
     readServer.start().join();
 
     // We want to query the indexing server
     List<String> servers = new ArrayList<>();
-    servers.add("gproto+http://127.0.0.1:8080/");
+    servers.add(String.format("gproto+http://127.0.0.1:%s/", indexingServer.activeLocalPort()));
     KaldbQueryService.servers = servers;
+
     readServiceStub =
         Clients.newClient(
-            "gproto+http://127.0.0.1:8081/", KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+            String.format("gproto+http://127.0.0.1:%s/", indexingServer.activeLocalPort() + 1),
+            KaldbServiceGrpc.KaldbServiceBlockingStub.class);
   }
 
   private static Server newIndexingServer(KaldbConfigs.KaldbConfig kaldbConfig)
@@ -107,10 +111,10 @@ public class KaldbQueryServiceTest {
         .build();
   }
 
-  private static Server newReadServer(KaldbConfigs.KaldbConfig kaldbConfig) {
+  public static Server newQueryServer(KaldbConfigs.KaldbConfig kaldbConfig, int queryPort) {
     KaldbQueryService service = new KaldbQueryService();
     return Server.builder()
-        .http(kaldbConfig.getQueryConfig().getServerPort())
+        .http(queryPort)
         .verboseResponses(true)
         .service(GrpcService.builder().addService(service).build())
         .build();
