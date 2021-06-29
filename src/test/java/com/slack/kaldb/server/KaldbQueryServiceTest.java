@@ -36,7 +36,7 @@ public class KaldbQueryServiceTest {
 
   private static KaldbServiceGrpc.KaldbServiceBlockingStub readServiceStub;
   private static Server indexingServer;
-  private static Server readServer;
+  private static Server queryServer;
 
   private static final String TEST_KAFKA_TOPIC = "test-topic";
 
@@ -48,6 +48,7 @@ public class KaldbQueryServiceTest {
   private static TestKafkaServer kafkaServer;
 
   @BeforeClass
+  // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
   public static void initialize() throws Exception {
     kafkaServer = new TestKafkaServer();
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
@@ -75,8 +76,8 @@ public class KaldbQueryServiceTest {
 
     // Don't respect the queryPort from the config - In case multiple tests run in parallel this
     // gives us a better chance to avoid port collisions
-    readServer = newQueryServer(kaldbConfig, (indexingServer.activeLocalPort() + 1));
-    readServer.start().join();
+    queryServer = newQueryServer(kaldbConfig, (indexingServer.activeLocalPort() + 1));
+    queryServer.start().join();
 
     // We want to query the indexing server
     List<String> servers = new ArrayList<>();
@@ -134,8 +135,8 @@ public class KaldbQueryServiceTest {
     if (indexingServer != null) {
       indexingServer.stop().join();
     }
-    if (readServer != null) {
-      readServer.stop().join();
+    if (queryServer != null) {
+      queryServer.stop().join();
     }
   }
 
