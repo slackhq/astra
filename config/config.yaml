@@ -1,3 +1,5 @@
+nodeRoles: [${NODE_ROLES:-QUERY,INDEX}]
+
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100}
   maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-100000}
