@@ -104,7 +104,7 @@ public class Kaldb {
 
       CompletableFuture<Void> serverFuture = server.start();
       serverFuture.join();
-      LOG.info("Started read server on port: {}", serverPort);
+      LOG.info("Started query server on port: {}", serverPort);
     }
 
     // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
