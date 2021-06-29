@@ -40,3 +40,5 @@ services:
     container_name: kaldb_s3
     ports:
       - 9090:9090
+    environment:
+      - initialBuckets=test-s3-bucket
