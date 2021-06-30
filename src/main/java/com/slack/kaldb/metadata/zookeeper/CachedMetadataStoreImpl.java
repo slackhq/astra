@@ -97,31 +97,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return Optional.ofNullable(instances.get(path));
   }
 
-  // TODO: Need these latches?
-  @VisibleForTesting volatile CountDownLatch debugStartLatch = null;
-  volatile CountDownLatch debugStartWaitLatch = null;
-
   @Override
   public void start() throws Exception {
     startImmediate().await();
   }
 
-  // @Override
   public CountDownLatch startImmediate() throws Exception {
     Preconditions.checkState(
         state.compareAndSet(State.LATENT, State.STARTED), "Cannot be started more than once");
 
     ensureContainers.ensure();
     cache.start();
-    if (debugStartLatch != null) {
-      initializedLatch.await();
-      debugStartLatch.countDown();
-      debugStartLatch = null;
-    }
-    if (debugStartWaitLatch != null) {
-      debugStartWaitLatch.await();
-      debugStartWaitLatch = null;
-    }
 
     return initializedLatch;
   }
@@ -182,7 +168,6 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   private void addInstance(ChildData childData) {
     try {
       String instanceId = instanceIdFromData(childData);
-      // TODO: Use byte arrays here.
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
       instances.put(instanceId, serviceInstance);
     } catch (Exception e) {

@@ -91,6 +91,9 @@ public class CachedMetadataStoreImplTest {
             metadataSerializer,
             metadataStore.getCurator(),
             metadataStore.getMetadataExecutorService());
+    if (listener != null) {
+      cachedMetadataStore.addListener(listener);
+    }
     cachedMetadataStore.start();
     return cachedMetadataStore;
   }
@@ -111,8 +114,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path1).get()).isEqualTo(serDe.toJsonStr(snapshot1));
     assertThat(cache.get("1").get()).isEqualTo(snapshot1);
     assertThat(cache.getInstances().get(0)).isEqualTo(snapshot1);
-    // assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
-    // assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     String path2 = "/root/2";
     SnapshotMetadata snapshot2 = makeSnapshot("test2");
@@ -121,6 +124,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path2).get()).isEqualTo(serDe.toJsonStr(snapshot2));
     assertThat(cache.get("2").get()).isEqualTo(snapshot2);
     assertThat(cache.getInstances()).contains(snapshot1, snapshot2);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     String path3 = "/root/3";
     SnapshotMetadata snapshot3 = makeSnapshot("test3");
@@ -129,6 +134,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path3).get()).isEqualTo(serDe.toJsonStr(snapshot3));
     assertThat(cache.get("3").get()).isEqualTo(snapshot3);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(3);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // TODO: Add metrics on cache metadata updates.
     // Updating data in a node refreshes the cache.
@@ -138,16 +145,20 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path3).get()).isEqualTo(serDe.toJsonStr(snapshot31));
     assertThat(cache.get("3").get()).isEqualTo(snapshot31);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot31);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(4);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Deleting a node refreshes the cache.
     assertThat(metadataStore.delete(path3).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
     assertThat(cache.get(path3).isPresent()).isFalse();
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
-    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
-    assertThat(listener.getStateChangedCounter()).isEqualTo(1);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(5);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(5);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
 
@@ -173,7 +184,8 @@ public class CachedMetadataStoreImplTest {
   public void testWatchCacheEphemeralTreeTest() throws Exception {
     String root = "/eroot";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
-    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
 
     String path1 = "/eroot/ephemeral1";
@@ -183,6 +195,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path1).get()).isEqualTo(serDe.toJsonStr(snapshot1));
     assertThat(cache.get("ephemeral1").get()).isEqualTo(snapshot1);
     assertThat(cache.getInstances().get(0)).isEqualTo(snapshot1);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     String path2 = "/eroot/ephemeral2";
     SnapshotMetadata snapshot2 = makeSnapshot("test2");
@@ -191,6 +205,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path2).get()).isEqualTo(serDe.toJsonStr(snapshot2));
     assertThat(cache.get("ephemeral2").get()).isEqualTo(snapshot2);
     assertThat(cache.getInstances()).contains(snapshot1, snapshot2);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     String path3 = "/eroot/ephemeral3";
     SnapshotMetadata snapshot3 = makeSnapshot("test3");
@@ -199,6 +215,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path3).get()).isEqualTo(serDe.toJsonStr(snapshot3));
     assertThat(cache.get("ephemeral3").get()).isEqualTo(snapshot3);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(3);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // TODO: Add metrics on cache metadata updates.
     // Updating ephemeral data in a node refreshes the cache.
@@ -208,15 +226,21 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.get(path3).get()).isEqualTo(serDe.toJsonStr(snapshot31));
     assertThat(cache.get("ephemeral3").get()).isEqualTo(snapshot31);
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot31);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(4);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Deleting ephemeral node refreshes the cache.
     assertThat(metadataStore.delete(path3).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
     assertThat(cache.get(path3).isPresent()).isFalse();
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(5);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
     assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isFalse();
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(5);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Cache is not cleared after closing. The data grows stale.
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
@@ -336,20 +360,29 @@ public class CachedMetadataStoreImplTest {
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
     assertThat(metadataStore.createEphemeralNode(node, serDe.toJsonStr(snapshot1)).get()).isNull();
 
-    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, null, serDe);
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
     await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot1));
     assertThat(cache.getInstances().size()).isEqualTo(1);
     assertThat(metadataStore.exists(node).get()).isTrue();
     assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+    // No cache changes so no listener invocations.
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     SnapshotMetadata snapshot11 = makeSnapshot("test11");
     assertThat(metadataStore.put(node, serDe.toJsonStr(snapshot11)).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
     assertThat(cache.getInstances().size()).isEqualTo(1);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Closing the curator connection expires the ephemeral node and cache is updated also.
     metadataStore.close();
     await().untilAsserted(() -> assertThat(cache.getInstances().isEmpty()).isTrue());
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    // State changed listener is never called.
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
   }
