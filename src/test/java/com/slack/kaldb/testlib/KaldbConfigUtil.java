@@ -6,8 +6,8 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 
 public class KaldbConfigUtil {
   // Initialize kaldb config with empty for tests.
-  public static void initEmptyConfig() throws InvalidProtocolBufferException {
-    KaldbConfig.initFromJsonStr("{}");
+  public static void initEmptyIndexerConfig() throws InvalidProtocolBufferException {
+    KaldbConfig.initFromJsonStr("{\"nodeRoles\": [INDEX]}");
   }
 
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(

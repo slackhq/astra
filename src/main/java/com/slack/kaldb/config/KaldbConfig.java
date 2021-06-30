@@ -10,6 +10,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.*;
 import org.apache.commons.text.StringSubstitutor;
 
 /**
@@ -26,7 +27,19 @@ public class KaldbConfig {
       throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig.Builder kaldbConfigBuilder = KaldbConfigs.KaldbConfig.newBuilder();
     JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, kaldbConfigBuilder);
-    return kaldbConfigBuilder.build();
+    KaldbConfigs.KaldbConfig kaldbConfig = kaldbConfigBuilder.build();
+    validateConfig(kaldbConfig);
+    return kaldbConfig;
+  }
+
+  public static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
+    // We don't need further checks for node roles since JSON parsing will throw away roles not part
+    // of the enum
+    if (kaldbConfig.getNodeRolesList().isEmpty()) {
+      throw new RuntimeException(
+          "Kaldb must start with atleast 1 node role. Accepted roles are "
+              + Arrays.toString(KaldbConfigs.NodeRole.values()));
+    }
   }
 
   // Parse a yaml string as a KaldbConfig proto struct

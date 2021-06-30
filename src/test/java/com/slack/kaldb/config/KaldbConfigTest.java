@@ -8,7 +8,9 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -36,13 +38,24 @@ public class KaldbConfigTest {
 
   @Test
   public void testIntToStrTypeConversionForWrongJsonType() throws InvalidProtocolBufferException {
+    /*
+     {
+       "kafkaConfig": {
+         "kafkaTopicPartition": 1,
+         "kafkaSessionTimeout": 30000
+       },
+       nodeRoles: [INDEX]
+     }
+    */
+    // Need https://openjdk.java.net/jeps/355
     final String missingRequiredField =
         "{\n"
-            + "  \"kafkaConfig\" : {\n"
-            + "    \"kafkaTopicPartition\": \"1\",\n"
+            + "  \"kafkaConfig\": {\n"
+            + "    \"kafkaTopicPartition\": 1,\n"
             + "    \"kafkaSessionTimeout\": 30000\n"
-            + "  }\n"
-            + "}\n";
+            + "  },\n"
+            + "  nodeRoles: [INDEX]\n"
+            + "}";
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(missingRequiredField);
 
@@ -53,13 +66,24 @@ public class KaldbConfigTest {
 
   @Test
   public void testStrToIntTypeConversionForWrongJsonType() throws InvalidProtocolBufferException {
+    /*
+     {
+       "indexerConfig": {
+         "maxMessagesPerChunk": 1,
+         "maxBytesPerChunk": 100
+       },
+       nodeRoles: [INDEX]
+     }
+    */
+    // Need https://openjdk.java.net/jeps/355
     final String missingRequiredField =
         "{\n"
-            + "  \"indexerConfig\" : {\n"
+            + "  \"indexerConfig\": {\n"
             + "    \"maxMessagesPerChunk\": 1,\n"
-            + "    \"maxBytesPerChunk\": \"100\"\n"
-            + "  }\n"
-            + "}\n";
+            + "    \"maxBytesPerChunk\": 100\n"
+            + "  },\n"
+            + "  nodeRoles: [INDEX]\n"
+            + "}";
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(missingRequiredField);
 
@@ -70,18 +94,34 @@ public class KaldbConfigTest {
 
   @Test
   public void testCfgFileWithoutRequiredField() throws IOException {
+    /*
+     {
+       "kafkaConfig": {
+         "kafkaTopicPartition": 1,
+         "kafkaBootStrapServers": "kafka.us-east-1.consul:9092",
+         "kafkaClientGroup": "kaldb-test",
+         "enableKafkaAutoCommit": "true",
+         "kafkaAutoCommitInterval": "5000",
+         "kafkaSessionTimeout": "30000",
+         "ignoreExtraFieldKafkaSessionTimeout1": "30000"
+       },
+       nodeRoles: [INDEX]
+     }
+    */
+    // Need https://openjdk.java.net/jeps/355
     final String missingRequiredField =
         "{\n"
-            + "  \"kafkaConfig\" : {\n"
-            + "    \"kafkaTopicPartition\": \"1\",\n"
-            + "    \"kafkaBootStrapServers\": \"kafka.us-east-1.consul:9092\",\n"
-            + "    \"kafkaClientGroup\":  \"kaldb-test\",\n"
-            + "    \"enableKafkaAutoCommit\":  \"true\",\n"
-            + "    \"kafkaAutoCommitInterval\":  \"5000\",\n"
-            + "    \"kafkaSessionTimeout\": \"30000\",\n"
-            + "    \"ignoreExtraFieldKafkaSessionTimeout1\": \"30000\"\n"
-            + "  }\n"
-            + "}\n";
+            + "        \"kafkaConfig\": {\n"
+            + "          \"kafkaTopicPartition\": 1,\n"
+            + "          \"kafkaBootStrapServers\": \"kafka.us-east-1.consul:9092\",\n"
+            + "          \"kafkaClientGroup\": \"kaldb-test\",\n"
+            + "          \"enableKafkaAutoCommit\": \"true\",\n"
+            + "          \"kafkaAutoCommitInterval\": \"5000\",\n"
+            + "          \"kafkaSessionTimeout\": \"30000\",\n"
+            + "          \"ignoreExtraFieldKafkaSessionTimeout1\": \"30000\"\n"
+            + "        },\n"
+            + "        nodeRoles: [INDEX]\n"
+            + "      }";
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(missingRequiredField);
 
@@ -199,7 +239,9 @@ public class KaldbConfigTest {
 
   @Test
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
-    KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{}");
+    KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{nodeRoles: [INDEX]}");
+
+    assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
@@ -233,7 +275,9 @@ public class KaldbConfigTest {
   @Test
   public void testEmptyYamlStringInit()
       throws InvalidProtocolBufferException, JsonProcessingException {
-    KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig("{}");
+    KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig("nodeRoles: [QUERY]");
+
+    assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
@@ -262,5 +306,19 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isZero();
+  }
+
+  @Test
+  public void testNodeRoleValidation() throws Exception {
+    Assert.assertThrows(RuntimeException.class, () -> KaldbConfig.fromYamlConfig("{}"));
+    Assert.assertThrows(
+        RuntimeException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [INDEXER]"));
+    Assert.assertThrows(
+        RuntimeException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [index]"));
+
+    List<KaldbConfigs.NodeRole> roles =
+        KaldbConfig.fromYamlConfig("nodeRoles: [INDEX]").getNodeRolesList();
+    Assert.assertEquals(1, roles.size());
+    Assert.assertEquals(KaldbConfigs.NodeRole.valueOf("INDEX"), roles.get(0));
   }
 }

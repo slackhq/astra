@@ -30,7 +30,7 @@ public class ChunkCleanerTaskTest {
 
   @Before
   public void setUp() throws IOException {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);

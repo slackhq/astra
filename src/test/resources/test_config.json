@@ -1,4 +1,6 @@
 {
+  "nodeRoles": ["INDEX"],
+
   "kafkaConfig": {
     "kafkaTopic": "testTopic",
     "kafkaTopicPartition": "1",
