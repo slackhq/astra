@@ -310,11 +310,11 @@ public class KaldbConfigTest {
 
   @Test
   public void testNodeRoleValidation() throws Exception {
-    Assert.assertThrows(RuntimeException.class, () -> KaldbConfig.fromYamlConfig("{}"));
+    Assert.assertThrows(IllegalArgumentException.class, () -> KaldbConfig.fromYamlConfig("{}"));
     Assert.assertThrows(
-        RuntimeException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [INDEXER]"));
+        IllegalArgumentException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [INDEXER]"));
     Assert.assertThrows(
-        RuntimeException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [index]"));
+        IllegalArgumentException.class, () -> KaldbConfig.fromYamlConfig("nodeRoles: [index]"));
 
     List<KaldbConfigs.NodeRole> roles =
         KaldbConfig.fromYamlConfig("nodeRoles: [INDEX]").getNodeRolesList();
