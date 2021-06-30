@@ -25,9 +25,8 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -373,13 +372,17 @@ public class ChunkManagerTest {
 
   @Test
   public void testCommitInvalidChunk() throws IOException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000, startTime.plusHours(2)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            11, 20, 1000, startTime.plus(2, ChronoUnit.HOURS)));
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(21, 30, 1000, startTime.plusHours(4)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            21, 30, 1000, startTime.plus(4, ChronoUnit.HOURS)));
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
@@ -413,15 +416,19 @@ public class ChunkManagerTest {
 
   @Test
   public void testMultiChunkSearch() throws IOException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000, startTime.plusHours(2)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            11, 20, 1000, startTime.plus(2, ChronoUnit.HOURS)));
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(21, 30, 1000, startTime.plusHours(4)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            21, 30, 1000, startTime.plus(4, ChronoUnit.HOURS)));
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(31, 35, 1000, startTime.plusHours(6)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            31, 35, 1000, startTime.plus(6, ChronoUnit.HOURS)));
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
@@ -468,7 +475,7 @@ public class ChunkManagerTest {
         .isEqualTo(1);
 
     // Message1 & chunk 1
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + 10000;
     // TODO: test chunk metadata.
     assertThat(searchAndGetHitCount(chunkManager, "Message1", chunk1StartTimeMs, chunk1EndTimeMs))
@@ -536,7 +543,8 @@ public class ChunkManagerTest {
 
   @Test(expected = ChunkRollOverInProgressException.class)
   public void testChunkRollOverInProgressExceptionIsThrown() throws IOException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 20, 1000, startTime);
 
@@ -562,7 +570,8 @@ public class ChunkManagerTest {
 
   @Test
   public void testSuccessfulRollOverFinishesOnClose() throws IOException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
 
@@ -598,7 +607,8 @@ public class ChunkManagerTest {
 
   @Test
   public void testFailedRollOverFinishesOnClose() throws IOException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
 
@@ -635,7 +645,8 @@ public class ChunkManagerTest {
   @Test(expected = ChunkRollOverException.class)
   public void testRollOverFailure()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
 
@@ -675,7 +686,8 @@ public class ChunkManagerTest {
   @Test(expected = ChunkRollOverException.class)
   public void testRollOverFailureWithDirectExecutor()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
 
@@ -717,7 +729,8 @@ public class ChunkManagerTest {
   @Test
   public void testMultipleByteRollOversSuccessfully()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 6, 1000, startTime);
 
@@ -773,7 +786,8 @@ public class ChunkManagerTest {
   @Test
   public void testMultipleCountRollOversSuccessfully()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 20, 1000, startTime);
 

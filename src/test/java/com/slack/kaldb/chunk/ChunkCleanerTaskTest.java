@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -48,7 +50,8 @@ public class ChunkCleanerTaskTest {
     ChunkCleanerTask<LogMessage> chunkCleanerTask =
         new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 9, 1000, startTime);
 
@@ -103,7 +106,8 @@ public class ChunkCleanerTaskTest {
     ChunkCleanerTask<LogMessage> chunkCleanerTask =
         new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
 
@@ -189,15 +193,19 @@ public class ChunkCleanerTaskTest {
     assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 2)).isZero();
     assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 3)).isZero();
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000, startTime.plusHours(2)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            11, 20, 1000, startTime.plus(2, ChronoUnit.HOURS)));
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(21, 30, 1000, startTime.plusHours(4)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            21, 30, 1000, startTime.plus(4, ChronoUnit.HOURS)));
     messages.addAll(
-        MessageUtil.makeMessagesWithTimeDifference(31, 35, 1000, startTime.plusHours(6)));
+        MessageUtil.makeMessagesWithTimeDifference(
+            31, 35, 1000, startTime.plus(6, ChronoUnit.HOURS)));
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
