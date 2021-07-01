@@ -26,6 +26,21 @@ import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
 
+/**
+ * A CachedMetadataStoreImpl uses a curator path cache to cache all the nodes under a given node. In
+ * addition, this class also accepts a metadata serializer/de-serializer objects, so we only
+ * serialize/de-serialize the objects only once.
+ *
+ * <p>This class also caches nested nodes. However, the root nodes should also have a metadata
+ * object in the data. Further, this cache uses node names as keys, so nested nodes can't have the
+ * same name. This limitation is fine for our current use case. If this becomes a problem switch to
+ * a relative path.
+ *
+ * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
+ * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
+ *
+ * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
+ */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
   private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
@@ -34,7 +49,6 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
 
   private final ConcurrentMap<String, T> instances = Maps.newConcurrentMap();
 
-  // TODO: is ensureContainers needed?
   private final EnsureContainers ensureContainers;
   private final CountDownLatch initializedLatch = new CountDownLatch(1);
   private final MetadataSerializer<T> metadataSerde;
@@ -171,6 +185,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     try {
       String instanceId = instanceIdFromData(childData);
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
+      // TODO: Switch to a relative path, if nested nodes are used widely.
       instances.put(instanceId, serviceInstance);
     } catch (Exception e) {
       throw new InternalMetadataStoreException(

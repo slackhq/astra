@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
@@ -12,7 +11,6 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
@@ -466,9 +464,9 @@ public class CachedMetadataStoreImplTest {
     cache.close();
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
-  public void testCachedStoreWorksForNestedPersistentNodes()
-      throws ExecutionException, InterruptedException, InvalidProtocolBufferException {
+  public void testCachedStoreWorksForNestedNodes() throws Exception {
     final String root = "/root";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
 
@@ -476,17 +474,29 @@ public class CachedMetadataStoreImplTest {
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
     assertThat(metadataStore.create(node, serDe.toJsonStr(snapshot1), true).get()).isNull();
 
-    /*
-    // TODO: Creating nesting when adding objects throws an exception in the cache since the nested
-    //  object
-    //  doesn't have a KalDbMetdata Type. Add a unit test to test for this use case.
-    // TODO: Move below code into it's own unit test because of above issues?
-    // Nesting in existing paths are also cached.
-    String path333 = "/root/3/33/333";
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+
+    SnapshotMetadata snapshot3 = makeSnapshot("test3");
+    SnapshotMetadata snapshot33 = makeSnapshot("test33");
     SnapshotMetadata snapshot333 = makeSnapshot("test333");
-    assertThat(metadataStore.create(path333, serDe.toJsonStr(snapshot333), true).get()).isNull();
+    // Nested nodes are also cached, but root nodes should also have data that is serializable.
+    String path333 = "/root/3/33/333";
+    assertThat(metadataStore.create("/root/3", serDe.toJsonStr(snapshot3), false).get()).isNull();
+    assertThat(metadataStore.create("/root/3/33", serDe.toJsonStr(snapshot33), false).get())
+        .isNull();
+    assertThat(metadataStore.create(path333, serDe.toJsonStr(snapshot333), false).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(4));
-    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, snapshot3, snapshot333);
-    */
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot3, snapshot33, snapshot333);
+
+    SnapshotMetadata esnapshot = makeSnapshot("ephemeraldata");
+    assertThat(metadataStore.createEphemeralNode("/root/3/enode", serDe.toJsonStr(esnapshot)).get())
+        .isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(5));
+    assertThat(cache.getInstances())
+        .containsOnly(snapshot1, snapshot3, snapshot33, snapshot333, esnapshot);
+
+    assertThat(metadataStore.get("/root/3/enode").get()).isEqualTo(serDe.toJsonStr(esnapshot));
+    assertThat(cache.get("enode").get()).isEqualTo(esnapshot);
   }
 }
