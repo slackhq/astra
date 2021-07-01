@@ -137,7 +137,6 @@ public class CachedMetadataStoreImplTest {
     assertThat(listener.getCacheChangedCounter()).isEqualTo(3);
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
-    // TODO: Add metrics on cache metadata updates.
     // Updating data in a node refreshes the cache.
     SnapshotMetadata snapshot31 = makeSnapshot("snapshot31");
     assertThat(metadataStore.put(path3, serDe.toJsonStr(snapshot31)).get()).isNull();
@@ -174,10 +173,6 @@ public class CachedMetadataStoreImplTest {
     // A stale cache can still be accessed.
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
   }
-
-  // TODO: Add a test with a counting listener.
-  // TODO: Add a test with server shutdown and timeout.
-  // TODO: Add a test with server shutdown and timeout with ephemeral node.
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
@@ -366,7 +361,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.getInstances().size()).isEqualTo(1);
     assertThat(metadataStore.exists(node).get()).isTrue();
     assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
-    // No cache changes so no listener invocations.
+    // No listener invocations on initial cache load.
     assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
@@ -381,11 +376,53 @@ public class CachedMetadataStoreImplTest {
     metadataStore.close();
     await().untilAsserted(() -> assertThat(cache.getInstances().isEmpty()).isTrue());
     assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
-    // State changed listener is never called.
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
   }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testEphermeralNodeOnZkShutdown() throws Exception {
+    final String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    final String node = "/root/enode";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.createEphemeralNode(node, serDe.toJsonStr(snapshot1)).get()).isNull();
+
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot1));
+    assertThat(cache.getInstances()).containsOnly(snapshot1);
+    assertThat(metadataStore.exists(node).get()).isTrue();
+    assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+    // No listener invocations on initial cache load.
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    SnapshotMetadata snapshot11 = makeSnapshot("test11");
+    assertThat(metadataStore.put(node, serDe.toJsonStr(snapshot11)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
+    assertThat(cache.getInstances()).containsOnly(snapshot11);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    // Closing the zk server doesn't close the cache since cache would be refreshed once the
+    // connection is back up.
+    testingServer.stop();
+    assertThat(cache.getInstances()).containsOnly(snapshot11);
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    // NOTE: No listener on state change is fired on server stop. A stale cache should be flagged
+    // in this case.
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    cache.close();
+  }
+
+  // TODO: Add a unit test when server is started or restarted.
+  // TODO: Add a test with server shutdown and timeout on persistent node.
+  // TODO: Add a test with server shutdown and timeout with ephemeral node.
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
