@@ -8,8 +8,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.metadata.core.KaldbMetadata;
-import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.util.FatalErrorHandler;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -334,23 +332,6 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   @Override
   public ListenableFuture<List<String>> getChildren(String path) {
     return metadataExecutorService.submit(() -> getChildrenImpl(path));
-  }
-
-  /** Use a CachedMetadataStore to watch and cache a node and it's children. */
-  public <T extends KaldbMetadata> CachedMetadataStore<T> watchAndCacheNodeAndChildren(
-      String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
-      throws Exception {
-    if (!existsImpl(path)) {
-      throw new NoNodeException(path);
-    }
-
-    CachedMetadataStore<T> cachedMetadataStore =
-        new CachedMetadataStoreImpl<T>(path, metadataSerializer, curator, metadataExecutorService);
-    if (listener != null) {
-      cachedMetadataStore.addListener(listener);
-    }
-    cachedMetadataStore.start();
-    return cachedMetadataStore;
   }
 
   @VisibleForTesting
