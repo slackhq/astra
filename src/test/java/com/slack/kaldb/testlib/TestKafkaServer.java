@@ -11,7 +11,7 @@ import com.slack.service.murron.Murron;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +30,7 @@ public class TestKafkaServer {
   public static final int TEST_KAFKA_PARTITION = 0;
 
   // Create messages, format them into murron protobufs, write them to kafka
-  public static void produceMessagesToKafka(EphemeralKafkaBroker broker, LocalDateTime startTime)
+  public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);

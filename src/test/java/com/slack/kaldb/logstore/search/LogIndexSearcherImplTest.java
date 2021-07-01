@@ -1,19 +1,16 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.*;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static com.slack.kaldb.testlib.TimeUtil.timeEpochMs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -30,7 +27,7 @@ public class LogIndexSearcherImplTest {
 
   public LogIndexSearcherImplTest() throws IOException {}
 
-  private void loadTestData(LocalDateTime time) {
+  private void loadTestData(Instant time) {
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(1, "apple", TEST_INDEX_NAME, time));
     strictLogStore.logStore.addMessage(
@@ -48,7 +45,10 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testTimeBoundSearch() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time =
+        LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC)
+            .atZone(ZoneOffset.UTC)
+            .toInstant();
     strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "test", time));
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(1, "test1", "test", time.plusSeconds(100)));
@@ -64,7 +64,12 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 1000, 1)
+                    "test",
+                    "test1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    1000,
+                    1)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -76,8 +81,8 @@ public class LogIndexSearcherImplTest {
                 .search(
                     "test",
                     "test1",
-                    timeEpochMs(time.minusSeconds(1)),
-                    timeEpochMs(time.plusSeconds(90)),
+                    time.minusSeconds(1).toEpochMilli(),
+                    time.plusSeconds(90).toEpochMilli(),
                     1000,
                     1)
                 .hits
@@ -89,7 +94,12 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "test", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(100)), 1000, 1)
+                    "test",
+                    "test1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(100).toEpochMilli(),
+                    1000,
+                    1)
                 .hits
                 .size())
         .isEqualTo(2);
@@ -101,8 +111,8 @@ public class LogIndexSearcherImplTest {
                 .search(
                     "test",
                     "test1",
-                    timeEpochMs(time.minusSeconds(1)),
-                    timeEpochMs(time.plusSeconds(1000)),
+                    time.minusSeconds(1).toEpochMilli(),
+                    time.plusSeconds(1000).toEpochMilli(),
                     1000,
                     1)
                 .hits
@@ -112,7 +122,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testIndexBoundSearch() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx", time));
     strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx1", time));
     strictLogStore.logStore.commit();
@@ -128,8 +138,8 @@ public class LogIndexSearcherImplTest {
                 .search(
                     "idx",
                     "test1",
-                    timeEpochMs(time.minusSeconds(1)),
-                    timeEpochMs(time.plusSeconds(10)),
+                    time.minusSeconds(1).toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
                     100,
                     1)
                 .hits
@@ -140,7 +150,12 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "idx1", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 1)
+                    "idx1",
+                    "test1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    100,
+                    1)
                 .hits
                 .size())
         .isEqualTo(1);
@@ -149,7 +164,12 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "idx12", "test1", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 1)
+                    "idx12",
+                    "test1",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    100,
+                    1)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -158,7 +178,12 @@ public class LogIndexSearcherImplTest {
             strictLogStore
                 .logSearcher
                 .search(
-                    "idx1", "test", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 1)
+                    "idx1",
+                    "test",
+                    time.toEpochMilli(),
+                    time.plusSeconds(10).toEpochMilli(),
+                    100,
+                    1)
                 .hits
                 .size())
         .isEqualTo(0);
@@ -166,11 +191,16 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleItemsAndIndices() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(2)), 10, 1);
+            TEST_INDEX_NAME,
+            "baby",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            1);
     assertThat(babies.hits.size()).isEqualTo(1);
     assertThat(babies.totalCount).isEqualTo(1);
     assertThat(babies.buckets.size()).isEqualTo(1);
@@ -179,12 +209,17 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testTopKQuery() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     SearchResult<LogMessage> apples =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "apple", timeEpochMs(time), timeEpochMs(time.plusSeconds(100)), 2, 1);
+            TEST_INDEX_NAME,
+            "apple",
+            time.toEpochMilli(),
+            time.plusSeconds(100).toEpochMilli(),
+            2,
+            1);
     assertThat(apples.hits.stream().map(m -> m.id).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
@@ -195,7 +230,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchMultipleCommits() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
 
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(1, "apple", TEST_INDEX_NAME, time));
@@ -206,7 +241,12 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> baby =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
+            TEST_INDEX_NAME,
+            "baby",
+            time.toEpochMilli(),
+            time.plusSeconds(10).toEpochMilli(),
+            2,
+            1);
     assertThat(baby.hits.size()).isEqualTo(1);
     assertThat(baby.hits.get(0).id).isEqualTo("2");
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
@@ -225,7 +265,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> car =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
+            TEST_INDEX_NAME, "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli(), 2, 1);
     assertThat(car.totalCount).isEqualTo(0);
 
     // Commit but no refresh. Item is still not available for search.
@@ -238,7 +278,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> carAfterCommit =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
+            TEST_INDEX_NAME, "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli(), 2, 1);
     assertThat(carAfterCommit.totalCount).isEqualTo(0);
 
     // Car can be searched after refresh.
@@ -251,7 +291,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> carAfterRefresh =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "car", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
+            TEST_INDEX_NAME, "car", time.toEpochMilli(), time.plusSeconds(10).toEpochMilli(), 2, 1);
     assertThat(carAfterRefresh.totalCount).isEqualTo(1);
 
     // Add another message to search, refresh but don't commit.
@@ -268,7 +308,12 @@ public class LogIndexSearcherImplTest {
     // Item shows up in search without commit.
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 2, 1);
+            TEST_INDEX_NAME,
+            "baby",
+            time.toEpochMilli(),
+            time.plusSeconds(10).toEpochMilli(),
+            2,
+            1);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.id).collect(Collectors.toList()))
@@ -284,7 +329,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testFullIndexSearch() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -298,7 +343,7 @@ public class LogIndexSearcherImplTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testNullSearchString() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     strictLogStore.logSearcher.search(TEST_INDEX_NAME + "miss", null, 0, MAX_TIME, 1000, 1);
@@ -306,7 +351,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testMissingIndexSearch() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
@@ -320,7 +365,7 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testNoResultQuery() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     SearchResult<LogMessage> elephants =
@@ -333,11 +378,16 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchAndNoStats() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 100, 0);
+            TEST_INDEX_NAME,
+            "baby",
+            time.toEpochMilli(),
+            time.plusSeconds(10).toEpochMilli(),
+            100,
+            0);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.buckets.size()).isEqualTo(0);
@@ -345,90 +395,95 @@ public class LogIndexSearcherImplTest {
 
   @Test
   public void testSearchOnlyHistogram() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "baby", timeEpochMs(time), timeEpochMs(time.plusSeconds(10)), 0, 1);
+            TEST_INDEX_NAME,
+            "baby",
+            time.toEpochMilli(),
+            time.plusSeconds(10).toEpochMilli(),
+            0,
+            1);
     assertThat(babies.hits.size()).isEqualTo(0);
     assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.buckets.size()).isEqualTo(1);
-    assertThat(babies.buckets.get(0).getHigh()).isEqualTo(timeEpochMs(time.plusSeconds(10)));
-    assertThat(babies.buckets.get(0).getLow()).isEqualTo(timeEpochMs(time));
+    assertThat(babies.buckets.get(0).getHigh()).isEqualTo(time.plusSeconds(10).toEpochMilli());
+    assertThat(babies.buckets.get(0).getLow()).isEqualTo(time.toEpochMilli());
     assertThat(babies.buckets.get(0).getCount()).isEqualTo(2);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testEmptyIndexName() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search("", "test", 0, MAX_TIME, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNullIndexName() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(null, "test", 0, MAX_TIME, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidStartTime() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(TEST_INDEX_NAME, "test", -1L, MAX_TIME, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidEndTime() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(TEST_INDEX_NAME, "test", 0, -1L, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidTimeRange() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_INDEX_NAME, "test", timeEpochMs(time), timeEpochMs(time.minusSeconds(1)), 1000, 1);
+        TEST_INDEX_NAME, "test", time.toEpochMilli(), time.minusSeconds(1).toEpochMilli(), 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testSearchOrHistogramQuery() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_INDEX_NAME, "test", timeEpochMs(time), timeEpochMs(time.plusSeconds(1)), 0, 0);
+        TEST_INDEX_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 0, 0);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeHitCount() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_INDEX_NAME, "test", timeEpochMs(time), timeEpochMs(time.plusSeconds(1)), -1, 0);
+        TEST_INDEX_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), -1, 0);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeHistogramBuckets() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_INDEX_NAME, "test", timeEpochMs(time), timeEpochMs(time.plusSeconds(1)), 1, -2);
+        TEST_INDEX_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, -2);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testQueryParseError() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_INDEX_NAME, "/", timeEpochMs(time), timeEpochMs(time.plusSeconds(1)), 1, 1);
+        TEST_INDEX_NAME, "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, 1);
   }
 
   @Test
   public void testConcurrentSearches() throws InterruptedException {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
     AtomicInteger searchFailures = new AtomicInteger(0);

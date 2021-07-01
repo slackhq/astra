@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore;
 
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -12,9 +11,6 @@ import java.util.regex.Pattern;
  * <p>This class handles all times in UTC timezone.
  */
 public class LogMessage extends LogWireMessage {
-
-  public static final DateTimeFormatter TIMESTAMP_FORMATTER =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
   public static final ZoneOffset DEFAULT_TIME_ZONE = ZoneOffset.UTC;
 
@@ -136,8 +132,7 @@ public class LogMessage extends LogWireMessage {
   }
 
   private Long getTime(String dateStr) {
-    LocalDateTime time = LocalDateTime.parse(dateStr, TIMESTAMP_FORMATTER);
-    return time.atZone(DEFAULT_TIME_ZONE).toInstant().toEpochMilli();
+    return Instant.parse(dateStr).toEpochMilli();
   }
 
   public void addProperty(String key, Object value) {

@@ -48,9 +48,7 @@ public class SpanFormatter {
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
     Instant timestamp = Instant.ofEpochMilli(span.getStartTimestampMicros() / (1000));
-    jsonMap.put(
-        LogMessage.ReservedField.TIMESTAMP.fieldName,
-        LogMessage.TIMESTAMP_FORMATTER.withZone(LogMessage.DEFAULT_TIME_ZONE).format(timestamp));
+    jsonMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp.toString());
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;

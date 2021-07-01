@@ -25,7 +25,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
@@ -114,7 +117,8 @@ public class ReadWriteChunkImplTest {
 
     @Test
     public void testAddAndSearchChunkInTimeRange() {
-      final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
       final List<LogMessage> messages =
           MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
       final long messageStartTime = messages.get(0).timeSinceEpochMilli;
@@ -162,7 +166,8 @@ public class ReadWriteChunkImplTest {
 
       // Add more messages in other time range and search again with new time ranges.
       final List<LogMessage> newMessages =
-          MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime.plusDays(2));
+          MessageUtil.makeMessagesWithTimeDifference(
+              1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochSecs = newMessages.get(0).timeSinceEpochMilli / 1000;
       for (LogMessage m : newMessages) {
         chunk.addMessage(m);
