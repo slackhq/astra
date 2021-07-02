@@ -54,7 +54,7 @@ public class ChunkManagerTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
     s3Client = S3_MOCK_RULE.createS3ClientV2();
