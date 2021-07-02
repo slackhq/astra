@@ -13,7 +13,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.server.KaldbLocalSearcher;
+import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -65,7 +65,7 @@ public class ElasticsearchApiServiceTest {
             MoreExecutors.newDirectExecutorService(),
             3000);
 
-    KaldbLocalSearcher<LogMessage> searcher = new KaldbLocalSearcher<>(chunkManager);
+    KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
     elasticsearchApiService = new ElasticsearchApiService(searcher);
   }
 

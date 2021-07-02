@@ -34,7 +34,6 @@ public class SearchResult<T> {
     this.snapshotsWithReplicas = 0;
   }
 
-  // TODO: Make search result a protobuf?
   // TODO: Move stats into a separate struct.
   public SearchResult(
       List<T> hits,

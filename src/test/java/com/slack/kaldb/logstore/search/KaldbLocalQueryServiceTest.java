@@ -1,4 +1,4 @@
-package com.slack.kaldb.server;
+package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -32,13 +32,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.junit.*;
 
-public class KaldbLocalSearcherTest {
+public class KaldbLocalQueryServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
   @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
-  private KaldbLocalSearcher<LogMessage> kaldbLocalSearcher;
+  private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
   private SimpleMeterRegistry metricsRegistry;
 
   @Before
@@ -47,7 +47,7 @@ public class KaldbLocalSearcherTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
-    kaldbLocalSearcher = new KaldbLocalSearcher<>(chunkManagerUtil.chunkManager);
+    kaldbLocalQueryService = new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
   }
 
   @After
@@ -81,7 +81,7 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher
+        kaldbLocalQueryService
             .doSearch(
                 searchRequestBuilder
                     .setIndexName(MessageUtil.TEST_INDEX_NAME)
@@ -97,7 +97,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
@@ -146,7 +146,7 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher
+        kaldbLocalQueryService
             .doSearch(
                 searchRequestBuilder
                     .setIndexName(MessageUtil.TEST_INDEX_NAME)
@@ -164,7 +164,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTotalCount()).isZero();
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
@@ -198,7 +198,7 @@ public class KaldbLocalSearcherTest {
 
     // TODO: Query multiple chunks.
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher
+        kaldbLocalQueryService
             .doSearch(
                 searchRequestBuilder
                     .setIndexName(MessageUtil.TEST_INDEX_NAME)
@@ -215,7 +215,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
@@ -249,7 +249,7 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher
+        kaldbLocalQueryService
             .doSearch(
                 searchRequestBuilder
                     .setIndexName(MessageUtil.TEST_INDEX_NAME)
@@ -265,7 +265,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
@@ -306,7 +306,7 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     CompletableFuture<KaldbSearch.SearchResult> result =
-        kaldbLocalSearcher.doSearch(
+        kaldbLocalQueryService.doSearch(
             searchRequestBuilder
                 .setIndexName(MessageUtil.TEST_INDEX_NAME)
                 .setQueryString("Message1")
@@ -340,7 +340,7 @@ public class KaldbLocalSearcherTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbLocalSearcher<>(chunkManager))
+            .addService(new KaldbLocalQueryService<>(chunkManager))
             .build()
             .start());
 
@@ -370,7 +370,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
@@ -420,7 +420,7 @@ public class KaldbLocalSearcherTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbLocalSearcher<>(chunkManager))
+            .addService(new KaldbLocalQueryService<>(chunkManager))
             .build()
             .start());
 

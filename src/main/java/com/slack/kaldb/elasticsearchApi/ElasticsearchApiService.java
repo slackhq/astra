@@ -19,8 +19,8 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.service.KaldbSearch;
-import com.slack.kaldb.server.KaldbLocalSearcher;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,10 +39,10 @@ import java.util.Optional;
     "OptionalUsedAsFieldOrParameterType") // Per https://armeria.dev/docs/server-annotated-service/
 public class ElasticsearchApiService {
 
-  private final KaldbLocalSearcher<LogMessage> searcher;
+  private final KaldbLocalQueryService<LogMessage> searcher;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public ElasticsearchApiService(KaldbLocalSearcher<LogMessage> searcher) {
+  public ElasticsearchApiService(KaldbLocalQueryService<LogMessage> searcher) {
     this.searcher = searcher;
   }
 
