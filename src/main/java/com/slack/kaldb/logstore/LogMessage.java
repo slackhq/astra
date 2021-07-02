@@ -1,8 +1,14 @@
 package com.slack.kaldb.logstore;
 
+import com.google.common.base.Objects;
 import java.time.*;
-import java.util.*;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * LogMessage class represents a well formed log message that can indexed by the Lucene indexer.
@@ -11,6 +17,8 @@ import java.util.regex.Pattern;
  * <p>This class handles all times in UTC timezone.
  */
 public class LogMessage extends LogWireMessage {
+
+  private static final Logger LOG = LoggerFactory.getLogger(LogMessage.class);
 
   public static final ZoneOffset DEFAULT_TIME_ZONE = ZoneOffset.UTC;
 
@@ -148,11 +156,17 @@ public class LogMessage extends LogWireMessage {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     LogMessage that = (LogMessage) o;
-    return timeSinceEpochMilli == that.timeSinceEpochMilli;
+    if (id == null || that.id == null) {
+      LOG.warn("id missing - equals comparison won't be accurate");
+    }
+    return timeSinceEpochMilli == that.timeSinceEpochMilli
+        && Objects.equal(getIndex(), that.getIndex())
+        && Objects.equal(getType(), that.getType())
+        && Objects.equal(id, that.id);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(timeSinceEpochMilli);
+    return Objects.hashCode(timeSinceEpochMilli, getIndex(), getMillisecondsSinceEpoch(), id);
   }
 }
