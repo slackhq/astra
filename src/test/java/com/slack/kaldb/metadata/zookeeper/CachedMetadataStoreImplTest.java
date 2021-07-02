@@ -488,6 +488,10 @@ public class CachedMetadataStoreImplTest {
     assertThat(metadataStore.create(path333, serDe.toJsonStr(snapshot333), false).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(4));
     assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot3, snapshot33, snapshot333);
+    assertThat(cache.get("node").get()).isEqualTo(snapshot1);
+    assertThat(cache.get("3").get()).isEqualTo(snapshot3);
+    assertThat(cache.get("3/33").get()).isEqualTo(snapshot33);
+    assertThat(cache.get("3/33/333").get()).isEqualTo(snapshot333);
 
     SnapshotMetadata esnapshot = makeSnapshot("ephemeraldata");
     assertThat(metadataStore.createEphemeralNode("/root/3/enode", serDe.toJsonStr(esnapshot)).get())
@@ -497,6 +501,6 @@ public class CachedMetadataStoreImplTest {
         .containsOnly(snapshot1, snapshot3, snapshot33, snapshot333, esnapshot);
 
     assertThat(metadataStore.get("/root/3/enode").get()).isEqualTo(serDe.toJsonStr(esnapshot));
-    assertThat(cache.get("enode").get()).isEqualTo(esnapshot);
+    assertThat(cache.get("3/enode").get()).isEqualTo(esnapshot);
   }
 }

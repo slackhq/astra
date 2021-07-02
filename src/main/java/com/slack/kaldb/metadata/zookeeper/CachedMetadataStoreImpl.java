@@ -31,10 +31,11 @@ import org.apache.curator.utils.ZKPaths;
  * addition, this class also accepts a metadata serializer/de-serializer objects, so we only
  * serialize/de-serialize the objects only once.
  *
- * <p>This class also caches nested nodes. However, the root nodes should also have a metadata
- * object in the data. Further, this cache uses node names as keys, so nested nodes can't have the
- * same name. This limitation is fine for our current use case. If this becomes a problem switch to
- * a relative path.
+ * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
+ * root and the node value is the serialized metadata object.
+ *
+ * <p>NOTE: Since a directory is also a node in ZK, the directory node should also have a metadata
+ * object in it's value even though it's not used. This is a different from a regular file system.
  *
  * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
@@ -52,6 +53,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   private final EnsureContainers ensureContainers;
   private final CountDownLatch initializedLatch = new CountDownLatch(1);
   private final MetadataSerializer<T> metadataSerde;
+  private final String pathPrefix;
 
   private enum State {
     LATENT,
@@ -81,7 +83,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
-
+    this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
     // Create a curator cache but don't store any data in it since CacheStorage only allows
     // storing data as a byte array. Instead use the curator cache implementation for
     // managing persistent watchers and other admin tasks. Instead add a listener which would
@@ -177,8 +179,18 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     }
   }
 
+  private static String removeStart(final String str, final String remove) {
+    if (str.isEmpty() || remove.isEmpty()) {
+      return str;
+    }
+    if (str.startsWith(remove)) {
+      return str.substring(remove.length());
+    }
+    return str;
+  }
+
   private String instanceIdFromData(ChildData childData) {
-    return ZKPaths.getNodeFromPath(childData.getPath());
+    return removeStart(childData.getPath(), pathPrefix);
   }
 
   private void addInstance(ChildData childData) {
