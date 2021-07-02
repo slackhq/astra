@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
 public class NoNodeException extends RuntimeException {
   public NoNodeException(String msg) {

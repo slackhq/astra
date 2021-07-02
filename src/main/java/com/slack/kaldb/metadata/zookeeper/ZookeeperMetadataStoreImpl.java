@@ -1,8 +1,9 @@
-package com.slack.kaldb.metadata;
+package com.slack.kaldb.metadata.zookeeper;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -10,13 +11,12 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.util.FatalErrorHandler;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -41,8 +41,8 @@ import org.slf4j.LoggerFactory;
  * <p>NOTE: We will use the async as a suffix for methods which run in the background in curator.
  * So, we don't use it for calls that run in a future pool even though they are technically async.
  */
-public class ZookeeperMetadataStore implements MetadataStore {
-  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperMetadataStore.class);
+public class ZookeeperMetadataStoreImpl implements MetadataStore {
+  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperMetadataStoreImpl.class);
 
   public static final String METADATA_FAILED_COUNTER = "metadata.failed";
   public static final String ZK_FAILED_COUNTER = "metadata.failed.zk";
@@ -58,7 +58,7 @@ public class ZookeeperMetadataStore implements MetadataStore {
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
 
-  public ZookeeperMetadataStore(
+  public ZookeeperMetadataStoreImpl(
       String zkHostPath,
       String zkPathPrefix,
       int sessionTimeoutMs,
@@ -110,9 +110,8 @@ public class ZookeeperMetadataStore implements MetadataStore {
     curator
         .getConnectionStateListenable()
         .addListener(
-            (curator, connectionState) -> {
-              LOG.info("Curator connection state changed to {}", connectionState);
-            });
+            (curator, connectionState) ->
+                LOG.info("Curator connection state changed to {}", connectionState));
 
     /*
      * If a ZK session expires, we need to create all the watches and ephemeral nodes again.
@@ -259,7 +258,7 @@ public class ZookeeperMetadataStore implements MetadataStore {
 
   // TODO: Consider fetching the data in background if it results in better perf due to batching.
   private String getImpl(String path) {
-    String result = "";
+    String result;
     try {
       metadataReadCounter.increment();
       LOG.debug("Fetching data for node at {}", path);
@@ -312,10 +311,10 @@ public class ZookeeperMetadataStore implements MetadataStore {
   }
 
   private List<String> getChildrenImpl(String path) {
-    List<String> result = Collections.emptyList();
+    List<String> result;
     try {
       metadataReadCounter.increment();
-      result = curator.getChildren().forPath(path).stream().collect(Collectors.toList());
+      result = new ArrayList<>(curator.getChildren().forPath(path));
     } catch (KeeperException.NoNodeException e) {
       throw new NoNodeException(path);
     } catch (KeeperException e) {
@@ -333,5 +332,15 @@ public class ZookeeperMetadataStore implements MetadataStore {
   @Override
   public ListenableFuture<List<String>> getChildren(String path) {
     return metadataExecutorService.submit(() -> getChildrenImpl(path));
+  }
+
+  @VisibleForTesting
+  public CuratorFramework getCurator() {
+    return curator;
+  }
+
+  @VisibleForTesting
+  public ListeningExecutorService getMetadataExecutorService() {
+    return metadataExecutorService;
   }
 }
