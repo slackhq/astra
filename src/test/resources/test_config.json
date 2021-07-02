@@ -1,5 +1,5 @@
 {
-  "nodeRoles": ["INDEX"],
+  "nodeRoles": ["INDEX", "QUERY"],
 
   "kafkaConfig": {
     "kafkaTopic": "testTopic",

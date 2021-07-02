@@ -1,4 +1,4 @@
-nodeRoles: [INDEX]
+nodeRoles: [INDEX,QUERY]
 
 indexerConfig:
   maxMessagesPerChunk: 100

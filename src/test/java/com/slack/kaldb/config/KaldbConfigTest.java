@@ -150,6 +150,10 @@ public class KaldbConfigTest {
 
     assertThat(config).isNotNull();
 
+    assertThat(config.getNodeRolesList().size()).isEqualTo(2);
+    assertThat(config.getNodeRolesList().get(0)).isEqualTo(KaldbConfigs.NodeRole.INDEX);
+    assertThat(config.getNodeRolesList().get(1)).isEqualTo(KaldbConfigs.NodeRole.QUERY);
+
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
@@ -189,6 +193,10 @@ public class KaldbConfigTest {
     final KaldbConfigs.KaldbConfig config = KaldbConfig.get();
 
     assertThat(config).isNotNull();
+
+    assertThat(config.getNodeRolesList().size()).isEqualTo(2);
+    assertThat(config.getNodeRolesList().get(0)).isEqualTo(KaldbConfigs.NodeRole.INDEX);
+    assertThat(config.getNodeRolesList().get(1)).isEqualTo(KaldbConfigs.NodeRole.QUERY);
 
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
 
