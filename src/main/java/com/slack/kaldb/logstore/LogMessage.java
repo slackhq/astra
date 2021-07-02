@@ -142,4 +142,17 @@ public class LogMessage extends LogWireMessage {
   public LogWireMessage toWireMessage() {
     return new LogWireMessage(getIndex(), getType(), id, source);
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    LogMessage that = (LogMessage) o;
+    return timeSinceEpochMilli == that.timeSinceEpochMilli;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(timeSinceEpochMilli);
+  }
 }
