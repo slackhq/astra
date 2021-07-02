@@ -11,13 +11,24 @@ public class ChunkRollOverStrategyImplTest {
 
   @Test
   public void testInitViaConfig() throws InvalidProtocolBufferException {
+    /*
+     {
+       "indexerConfig": {
+         "maxMessagesPerChunk": 1,
+         "maxBytesPerChunk": 100
+       },
+       nodeRoles: [INDEX]
+     }
+    */
+    // Need https://openjdk.java.net/jeps/355
     final String testIndexerCfg =
         "{\n"
-            + "  \"indexerConfig\" : {\n"
+            + "  \"indexerConfig\": {\n"
             + "    \"maxMessagesPerChunk\": 1,\n"
             + "    \"maxBytesPerChunk\": 100\n"
-            + "  }\n"
-            + "}\n";
+            + "  },\n"
+            + "  nodeRoles: [INDEX]\n"
+            + "}";
 
     KaldbConfig.initFromJsonStr(testIndexerCfg);
 

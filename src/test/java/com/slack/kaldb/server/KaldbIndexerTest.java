@@ -28,6 +28,7 @@ import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +60,7 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
@@ -107,7 +108,8 @@ public class KaldbIndexerTest {
     assertThat(broker.isRunning()).isTrue();
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
     // Initialize kaldb config.
     KaldbConfigs.KaldbConfig kaldbCfg =
@@ -153,7 +155,7 @@ public class KaldbIndexerTest {
     assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     KaldbSearch.SearchResult searchResponse =
         searchUsingGrpcApi("Message1", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
 

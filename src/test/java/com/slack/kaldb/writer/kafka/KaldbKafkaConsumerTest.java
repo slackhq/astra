@@ -6,7 +6,9 @@ import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,7 +80,8 @@ public class KaldbKafkaConsumerTest {
     public void kafkaConsumerStartupShutdown() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
-      final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
       ExecutorService indexerExecutor = Executors.newSingleThreadExecutor();
       indexerExecutor.submit(testConsumer::start);
@@ -108,7 +111,8 @@ public class KaldbKafkaConsumerTest {
     public void kafkaConsumerShutdownTimeout() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
-      final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
       ExecutorService indexerExecutor = Executors.newSingleThreadExecutor();
       indexerExecutor.submit(testConsumer::start);

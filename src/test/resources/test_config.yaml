@@ -1,3 +1,5 @@
+nodeRoles: [INDEX,QUERY]
+
 indexerConfig:
   maxMessagesPerChunk: 100
   maxBytesPerChunk: 100000

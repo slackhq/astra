@@ -7,8 +7,10 @@ import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.MessageUtil;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,10 +42,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 12;
     int howMany = 1;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = LocalDateTime.of(2020, 1, 1, 2, 0, 0);
-    long histogramStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long histogramEndMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = LocalDateTime.of(2020, 1, 1, 2, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    long histogramStartMs = startTime1.toEpochMilli();
+    long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -83,7 +85,7 @@ public class SearchResultAggregatorImplTest {
     LogMessage hit = aggSearchResult.hits.get(0);
     assertThat(hit.id).contains("Message20");
     assertThat(hit.timeSinceEpochMilli)
-        .isEqualTo(startTime2.plusMinutes(9).toInstant(ZoneOffset.UTC).toEpochMilli());
+        .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
     for (HistogramBucket b : aggSearchResult.buckets) {
@@ -96,10 +98,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 12;
     int howMany = 10;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    long histogramStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long histogramEndMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    long histogramStartMs = startTime1.toEpochMilli();
+    long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -150,12 +152,12 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 24;
     int howMany = 10;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    LocalDateTime startTime3 = startTime1.plusHours(2);
-    LocalDateTime startTime4 = startTime1.plusHours(3);
-    long histogramStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long histogramEndMs = startTime1.plusHours(4).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    Instant startTime3 = startTime1.plus(2, ChronoUnit.HOURS);
+    Instant startTime4 = startTime1.plus(3, ChronoUnit.HOURS);
+    long histogramStartMs = startTime1.toEpochMilli();
+    long histogramEndMs = startTime1.plus(4, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -214,10 +216,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 0;
     int howMany = 10;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    long searchStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long searchEndMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    long searchStartMs = startTime1.toEpochMilli();
+    long searchEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -263,10 +265,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 12;
     int howMany = 0;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    long histogramStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long histogramEndMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    long histogramStartMs = startTime1.toEpochMilli();
+    long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -313,10 +315,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 0;
     int howMany = 10;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    long startTimeMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long endTimeMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    long startTimeMs = startTime1.toEpochMilli();
+    long endTimeMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);
@@ -359,10 +361,10 @@ public class SearchResultAggregatorImplTest {
     long tookMs = 10;
     int bucketCount = 12;
     int howMany = 0;
-    LocalDateTime startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0);
-    LocalDateTime startTime2 = startTime1.plusHours(1);
-    long histogramStartMs = startTime1.toEpochSecond(ZoneOffset.UTC) * 1000;
-    long histogramEndMs = startTime1.plusHours(2).toEpochSecond(ZoneOffset.UTC) * 1000;
+    Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
+    Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
+    long histogramStartMs = startTime1.toEpochMilli();
+    long histogramEndMs = startTime1.plus(2, ChronoUnit.HOURS).toEpochMilli();
 
     List<LogMessage> messages1 =
         MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000 * 60, startTime1);

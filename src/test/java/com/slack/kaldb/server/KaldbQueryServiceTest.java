@@ -20,7 +20,9 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.AfterClass;
@@ -69,7 +71,8 @@ public class KaldbQueryServiceTest {
     indexingServer.start().join();
 
     // Produce messages to kafka, so the indexer can consume them.
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     produceMessagesToKafka(broker, startTime);
     Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry)).isEqualTo(100);
