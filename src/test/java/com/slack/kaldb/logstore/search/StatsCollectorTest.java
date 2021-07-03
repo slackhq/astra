@@ -7,15 +7,13 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.TimeUtil.timeEpochMs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -28,7 +26,7 @@ public class StatsCollectorTest {
 
   @Test
   public void testStatsCollectorWithPerMinuteMessages() {
-    LocalDateTime time = LocalDateTime.ofEpochSecond(1593365471, 0, ZoneOffset.UTC);
+    Instant time = Instant.ofEpochSecond(1593365471);
     LogMessage m1 = makeMessageWithIndexAndTimestamp(1, "apple", TEST_INDEX_NAME, time);
     LogMessage m2 =
         makeMessageWithIndexAndTimestamp(2, "baby", TEST_INDEX_NAME, time.plusSeconds(60));
@@ -50,7 +48,12 @@ public class StatsCollectorTest {
 
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
-            TEST_INDEX_NAME, "", timeEpochMs(time), timeEpochMs(time.plusSeconds(4 * 60)), 0, 5);
+            TEST_INDEX_NAME,
+            "",
+            time.toEpochMilli(),
+            time.plusSeconds(4 * 60).toEpochMilli(),
+            0,
+            5);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);

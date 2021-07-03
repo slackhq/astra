@@ -7,9 +7,7 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,9 +18,6 @@ import java.util.stream.IntStream;
 public class MessageUtil {
   // TODO: Add Timer
 
-  public static final DateTimeFormatter LogDateFormat =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneId.systemDefault());
-
   public static final String DEFAULT_MESSAGE_PREFIX = "Message";
   public static final String TEST_INDEX_NAME = "testindex";
   public static final String TEST_MESSAGE_TYPE = "INFO";
@@ -32,7 +27,7 @@ public class MessageUtil {
   public static final String TEST_SOURCE_FLOAT_PROPERTY = "floatproperty";
 
   public static String getCurrentLogDate() {
-    return LocalDateTime.now().format(LogDateFormat);
+    return Instant.now().toString();
   }
 
   // TODO: Convert message to a Span object.
@@ -78,10 +73,9 @@ public class MessageUtil {
   }
 
   public static LogMessage makeMessageWithIndexAndTimestamp(
-      int i, String msgStr, String indexName, LocalDateTime timeStamp) {
+      int i, String msgStr, String indexName, Instant timeStamp) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(
-        LogMessage.ReservedField.TIMESTAMP.fieldName, timeStamp.format(MessageUtil.LogDateFormat));
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timeStamp.toString());
     fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, msgStr);
 
     LogWireMessage wireMsg =
@@ -145,16 +139,16 @@ public class MessageUtil {
 
   public static List<LogMessage> makeMessagesWithTimeDifference(
       int low, int high, long timeDeltaMills) {
-    return makeMessagesWithTimeDifference(low, high, timeDeltaMills, LocalDateTime.now());
+    return makeMessagesWithTimeDifference(low, high, timeDeltaMills, Instant.now());
   }
 
   public static List<LogMessage> makeMessagesWithTimeDifference(
-      int low, int high, long timeDeltaMills, LocalDateTime start) {
+      int low, int high, long timeDeltaMills, Instant start) {
     List<LogMessage> result = new ArrayList<>();
     for (int i = 0; i <= (high - low); i++) {
       result.add(
           MessageUtil.makeMessage(
-              low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i).format(LogDateFormat)));
+              low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i).toString()));
     }
     return result;
   }

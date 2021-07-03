@@ -1,4 +1,4 @@
-serverPort: 8080
+nodeRoles: [INDEX,QUERY]
 
 indexerConfig:
   maxMessagesPerChunk: 100
@@ -8,6 +8,10 @@ indexerConfig:
   staleDurationSecs: 7200
   dataTransformer: "api_log"
   dataDirectory: "/tmp"
+  serverPort: 8080
+
+queryConfig:
+  serverPort: 8081
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}

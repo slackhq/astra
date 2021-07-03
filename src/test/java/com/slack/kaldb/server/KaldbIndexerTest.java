@@ -28,6 +28,7 @@ import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +60,7 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
@@ -80,40 +81,6 @@ public class KaldbIndexerTest {
   }
 
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
-
-  private KaldbConfigs.KaldbConfig makeKaldbConfig(String bootstrapServers) {
-    KaldbConfigs.KafkaConfig kafkaConfig =
-        KaldbConfigs.KafkaConfig.newBuilder()
-            .setKafkaTopic(TEST_KAFKA_TOPIC)
-            .setKafkaTopicPartition(String.valueOf(TEST_KAFKA_PARTITION))
-            .setKafkaBootStrapServers(bootstrapServers)
-            .setKafkaClientGroup(KALDB_TEST_CLIENT)
-            .setEnableKafkaAutoCommit("true")
-            .setKafkaAutoCommitInterval("5000")
-            .setKafkaSessionTimeout("5000")
-            .build();
-
-    KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder()
-            .setS3Bucket(TEST_S3_BUCKET)
-            .setS3Region("us-east-1")
-            .build();
-
-    KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigs.IndexerConfig.newBuilder()
-            .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-            .setMaxMessagesPerChunk(100)
-            .setCommitDurationSecs(10)
-            .setRefreshDurationSecs(10)
-            .setStaleDurationSecs(7200)
-            .build();
-
-    return KaldbConfigs.KaldbConfig.newBuilder()
-        .setKafkaConfig(kafkaConfig)
-        .setS3Config(s3Config)
-        .setIndexerConfig(indexerConfig)
-        .build();
-  }
 
   private String uri() {
     return "gproto+http://127.0.0.1:" + server.activeLocalPort() + '/';
@@ -141,15 +108,24 @@ public class KaldbIndexerTest {
     assertThat(broker.isRunning()).isTrue();
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
     // Initialize kaldb config.
-    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig("localhost:" + broker.getKafkaPort().get());
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        KaldbConfigUtil.makeKaldbConfig(
+            "localhost:" + broker.getKafkaPort().get(),
+            0,
+            TEST_KAFKA_TOPIC,
+            TEST_KAFKA_PARTITION,
+            KALDB_TEST_CLIENT,
+            TEST_S3_BUCKET,
+            8081);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
-    sb.http(0);
+    sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     KaldbIndexer indexer =
         new KaldbIndexer(
@@ -179,7 +155,7 @@ public class KaldbIndexerTest {
     assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     KaldbSearch.SearchResult searchResponse =
         searchUsingGrpcApi("Message1", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
 

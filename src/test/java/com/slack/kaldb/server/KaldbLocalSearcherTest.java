@@ -24,6 +24,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -44,7 +45,7 @@ public class KaldbLocalSearcherTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
-    KaldbConfigUtil.initEmptyConfig();
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
@@ -62,7 +63,8 @@ public class KaldbLocalSearcherTest {
   public void testKalDbSearch() throws IOException {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -75,7 +77,7 @@ public class KaldbLocalSearcherTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (100 * 1000);
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -130,14 +132,15 @@ public class KaldbLocalSearcherTest {
   public void testKalDbSearchNoData() throws IOException {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -178,14 +181,15 @@ public class KaldbLocalSearcherTest {
   public void testKalDbSearchNoHits() throws IOException {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -227,14 +231,15 @@ public class KaldbLocalSearcherTest {
   public void testKalDbSearchNoHistogram() throws IOException {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -281,14 +286,15 @@ public class KaldbLocalSearcherTest {
   public void testKalDbBadArgSearch() throws IOException {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -309,7 +315,8 @@ public class KaldbLocalSearcherTest {
     // Load test data into chunk manager.
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -336,7 +343,7 @@ public class KaldbLocalSearcherTest {
                 InProcessChannelBuilder.forName(serverName).directExecutor().build()));
 
     // Build a search request
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
     KaldbSearch.SearchResult response =
         blockingKaldbClient.search(
@@ -388,7 +395,8 @@ public class KaldbLocalSearcherTest {
     // Load test data into chunk manager.
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
-    final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -415,7 +423,7 @@ public class KaldbLocalSearcherTest {
                 InProcessChannelBuilder.forName(serverName).directExecutor().build()));
 
     // Build a bad search request.
-    final long chunk1StartTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
     blockingStub.search(
         KaldbSearch.SearchRequest.newBuilder()

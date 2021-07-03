@@ -395,6 +395,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     return curator;
   }
 
+  @VisibleForTesting
   public ListeningExecutorService getMetadataExecutorService() {
     return metadataExecutorService;
   }
