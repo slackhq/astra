@@ -6,10 +6,9 @@ import java.util.concurrent.Executor;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 
 public interface CachedMetadataStore<T> extends PathChildrenCacheListener {
-
   List<T> getInstances();
 
-  Optional<T> get(String path);
+  Optional<T> get(String relativePathName);
 
   void start() throws Exception;
 

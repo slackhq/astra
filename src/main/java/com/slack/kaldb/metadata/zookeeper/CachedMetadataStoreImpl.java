@@ -26,18 +26,34 @@ import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
 
+/**
+ * A CachedMetadataStoreImpl uses a curator path cache to cache all the nodes under a given node. In
+ * addition, this class also accepts a metadata serializer/de-serializer objects, so we only
+ * serialize/de-serialize the objects only once.
+ *
+ * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
+ * root and the node value is the serialized metadata object.
+ *
+ * <p>NOTE: Since a directory is also a node in ZK, the directory node should also have a metadata
+ * object in it's value even though it's not used. This is a different from a regular file system.
+ *
+ * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
+ * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
+ *
+ * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
+ */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
   private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
   private final CuratorCacheBridge cache;
 
-  // TODO: Rename this field.
   private final ConcurrentMap<String, T> instances = Maps.newConcurrentMap();
-  // TODO: is ensureContainers needed?
+
   private final EnsureContainers ensureContainers;
   private final CountDownLatch initializedLatch = new CountDownLatch(1);
   private final MetadataSerializer<T> metadataSerde;
+  private final String pathPrefix;
 
   private enum State {
     LATENT,
@@ -65,13 +81,16 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
       ExecutorService executorService) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
-    Preconditions.checkNotNull(curator, "curator framrwork cannot be null");
+    Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
-
+    this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
     // Create a curator cache but don't store any data in it since CacheStorage only allows
     // storing data as a byte array. Instead use the curator cache implementation for
     // managing persistent watchers and other admin tasks. Instead add a listener which would
-    // cache the data locally as a POJO using a serializer.
+    // cache the data locally as a POJO using a serializer. In future, this also allows us to store
+    // the data in a custom data structure other than a hash table. Currently, if we lose a ZK
+    // connection the cache will grow stale but this class is oblivious of it.
+    // TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
     cache =
         CuratorCache.bridgeBuilder(curator, path)
             .withExecutorService(executorService)
@@ -96,31 +115,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return Optional.ofNullable(instances.get(path));
   }
 
-  // TODO: Need these latches?
-  @VisibleForTesting volatile CountDownLatch debugStartLatch = null;
-  volatile CountDownLatch debugStartWaitLatch = null;
-
   @Override
   public void start() throws Exception {
     startImmediate().await();
   }
 
-  // @Override
   public CountDownLatch startImmediate() throws Exception {
     Preconditions.checkState(
         state.compareAndSet(State.LATENT, State.STARTED), "Cannot be started more than once");
 
     ensureContainers.ensure();
     cache.start();
-    if (debugStartLatch != null) {
-      initializedLatch.await();
-      debugStartLatch.countDown();
-      debugStartLatch = null;
-    }
-    if (debugStartWaitLatch != null) {
-      debugStartWaitLatch.await();
-      debugStartWaitLatch = null;
-    }
 
     return initializedLatch;
   }
@@ -174,20 +179,35 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     }
   }
 
+  private static String removeStart(final String str, final String remove) {
+    if (str.isEmpty() || remove.isEmpty()) {
+      return str;
+    }
+    if (str.startsWith(remove)) {
+      return str.substring(remove.length());
+    }
+    return str;
+  }
+
   private String instanceIdFromData(ChildData childData) {
-    return ZKPaths.getNodeFromPath(childData.getPath());
+    return removeStart(childData.getPath(), pathPrefix);
   }
 
   private void addInstance(ChildData childData) {
     try {
       String instanceId = instanceIdFromData(childData);
-      // TODO: Use byte arrays here.
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
+      // TODO: Switch to a relative path, if nested nodes are used widely.
       instances.put(instanceId, serviceInstance);
     } catch (Exception e) {
       throw new InternalMetadataStoreException(
           "Error adding node at path " + childData.getPath(), e);
     }
+  }
+
+  @VisibleForTesting
+  public boolean isStarted() {
+    return state.get().equals(State.STARTED);
   }
 
   private void initialized() {
