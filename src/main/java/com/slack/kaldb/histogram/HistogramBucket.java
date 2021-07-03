@@ -1,5 +1,6 @@
 package com.slack.kaldb.histogram;
 
+import com.google.common.base.Objects;
 import javax.annotation.Nonnull;
 
 /**
@@ -63,4 +64,19 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
     return String.format("HistogramBucket low:%f, high:%f, count:%f", low, high, count);
   }
   // TODO: Consider adding "overlap" projection for merge?
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    HistogramBucket that = (HistogramBucket) o;
+    return Double.compare(that.low, low) == 0
+        && Double.compare(that.high, high) == 0
+        && Double.compare(that.count, count) == 0;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(low, high, count);
+  }
 }

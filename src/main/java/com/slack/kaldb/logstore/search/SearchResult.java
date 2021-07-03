@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import com.google.common.base.Objects;
 import com.slack.kaldb.histogram.HistogramBucket;
 import java.util.List;
 
@@ -39,5 +40,33 @@ public class SearchResult<T> {
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
     this.snapshotsWithReplicas = snapshotsWithReplicas;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SearchResult<?> that = (SearchResult<?>) o;
+    return totalCount == that.totalCount
+        && tookMicros == that.tookMicros
+        && failedNodes == that.failedNodes
+        && totalNodes == that.totalNodes
+        && totalSnapshots == that.totalSnapshots
+        && snapshotsWithReplicas == that.snapshotsWithReplicas
+        && Objects.equal(hits, that.hits)
+        && Objects.equal(buckets, that.buckets);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(
+        totalCount,
+        hits,
+        tookMicros,
+        buckets,
+        failedNodes,
+        totalNodes,
+        totalSnapshots,
+        snapshotsWithReplicas);
   }
 }
