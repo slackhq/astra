@@ -189,6 +189,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return str;
   }
 
+  // Use the path name relative to cache root as the instanceId to better support nested nodes.
   private String instanceIdFromData(ChildData childData) {
     return removeStart(childData.getPath(), pathPrefix);
   }
@@ -197,7 +198,6 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     try {
       String instanceId = instanceIdFromData(childData);
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
-      // TODO: Switch to a relative path, if nested nodes are used widely.
       instances.put(instanceId, serviceInstance);
     } catch (Exception e) {
       throw new InternalMetadataStoreException(
