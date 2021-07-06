@@ -286,8 +286,8 @@ public class ZookeeperMetadataStoreImplTest {
     String path2 = "/root/1/2/4";
     String path3 = "/root/1/2/5";
 
-    Throwable beforeNodeCrationEx = catchThrowable(() -> metadataStore.getChildren(path1).get());
-    assertThat(beforeNodeCrationEx.getCause()).isInstanceOf(NoNodeException.class);
+    Throwable beforeNodeCreationEx = catchThrowable(() -> metadataStore.getChildren(path1).get());
+    assertThat(beforeNodeCreationEx.getCause()).isInstanceOf(NoNodeException.class);
 
     assertThat(metadataStore.create(path1, "", true).get()).isNull();
     assertThat(metadataStore.create(path2, "", true).get()).isNull();
@@ -510,6 +510,7 @@ public class ZookeeperMetadataStoreImplTest {
     metadataStore.cacheNodeAndChildren(root, null, new SnapshotMetadataSerializer());
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testCacheNodeAndChildren() throws Exception {
     String root = "/root";
@@ -558,6 +559,10 @@ public class ZookeeperMetadataStoreImplTest {
         .isNull();
     await().untilAsserted(() -> assertThat(cache.get("node2").get()).isEqualTo(snapshot22));
     assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21, snapshot12, snapshot22);
+
+    assertThat(metadataStore.delete(ephemeralNode2).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(3));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21, snapshot22);
 
     // Closing the curator connection expires the ephemeral node and cache is left with
     // persistent node.
