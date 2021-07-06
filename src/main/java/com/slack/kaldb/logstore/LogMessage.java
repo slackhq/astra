@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 import java.time.*;
 import java.util.Map;
 import java.util.Optional;
@@ -131,12 +132,16 @@ public class LogMessage extends LogWireMessage {
     this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
   }
 
-  private Long getMillisecondsSinceEpoch() {
+  public Long getMillisecondsSinceEpoch() {
     String s = (String) source.get(ReservedField.TIMESTAMP.fieldName);
     if (s != null) {
       return getTime(s);
     }
     throw raiseException(null);
+  }
+
+  public Map<String, Object> getSource() {
+    return ImmutableMap.copyOf(source);
   }
 
   private Long getTime(String dateStr) {
