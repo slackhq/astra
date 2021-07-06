@@ -340,7 +340,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    * This implementation uses a CachedMetadataStore, a wrapper on curator cache, to cache all the
    * nodes under a given path.
    */
-  public <T extends KaldbMetadata> CachedMetadataStore<T> watchAndCacheNodeAndChildren(
+  public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
       String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
       throws Exception {
     if (!existsImpl(path)) {
