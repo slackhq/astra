@@ -35,6 +35,18 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
 
+  grafana7:
+    image: 'grafana/grafana:7.3.6'
+    container_name: kaldb_grafana7
+    ports:
+      - 3001:3000
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+
   s3:
     image: 'adobe/s3mock:2.1.29'
     container_name: kaldb_s3

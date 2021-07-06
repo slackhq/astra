@@ -11,16 +11,16 @@ datasources:
     url: "host.docker.internal:8080"
     password:
     user:
-    database: api_log
+    database: testindex
     basicAuth: false
     basicAuthUser:
     basicAuthPassword:
     withCredentials:
     isDefault: true
     jsonData:
-      esVersion: 7.0.0
-      logLevelField: "loglevel"
-      logMessageField: "message"
-      maxConcurrentShardRequests: 5
       timeField: "@timestamp"
+      esVersion: 7.0.0
+      maxConcurrentShardRequests: 5
+      logMessageField: "_source"
+      logLevelField: ""
     version: 1
