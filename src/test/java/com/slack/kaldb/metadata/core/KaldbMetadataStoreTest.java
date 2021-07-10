@@ -26,7 +26,7 @@ public class KaldbMetadataStoreTest {
   private static final Logger LOG = LoggerFactory.getLogger(DummyPersistentMetadataStore.class);
 
   static class DummyPersistentMetadataStore
-      extends PersistentCreatableMetadataStore<SnapshotMetadata> {
+      extends CreatablePersistentMetadataStore<SnapshotMetadata> {
     public DummyPersistentMetadataStore(
         MetadataStore metadataStore,
         String storeFolder,

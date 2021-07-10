@@ -1,11 +1,11 @@
 package com.slack.kaldb.metadata.snapshot;
 
-import com.slack.kaldb.metadata.core.PersistentCreatableMetadataStore;
+import com.slack.kaldb.metadata.core.CreatablePersistentMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SnapshotMetadataStore extends PersistentCreatableMetadataStore<SnapshotMetadata> {
+public class SnapshotMetadataStore extends CreatablePersistentMetadataStore<SnapshotMetadata> {
 
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotMetadataStore.class);
 

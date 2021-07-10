@@ -6,9 +6,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
-public abstract class PersistentCreatableMetadataStore<T extends KaldbMetadata>
+public abstract class CreatablePersistentMetadataStore<T extends KaldbMetadata>
     extends KaldbMetadataStore<T> {
-  public PersistentCreatableMetadataStore(
+  public CreatablePersistentMetadataStore(
       MetadataStore metadataStore,
       String snapshotStoreFolder,
       MetadataSerializer<T> metadataSerializer,

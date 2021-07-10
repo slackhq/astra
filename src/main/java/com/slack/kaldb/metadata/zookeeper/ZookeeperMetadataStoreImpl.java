@@ -117,7 +117,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
     /*
      * If a ZK session expires, we need to create all the watches and ephemeral nodes again.
-     * In such a case, any ephermeral nodes and watches would expire and need to be re-created.
+     * In such a case, any ephemeral nodes and watches would expire and need to be re-created.
      * To keep it simple for now, we terminate the process and let the process initialization
      * register those nodes.
      */
@@ -168,7 +168,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     }
   }
 
-  /** Create an ephermeral node at path */
+  /** Create an ephemeral node at path */
   @Override
   public ListenableFuture<?> createEphemeralNode(String path, String data) {
     return metadataExecutorService.submit(() -> createEphemeralNodeImpl(path, data));
@@ -340,6 +340,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    * This implementation uses a CachedMetadataStore, a wrapper on curator cache, to cache all the
    * nodes under a given path.
    */
+  @Override
   public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
       String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
       throws Exception {
@@ -348,7 +349,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     }
 
     CachedMetadataStore<T> cachedMetadataStore =
-        new CachedMetadataStoreImpl<T>(path, metadataSerializer, curator, metadataExecutorService);
+        new CachedMetadataStoreImpl<>(path, metadataSerializer, curator, metadataExecutorService);
     if (listener != null) {
       cachedMetadataStore.addListener(listener);
     }

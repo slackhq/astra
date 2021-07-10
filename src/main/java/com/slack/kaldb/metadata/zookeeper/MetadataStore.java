@@ -1,6 +1,8 @@
 package com.slack.kaldb.metadata.zookeeper;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.MetadataSerializer;
 import java.util.List;
 
 /**
@@ -24,4 +26,8 @@ public interface MetadataStore {
   ListenableFuture<?> delete(String path);
 
   ListenableFuture<List<String>> getChildren(String path);
+
+  <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
+      String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
+      throws Exception;
 }
