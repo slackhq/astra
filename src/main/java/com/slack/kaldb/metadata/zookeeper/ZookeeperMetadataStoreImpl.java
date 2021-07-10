@@ -342,18 +342,13 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    */
   @Override
   public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
-      String path, CachedMetadataStoreListener listener, MetadataSerializer<T> metadataSerializer)
-      throws Exception {
+      String path, MetadataSerializer<T> metadataSerializer) throws Exception {
     if (!existsImpl(path)) {
       throw new NoNodeException(path);
     }
 
     CachedMetadataStore<T> cachedMetadataStore =
         new CachedMetadataStoreImpl<>(path, metadataSerializer, curator, metadataExecutorService);
-    if (listener != null) {
-      cachedMetadataStore.addListener(listener);
-    }
-    cachedMetadataStore.start();
     return cachedMetadataStore;
   }
 

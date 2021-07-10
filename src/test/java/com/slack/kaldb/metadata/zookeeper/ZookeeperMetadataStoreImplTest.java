@@ -484,7 +484,7 @@ public class ZookeeperMetadataStoreImplTest {
 
     Throwable cacheCreationEx =
         catchThrowable(
-            () -> metadataStore.cacheNodeAndChildren(root, null, new SnapshotMetadataSerializer()));
+            () -> metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer()));
     assertThat(cacheCreationEx).isInstanceOf(InternalMetadataStoreException.class);
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(8);
   }
@@ -507,7 +507,7 @@ public class ZookeeperMetadataStoreImplTest {
   @Test(expected = NoNodeException.class)
   public void testCacheNodeAndChildrenFailsWhenNoNodeExists() throws Exception {
     String root = "/root";
-    metadataStore.cacheNodeAndChildren(root, null, new SnapshotMetadataSerializer());
+    metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer());
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -517,8 +517,8 @@ public class ZookeeperMetadataStoreImplTest {
     assertThat(metadataStore.create(root, "", true).get()).isNull();
 
     SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
-    CachedMetadataStore<SnapshotMetadata> cache =
-        metadataStore.cacheNodeAndChildren(root, null, serDe);
+    CachedMetadataStore<SnapshotMetadata> cache = metadataStore.cacheNodeAndChildren(root, serDe);
+    cache.start();
 
     final String ephemeralNode = "/root/enode";
     SnapshotMetadata snapshot1 = makeSnapshot("test1");

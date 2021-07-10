@@ -25,6 +25,8 @@ import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A CachedMetadataStoreImpl uses a curator path cache to cache all the nodes under a given node. In
@@ -43,6 +45,8 @@ import org.apache.curator.utils.ZKPaths;
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
+
   private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
@@ -118,9 +122,10 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   @Override
   public void start() throws Exception {
     startImmediate().await();
+    LOG.info("Started caching nodes at path {}.", pathPrefix);
   }
 
-  public CountDownLatch startImmediate() throws Exception {
+  private CountDownLatch startImmediate() throws Exception {
     Preconditions.checkState(
         state.compareAndSet(State.LATENT, State.STARTED), "Cannot be started more than once");
 
@@ -137,6 +142,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
         "Already closed or has not been started");
     listenerContainer.clear();
     CloseableUtils.closeQuietly(cache);
+    LOG.info("Closing cache for path: {}", pathPrefix);
   }
 
   @Override
@@ -176,6 +182,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
 
     if (notifyListeners && (initializedLatch.getCount() == 0)) {
       listenerContainer.forEach(CachedMetadataStoreListener::cacheChanged);
+      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
     }
   }
 
