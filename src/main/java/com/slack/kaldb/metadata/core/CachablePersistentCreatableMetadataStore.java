@@ -15,7 +15,7 @@ import org.slf4j.Logger;
  * <p>To use this class, the steps are: instantiate the class, register listeners and start the
  * cache. To close the cache, call the close method.
  */
-public class CachablePersistentCreatableMetadataStore<T extends KaldbMetadata>
+public abstract class CachablePersistentCreatableMetadataStore<T extends KaldbMetadata>
     extends PersistentCreatableMetadataStore<T> {
 
   private final Optional<CachedMetadataStore<T>> cache;

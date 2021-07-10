@@ -23,7 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class KaldbMetadataStoreTest {
-  private static final Logger LOG = LoggerFactory.getLogger(DummyPersistentCreatableMetadataStore.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(DummyPersistentCreatableMetadataStore.class);
 
   static class DummyPersistentCreatableMetadataStore
       extends PersistentCreatableMetadataStore<SnapshotMetadata> {
