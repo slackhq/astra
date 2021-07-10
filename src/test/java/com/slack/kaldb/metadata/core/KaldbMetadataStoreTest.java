@@ -29,13 +29,28 @@ public class KaldbMetadataStoreTest {
   static class DummyPersistentCreatableMetadataStore
       extends PersistentCreatableMetadataStore<SnapshotMetadata> {
     public DummyPersistentCreatableMetadataStore(
+        boolean shouldCache,
         MetadataStore metadataStore,
         String storeFolder,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
-        Logger logger) {
-      super(metadataStore, storeFolder, metadataSerializer, logger);
+        Logger logger)
+        throws Exception {
+      super(shouldCache, storeFolder, metadataStore, metadataSerializer, logger);
+    }
+
+    public DummyPersistentCreatableMetadataStore(
+        MetadataStore metadataStore,
+        String storeFolder,
+        MetadataSerializer<SnapshotMetadata> metadataSerializer,
+        Logger logger)
+        throws Exception {
+      super(false, storeFolder, metadataStore, metadataSerializer, logger);
     }
   }
+
+  // TODO: Add tests for enabled cache.
+  // TODO: Add tests for disabled cache.
+  // TODO: Add unit tests for EphemeralPersistentStore.
 
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl metadataStore;

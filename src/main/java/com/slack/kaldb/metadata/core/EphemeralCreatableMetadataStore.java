@@ -7,14 +7,16 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
 public abstract class EphemeralCreatableMetadataStore<T extends KaldbMetadata>
-    extends KaldbMetadataStore<T> {
+    extends CachableMetadataStore<T> {
 
   public EphemeralCreatableMetadataStore(
+      boolean shouldCache,
+      String storeFolder,
       MetadataStore metadataStore,
-      String snapshotStoreFolder,
       MetadataSerializer<T> metadataSerializer,
-      Logger logger) {
-    super(metadataStore, snapshotStoreFolder, metadataSerializer, logger);
+      Logger logger)
+      throws Exception {
+    super(shouldCache, storeFolder, metadataStore, metadataSerializer, logger);
   }
 
   // TODO: Return ListenableFuture<bool>?

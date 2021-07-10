@@ -11,8 +11,9 @@ public class SnapshotMetadataStore extends PersistentCreatableMetadataStore<Snap
 
   // TODO: Add a setup method to initialize the store?
 
-  // TODO: Implement watches in underlying ZK store.
-  public SnapshotMetadataStore(MetadataStore metadataStore, String snapshotStoreFolder) {
-    super(metadataStore, snapshotStoreFolder, new SnapshotMetadataSerializer(), LOG);
+  // TODO: Add listeners to the store and start cache.
+  public SnapshotMetadataStore(
+      MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
+    super(shouldCache, snapshotStorePath, metadataStore, new SnapshotMetadataSerializer(), LOG);
   }
 }
