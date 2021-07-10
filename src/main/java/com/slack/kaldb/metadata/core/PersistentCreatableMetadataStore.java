@@ -6,10 +6,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
-public abstract class CreatableEphemeralMetadataStore<T extends KaldbMetadata>
+public abstract class PersistentCreatableMetadataStore<T extends KaldbMetadata>
     extends KaldbMetadataStore<T> {
-
-  public CreatableEphemeralMetadataStore(
+  public PersistentCreatableMetadataStore(
       MetadataStore metadataStore,
       String snapshotStoreFolder,
       MetadataSerializer<T> metadataSerializer,
@@ -21,7 +20,7 @@ public abstract class CreatableEphemeralMetadataStore<T extends KaldbMetadata>
   public ListenableFuture<?> create(T metadataNode) {
     String path = getPath(metadataNode.name);
     try {
-      return metadataStore.createEphemeralNode(path, metadataSerializer.toJsonStr(metadataNode));
+      return metadataStore.create(path, metadataSerializer.toJsonStr(metadataNode), true);
     } catch (InvalidProtocolBufferException e) {
       String msg = String.format("Error serializing node %s at path %s", metadataNode, path);
       logger.error(msg, e);

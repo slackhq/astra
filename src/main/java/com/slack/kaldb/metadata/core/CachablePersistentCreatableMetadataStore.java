@@ -15,12 +15,12 @@ import org.slf4j.Logger;
  * <p>To use this class, the steps are: instantiate the class, register listeners and start the
  * cache. To close the cache, call the close method.
  */
-public class CachableCreatablePersistentMetadataStore<T extends KaldbMetadata>
-    extends CreatablePersistentMetadataStore<T> {
+public class CachablePersistentCreatableMetadataStore<T extends KaldbMetadata>
+    extends PersistentCreatableMetadataStore<T> {
 
   private final Optional<CachedMetadataStore<T>> cache;
 
-  public CachableCreatablePersistentMetadataStore(
+  public CachablePersistentCreatableMetadataStore(
       boolean shouldCache,
       String snapshotStoreFolder,
       MetadataStore metadataStore,

@@ -23,11 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class KaldbMetadataStoreTest {
-  private static final Logger LOG = LoggerFactory.getLogger(DummyPersistentMetadataStore.class);
+  private static final Logger LOG = LoggerFactory.getLogger(DummyPersistentCreatableMetadataStore.class);
 
-  static class DummyPersistentMetadataStore
-      extends CreatablePersistentMetadataStore<SnapshotMetadata> {
-    public DummyPersistentMetadataStore(
+  static class DummyPersistentCreatableMetadataStore
+      extends PersistentCreatableMetadataStore<SnapshotMetadata> {
+    public DummyPersistentCreatableMetadataStore(
         MetadataStore metadataStore,
         String storeFolder,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
@@ -40,7 +40,7 @@ public class KaldbMetadataStoreTest {
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private CountingFatalErrorHandler countingFatalErrorHandler;
-  private DummyPersistentMetadataStore dummyKaldbMetadataStore;
+  private DummyPersistentCreatableMetadataStore dummyKaldbMetadataStore;
 
   @Before
   public void setUp() throws Exception {
@@ -58,7 +58,7 @@ public class KaldbMetadataStoreTest {
             countingFatalErrorHandler,
             meterRegistry);
     this.dummyKaldbMetadataStore =
-        new DummyPersistentMetadataStore(
+        new DummyPersistentCreatableMetadataStore(
             metadataStore, "/snapshots", new SnapshotMetadataSerializer(), LOG);
   }
 
