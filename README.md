@@ -7,9 +7,7 @@ Internally KalDb stores all the data produced in the `SpanEvent` format. Further
 
 # Development
 
-To build the binary
+To build the binary: `mvn clean package`
 
+IntelliJ: Import the project as a maven project.
 
-```
-mvn clean package
-```

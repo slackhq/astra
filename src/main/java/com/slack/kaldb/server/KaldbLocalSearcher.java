@@ -1,14 +1,18 @@
 package com.slack.kaldb.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.histogram.HistogramBucket;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.util.JsonUtil;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -33,6 +37,31 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
         searchRequest.getBucketCount());
   }
 
+  public static SearchResult<LogMessage> fromSearchResultProto(
+      KaldbSearch.SearchResult protoSearchResult) throws IOException {
+    List<LogMessage> hits = new ArrayList<>(protoSearchResult.getHitsCount());
+
+    for (ByteString bytes : protoSearchResult.getHitsList().asByteStringList()) {
+      LogWireMessage hit = JsonUtil.read(bytes.toStringUtf8(), LogWireMessage.class);
+      LogMessage message = LogMessage.fromWireMessage(hit);
+      hits.add(message);
+    }
+    List<HistogramBucket> histogramBuckets = new ArrayList<>();
+    for (KaldbSearch.HistogramBucket protoBucket : protoSearchResult.getBucketsList()) {
+      histogramBuckets.add(new HistogramBucket(protoBucket.getLow(), protoBucket.getHigh()));
+    }
+
+    return new SearchResult<>(
+        hits,
+        protoSearchResult.getTookMicros(),
+        protoSearchResult.getTotalCount(),
+        histogramBuckets,
+        protoSearchResult.getFailedNodes(),
+        protoSearchResult.getTotalNodes(),
+        protoSearchResult.getTotalSnapshots(),
+        protoSearchResult.getSnapshotsWithReplicas());
+  }
+
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult)
       throws JsonProcessingException {
 
@@ -42,6 +71,7 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
     searchResultBuilder.setFailedNodes(searchResult.failedNodes);
     searchResultBuilder.setTotalNodes(searchResult.totalNodes);
     searchResultBuilder.setTotalSnapshots(searchResult.totalSnapshots);
+    searchResultBuilder.setSnapshotsWithReplicas(searchResult.snapshotsWithReplicas);
 
     // Set hits
     ArrayList<String> protoHits = new ArrayList<>(searchResult.hits.size());
