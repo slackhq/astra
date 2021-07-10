@@ -9,18 +9,17 @@ import java.util.Optional;
 import org.slf4j.Logger;
 
 /**
- * This store adds a cache on top of the CreatablePersistentMetadataStore. Optionally, this class
- * can also disable caching by passing in a feature flag.
+ * This store adds a cache on top of the KaldbMetadataStore. Optionally, this class can disable
+ * caching by passing in a feature flag.
  *
  * <p>To use this class, the steps are: instantiate the class, register listeners and start the
  * cache. To close the cache, call the close method.
  */
-public abstract class CachablePersistentCreatableMetadataStore<T extends KaldbMetadata>
-    extends PersistentCreatableMetadataStore<T> {
+public abstract class CachableMetadataStore<T extends KaldbMetadata> extends KaldbMetadataStore<T> {
 
   private final Optional<CachedMetadataStore<T>> cache;
 
-  public CachablePersistentCreatableMetadataStore(
+  public CachableMetadataStore(
       boolean shouldCache,
       String snapshotStoreFolder,
       MetadataStore metadataStore,
@@ -45,7 +44,7 @@ public abstract class CachablePersistentCreatableMetadataStore<T extends KaldbMe
   }
 
   public void close() {
-    if (cache.isPresent()) cache.get().close();
+    cache.ifPresent(CachedMetadataStore::close);
   }
 
   public List<T> get_cached() {
@@ -53,10 +52,10 @@ public abstract class CachablePersistentCreatableMetadataStore<T extends KaldbMe
   }
 
   public void addListener(CachedMetadataStoreListener listener) {
-    if (cache.isPresent()) cache.get().addListener(listener);
+    cache.ifPresent(cacheImpl -> cacheImpl.addListener(listener));
   }
 
   public void removeListener(CachedMetadataStoreListener listener) {
-    if (cache.isPresent()) cache.get().removeListener(listener);
+    cache.ifPresent(cacheImpl -> cacheImpl.removeListener(listener));
   }
 }

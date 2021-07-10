@@ -73,6 +73,8 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
+  // TODO: Add list method for a node?
+
   public ListenableFuture<?> delete(String path) {
     return metadataStore.delete(getPath(path));
   }
