@@ -7,7 +7,7 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
 public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
-    extends UpdatableCachableMetadataStore<T> {
+    extends UpdatableCacheableMetadataStore<T> {
 
   private final boolean updatable;
 

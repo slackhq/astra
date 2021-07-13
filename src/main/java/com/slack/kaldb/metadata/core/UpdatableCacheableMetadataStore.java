@@ -7,10 +7,10 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
 /** A metadata store that supports updates. */
-public abstract class UpdatableCachableMetadataStore<T extends KaldbMetadata>
+public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
     extends CachableMetadataStore<T> {
 
-  public UpdatableCachableMetadataStore(
+  public UpdatableCacheableMetadataStore(
       boolean shouldCache,
       String snapshotStoreFolder,
       MetadataStore metadataStore,
