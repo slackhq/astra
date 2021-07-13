@@ -6,17 +6,21 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 
-public abstract class PersistentCreatableMetadataStore<T extends KaldbMetadata>
-    extends CachableMetadataStore<T> {
+public abstract class PersistentMutableMetadataStore<T extends KaldbMetadata>
+    extends UpdatableCachableMetadataStore<T> {
 
-  public PersistentCreatableMetadataStore(
+  private final boolean updatable;
+
+  public PersistentMutableMetadataStore(
       boolean shouldCache,
+      boolean updatable,
       String storeFolder,
       MetadataStore metadataStore,
       MetadataSerializer<T> metadataSerializer,
       Logger logger)
       throws Exception {
     super(shouldCache, storeFolder, metadataStore, metadataSerializer, logger);
+    this.updatable = updatable;
   }
 
   // TODO: Return ListenableFuture<bool>?
@@ -30,5 +34,13 @@ public abstract class PersistentCreatableMetadataStore<T extends KaldbMetadata>
       // TODO: Create a failed listentable future with exception?
       return SettableFuture.create();
     }
+  }
+
+  public ListenableFuture<?> update(T metadataNode) {
+    if (!updatable) {
+      throw new UnsupportedOperationException("Can't update store at path " + storeFolder);
+    }
+
+    return super.update(metadataNode);
   }
 }

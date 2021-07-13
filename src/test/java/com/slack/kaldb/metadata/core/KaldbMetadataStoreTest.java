@@ -24,39 +24,42 @@ import org.slf4j.LoggerFactory;
 
 public class KaldbMetadataStoreTest {
   private static final Logger LOG =
-      LoggerFactory.getLogger(DummyPersistentCreatableMetadataStore.class);
+      LoggerFactory.getLogger(DummyPersistentMutableMetadataStore.class);
 
-  static class DummyPersistentCreatableMetadataStore
-      extends PersistentCreatableMetadataStore<SnapshotMetadata> {
-    public DummyPersistentCreatableMetadataStore(
+  static class DummyPersistentMutableMetadataStore
+      extends PersistentMutableMetadataStore<SnapshotMetadata> {
+    public DummyPersistentMutableMetadataStore(
         boolean shouldCache,
+        boolean updatable,
         MetadataStore metadataStore,
         String storeFolder,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
         Logger logger)
         throws Exception {
-      super(shouldCache, storeFolder, metadataStore, metadataSerializer, logger);
+      super(shouldCache, updatable, storeFolder, metadataStore, metadataSerializer, logger);
     }
 
-    public DummyPersistentCreatableMetadataStore(
+    public DummyPersistentMutableMetadataStore(
         MetadataStore metadataStore,
         String storeFolder,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
         Logger logger)
         throws Exception {
-      super(false, storeFolder, metadataStore, metadataSerializer, logger);
+      super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
     }
   }
 
   // TODO: Add tests for enabled cache.
   // TODO: Add tests for disabled cache.
   // TODO: Add unit tests for EphemeralPersistentStore.
+  // TODO: Add a unit test for updatable store.
+  // TODO: Add a unit test for creatable only store.
 
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private CountingFatalErrorHandler countingFatalErrorHandler;
-  private DummyPersistentCreatableMetadataStore dummyKaldbMetadataStore;
+  private DummyPersistentMutableMetadataStore dummyKaldbMetadataStore;
 
   @Before
   public void setUp() throws Exception {
@@ -74,7 +77,7 @@ public class KaldbMetadataStoreTest {
             countingFatalErrorHandler,
             meterRegistry);
     this.dummyKaldbMetadataStore =
-        new DummyPersistentCreatableMetadataStore(
+        new DummyPersistentMutableMetadataStore(
             metadataStore, "/snapshots", new SnapshotMetadataSerializer(), LOG);
   }
 
