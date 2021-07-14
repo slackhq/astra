@@ -9,6 +9,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import org.apache.curator.utils.ZKPaths;
 import org.slf4j.Logger;
@@ -41,6 +45,8 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     this.storeFolder = storeFolder;
     this.metadataSerializer = metadataSerializer;
     this.logger = logger;
+
+    // TODO: Add EnsureContainer on folder path.
   }
 
   protected String getPath(String snapshotName) {
@@ -48,6 +54,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
   }
 
   // TODO: byte arrays every where.
+  @SuppressWarnings("UnstableApiUsage")
   public ListenableFuture<T> get(String path) {
     String nodePath = getPath(path);
     Function<String, T> deserialize =
@@ -73,7 +80,32 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
-  // TODO: Add list method for a node?
+  @SuppressWarnings("UnstableApiUsage")
+  public ListenableFuture<List<T>> list() {
+    ListenableFuture<List<String>> children = metadataStore.getChildren(storeFolder);
+    Function<List<String>, List<T>> transformFunc =
+        new Function<>() {
+          @Override
+          public @Nullable List<T> apply(@Nullable List<String> paths) {
+            if (paths == null) return Collections.emptyList();
+
+            List<ListenableFuture<T>> getFutures = new ArrayList<>(paths.size());
+            for (String path : paths) {
+              getFutures.add(get(path));
+            }
+            ListenableFuture<List<T>> response = Futures.successfulAsList(getFutures);
+            try {
+              return response.get();
+            } catch (InterruptedException | ExecutionException e) {
+              // TODO: This log may be redundant. If so, remove it.
+              logger.error("Encountered Error fetching nodes from metadata store.", e);
+              return Collections.emptyList();
+            }
+          }
+        };
+
+    return Futures.transform(children, transformFunc, MoreExecutors.directExecutor());
+  }
 
   public ListenableFuture<?> delete(String path) {
     return metadataStore.delete(getPath(path));

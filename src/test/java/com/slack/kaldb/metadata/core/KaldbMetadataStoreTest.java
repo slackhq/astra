@@ -59,7 +59,7 @@ public class KaldbMetadataStoreTest {
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private CountingFatalErrorHandler countingFatalErrorHandler;
-  private DummyPersistentMutableMetadataStore dummyKaldbMetadataStore;
+  private DummyPersistentMutableMetadataStore creatablePersistentKaldbMetadataStore;
 
   @Before
   public void setUp() throws Exception {
@@ -76,7 +76,7 @@ public class KaldbMetadataStoreTest {
             new RetryNTimes(1, 500),
             countingFatalErrorHandler,
             meterRegistry);
-    this.dummyKaldbMetadataStore =
+    this.creatablePersistentKaldbMetadataStore =
         new DummyPersistentMutableMetadataStore(
             metadataStore, "/snapshots", new SnapshotMetadataSerializer(), LOG);
   }
@@ -101,9 +101,13 @@ public class KaldbMetadataStoreTest {
     final SnapshotMetadata testSnapshot =
         new SnapshotMetadata(
             name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
-    assertThat(dummyKaldbMetadataStore.create(testSnapshot).get()).isNull();
 
-    SnapshotMetadata metadata = dummyKaldbMetadataStore.get(name).get();
+    // TODO: Enable below check if we assume store always ensures node exists.
+    // assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
+    assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
+    assertThat(creatablePersistentKaldbMetadataStore.list().get().size()).isEqualTo(1);
+
+    SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
     assertThat(metadata.name).isEqualTo(name);
     assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
     assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -112,7 +116,8 @@ public class KaldbMetadataStoreTest {
     assertThat(metadata.maxOffset).isEqualTo(maxOffset);
     assertThat(metadata.partitionId).isEqualTo(partitionId);
 
-    assertThat(dummyKaldbMetadataStore.delete(name).get()).isNull();
+    assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
+    assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
   }
 
   @Test
@@ -128,9 +133,9 @@ public class KaldbMetadataStoreTest {
     final SnapshotMetadata testSnapshot =
         new SnapshotMetadata(
             name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
-    assertThat(dummyKaldbMetadataStore.create(testSnapshot).get()).isNull();
+    assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
 
-    SnapshotMetadata metadata = dummyKaldbMetadataStore.get(name).get();
+    SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
     assertThat(metadata.name).isEqualTo(name);
     assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
     assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -140,16 +145,17 @@ public class KaldbMetadataStoreTest {
     assertThat(metadata.partitionId).isEqualTo(partitionId);
 
     Throwable duplicateCreateEx =
-        catchThrowable(() -> dummyKaldbMetadataStore.create(testSnapshot).get());
+        catchThrowable(() -> creatablePersistentKaldbMetadataStore.create(testSnapshot).get());
     assertThat(duplicateCreateEx.getCause()).isInstanceOf(NodeExistsException.class);
 
-    assertThat(dummyKaldbMetadataStore.delete(name).get()).isNull();
+    assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
 
-    Throwable getMissingNodeEx = catchThrowable(() -> dummyKaldbMetadataStore.get(name).get());
+    Throwable getMissingNodeEx =
+        catchThrowable(() -> creatablePersistentKaldbMetadataStore.get(name).get());
     assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
 
     Throwable deleteMissingNodeEx =
-        catchThrowable(() -> dummyKaldbMetadataStore.delete(name).get());
+        catchThrowable(() -> creatablePersistentKaldbMetadataStore.delete(name).get());
     assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
   }
 }
