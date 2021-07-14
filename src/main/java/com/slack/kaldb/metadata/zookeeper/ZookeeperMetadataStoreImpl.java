@@ -60,6 +60,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
 
+  @SuppressWarnings("UnstableApiUsage")
   public ZookeeperMetadataStoreImpl(
       String zkHostPath,
       String zkPathPrefix,
@@ -128,7 +129,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
               if (curatorEvent.getType() == CuratorEventType.WATCHED
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {
-                LOG.warn("The ZK session has expired {}.", curatorEvent.toString());
+                LOG.warn("The ZK session has expired {}.", curatorEvent);
                 fatalErrorHandler.handleFatal(new Throwable("ZK session expired."));
               }
             });
@@ -342,14 +343,13 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    */
   @Override
   public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
-      String path, MetadataSerializer<T> metadataSerializer) throws Exception {
+      String path, MetadataSerializer<T> metadataSerializer) {
     if (!existsImpl(path)) {
       throw new NoNodeException(path);
     }
 
-    CachedMetadataStore<T> cachedMetadataStore =
-        new CachedMetadataStoreImpl<>(path, metadataSerializer, curator, metadataExecutorService);
-    return cachedMetadataStore;
+    return new CachedMetadataStoreImpl<>(
+        path, metadataSerializer, curator, metadataExecutorService);
   }
 
   @VisibleForTesting
