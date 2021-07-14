@@ -5,6 +5,7 @@ import com.slack.kaldb.histogram.HistogramBucket;
 import java.util.List;
 
 public class SearchResult<T> {
+
   public final long totalCount;
 
   // TODO: Make hits an iterator.

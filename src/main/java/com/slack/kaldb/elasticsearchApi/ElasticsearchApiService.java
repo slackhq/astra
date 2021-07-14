@@ -70,9 +70,9 @@ public class ElasticsearchApiService {
 
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
-
+    // TODO remove join when we move to query service
     List<SearchResponseHit> responseHits = new ArrayList<>();
-    KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
+    KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest).join();
 
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     for (ByteString bytes : hitsByteList) {

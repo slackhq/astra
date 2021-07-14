@@ -15,6 +15,7 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,9 +63,12 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
         protoSearchResult.getSnapshotsWithReplicas());
   }
 
-  public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult)
-      throws JsonProcessingException {
+  public static <T> CompletableFuture<KaldbSearch.SearchResult> toSearchResultProto(
+      CompletableFuture<SearchResult<T>> searchResult) {
+    return searchResult.thenApply(KaldbLocalSearcher::toSearchResultProto);
+  }
 
+  private static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
@@ -76,7 +80,11 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
     // Set hits
     ArrayList<String> protoHits = new ArrayList<>(searchResult.hits.size());
     for (T hit : searchResult.hits) {
-      protoHits.add(JsonUtil.writeAsString(hit));
+      try {
+        protoHits.add(JsonUtil.writeAsString(hit));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
     }
     searchResultBuilder.addAllHits(protoHits);
 
@@ -96,10 +104,9 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
     return searchResultBuilder.build();
   }
 
-  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request)
-      throws JsonProcessingException {
+  public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
     SearchQuery query = fromSearchRequest(request);
-    SearchResult<T> searchResult = chunkManager.query(query);
+    CompletableFuture<SearchResult<T>> searchResult = chunkManager.query(query);
     return toSearchResultProto(searchResult);
   }
 
@@ -108,15 +115,16 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
 
-    try {
-      KaldbSearch.SearchResult protoSearchResult = doSearch(request);
-      responseObserver.onNext(protoSearchResult);
-    } catch (JsonProcessingException e) {
-      LOG.error("Error formatting search result into protobuf.", e);
-      // TODO: Ensure the exception is thrown correctly.
-      responseObserver.onError(
-          new RuntimeException("Encountered exception formatting search result"));
-    }
-    responseObserver.onCompleted();
+    CompletableFuture<KaldbSearch.SearchResult> protoSearchResult = doSearch(request);
+    protoSearchResult.whenComplete(
+        (result, t) -> {
+          if (t != null) {
+            LOG.error("Error completing the future", t.getCause());
+            responseObserver.onError(t);
+          } else {
+            responseObserver.onNext(result);
+            responseObserver.onCompleted();
+          }
+        });
   }
 }

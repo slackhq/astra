@@ -28,11 +28,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import java.util.concurrent.CompletableFuture;
+import org.junit.*;
 
 public class KaldbLocalSearcherTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
@@ -83,15 +80,17 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message100")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message100")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
@@ -146,15 +145,17 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("blah")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("blah")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isZero();
     assertThat(response.getTotalCount()).isZero();
@@ -196,15 +197,17 @@ public class KaldbLocalSearcherTest {
 
     // TODO: Query multiple chunks.
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message1")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(0)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
     assertThat(response.getHitsCount()).isEqualTo(0);
@@ -245,15 +248,17 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(0)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message1")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(0)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTotalCount()).isEqualTo(1);
@@ -283,7 +288,7 @@ public class KaldbLocalSearcherTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testKalDbBadArgSearch() throws IOException {
+  public void testKalDbBadArgSearch() throws Throwable {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
@@ -299,15 +304,22 @@ public class KaldbLocalSearcherTest {
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
-    kaldbLocalSearcher.doSearch(
-        searchRequestBuilder
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
-            .setQueryString("Message1")
-            .setStartTimeEpochMs(chunk1StartTimeMs)
-            .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setBucketCount(0)
-            .build());
+    CompletableFuture<KaldbSearch.SearchResult> result =
+        kaldbLocalSearcher.doSearch(
+            searchRequestBuilder
+                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(0)
+                .setBucketCount(0)
+                .build());
+    try {
+      result.get();
+      Assert.fail("Should always fail");
+    } catch (Exception e) {
+      throw e.getCause();
+    }
   }
 
   @Test
@@ -425,14 +437,15 @@ public class KaldbLocalSearcherTest {
     // Build a bad search request.
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
-    blockingStub.search(
-        KaldbSearch.SearchRequest.newBuilder()
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
-            .setQueryString("Message1")
-            .setStartTimeEpochMs(chunk1StartTimeMs)
-            .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setBucketCount(0)
-            .build());
+    KaldbSearch.SearchResult result =
+        blockingStub.search(
+            KaldbSearch.SearchRequest.newBuilder()
+                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(0)
+                .setBucketCount(0)
+                .build());
   }
 }

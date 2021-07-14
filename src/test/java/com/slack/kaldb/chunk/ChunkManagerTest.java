@@ -107,7 +107,7 @@ public class ChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunkManager.query(searchQuery);
+    SearchResult<LogMessage> results = chunkManager.query(searchQuery).join();
     assertThat(results.hits.size()).isEqualTo(1);
 
     // Test chunk metadata.
@@ -140,7 +140,7 @@ public class ChunkManagerTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    return chunkManager.query(searchQuery).hits.size();
+    return chunkManager.query(searchQuery).join().hits.size();
   }
 
   @Test

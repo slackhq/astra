@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.testlib.HistogramUtil.makeHistogram;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.linecorp.armeria.internal.shaded.futures.CompletableFutures;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
@@ -14,6 +15,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.junit.Test;
 
 public class SearchResultAggregatorImplTest {
@@ -74,7 +77,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -129,7 +134,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -193,7 +200,9 @@ public class SearchResultAggregatorImplTest {
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 3);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -244,7 +253,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -297,7 +308,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -340,7 +353,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -393,7 +408,9 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>().aggregate(searchResults, searchQuery);
+        new SearchResultAggregatorImpl<>(searchQuery)
+            .aggregate(makeAsncResults(searchResults))
+            .join();
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -404,5 +421,14 @@ public class SearchResultAggregatorImplTest {
     for (HistogramBucket b : aggSearchResult.buckets) {
       assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
     }
+  }
+
+  public CompletableFuture<List<SearchResult<LogMessage>>> makeAsncResults(
+      List<SearchResult<LogMessage>> searchResults) {
+    return CompletableFutures.allAsList(
+        searchResults
+            .stream()
+            .map(result -> CompletableFuture.supplyAsync(() -> result))
+            .collect(Collectors.toList()));
   }
 }

@@ -16,18 +16,19 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.spotify.futures.CompletableFutures;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,10 +129,34 @@ public class ChunkManager<T> {
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
     stopIngestion = false;
     activeChunk = null;
+
     LOG.info(
         "Created a chunk manager with prefix {} and dataDirectory {}",
         chunkDataPrefix,
         dataDirectory);
+  }
+
+  /**
+   * Returns an ThreadPool with a default config backed by a SynchronousQueue.
+   *
+   * @param name Name of the threads in the thread pool.
+   * @param size Size of the thread pool.
+   * @return ThreadPoolExecutor.
+   */
+  private static ExecutorService defaultExecutorService(String name, int size) {
+    return new ThreadPoolExecutor(
+        size,
+        size,
+        60,
+        TimeUnit.SECONDS,
+        new SynchronousQueue<>(),
+        new DefaultThreadFactory(name + "-tasks", true),
+        new ThreadPoolExecutor.AbortPolicy() {
+          public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
+            Metrics.counter(name + "_thread_pool_full").increment();
+            super.rejectedExecution(r, e);
+          }
+        });
   }
 
   /**
@@ -263,18 +288,38 @@ public class ChunkManager<T> {
    *
    * TODO: Search chunks in parallel.
    */
-  public SearchResult<T> query(SearchQuery query) {
-    List<SearchResult<T>> searchResults = new ArrayList<>(chunkMap.size());
-    for (Chunk<T> chunk : chunkMap.values()) {
-      if (chunk.containsDataInTimeRange(
-          query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000)) {
-        LOG.debug("Searching chunk {}", chunk.id());
-        searchResults.add(chunk.query(query));
-      }
-    }
+  public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
+
+    SearchResult<T> empty =
+        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 0, 0);
+
+    List<CompletableFuture<SearchResult<T>>> queries =
+        chunkMap
+            .values()
+            .stream()
+            .filter(
+                chunk ->
+                    chunk.containsDataInTimeRange(
+                        query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
+            .map(
+                (chunk) ->
+                    // TODO: pass in executor pool to supplyAsync
+                    // TODO: make 10 configurable via SearchRequest
+                    // TODO: Add a test where there are more than 2 chunks and one fails
+                    CompletableFuture.supplyAsync(() -> chunk.query(query))
+                        .completeOnTimeout(empty, 10, TimeUnit.SECONDS)
+                //                        .exceptionally((error) -> empty))
+                )
+            .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
+
+    // Using the spotify library ( this method is much easier to operate then using
+    // CompletableFuture.allOf and converting the CompletableFuture<Void> to
+    // CompletableFuture<List<SearchResult>>
+    CompletableFuture<List<SearchResult<T>>> searchResults = CompletableFutures.allAsList(queries);
+
     //noinspection unchecked
-    return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>())
-        .aggregate(searchResults, query);
+    return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
+        .aggregate(searchResults);
   }
 
   /**

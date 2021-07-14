@@ -7,17 +7,29 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
  * This class will merge multiple search results into a single search result. Takes all the hits
- * from all the search results and returns the topk most recent results. The histogram will be
+ * from all the search results and returns the topK most recent results. The histogram will be
  * merged using the histogram merge function.
  */
 public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchResultAggregator<T> {
 
+  private final SearchQuery searchQuery;
+
+  public SearchResultAggregatorImpl(SearchQuery searchQuery) {
+    this.searchQuery = searchQuery;
+  }
+
   @Override
-  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, SearchQuery searchQuery) {
+  public CompletableFuture<SearchResult<T>> aggregate(
+      CompletableFuture<List<SearchResult<T>>> searchResults) {
+    return searchResults.thenApply(this::aggregate);
+  }
+
+  private SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
     long tookMicros = 0;
     int failedNodes = 0;
     int totalNodes = 0;
@@ -33,16 +45,14 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                     searchQuery.bucketCount))
             : Optional.empty();
 
-    for (SearchResult searchResult : searchResults) {
+    for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
       failedNodes += searchResult.failedNodes;
       totalNodes += searchResult.totalNodes;
       totalSnapshots += searchResult.totalSnapshots;
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
-      if (histogram.isPresent()) {
-        histogram.get().mergeHistogram(searchResult.buckets);
-      }
+      histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
@@ -54,7 +64,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 
-    return new SearchResult<T>(
+    return new SearchResult<>(
         resultHits,
         tookMicros,
         totalCount,
