@@ -5,12 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class AggregationBucketResponse {
 
   @JsonProperty("key")
-  private final long key;
+  private final double key;
 
   @JsonProperty("doc_count")
-  private final long docCount;
+  private final double docCount;
 
-  public AggregationBucketResponse(long key, long docCount) {
+  public AggregationBucketResponse(double key, double docCount) {
     this.key = key;
     this.docCount = docCount;
   }

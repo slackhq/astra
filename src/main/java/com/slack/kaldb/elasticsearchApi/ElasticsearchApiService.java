@@ -11,6 +11,9 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
+import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
+import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
+import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
@@ -20,7 +23,9 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbLocalSearcher;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -65,12 +70,35 @@ public class ElasticsearchApiService {
 
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
+
+    List<SearchResponseHit> responseHits = new ArrayList<>();
     KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
 
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
-    List<SearchResponseHit> responseHits = new ArrayList<>();
     for (ByteString bytes : hitsByteList) {
       responseHits.add(SearchResponseHit.fromByteString(bytes));
+    }
+
+    // we currently are only supporting a single aggregation of type `date_histogram`
+    // this will need to be refactored if we decide to support more types
+    Map<String, AggregationResponse> aggregationResponseMap = new HashMap<>();
+    Optional<SearchRequestAggregation> aggregationRequest =
+        request.getAggregations().stream().findFirst();
+    if (aggregationRequest.isPresent()) {
+      List<AggregationBucketResponse> buckets = new ArrayList<>();
+      searchResult
+          .getBucketsList()
+          .forEach(
+              histogramBucket -> {
+                // our response from kaldb has the start and end of the bucket, but we only need the
+                // midpoint for the response object
+                double getKey =
+                    histogramBucket.getLow()
+                        + ((histogramBucket.getHigh() - histogramBucket.getLow()) / 2);
+                buckets.add(new AggregationBucketResponse(getKey, histogramBucket.getCount()));
+              });
+      aggregationResponseMap.put(
+          aggregationRequest.get().getAggregationKey(), new AggregationResponse(buckets));
     }
 
     HitsMetadata hitsMetadata =
@@ -79,7 +107,11 @@ public class ElasticsearchApiService {
             .hits(responseHits)
             .build();
 
-    return new EsSearchResponse.Builder().hits(hitsMetadata).status(200).build();
+    return new EsSearchResponse.Builder()
+        .hits(hitsMetadata)
+        .aggregations(aggregationResponseMap)
+        .status(200)
+        .build();
   }
 
   /**
