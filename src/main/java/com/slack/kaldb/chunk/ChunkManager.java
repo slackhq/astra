@@ -289,6 +289,19 @@ public class ChunkManager<T> {
                 (chunk) ->
                     // TODO: make 10 configurable via SearchRequest
                     // TODO: Add a test where there are more than 2 chunks and one fails
+                    // ..continue - While trying to add said test I realized we don't what we want
+                    // to do if a single chunk fails
+                    // Should we return the rest? if so where do we mark that one chunk failed?
+                    // Today if a node fails I don't see where we increment SearchResult.failedNodes
+                    // Hence I stopped working on that test case. I think even medium term we don't
+                    // want to do local aggregations and network level fan out aggregations
+                    // Firstly, it will break the moment we add a use-case where we want more than a
+                    // histogram
+                    // Secondly, the failure node count doesn't represent how many chunks fails
+                    // since we have no idea about that at the network level call
+                    // So we will soonish move to making 1 gRPC call per chunk and this code will
+                    // just be referncing a single chunk
+                    // Hence we can punt it to then
                     CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorSerice)
                         .completeOnTimeout(empty, 10, TimeUnit.SECONDS)
                 //                        .exceptionally((error) -> empty))
