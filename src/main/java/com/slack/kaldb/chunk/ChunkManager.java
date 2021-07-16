@@ -18,8 +18,6 @@ import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.spotify.futures.CompletableFutures;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
-import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
@@ -74,6 +72,8 @@ public class ChunkManager<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
+
+  private static ExecutorService queryExecutorSerice = queryThreadPool();
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
@@ -136,27 +136,11 @@ public class ChunkManager<T> {
         dataDirectory);
   }
 
-  /**
-   * Returns an ThreadPool with a default config backed by a SynchronousQueue.
-   *
-   * @param name Name of the threads in the thread pool.
-   * @param size Size of the thread pool.
-   * @return ThreadPoolExecutor.
-   */
-  private static ExecutorService defaultExecutorService(String name, int size) {
-    return new ThreadPoolExecutor(
-        size,
-        size,
-        60,
-        TimeUnit.SECONDS,
-        new SynchronousQueue<>(),
-        new DefaultThreadFactory(name + "-tasks", true),
-        new ThreadPoolExecutor.AbortPolicy() {
-          public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
-            Metrics.counter(name + "_thread_pool_full").increment();
-            super.rejectedExecution(r, e);
-          }
-        });
+  /*
+     One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
+  */
+  private static ExecutorService queryThreadPool() {
+    return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
   }
 
   /**
@@ -303,10 +287,9 @@ public class ChunkManager<T> {
                         query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
             .map(
                 (chunk) ->
-                    // TODO: pass in executor pool to supplyAsync
                     // TODO: make 10 configurable via SearchRequest
                     // TODO: Add a test where there are more than 2 chunks and one fails
-                    CompletableFuture.supplyAsync(() -> chunk.query(query))
+                    CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorSerice)
                         .completeOnTimeout(empty, 10, TimeUnit.SECONDS)
                 //                        .exceptionally((error) -> empty))
                 )
