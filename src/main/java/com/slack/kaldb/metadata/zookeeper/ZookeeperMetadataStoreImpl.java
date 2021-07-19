@@ -343,11 +343,15 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    */
   @Override
   public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
-      String path, MetadataSerializer<T> metadataSerializer) {
+      String path, MetadataSerializer<T> metadataSerializer) throws Exception {
+    // If the path ZK node doesn't exist create it. However, since 2 different processes may create
+    // a path at the same time, ignore the exception if node already exists.
     if (!existsImpl(path)) {
-      throw new NoNodeException(path);
+      try {
+        createImpl(path, "", true);
+      } catch (NodeExistsException e) {
+      }
     }
-
     return new CachedMetadataStoreImpl<>(
         path, metadataSerializer, curator, metadataExecutorService);
   }

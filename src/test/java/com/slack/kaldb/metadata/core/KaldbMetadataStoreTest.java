@@ -19,9 +19,12 @@ import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
   private static final Logger LOG =
       LoggerFactory.getLogger(DummyPersistentMutableMetadataStore.class);
@@ -31,21 +34,118 @@ public class KaldbMetadataStoreTest {
     public DummyPersistentMutableMetadataStore(
         boolean shouldCache,
         boolean updatable,
-        MetadataStore metadataStore,
         String storeFolder,
+        MetadataStore metadataStore,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
         Logger logger)
         throws Exception {
       super(shouldCache, updatable, storeFolder, metadataStore, metadataSerializer, logger);
     }
+  }
 
-    public DummyPersistentMutableMetadataStore(
-        MetadataStore metadataStore,
-        String storeFolder,
-        MetadataSerializer<SnapshotMetadata> metadataSerializer,
-        Logger logger)
-        throws Exception {
-      super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
+  public static class TestCreatableUpdatableCachablePersistentMetadataStore {
+    private TestingServer testingServer;
+    private ZookeeperMetadataStoreImpl metadataStore;
+    private MeterRegistry meterRegistry;
+    private CountingFatalErrorHandler countingFatalErrorHandler;
+    private DummyPersistentMutableMetadataStore creatablePersistentKaldbMetadataStore;
+
+    @Before
+    public void setUp() throws Exception {
+      meterRegistry = new SimpleMeterRegistry();
+      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
+      // flaky.
+      testingServer = new TestingServer();
+      countingFatalErrorHandler = new CountingFatalErrorHandler();
+      metadataStore =
+          new ZookeeperMetadataStoreImpl(
+              testingServer.getConnectString(),
+              "test",
+              1000,
+              1000,
+              new RetryNTimes(1, 500),
+              countingFatalErrorHandler,
+              meterRegistry);
+      this.creatablePersistentKaldbMetadataStore =
+          new DummyPersistentMutableMetadataStore(
+              true, true, "/snapshots", metadataStore, new SnapshotMetadataSerializer(), LOG);
+    }
+
+    @After
+    public void tearDown() throws IOException {
+      metadataStore.close();
+      testingServer.close();
+      meterRegistry.close();
+    }
+
+    @Test
+    public void testCreateGetDelete() throws ExecutionException, InterruptedException {
+      final String name = "testSnapshot";
+      final String snapshotPath = "s3://snapshots/path";
+      final String snapshotId = "testSnapshotId";
+      final long startTimeUtc = 12345;
+      final long endTimeUtc = 123456;
+      final long maxOffset = 100;
+      final String partitionId = "1";
+
+      final SnapshotMetadata testSnapshot =
+          new SnapshotMetadata(
+              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+
+      assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
+      assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
+      assertThat(creatablePersistentKaldbMetadataStore.list().get().size()).isEqualTo(1);
+
+      SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
+      assertThat(metadata.name).isEqualTo(name);
+      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
+      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
+      assertThat(metadata.partitionId).isEqualTo(partitionId);
+
+      assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
+      assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
+    }
+
+    @Test
+    public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
+      final String name = "testSnapshot";
+      final String snapshotPath = "s3://snapshots/path";
+      final String snapshotId = "testSnapshotId";
+      final long startTimeUtc = 12345;
+      final long endTimeUtc = 123456;
+      final long maxOffset = 100;
+      final String partitionId = "1";
+
+      final SnapshotMetadata testSnapshot =
+          new SnapshotMetadata(
+              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+      assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
+
+      SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
+      assertThat(metadata.name).isEqualTo(name);
+      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
+      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
+      assertThat(metadata.partitionId).isEqualTo(partitionId);
+
+      Throwable duplicateCreateEx =
+          catchThrowable(() -> creatablePersistentKaldbMetadataStore.create(testSnapshot).get());
+      assertThat(duplicateCreateEx.getCause()).isInstanceOf(NodeExistsException.class);
+
+      assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
+
+      Throwable getMissingNodeEx =
+          catchThrowable(() -> creatablePersistentKaldbMetadataStore.get(name).get());
+      assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
+
+      Throwable deleteMissingNodeEx =
+          catchThrowable(() -> creatablePersistentKaldbMetadataStore.delete(name).get());
+      assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
     }
   }
 
@@ -54,108 +154,4 @@ public class KaldbMetadataStoreTest {
   // TODO: Add unit tests for EphemeralPersistentStore.
   // TODO: Add a unit test for updatable store.
   // TODO: Add a unit test for creatable only store.
-
-  private TestingServer testingServer;
-  private ZookeeperMetadataStoreImpl metadataStore;
-  private MeterRegistry meterRegistry;
-  private CountingFatalErrorHandler countingFatalErrorHandler;
-  private DummyPersistentMutableMetadataStore creatablePersistentKaldbMetadataStore;
-
-  @Before
-  public void setUp() throws Exception {
-    meterRegistry = new SimpleMeterRegistry();
-    // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are flaky.
-    testingServer = new TestingServer();
-    countingFatalErrorHandler = new CountingFatalErrorHandler();
-    metadataStore =
-        new ZookeeperMetadataStoreImpl(
-            testingServer.getConnectString(),
-            "test",
-            1000,
-            1000,
-            new RetryNTimes(1, 500),
-            countingFatalErrorHandler,
-            meterRegistry);
-    this.creatablePersistentKaldbMetadataStore =
-        new DummyPersistentMutableMetadataStore(
-            metadataStore, "/snapshots", new SnapshotMetadataSerializer(), LOG);
-  }
-
-  @After
-  public void tearDown() throws IOException {
-    metadataStore.close();
-    testingServer.close();
-    meterRegistry.close();
-  }
-
-  @Test
-  public void testCreateGetDelete() throws ExecutionException, InterruptedException {
-    final String name = "testSnapshot";
-    final String snapshotPath = "s3://snapshots/path";
-    final String snapshotId = "testSnapshotId";
-    final long startTimeUtc = 12345;
-    final long endTimeUtc = 123456;
-    final long maxOffset = 100;
-    final String partitionId = "1";
-
-    final SnapshotMetadata testSnapshot =
-        new SnapshotMetadata(
-            name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
-
-    // TODO: Enable below check if we assume store always ensures node exists.
-    // assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
-    assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
-    assertThat(creatablePersistentKaldbMetadataStore.list().get().size()).isEqualTo(1);
-
-    SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
-    assertThat(metadata.name).isEqualTo(name);
-    assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-    assertThat(metadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
-    assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
-    assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-    assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-    assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
-    assertThat(creatablePersistentKaldbMetadataStore.list().get()).isEmpty();
-  }
-
-  @Test
-  public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
-    final String name = "testSnapshot";
-    final String snapshotPath = "s3://snapshots/path";
-    final String snapshotId = "testSnapshotId";
-    final long startTimeUtc = 12345;
-    final long endTimeUtc = 123456;
-    final long maxOffset = 100;
-    final String partitionId = "1";
-
-    final SnapshotMetadata testSnapshot =
-        new SnapshotMetadata(
-            name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
-    assertThat(creatablePersistentKaldbMetadataStore.create(testSnapshot).get()).isNull();
-
-    SnapshotMetadata metadata = creatablePersistentKaldbMetadataStore.get(name).get();
-    assertThat(metadata.name).isEqualTo(name);
-    assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-    assertThat(metadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
-    assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
-    assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-    assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-    Throwable duplicateCreateEx =
-        catchThrowable(() -> creatablePersistentKaldbMetadataStore.create(testSnapshot).get());
-    assertThat(duplicateCreateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-    assertThat(creatablePersistentKaldbMetadataStore.delete(name).get()).isNull();
-
-    Throwable getMissingNodeEx =
-        catchThrowable(() -> creatablePersistentKaldbMetadataStore.get(name).get());
-    assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-
-    Throwable deleteMissingNodeEx =
-        catchThrowable(() -> creatablePersistentKaldbMetadataStore.delete(name).get());
-    assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-  }
 }
