@@ -45,8 +45,6 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     this.storeFolder = storeFolder;
     this.metadataSerializer = metadataSerializer;
     this.logger = logger;
-
-    // TODO: Add EnsureContainer on folder path.
   }
 
   protected String getPath(String snapshotName) {
