@@ -215,7 +215,8 @@ public class KaldbMetadataStoreTest {
     // TODO: Check cached operations in all these tests.
 
     @Test
-    public void testStoreOperationsOnStoppedServer() throws ExecutionException, InterruptedException, IOException {
+    public void testStoreOperationsOnStoppedServer()
+        throws ExecutionException, InterruptedException, IOException {
       assertThat(store.list().get().isEmpty()).isTrue();
 
       final String name1 = "snapshot1";
