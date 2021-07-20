@@ -212,8 +212,6 @@ public class KaldbMetadataStoreTest {
       assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
     }
 
-    // TODO: Check cached operations in all these tests.
-
     @Test
     public void testStoreOperationsOnStoppedServer()
         throws ExecutionException, InterruptedException, IOException {
@@ -243,6 +241,12 @@ public class KaldbMetadataStoreTest {
       Throwable getEx = catchThrowable(() -> store.get(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     }
+
+    // TODO: Add tests for disabled cache store and update store.
+
+    // TODO: Check cached operations in all these tests.
+    @Test
+    public void testCachedStore() {}
   }
 
   // TODO: Add tests for enabled cache.
