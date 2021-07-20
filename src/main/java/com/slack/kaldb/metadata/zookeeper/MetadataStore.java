@@ -11,6 +11,8 @@ import java.util.List;
 public interface MetadataStore {
   void close();
 
+  boolean isClosed();
+
   ListenableFuture<?> createEphemeralNode(String path, String data);
 
   ListenableFuture<?> create(String path, String data, boolean createMissingParents);

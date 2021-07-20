@@ -143,9 +143,14 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   }
 
   public void close() {
-    LOG.info("Closing curator connection.");
+    LOG.info("Initiating curator connection close.");
     curator.close();
-    LOG.info("Closed curator connection successfully.");
+  }
+
+  public boolean isClosed() {
+    // as the curator does not track the state of when it is completely shutdown, we have to rely on
+    // the curator client ConnectionState
+    return curator.getZookeeperClient().isConnected();
   }
 
   private void createEphemeralNodeImpl(String path, String data) {
