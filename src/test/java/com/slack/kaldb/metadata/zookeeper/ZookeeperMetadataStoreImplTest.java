@@ -7,6 +7,7 @@ import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.ZK_F
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -488,9 +489,12 @@ public class ZookeeperMetadataStoreImplTest {
 
     // Stop ZK server to simulate ZK failure.
     testingServer.close();
+
     Throwable createEx = catchThrowable(() -> metadataStore.create(root, "", true).get());
     assertThat(createEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(1);
-    assertThat(countingFatalErrorHandler.getCount()).isEqualTo(1);
+
+    // The FatalErrorHandler is incremented async in a separate thread
+    await().until(() -> countingFatalErrorHandler.getCount() == 1);
   }
 }
