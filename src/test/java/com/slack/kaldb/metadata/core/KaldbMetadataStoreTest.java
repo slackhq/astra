@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NoNodeException;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
@@ -60,7 +61,7 @@ public class KaldbMetadataStoreTest {
 
   public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
     private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl metadataStore;
+    private ZookeeperMetadataStoreImpl _metadataStore;
     private MeterRegistry meterRegistry;
     private DummyPersistentMutableMetadataStore store;
 
@@ -71,7 +72,7 @@ public class KaldbMetadataStoreTest {
       // flaky.
       testingServer = new TestingServer();
       CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      metadataStore =
+      _metadataStore =
           new ZookeeperMetadataStoreImpl(
               testingServer.getConnectString(),
               "test",
@@ -82,12 +83,12 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentMutableMetadataStore(
-              true, true, "/snapshots", metadataStore, new SnapshotMetadataSerializer(), LOG);
+              true, true, "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
     }
 
     @After
     public void tearDown() throws IOException {
-      metadataStore.close();
+      _metadataStore.close();
       testingServer.close();
       meterRegistry.close();
     }
@@ -167,6 +168,12 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot1);
+
+      assertThat(store.delete(name1).get()).isNull();
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      Throwable throwable = catchThrowable(() -> store.delete(name1).get());
+      assertThat(throwable.getCause()).isInstanceOf(NoNodeException.class);
     }
 
     @Test
@@ -203,6 +210,37 @@ public class KaldbMetadataStoreTest {
 
       Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
       assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+
+    // TODO: Check cached operations in all these tests.
+
+    @Test
+    public void testStoreOperationsOnStoppedServer() throws ExecutionException, InterruptedException, IOException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      assertThat(store.list().get()).containsOnly(snapshot1);
+      assertThat(store.list().get().size()).isEqualTo(1);
+
+      // Stop the ZK server
+      testingServer.stop();
+
+      Throwable createEx = catchThrowable(() -> store.create(snapshot1).get());
+      assertThat(createEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable updateEx = catchThrowable(() -> store.update(snapshot1).get());
+      assertThat(updateEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
+      assertThat(deleteEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable listEx = catchThrowable(() -> store.list().get());
+      assertThat(listEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     }
   }
 
