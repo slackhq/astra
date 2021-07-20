@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 
 /** A metadata store that supports updates. */
 public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
-    extends CachableMetadataStore<T> {
+    extends CacheableMetadataStore<T> {
 
   public UpdatableCacheableMetadataStore(
       boolean shouldCache,
