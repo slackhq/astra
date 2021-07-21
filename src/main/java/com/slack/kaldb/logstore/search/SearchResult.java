@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 import com.google.common.base.Objects;
 import com.slack.kaldb.histogram.HistogramBucket;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SearchResult<T> {
@@ -21,6 +22,17 @@ public class SearchResult<T> {
   public final int totalNodes;
   public final int totalSnapshots;
   public final int snapshotsWithReplicas;
+
+  public SearchResult() {
+    this.hits = new ArrayList<>();
+    this.tookMicros = 0;
+    this.totalCount = 0;
+    this.buckets = new ArrayList<>();
+    this.failedNodes = 0;
+    this.totalNodes = 0;
+    this.totalSnapshots = 0;
+    this.snapshotsWithReplicas = 0;
+  }
 
   // TODO: Make search result a protobuf?
   // TODO: Move stats into a separate struct.

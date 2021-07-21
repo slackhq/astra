@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -73,7 +72,7 @@ public class ChunkManager<T> {
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
 
-  private static ExecutorService queryExecutorSerice = queryThreadPool();
+  private static final ExecutorService queryExecutorService = queryThreadPool();
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
@@ -274,8 +273,7 @@ public class ChunkManager<T> {
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
 
-    SearchResult<T> empty =
-        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 0, 0);
+    SearchResult<T> empty = new SearchResult<>();
 
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkMap
@@ -302,7 +300,7 @@ public class ChunkManager<T> {
                     // So we will soonish move to making 1 gRPC call per chunk and this code will
                     // just be referncing a single chunk
                     // Hence we can punt it to then
-                    CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorSerice)
+                    CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
                         .completeOnTimeout(empty, 10, TimeUnit.SECONDS)
                 //                        .exceptionally((error) -> empty))
                 )
