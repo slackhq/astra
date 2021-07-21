@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -135,7 +136,9 @@ public class KaldbIndexerTest {
             .addService(new KaldbLocalSearcher<>(indexer.getChunkManager()))
             .enableUnframedRequests(true);
     server = sb.service(searchBuilder.build()).build();
-    server.start().join();
+
+    // wait at most 10 seconds to start before throwing an exception
+    server.start().get(10, TimeUnit.SECONDS);
 
     indexer.start();
     Thread.sleep(1000); // Wait for consumer start.

@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -68,7 +69,9 @@ public class KaldbQueryServiceTest {
     KaldbConfig.initFromConfigObject(kaldbConfig);
 
     indexingServer = newIndexingServer(kaldbConfig);
-    indexingServer.start().join();
+
+    // wait at most 10 seconds to start before throwing an exception
+    indexingServer.start().get(10, TimeUnit.SECONDS);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
@@ -80,7 +83,9 @@ public class KaldbQueryServiceTest {
     // Don't respect the queryPort from the config - In case multiple tests run in parallel this
     // gives us a better chance to avoid port collisions
     queryServer = newQueryServer(kaldbConfig, (indexingServer.activeLocalPort() + 1));
-    queryServer.start().join();
+
+    // wait at most 10 seconds to start before throwing an exception
+    queryServer.start().get(10, TimeUnit.SECONDS);
 
     // We want to query the indexing server
     List<String> servers = new ArrayList<>();
