@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +35,8 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
       MetadataStore metadataStore,
       String storeFolder,
       MetadataSerializer<T> metadataSerializer,
-      Logger logger) {
+      Logger logger)
+      throws ExecutionException, InterruptedException {
     checkNotNull(metadataStore, "MetadataStore can't be null");
     checkState(
         storeFolder != null && !storeFolder.isEmpty(),
@@ -45,6 +47,16 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     this.storeFolder = storeFolder;
     this.metadataSerializer = metadataSerializer;
     this.logger = logger;
+
+    // If the path ZK node doesn't exist create it. However, since 2 different processes may create
+    // a path at the same time, ignore the exception if node already exists.
+    if (!metadataStore.exists(storeFolder).get()) {
+      try {
+        metadataStore.create(storeFolder, "", true).get();
+      } catch (NodeExistsException e) {
+        // ignore exception, since node creation is idemponent.
+      }
+    }
   }
 
   protected String getPath(String snapshotName) {
