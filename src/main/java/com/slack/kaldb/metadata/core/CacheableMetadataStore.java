@@ -15,8 +15,9 @@ import org.slf4j.Logger;
  * This store adds a cache on top of the KaldbMetadataStore. Optionally, this class can disable
  * caching by passing in a feature flag.
  *
- * <p>To use this class, the steps are: instantiate the class, register listeners and start the
- * cache. To close the cache, call the close method.
+ * <p>Instantiating an instance of this class creates the cache, adds a listener and starts the
+ * cache. The listener doesn't notify the watchers on cache initialization but fires on subsequent
+ * cache events. To close the cache, call the close method.
  */
 public abstract class CacheableMetadataStore<T extends KaldbMetadata>
     extends KaldbMetadataStore<T> {
@@ -36,29 +37,33 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
     super(metadataStore, snapshotStoreFolder, metadataSerializer, logger);
     watchers = new ArrayList<>();
     if (shouldCache) {
-      cache =
-          Optional.of(metadataStore.cacheNodeAndChildren(snapshotStoreFolder, metadataSerializer));
+      CachedMetadataStore<T> localCache =
+          metadataStore.cacheNodeAndChildren(snapshotStoreFolder, metadataSerializer);
 
       // Notify listeners on cache change.
-      cache
-          .get()
-          .addListener(
-              new CachedMetadataStoreListener() {
-                @Override
-                public void cacheChanged() {
-                  notifyListeners();
-                }
+      localCache.addListener(
+          new CachedMetadataStoreListener() {
+            @Override
+            public void cacheChanged() {
+              notifyListeners();
+            }
 
-                @Override
-                public void stateChanged(CuratorFramework client, ConnectionState newState) {
-                  notifyListeners();
-                }
+            @Override
+            public void stateChanged(CuratorFramework client, ConnectionState newState) {
+              notifyListeners();
+            }
 
-                private void notifyListeners() {
-                  for (KaldbMetadataStoreChangeListener listener : watchers)
-                    listener.onMetadataStoreChanged();
+            private void notifyListeners() {
+              for (KaldbMetadataStoreChangeListener watcher : watchers)
+                try {
+                  watcher.onMetadataStoreChanged();
+                } catch (Exception e) {
+                  logger.error("Encountered exception when invoking a watcher:", e);
                 }
-              });
+            }
+          });
+      localCache.start();
+      cache = Optional.of(localCache);
       logger.info("Caching nodes for path {}", snapshotStoreFolder);
     } else {
       cache = Optional.empty();
@@ -72,6 +77,7 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
 
   public void close() {
     cache.ifPresent(CachedMetadataStore::close);
+    cache.ifPresent(cacheImpl -> watchers.clear());
   }
 
   public List<T> getCached() {

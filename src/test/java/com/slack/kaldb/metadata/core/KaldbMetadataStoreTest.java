@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
@@ -14,7 +15,9 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -246,8 +249,270 @@ public class KaldbMetadataStoreTest {
 
     // TODO: Check cached operations in all these tests.
     @Test
-    public void testCachedStore() {}
+    public void testNotificationFiresOnCreate() throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
+      AtomicInteger notificationCounter = new AtomicInteger(0);
+      final KaldbMetadataStoreChangeListener testListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+
+      store.addListener(testListener);
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      notificationCountDownLatch.await();
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+      assertThat(notificationCounter.get()).isEqualTo(1);
+    }
+
+    @Test
+    public void testNotificationFiresOnDataChange()
+        throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
+      AtomicInteger notificationCounter = new AtomicInteger(0);
+
+      final KaldbMetadataStoreChangeListener testListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+
+      store.addListener(testListener);
+
+      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 30000);
+
+      assertThat(store.update(newSnapshot1).get()).isNull();
+      notificationCountDownLatch.await();
+      await().until(() -> store.getCached().contains(newSnapshot1));
+      assertThat(store.getCached()).containsOnly(newSnapshot1);
+      assertThat(store.list().get()).containsOnly(newSnapshot1);
+      assertThat(notificationCounter.get()).isEqualTo(1);
+    }
+
+    @Test
+    public void testNotificationFiresOnRemove() throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
+      AtomicInteger notificationCounter = new AtomicInteger(0);
+
+      final KaldbMetadataStoreChangeListener testListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+
+      store.addListener(testListener);
+
+      assertThat(store.delete(name1).get()).isNull();
+      notificationCountDownLatch.await();
+      assertThat(store.getCached().isEmpty()).isTrue();
+      assertThat(store.list().get().isEmpty()).isTrue();
+      assertThat(notificationCounter.get()).isEqualTo(1);
+    }
+
+    @Test
+    public void testMultipleWatchersOnMetadataStore()
+        throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      final CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
+      final AtomicInteger notificationCounter = new AtomicInteger(0);
+      final KaldbMetadataStoreChangeListener testListener1 =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(testListener1);
+
+      final CountDownLatch notificationCountDownLatch2 = new CountDownLatch(1);
+      final KaldbMetadataStoreChangeListener testListener2 =
+          () -> {
+            notificationCountDownLatch2.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(testListener2);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      assertThat(store.create(snapshot2).get()).isNull();
+      notificationCountDownLatch.await();
+      notificationCountDownLatch2.await();
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(notificationCounter.get()).isEqualTo(2);
+    }
+
+    @Test
+    public void testThrowingListenerOnMetadataStore()
+        throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
+      final AtomicInteger notificationCounter = new AtomicInteger(0);
+
+      final KaldbMetadataStoreChangeListener regularListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(regularListener);
+
+      final KaldbMetadataStoreChangeListener throwingListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+            throw new RuntimeException("test exception");
+          };
+      store.addListener(throwingListener);
+
+      final KaldbMetadataStoreChangeListener regularListener2 =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(regularListener2);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      assertThat(store.create(snapshot2).get()).isNull();
+      notificationCountDownLatch.await();
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(notificationCounter.get()).isEqualTo(3);
+    }
+
+    @Test
+    public void testRemoveListenerOnMetadataStore()
+        throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
+      final AtomicInteger notificationCounter = new AtomicInteger(0);
+
+      final KaldbMetadataStoreChangeListener regularListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(regularListener);
+
+      final KaldbMetadataStoreChangeListener regularListener2 =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(regularListener2);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      assertThat(store.create(snapshot2).get()).isNull();
+      await().until(() -> store.getCached().contains(snapshot2));
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(notificationCounter.get()).isEqualTo(2);
+
+      // Remove listener
+      store.removeListener(regularListener2);
+      assertThat(store.delete(name2).get()).isNull();
+      notificationCountDownLatch.await();
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+      assertThat(store.get(name1).get()).isEqualTo(snapshot1);
+      assertThat(notificationCounter.get()).isEqualTo(3);
+
+      Throwable getEx = catchThrowable(() -> store.get(name2).get());
+      assertThat(getEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+
+    @Test
+    public void testCorruptZkMetadata() throws ExecutionException, InterruptedException {
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      final CountDownLatch notificationCountDownLatch = new CountDownLatch(2);
+      final AtomicInteger notificationCounter = new AtomicInteger(0);
+      final KaldbMetadataStoreChangeListener regularListener =
+          () -> {
+            notificationCountDownLatch.countDown();
+            notificationCounter.incrementAndGet();
+          };
+      store.addListener(regularListener);
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      assertThat(store.create(snapshot1).get()).isNull();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      assertThat(store.create(snapshot2).get()).isNull();
+      notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+
+      // Corrupt the metadata store.
+      assertThat(_metadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
+
+      // Get throws exception but store is fine.
+      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      assertThat(getEx.getCause()).isInstanceOf(CorruptMetadataNodeException.class);
+      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+
+      assertThat(store.getCached()).containsOnly(snapshot2);
+      assertThat(store.list().get()).containsOnly(null, snapshot2);
+    }
   }
+
+  // TODO: add a test with snapshots with same name.
 
   // TODO: Add tests for enabled cache.
   // TODO: Add tests for disabled cache.

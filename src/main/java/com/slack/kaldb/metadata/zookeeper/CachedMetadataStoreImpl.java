@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import java.util.List;
@@ -180,6 +181,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
         }
     }
 
+    // TODO: Handle throwing listener.
     if (notifyListeners && (initializedLatch.getCount() == 0)) {
       listenerContainer.forEach(CachedMetadataStoreListener::cacheChanged);
       LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
@@ -202,14 +204,30 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   }
 
   private void addInstance(ChildData childData) {
+    String instanceId = "";
     try {
-      String instanceId = instanceIdFromData(childData);
+      instanceId = instanceIdFromData(childData);
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
       instances.put(instanceId, serviceInstance);
-    } catch (Exception e) {
+    } catch (InvalidProtocolBufferException e) {
+      // If we are unable to add the updated value to the cache, invalidate the key so cache is
+      // consistent even though it's incomplete. If the incomplete cache becomes an issue,
+      // log a fatal.
+      LOG.error("Invalidating key from cache: {}", instanceId);
+      invalidateKey(instanceId);
       throw new InternalMetadataStoreException(
           "Error adding node at path " + childData.getPath(), e);
     }
+  }
+
+  /**
+   * If we are unable to get the value of the key, invalidate the cache by deleting the key for now.
+   *
+   * <p>TODO: Since deleting the key leaves the cache in an incomplete state, consider making the
+   * value Optional, to better clarify the intent.
+   */
+  private void invalidateKey(String key) {
+    if (!key.isEmpty()) instances.remove(key);
   }
 
   @VisibleForTesting

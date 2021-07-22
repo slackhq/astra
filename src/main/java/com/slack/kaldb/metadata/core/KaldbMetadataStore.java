@@ -68,6 +68,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
                       "Unable to de-serialize data %s at path %s into a protobuf message.",
                       data, path);
               logger.error(msg, e);
+              throw new CorruptMetadataNodeException(msg, e);
             }
             return result;
           }
@@ -78,6 +79,20 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
+  /**
+   * Fetches all the nodes under a given path. This function can be very expensive on nodes with a
+   * large number of children so use it very sparingly in the code. If working with slightly stale
+   * data is an option, use getCached function instead.
+   *
+   * <p>Also, if there is an issue fetching a node, we will return a null object. So, if
+   * completeness of data is important, please ignore the result of this call if there are nulls.
+   *
+   * <p>TODO: If returning nulls is problematic, fail the future if there are any failures when
+   * fetching the nodes.
+   *
+   * <p>TODO: In future, cap the number of parallel calls to ZK to a fixed number. While slow, this
+   * call will not overwhelm ZK.
+   */
   @SuppressWarnings("UnstableApiUsage")
   public ListenableFuture<List<T>> list() {
     ListenableFuture<List<String>> children = metadataStore.getChildren(storeFolder);
