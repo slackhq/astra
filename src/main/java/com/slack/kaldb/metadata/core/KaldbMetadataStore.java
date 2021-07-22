@@ -59,7 +59,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         new Function<>() {
           @Override
           public @Nullable T apply(@Nullable String data) {
-            T result = null;
+            T result;
             try {
               result = metadataSerializer.fromJsonStr(data);
             } catch (InvalidProtocolBufferException e) {
