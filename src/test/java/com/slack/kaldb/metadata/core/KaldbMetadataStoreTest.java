@@ -30,9 +30,6 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
-  private static final Logger LOG =
-      LoggerFactory.getLogger(DummyPersistentMutableMetadataStore.class);
-
   static SnapshotMetadata makeSnapshot(String name) {
     return makeSnapshot(name, 100);
   }
@@ -48,9 +45,9 @@ public class KaldbMetadataStoreTest {
         name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
   }
 
-  static class DummyPersistentMutableMetadataStore
+  static class DummyPersistentCreatableUpdatableCacheableMetadataStore
       extends PersistentMutableMetadataStore<SnapshotMetadata> {
-    public DummyPersistentMutableMetadataStore(
+    public DummyPersistentCreatableUpdatableCacheableMetadataStore(
         boolean shouldCache,
         boolean updatable,
         String storeFolder,
@@ -63,10 +60,13 @@ public class KaldbMetadataStoreTest {
   }
 
   public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
+
     private TestingServer testingServer;
     private ZookeeperMetadataStoreImpl _metadataStore;
     private MeterRegistry meterRegistry;
-    private DummyPersistentMutableMetadataStore store;
+    private DummyPersistentCreatableUpdatableCacheableMetadataStore store;
 
     @Before
     public void setUp() throws Exception {
@@ -85,7 +85,7 @@ public class KaldbMetadataStoreTest {
               countingFatalErrorHandler,
               meterRegistry);
       this.store =
-          new DummyPersistentMutableMetadataStore(
+          new DummyPersistentCreatableUpdatableCacheableMetadataStore(
               true, true, "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
     }
 
