@@ -5,7 +5,7 @@ import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.SearchResult;
 import org.apache.lucene.store.AlreadyClosedException;
 
-public class ErrorThrowingLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
+public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(
       String indexName, String query, long minTime, long maxTime, int howMany, int bucketCount) {

@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -72,7 +73,10 @@ public class ChunkManager<T> {
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
 
+  // TODO: We want to move this to the config eventually
+  public static final int QUERY_TIMEOUT = 10;
   public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
+
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
   /**
@@ -269,7 +273,8 @@ public class ChunkManager<T> {
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
 
-    SearchResult<T> empty = new SearchResult<>();
+    SearchResult<T> errorResult =
+        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkMap
@@ -281,22 +286,23 @@ public class ChunkManager<T> {
                         query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
             .map(
                 (chunk) ->
-                    // TODO: make 10 configurable via SearchRequest
                     CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
-                        .completeOnTimeout(empty, 10, TimeUnit.SECONDS))
+                        .completeOnTimeout(errorResult, QUERY_TIMEOUT, TimeUnit.SECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
                         err -> {
                           // We catch IllegalArgumentException ( and any other exception that
                           // represents a parse failure )
-                          // And don't return empty but throw exception
+                          // And don't return errorResult but throw exception
                           if (err.getCause() instanceof IllegalArgumentException) {
                             throw new RuntimeException(err);
                           }
-                          return empty;
+                          return errorResult;
                         }))
             .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
+
+    // TODO: if all fails return error instead of empty and add test
 
     // Using the spotify library ( this method is much easier to operate then using
     // CompletableFuture.allOf and converting the CompletableFuture<Void> to
