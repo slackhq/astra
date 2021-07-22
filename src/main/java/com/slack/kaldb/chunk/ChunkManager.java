@@ -270,6 +270,10 @@ public class ChunkManager<T> {
 
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
+   * We aggregate locally and and then the query aggregator will aggregate again. This is OKAY for the current use-case we support
+   * 1. topK results sorted by timestamp
+   * 2. histogram over a fixed time range
+   * We will not aggregate locally for future use-cases that have complex group by etc
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
 
@@ -293,10 +297,10 @@ public class ChunkManager<T> {
                     chunkFuture.exceptionally(
                         err -> {
                           // We catch IllegalArgumentException ( and any other exception that
-                          // represents a parse failure )
-                          // And don't return errorResult but throw exception
+                          // represents a parse failure ) and instead of returning an empty result
+                          // we throw back an error to the user
                           if (err.getCause() instanceof IllegalArgumentException) {
-                            throw new RuntimeException(err);
+                            throw (IllegalArgumentException) err.getCause();
                           }
                           return errorResult;
                         }))
