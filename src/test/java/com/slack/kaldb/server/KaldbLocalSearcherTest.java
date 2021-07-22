@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
@@ -28,11 +29,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import java.util.concurrent.CompletableFuture;
+import org.junit.*;
 
 public class KaldbLocalSearcherTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
@@ -83,23 +81,25 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message100")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message100")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
-    assertThat(response.getTotalSnapshots()).isEqualTo(0);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHits(0)).contains("Message100");
@@ -146,15 +146,17 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("blah")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("blah")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isZero();
     assertThat(response.getTotalCount()).isZero();
@@ -162,9 +164,9 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTotalCount()).isZero();
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
-    assertThat(response.getTotalSnapshots()).isEqualTo(0);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test histogram buckets
     assertThat(response.getBucketsList().size()).isEqualTo(2);
@@ -196,24 +198,26 @@ public class KaldbLocalSearcherTest {
 
     // TODO: Query multiple chunks.
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
-                .setBucketCount(2)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message1")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(0)
+                    .setBucketCount(2)
+                    .build())
+            .join();
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
     assertThat(response.getHitsCount()).isEqualTo(0);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
-    assertThat(response.getTotalSnapshots()).isEqualTo(0);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
 
     // Test histogram buckets
@@ -245,23 +249,25 @@ public class KaldbLocalSearcherTest {
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
     KaldbSearch.SearchResult response =
-        kaldbLocalSearcher.doSearch(
-            searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
-                .setBucketCount(0)
-                .build());
+        kaldbLocalSearcher
+            .doSearch(
+                searchRequestBuilder
+                    .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                    .setQueryString("Message1")
+                    .setStartTimeEpochMs(chunk1StartTimeMs)
+                    .setEndTimeEpochMs(chunk1EndTimeMs)
+                    .setHowMany(10)
+                    .setBucketCount(0)
+                    .build())
+            .join();
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
-    assertThat(response.getTotalSnapshots()).isEqualTo(0);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHitsList().asByteStringList().size()).isEqualTo(1);
@@ -282,8 +288,8 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getBucketsList().size()).isEqualTo(0);
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testKalDbBadArgSearch() throws IOException {
+  @Test
+  public void testKalDbBadArgSearch() throws Throwable {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
@@ -299,15 +305,18 @@ public class KaldbLocalSearcherTest {
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
-    kaldbLocalSearcher.doSearch(
-        searchRequestBuilder
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
-            .setQueryString("Message1")
-            .setStartTimeEpochMs(chunk1StartTimeMs)
-            .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setBucketCount(0)
-            .build());
+    CompletableFuture<KaldbSearch.SearchResult> result =
+        kaldbLocalSearcher.doSearch(
+            searchRequestBuilder
+                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(0)
+                .setBucketCount(0)
+                .build());
+    Throwable throwable = catchThrowable(result::get);
+    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
@@ -361,9 +370,9 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
-    assertThat(response.getTotalSnapshots()).isEqualTo(0);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(0);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHits(0)).contains("Message1");
@@ -425,14 +434,15 @@ public class KaldbLocalSearcherTest {
     // Build a bad search request.
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
-    blockingStub.search(
-        KaldbSearch.SearchRequest.newBuilder()
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
-            .setQueryString("Message1")
-            .setStartTimeEpochMs(chunk1StartTimeMs)
-            .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setBucketCount(0)
-            .build());
+    KaldbSearch.SearchResult result =
+        blockingStub.search(
+            KaldbSearch.SearchRequest.newBuilder()
+                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(0)
+                .setBucketCount(0)
+                .build());
   }
 }

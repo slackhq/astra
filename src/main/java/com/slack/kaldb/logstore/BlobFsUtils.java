@@ -8,12 +8,9 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** This class contains static methods that help with blobfs operations. */
 public class BlobFsUtils {
-  private static final Logger LOG = LoggerFactory.getLogger(BlobFsUtils.class);
 
   public static final String SCHEME = "s3";
   public static final String DELIMITER = "/";
