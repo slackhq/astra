@@ -48,20 +48,42 @@ public class KaldbMetadataStoreTest {
   static class DummyPersistentCreatableUpdatableCacheableMetadataStore
       extends PersistentMutableMetadataStore<SnapshotMetadata> {
     public DummyPersistentCreatableUpdatableCacheableMetadataStore(
-        boolean shouldCache,
-        boolean updatable,
         String storeFolder,
         MetadataStore metadataStore,
         MetadataSerializer<SnapshotMetadata> metadataSerializer,
         Logger logger)
         throws Exception {
-      super(shouldCache, updatable, storeFolder, metadataStore, metadataSerializer, logger);
+      super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
+    }
+  }
+
+  static class DummyPersistentCreatableCacheableMetadataStore
+      extends PersistentMutableMetadataStore<SnapshotMetadata> {
+    public DummyPersistentCreatableCacheableMetadataStore(
+        String storeFolder,
+        MetadataStore metadataStore,
+        MetadataSerializer<SnapshotMetadata> metadataSerializer,
+        Logger logger)
+        throws Exception {
+      super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+    }
+  }
+
+  static class DummyPersistentCreatableMetadataStore
+      extends PersistentMutableMetadataStore<SnapshotMetadata> {
+    public DummyPersistentCreatableMetadataStore(
+        String storeFolder,
+        MetadataStore metadataStore,
+        MetadataSerializer<SnapshotMetadata> metadataSerializer,
+        Logger logger)
+        throws Exception {
+      super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
     }
   }
 
   public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
     private static final Logger LOG =
-            LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
+        LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
 
     private TestingServer testingServer;
     private ZookeeperMetadataStoreImpl _metadataStore;
@@ -86,7 +108,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              true, true, "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
+              "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
     }
 
     @After
