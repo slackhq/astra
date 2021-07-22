@@ -45,18 +45,6 @@ public class KaldbMetadataStoreTest {
         name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
   }
 
-  static class DummyPersistentCreatableUpdatableCacheableMetadataStore
-      extends PersistentMutableMetadataStore<SnapshotMetadata> {
-    public DummyPersistentCreatableUpdatableCacheableMetadataStore(
-        String storeFolder,
-        MetadataStore metadataStore,
-        MetadataSerializer<SnapshotMetadata> metadataSerializer,
-        Logger logger)
-        throws Exception {
-      super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
-    }
-  }
-
   static class DummyPersistentCreatableCacheableMetadataStore
       extends PersistentMutableMetadataStore<SnapshotMetadata> {
     public DummyPersistentCreatableCacheableMetadataStore(
@@ -82,6 +70,18 @@ public class KaldbMetadataStoreTest {
   }
 
   public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
+    static class DummyPersistentCreatableUpdatableCacheableMetadataStore
+            extends PersistentMutableMetadataStore<SnapshotMetadata> {
+      public DummyPersistentCreatableUpdatableCacheableMetadataStore(
+              String storeFolder,
+              MetadataStore metadataStore,
+              MetadataSerializer<SnapshotMetadata> metadataSerializer,
+              Logger logger)
+              throws Exception {
+        super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
+      }
+    }
+
     private static final Logger LOG =
         LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
 
