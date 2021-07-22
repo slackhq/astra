@@ -168,6 +168,11 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot1).get()).isNull();
       assertThat(store.list().get()).containsOnly(newSnapshot1, snapshot2);
 
+      // Adding a snapshot with the same name but different values throws exception.
+      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
+      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
+      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
+
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot1);
@@ -175,8 +180,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name1).get()).isNull();
       assertThat(store.list().get().isEmpty()).isTrue();
 
-      Throwable throwable = catchThrowable(() -> store.delete(name1).get());
-      assertThat(throwable.getCause()).isInstanceOf(NoNodeException.class);
+      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
+      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
     }
 
     @Test
@@ -245,9 +250,6 @@ public class KaldbMetadataStoreTest {
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     }
 
-    // TODO: Add tests for disabled cache store and update store.
-
-    // TODO: Check cached operations in all these tests.
     @Test
     public void testNotificationFiresOnCreate() throws ExecutionException, InterruptedException {
       assertThat(store.list().get().isEmpty()).isTrue();
@@ -512,8 +514,7 @@ public class KaldbMetadataStoreTest {
     }
   }
 
-  // TODO: add a test with snapshots with same name.
-
+  // TODO: Add tests for disabled cache store and update store.
   // TODO: Add tests for enabled cache.
   // TODO: Add tests for disabled cache.
   // TODO: Add unit tests for EphemeralPersistentStore.
