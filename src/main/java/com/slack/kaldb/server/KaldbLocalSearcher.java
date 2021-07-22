@@ -116,7 +116,7 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
 
     CompletableFuture<KaldbSearch.SearchResult> protoSearchResult = doSearch(request);
-    protoSearchResult.whenComplete(
+    protoSearchResult.whenCompleteAsync(
         (result, t) -> {
           if (t != null) {
             LOG.error("Error completing the future", t);

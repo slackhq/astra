@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.com.slack.kaldb.logstore.search.ErrorThrowingLogIndexSearcherImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
@@ -304,7 +305,7 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddMessagesToChunkWithRollover() throws IOException {
+  public void testAddMessagesToChunkWithRollover() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -326,6 +327,7 @@ public class ChunkManagerTest {
     }
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
+    ChunkInfo secondChunk = chunkManager.getActiveChunk().info();
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -368,6 +370,24 @@ public class ChunkManagerTest {
     }
     // No search results for this query.
     testChunkManagerSearch(chunkManager, "Message261", 0, 0, MAX_TIME);
+
+    testOneFailedChunk(secondChunk);
+  }
+
+  public void testOneFailedChunk(ChunkInfo secondChunk) throws Exception {
+    Chunk<LogMessage> chunk = chunkManager.getChunkMap().get(secondChunk.chunkId);
+
+    testChunkManagerSearch(chunkManager, "Message18", 1, 0, MAX_TIME);
+    // chunk 2 which has docs 12-21 is corrupted
+    // an alternate approach I tried was the statement below
+    // chunk.getLogSearcher().close();
+    // this worked but was kinda flakey since it messes with shutdown and refresh intervals
+    chunk.setLogSearcher(new ErrorThrowingLogIndexSearcherImpl());
+
+    testChunkManagerSearch(chunkManager, "Message18", 0, 0, MAX_TIME);
+
+    testChunkManagerSearch(chunkManager, "Message1", 1, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message25", 1, 0, MAX_TIME);
   }
 
   @Test

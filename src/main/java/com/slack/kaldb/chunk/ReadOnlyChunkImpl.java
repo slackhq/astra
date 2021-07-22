@@ -34,7 +34,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
 
   private final ChunkInfo chunkInfo;
-  private final LogIndexSearcher<T> logSearcher;
+  private LogIndexSearcher<T> logSearcher;
 
   // TODO: Move this flag into LogStore?.
   private final boolean readOnly;
@@ -103,6 +103,16 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public void cleanup() {
     // TODO: Implement chunk state cleanup
     throw new UnsupportedOperationException("To be implemented.");
+  }
+
+  @Override
+  public LogIndexSearcher<T> getLogSearcher() {
+    return logSearcher;
+  }
+
+  @Override
+  public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
+    this.logSearcher = logSearcher;
   }
 
   @Override

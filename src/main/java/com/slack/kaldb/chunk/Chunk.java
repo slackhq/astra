@@ -1,6 +1,8 @@
 package com.slack.kaldb.chunk;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 
@@ -63,4 +65,10 @@ public interface Chunk<T> {
 
   /** Cleanup the chunk */
   void cleanup();
+
+  @VisibleForTesting
+  public LogIndexSearcher<T> getLogSearcher();
+
+  @VisibleForTesting
+  public void setLogSearcher(LogIndexSearcher<T> logSearcher);
 }

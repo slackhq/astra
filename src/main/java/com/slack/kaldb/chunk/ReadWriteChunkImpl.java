@@ -38,7 +38,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
-  private final LogIndexSearcher<T> logSearcher;
+  private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
   private final MeterRegistry meterRegistry;
@@ -175,6 +175,16 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       LOG.error(msg, e);
       throw new ChunkStateException(msg);
     }
+  }
+
+  @Override
+  public LogIndexSearcher<T> getLogSearcher() {
+    return logSearcher;
+  }
+
+  @Override
+  public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
+    this.logSearcher = logSearcher;
   }
 
   @Override
