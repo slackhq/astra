@@ -11,6 +11,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -457,12 +458,9 @@ public class ChunkManagerTest {
         .values()
         .forEach(chunk -> chunk.setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
-    try {
-      searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME);
-      Assert.fail("Should always fail");
-    } catch (Exception e) {
-      // expected
-    }
+    Throwable throwable =
+        catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
+    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

@@ -74,7 +74,7 @@ public class ChunkManager<T> {
   private ListenableFuture<Boolean> rolloverFuture;
 
   // TODO: We want to move this to the config eventually
-  public static final int QUERY_TIMEOUT = 10;
+  public static final int QUERY_TIMEOUT_SECONDS = 30;
   public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
@@ -291,7 +291,9 @@ public class ChunkManager<T> {
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
-                        .completeOnTimeout(errorResult, QUERY_TIMEOUT, TimeUnit.SECONDS))
+                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
+                        // the future and pass this timeout
+                        .completeOnTimeout(errorResult, QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(

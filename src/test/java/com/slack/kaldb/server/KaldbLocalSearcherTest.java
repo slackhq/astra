@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
@@ -287,7 +288,7 @@ public class KaldbLocalSearcherTest {
     assertThat(response.getBucketsList().size()).isEqualTo(0);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testKalDbBadArgSearch() throws Throwable {
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
@@ -314,12 +315,8 @@ public class KaldbLocalSearcherTest {
                 .setHowMany(0)
                 .setBucketCount(0)
                 .build());
-    try {
-      result.get();
-      Assert.fail("Should always fail");
-    } catch (Exception e) {
-      throw e.getCause();
-    }
+    Throwable throwable = catchThrowable(result::get);
+    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
