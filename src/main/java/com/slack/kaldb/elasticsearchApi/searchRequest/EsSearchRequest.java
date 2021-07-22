@@ -60,12 +60,16 @@ public class EsSearchRequest {
   }
 
   public KaldbSearch.SearchRequest toKaldbSearchRequest() {
+    // eventually this will likely be configurable from the UI
+    int bucketCount = 60;
+
     return KaldbSearch.SearchRequest.newBuilder()
         .setIndexName(getIndex())
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
         .setHowMany(getSize())
+        .setBucketCount(bucketCount)
         .build();
   }
 

@@ -498,10 +498,13 @@ public class ZookeeperMetadataStoreImplTest {
 
     // Stop ZK server to simulate ZK failure.
     testingServer.close();
+
     Throwable createEx = catchThrowable(() -> metadataStore.create(root, "", true).get());
     assertThat(createEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(1);
-    assertThat(countingFatalErrorHandler.getCount()).isEqualTo(1);
+
+    // The FatalErrorHandler is incremented async in a separate thread
+    await().until(() -> countingFatalErrorHandler.getCount() == 1);
   }
 
   @Test
