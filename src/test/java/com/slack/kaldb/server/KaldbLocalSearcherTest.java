@@ -318,7 +318,11 @@ public class KaldbLocalSearcherTest {
       result.get();
       Assert.fail("Should always fail");
     } catch (Exception e) {
-      throw e.getCause();
+      Throwable rootCause = e;
+      while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+        rootCause = rootCause.getCause();
+      }
+      throw rootCause;
     }
   }
 

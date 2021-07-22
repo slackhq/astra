@@ -289,7 +289,15 @@ public class ChunkManager<T> {
                     // TODO: make 10 configurable via SearchRequest
                     CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
                         .completeOnTimeout(empty, 10, TimeUnit.SECONDS))
-            .map(chunkFuture -> chunkFuture.exceptionally(err -> empty))
+            .map(
+                chunkFuture ->
+                    chunkFuture.exceptionally(
+                        err -> {
+                          if (err.getCause() instanceof IllegalArgumentException) {
+                            throw new RuntimeException(err);
+                          }
+                          return empty;
+                        }))
             .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
 
     // Using the spotify library ( this method is much easier to operate then using
