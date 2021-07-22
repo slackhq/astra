@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
@@ -178,11 +179,13 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   @Override
+  @VisibleForTesting
   public LogIndexSearcher<T> getLogSearcher() {
     return logSearcher;
   }
 
   @Override
+  @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
   }

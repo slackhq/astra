@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
@@ -106,11 +107,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   }
 
   @Override
+  @VisibleForTesting
   public LogIndexSearcher<T> getLogSearcher() {
     return logSearcher;
   }
 
   @Override
+  @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
   }

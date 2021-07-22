@@ -266,11 +266,6 @@ public class ChunkManager<T> {
 
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
-   * NOTE: Currently, it is unclear if the results should be merged in chunkManager or at a higher level since
-   * it may hurt ranking. If results need to merged, merge them and return them here otherwise return a list of
-   * responses. A new aggregator implementation can be used to implement other aggregation policies.
-   *
-   * TODO: Search chunks in parallel.
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
 
@@ -293,6 +288,9 @@ public class ChunkManager<T> {
                 chunkFuture ->
                     chunkFuture.exceptionally(
                         err -> {
+                          // We catch IllegalArgumentException ( and any other exception that
+                          // represents a parse failure )
+                          // And don't return empty but throw exception
                           if (err.getCause() instanceof IllegalArgumentException) {
                             throw new RuntimeException(err);
                           }
