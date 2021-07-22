@@ -1,6 +1,7 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
+import static com.slack.kaldb.util.ArgValidationUtils.*;
+import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -264,6 +265,19 @@ public class ChunkManager<T> {
     return activeChunk;
   }
 
+  private void validateQuery(SearchQuery query) {
+    ensureNonEmptyString(query.indexName, "indexName should be a non-empty string");
+    ensureNonNullString(query.queryStr, "query should be a non-empty string");
+    ensureTrue(query.startTimeEpochMs >= 0, "start time should be non-negative value");
+    ensureTrue(
+        query.startTimeEpochMs < query.endTimeEpochMs,
+        "end time should be greater than start time");
+    ensureTrue(query.howMany >= 0, "hits requested should not be negative.");
+    ensureTrue(query.bucketCount >= 0, "bucket count should not be negative.");
+    ensureTrue(
+        query.howMany > 0 || query.bucketCount > 0, "Hits or histogram should be requested.");
+  }
+
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
    * NOTE: Currently, it is unclear if the results should be merged in chunkManager or at a higher level since
@@ -273,9 +287,11 @@ public class ChunkManager<T> {
    * TODO: Search chunks in parallel.
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
+    // We moved the validate outside and not per chunk
+    // This allowed us to fail early and not return the empty result in the exceptionally block
+    validateQuery(query);
 
     SearchResult<T> empty = new SearchResult<>();
-
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkMap
             .values()

@@ -437,15 +437,15 @@ public class KaldbLocalSearcherTest {
     // Build a bad search request.
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
-    KaldbSearch.SearchResult result =
-        blockingStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
-                .setBucketCount(0)
-                .build());
+
+    blockingStub.search(
+        KaldbSearch.SearchRequest.newBuilder()
+            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+            .setQueryString("Message1")
+            .setStartTimeEpochMs(chunk1StartTimeMs)
+            .setEndTimeEpochMs(chunk1EndTimeMs)
+            .setHowMany(0)
+            .setBucketCount(0)
+            .build());
   }
 }

@@ -1,8 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -76,14 +73,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       long endTimeMsEpoch,
       int howMany,
       int bucketCount) {
-
-    ensureNonEmptyString(indexName, "indexName should be a non-empty string");
-    ensureNonNullString(queryStr, "query should be a non-empty string");
-    ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
-    ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
-    ensureTrue(howMany >= 0, "hits requested should not be negative.");
-    ensureTrue(bucketCount >= 0, "bucket count should not be negative.");
-    ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
