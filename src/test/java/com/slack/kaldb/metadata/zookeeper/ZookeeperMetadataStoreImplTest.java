@@ -507,11 +507,10 @@ public class ZookeeperMetadataStoreImplTest {
     await().until(() -> countingFatalErrorHandler.getCount() == 1);
   }
 
-  @Test
+  @Test(expected = NoNodeException.class)
   public void testCacheNodeAndChildrenCreatesMissingPath() throws Exception {
     String root = "/root";
     metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer());
-    assertThat(metadataStore.exists(root).get()).isTrue();
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
