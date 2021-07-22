@@ -72,6 +72,7 @@ public class ChunkManager<T> {
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
 
+  public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
   /**
@@ -139,7 +140,7 @@ public class ChunkManager<T> {
      One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
   */
   private static ExecutorService queryThreadPool() {
-    return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    return Executors.newFixedThreadPool(LOCAL_QUERY_THREAD_POOL_SIZE);
   }
 
   /**

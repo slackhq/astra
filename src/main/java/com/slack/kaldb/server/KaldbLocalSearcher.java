@@ -83,7 +83,7 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
       try {
         protoHits.add(JsonUtil.writeAsString(hit));
       } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
+        throw new IllegalArgumentException(e);
       }
     }
     searchResultBuilder.addAllHits(protoHits);
@@ -119,7 +119,7 @@ public class KaldbLocalSearcher<T> extends KaldbServiceGrpc.KaldbServiceImplBase
     protoSearchResult.whenComplete(
         (result, t) -> {
           if (t != null) {
-            LOG.error("Error completing the future", t.getCause());
+            LOG.error("Error completing the future", t);
             responseObserver.onError(t);
           } else {
             responseObserver.onNext(result);
