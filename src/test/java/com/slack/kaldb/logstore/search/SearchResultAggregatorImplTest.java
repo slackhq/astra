@@ -78,7 +78,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -135,7 +135,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -201,7 +201,7 @@ public class SearchResultAggregatorImplTest {
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 3);
@@ -254,7 +254,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -309,7 +309,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.hits.size()).isZero();
@@ -354,7 +354,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -409,7 +409,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(makeAsncResults(searchResults))
+            .aggregate(makeAsyncResults(searchResults))
             .join();
 
     assertThat(aggSearchResult.hits.size()).isZero();
@@ -423,7 +423,7 @@ public class SearchResultAggregatorImplTest {
     }
   }
 
-  public CompletableFuture<List<SearchResult<LogMessage>>> makeAsncResults(
+  public CompletableFuture<List<SearchResult<LogMessage>>> makeAsyncResults(
       List<SearchResult<LogMessage>> searchResults) {
     return CompletableFutures.allAsList(
         searchResults
