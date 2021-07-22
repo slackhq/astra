@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -67,7 +68,9 @@ public class KaldbKafkaConsumerTest {
     }
 
     @After
-    public void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
+    public void tearDown()
+        throws ExecutionException, InterruptedException, TimeoutException, NoSuchFieldException,
+            IllegalAccessException, IOException {
       ListenableFuture<?> future = testConsumer.triggerShutdown();
       future.get(1, TimeUnit.SECONDS);
       assertThat(future.isDone()).isTrue();
