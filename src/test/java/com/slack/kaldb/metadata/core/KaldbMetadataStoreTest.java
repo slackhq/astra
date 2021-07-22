@@ -45,7 +45,7 @@ public class KaldbMetadataStoreTest {
         name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
   }
 
-  public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
+  public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
     private static class DummyPersistentCreatableUpdatableCacheableMetadataStore
         extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableUpdatableCacheableMetadataStore(
