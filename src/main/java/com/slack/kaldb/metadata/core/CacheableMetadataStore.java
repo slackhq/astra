@@ -4,7 +4,6 @@ import com.slack.kaldb.metadata.zookeeper.CachedMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.CachedMetadataStoreListener;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.apache.curator.framework.CuratorFramework;
@@ -72,23 +71,31 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
   }
 
   public void start() throws Exception {
-    if (cache.isPresent()) cache.get().start();
+    if (cache.isEmpty()) throw new UnsupportedOperationException("Caching is disabled");
+    else cache.get().start();
   }
 
   public void close() {
-    cache.ifPresent(CachedMetadataStore::close);
-    cache.ifPresent(cacheImpl -> watchers.clear());
+    if (cache.isEmpty()) {
+      throw new UnsupportedOperationException();
+    } else {
+      cache.get().close();
+      watchers.clear();
+    }
   }
 
   public List<T> getCached() {
-    return cache.isEmpty() ? Collections.emptyList() : cache.get().getInstances();
+    if (cache.isEmpty()) throw new UnsupportedOperationException("Caching is disabled");
+    else return cache.get().getInstances();
   }
 
-  public void addListener(KaldbMetadataStoreChangeListener listener) {
-    if (cache.isPresent()) watchers.add(listener);
+  public void addListener(KaldbMetadataStoreChangeListener watcher) {
+    if (cache.isEmpty()) throw new UnsupportedOperationException("Caching is disabled");
+    else watchers.add(watcher);
   }
 
-  public void removeListener(KaldbMetadataStoreChangeListener listener) {
-    if (cache.isPresent()) watchers.remove(listener);
+  public void removeListener(KaldbMetadataStoreChangeListener watcher) {
+    if (cache.isEmpty()) throw new UnsupportedOperationException("Caching is disabled.");
+    else watchers.remove(watcher);
   }
 }

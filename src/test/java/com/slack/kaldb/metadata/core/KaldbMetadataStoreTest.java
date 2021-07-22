@@ -45,39 +45,15 @@ public class KaldbMetadataStoreTest {
         name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
   }
 
-  static class DummyPersistentCreatableCacheableMetadataStore
-      extends PersistentMutableMetadataStore<SnapshotMetadata> {
-    public DummyPersistentCreatableCacheableMetadataStore(
-        String storeFolder,
-        MetadataStore metadataStore,
-        MetadataSerializer<SnapshotMetadata> metadataSerializer,
-        Logger logger)
-        throws Exception {
-      super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
-    }
-  }
-
-  static class DummyPersistentCreatableMetadataStore
-      extends PersistentMutableMetadataStore<SnapshotMetadata> {
-    public DummyPersistentCreatableMetadataStore(
-        String storeFolder,
-        MetadataStore metadataStore,
-        MetadataSerializer<SnapshotMetadata> metadataSerializer,
-        Logger logger)
-        throws Exception {
-      super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
-    }
-  }
-
   public static class TestCreatableUpdatableCacheablePersistentMetadataStore {
-    static class DummyPersistentCreatableUpdatableCacheableMetadataStore
-            extends PersistentMutableMetadataStore<SnapshotMetadata> {
+    private static class DummyPersistentCreatableUpdatableCacheableMetadataStore
+        extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              String storeFolder,
-              MetadataStore metadataStore,
-              MetadataSerializer<SnapshotMetadata> metadataSerializer,
-              Logger logger)
-              throws Exception {
+          String storeFolder,
+          MetadataStore metadataStore,
+          MetadataSerializer<SnapshotMetadata> metadataSerializer,
+          Logger logger)
+          throws Exception {
         super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
       }
     }
@@ -536,10 +512,196 @@ public class KaldbMetadataStoreTest {
     }
   }
 
-  // TODO: Add tests for disabled cache store and update store.
-  // TODO: Add tests for enabled cache.
-  // TODO: Add tests for disabled cache.
+  public static class TestPersistentCreatableCacheableMetadataStore {
+    private static class DummyPersistentCreatableCacheableMetadataStore
+        extends PersistentMutableMetadataStore<SnapshotMetadata> {
+      public DummyPersistentCreatableCacheableMetadataStore(
+          String storeFolder,
+          MetadataStore metadataStore,
+          MetadataSerializer<SnapshotMetadata> metadataSerializer,
+          Logger logger)
+          throws Exception {
+        super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+      }
+    }
+
+    private static final Logger LOG =
+        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
+
+    private TestingServer testingServer;
+    private ZookeeperMetadataStoreImpl _metadataStore;
+    private MeterRegistry meterRegistry;
+    private DummyPersistentCreatableCacheableMetadataStore store;
+
+    @Before
+    public void setUp() throws Exception {
+      meterRegistry = new SimpleMeterRegistry();
+      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
+      // flaky.
+      testingServer = new TestingServer();
+      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
+      _metadataStore =
+          new ZookeeperMetadataStoreImpl(
+              testingServer.getConnectString(),
+              "test",
+              1000,
+              1000,
+              new RetryNTimes(1, 500),
+              countingFatalErrorHandler,
+              meterRegistry);
+      this.store =
+          new DummyPersistentCreatableCacheableMetadataStore(
+              "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
+    }
+
+    @After
+    public void tearDown() throws IOException {
+      _metadataStore.close();
+      testingServer.close();
+      meterRegistry.close();
+    }
+
+    @Test
+    public void testCrudOperations() throws ExecutionException, InterruptedException {
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+
+      assertThat(store.list().get()).isEmpty();
+      assertThat(store.create(snapshot1).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(1);
+      assertThat(store.create(snapshot2).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+
+      // Updates throw an exception.
+      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
+      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
+      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+
+      // Adding a snapshot with the same name but different values throws exception.
+      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
+      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
+      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
+
+      assertThat(store.delete(name2).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+      assertThat(store.getCached()).containsOnly(snapshot1);
+
+      assertThat(store.delete(name1).get()).isNull();
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
+      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+  }
+
+  public static class TestPersistentCreatableMetadataStore {
+    private static class DummyPersistentCreatableMetadataStore
+        extends PersistentMutableMetadataStore<SnapshotMetadata> {
+      public DummyPersistentCreatableMetadataStore(
+          String storeFolder,
+          MetadataStore metadataStore,
+          MetadataSerializer<SnapshotMetadata> metadataSerializer,
+          Logger logger)
+          throws Exception {
+        super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
+      }
+    }
+
+    private static final Logger LOG =
+        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
+
+    private TestingServer testingServer;
+    private ZookeeperMetadataStoreImpl _metadataStore;
+    private MeterRegistry meterRegistry;
+    private DummyPersistentCreatableMetadataStore store;
+
+    @Before
+    public void setUp() throws Exception {
+      meterRegistry = new SimpleMeterRegistry();
+      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
+      // flaky.
+      testingServer = new TestingServer();
+      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
+      _metadataStore =
+          new ZookeeperMetadataStoreImpl(
+              testingServer.getConnectString(),
+              "test",
+              1000,
+              1000,
+              new RetryNTimes(1, 500),
+              countingFatalErrorHandler,
+              meterRegistry);
+      this.store =
+          new DummyPersistentCreatableMetadataStore(
+              "/snapshots", _metadataStore, new SnapshotMetadataSerializer(), LOG);
+    }
+
+    @After
+    public void tearDown() throws IOException {
+      _metadataStore.close();
+      testingServer.close();
+      meterRegistry.close();
+    }
+
+    @Test
+    public void testCrudOperationsAndCache() throws ExecutionException, InterruptedException {
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+
+      /// TODO: Initialize path at store create time?
+      // assertThat(store.list().get()).isEmpty();
+      assertThat(store.create(snapshot1).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(1);
+      assertThat(store.create(snapshot2).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(2);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+
+      // Caching is disabled.
+      Throwable getCacheEx = catchThrowable(() -> store.getCached());
+      assertThat(getCacheEx).isInstanceOf(UnsupportedOperationException.class);
+
+      // Updates throw an exception.
+      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
+      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
+      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
+      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+
+      // All cache operations are disabled.
+      Throwable getCacheEx2 = catchThrowable(() -> store.getCached());
+      KaldbMetadataStoreChangeListener listener = () -> {};
+      assertThat(getCacheEx2).isInstanceOf(UnsupportedOperationException.class);
+      Throwable addListenerEx = catchThrowable(() -> store.addListener(listener));
+      assertThat(addListenerEx).isInstanceOf(UnsupportedOperationException.class);
+      Throwable removeListenerEx = catchThrowable(() -> store.removeListener(listener));
+      assertThat(removeListenerEx).isInstanceOf(UnsupportedOperationException.class);
+      Throwable closeEx = catchThrowable(() -> store.close());
+      assertThat(closeEx).isInstanceOf(UnsupportedOperationException.class);
+
+      // Adding a snapshot with the same name but different values throws exception.
+      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
+      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
+      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
+
+      assertThat(store.delete(name2).get()).isNull();
+      assertThat(store.list().get().size()).isEqualTo(1);
+      assertThat(store.list().get()).containsOnly(snapshot1);
+
+      assertThat(store.delete(name1).get()).isNull();
+      assertThat(store.list().get().isEmpty()).isTrue();
+
+      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
+      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+  }
+
   // TODO: Add unit tests for EphemeralPersistentStore.
-  // TODO: Add a unit test for updatable store.
-  // TODO: Add a unit test for creatable only store.
 }
