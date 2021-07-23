@@ -51,7 +51,6 @@ public class ZookeeperMetadataStoreImplTest {
 
   @After
   public void tearDown() throws IOException, NoSuchFieldException, IllegalAccessException {
-    closeZookeeperClientConnection();
     metadataStore.close();
     testingServer.close();
     meterRegistry.close();
@@ -484,6 +483,9 @@ public class ZookeeperMetadataStoreImplTest {
     Throwable ephemeralEx = catchThrowable(() -> metadataStore.createEphemeralNode(root, "").get());
     assertThat(ephemeralEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(7);
+
+    // close the underlying zookeeper connection to ensure it's correctly removed
+    closeZookeeperClientConnection();
   }
 
   @Test
@@ -502,6 +504,9 @@ public class ZookeeperMetadataStoreImplTest {
 
     // The FatalErrorHandler is incremented async in a separate thread
     await().until(() -> countingFatalErrorHandler.getCount() == 1);
+
+    // close the underlying zookeeper connection to ensure it's correctly removed
+    closeZookeeperClientConnection();
   }
 
   /**
