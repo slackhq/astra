@@ -142,10 +142,10 @@ public class KaldbQueryServiceTest {
       indexerMetricsRegistry.close();
     }
     if (indexingServer != null) {
-      indexingServer.stop().join();
+      indexingServer.stop().get(30, TimeUnit.SECONDS);
     }
     if (queryServer != null) {
-      queryServer.stop().join();
+      queryServer.stop().get(30, TimeUnit.SECONDS);
     }
   }
 

@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -73,9 +74,9 @@ public class KaldbIndexerTest {
   @After
   public void tearDown()
       throws IOException, ExecutionException, InterruptedException, NoSuchFieldException,
-          IllegalAccessException {
+          IllegalAccessException, TimeoutException {
     if (server != null) {
-      server.stop().join();
+      server.stop().get(30, TimeUnit.SECONDS);
     }
     if (kaldbIndexer != null) {
       kaldbIndexer.close();
