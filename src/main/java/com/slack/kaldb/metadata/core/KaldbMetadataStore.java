@@ -48,14 +48,12 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     this.metadataSerializer = metadataSerializer;
     this.logger = logger;
 
-    // If the path ZK node doesn't exist create it. However, since 2 different processes may create
+    // Create the path to the store in ZK. However, since 2 different processes may create
     // a path at the same time, ignore the exception if node already exists.
-    if (!metadataStore.exists(storeFolder).get()) {
-      try {
-        metadataStore.create(storeFolder, "", true).get();
-      } catch (NodeExistsException e) {
-        // ignore exception, since node creation is idemponent.
-      }
+    try {
+      metadataStore.create(storeFolder, "", true).get();
+    } catch (NodeExistsException e) {
+      // ignore exception, since node creation is idemponent.
     }
   }
 
