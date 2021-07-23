@@ -132,20 +132,20 @@ public class KaldbQueryServiceTest {
 
   @AfterClass
   public static void shutdownServer() throws Exception {
-    if (kaldbIndexer != null) {
-      kaldbIndexer.close();
-    }
-    if (kafkaServer != null) {
-      kafkaServer.close();
+    if (queryServer != null) {
+      queryServer.stop().get(30, TimeUnit.SECONDS);
     }
     if (indexerMetricsRegistry != null) {
       indexerMetricsRegistry.close();
     }
+    if (kaldbIndexer != null) {
+      kaldbIndexer.close();
+    }
     if (indexingServer != null) {
       indexingServer.stop().get(30, TimeUnit.SECONDS);
     }
-    if (queryServer != null) {
-      queryServer.stop().get(30, TimeUnit.SECONDS);
+    if (kafkaServer != null) {
+      kafkaServer.close();
     }
   }
 
