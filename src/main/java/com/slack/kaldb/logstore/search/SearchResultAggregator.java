@@ -1,7 +1,9 @@
 package com.slack.kaldb.logstore.search;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface SearchResultAggregator<T> {
-  SearchResult<T> aggregate(List<SearchResult<T>> searchResults, SearchQuery query);
+  CompletableFuture<SearchResult<T>> aggregate(
+      CompletableFuture<List<SearchResult<T>>> searchResults);
 }

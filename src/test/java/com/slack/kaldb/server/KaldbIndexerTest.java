@@ -167,9 +167,9 @@ public class KaldbIndexerTest {
     assertThat(searchResponse.getTookMicros()).isNotZero();
     assertThat(searchResponse.getTotalCount()).isEqualTo(1);
     assertThat(searchResponse.getFailedNodes()).isZero();
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(0);
-    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(0);
+    assertThat(searchResponse.getTotalNodes()).isEqualTo(0);
+    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // TODO: Close indexer cleanly.
     // TODO: delete expired data cleanly.

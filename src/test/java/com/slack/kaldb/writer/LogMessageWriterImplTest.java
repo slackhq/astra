@@ -66,8 +66,10 @@ public class LogMessageWriterImplTest {
   }
 
   private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) {
-    return chunkManagerUtil.chunkManager.query(
-        new SearchQuery(indexName, queryString, 0, MAX_TIME, 10, 1000));
+    return chunkManagerUtil
+        .chunkManager
+        .query(new SearchQuery(indexName, queryString, 0, MAX_TIME, 10, 1000))
+        .join();
   }
 
   @Test
@@ -506,6 +508,7 @@ public class LogMessageWriterImplTest {
     assertThat(
             chunkManager
                 .query(new SearchQuery(serviceName, "", 0, MAX_TIME, 100, 1000))
+                .join()
                 .hits
                 .size())
         .isEqualTo(15);
