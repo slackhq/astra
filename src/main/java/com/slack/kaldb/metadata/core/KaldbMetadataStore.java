@@ -78,7 +78,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
                       "Unable to de-serialize data %s at path %s into a protobuf message.",
                       data, path);
               logger.error(msg, e);
-              throw new CorruptMetadataNodeException(msg, e);
+              throw new IllegalStateException(msg, e);
             }
             return result;
           }

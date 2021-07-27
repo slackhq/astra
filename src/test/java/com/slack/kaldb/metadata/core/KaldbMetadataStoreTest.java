@@ -504,7 +504,7 @@ public class KaldbMetadataStoreTest {
 
       // Get throws exception but store is fine.
       Throwable getEx = catchThrowable(() -> store.get(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(CorruptMetadataNodeException.class);
+      assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.get(name2).get()).isEqualTo(snapshot2);
 
       assertThat(store.getCached()).containsOnly(snapshot2);
@@ -1161,7 +1161,7 @@ public class KaldbMetadataStoreTest {
 
       // Get throws exception but store is fine.
       Throwable getEx = catchThrowable(() -> store.get(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(CorruptMetadataNodeException.class);
+      assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.get(name2).get()).isEqualTo(snapshot2);
 
       assertThat(store.getCached()).containsOnly(snapshot2);
