@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
+ *
+ * <p>TODO: Prefix this class name with ZK.
  */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
