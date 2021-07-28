@@ -7,6 +7,8 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
@@ -50,6 +52,8 @@ import org.slf4j.LoggerFactory;
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
 
+  public static final String CACHE_ERROR_COUNTER = "cache.error";
+
   private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
@@ -61,6 +65,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   private final CountDownLatch initializedLatch = new CountDownLatch(1);
   private final MetadataSerializer<T> metadataSerde;
   private final String pathPrefix;
+  private final Counter errorCounter;
 
   private enum State {
     LATENT,
@@ -77,15 +82,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ThreadFactory threadFactory) {
-    this(path, metadataSerde, curator, convertThreadFactory(threadFactory));
+      ThreadFactory threadFactory,
+      MeterRegistry meterRegistry) {
+    this(path, metadataSerde, curator, convertThreadFactory(threadFactory), meterRegistry);
   }
 
   CachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ExecutorService executorService) {
+      ExecutorService executorService,
+      MeterRegistry meterRegistry) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
@@ -110,6 +117,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
             .build();
     cache.listenable().addListener(listener);
     ensureContainers = new EnsureContainers(curator, path);
+    errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
   }
 
   @Override
@@ -183,9 +191,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
         }
     }
 
-    // TODO: Handle throwing listener.
     if (notifyListeners && (initializedLatch.getCount() == 0)) {
-      listenerContainer.forEach(CachedMetadataStoreListener::cacheChanged);
+      listenerContainer.forEach(
+          listener -> {
+            try {
+              listener.cacheChanged();
+            } catch (Exception e) {
+              // If a listener throws an exception log it and ignore it.
+              errorCounter.increment();
+              LOG.error("Caught an exception notifying listener " + listener, e);
+            }
+          });
       LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
     }
   }
@@ -217,6 +233,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
       // log a fatal.
       LOG.error("Invalidating key from cache: {}", instanceId);
       invalidateKey(instanceId);
+      errorCounter.increment();
       throw new InternalMetadataStoreException(
           "Error adding node at path " + childData.getPath(), e);
     }

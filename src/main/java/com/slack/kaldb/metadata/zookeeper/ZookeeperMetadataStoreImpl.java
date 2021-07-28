@@ -59,6 +59,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
+  private final MeterRegistry meterRegistry;
 
   @SuppressWarnings("UnstableApiUsage")
   public ZookeeperMetadataStoreImpl(
@@ -74,6 +75,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     ensureTrue(sessionTimeoutMs > 0, "sessionTimeoutMs should be a positive number");
     ensureTrue(connectionTimeoutMs > 0, "connectionTimeoutMs should be a positive number");
 
+    this.meterRegistry = meterRegistry;
     this.failureCounter = meterRegistry.counter(METADATA_FAILED_COUNTER);
     this.zkFailureCounter = meterRegistry.counter(ZK_FAILED_COUNTER);
     this.metadataWriteCounter = meterRegistry.counter(METADATA_WRITE_COUNTER);
@@ -348,7 +350,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
       throw new NoNodeException("Node doesn't exist at path: " + path);
     }
     return new CachedMetadataStoreImpl<>(
-        path, metadataSerializer, curator, metadataExecutorService);
+        path, metadataSerializer, curator, metadataExecutorService, meterRegistry);
   }
 
   @VisibleForTesting
