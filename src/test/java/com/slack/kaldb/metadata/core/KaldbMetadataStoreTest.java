@@ -118,7 +118,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot);
 
-      SnapshotMetadata metadata = store.get(name).get();
+      SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -140,7 +140,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
-      SnapshotMetadata newMetadata = store.get(name).get();
+      SnapshotMetadata newMetadata = store.getNode(name).get();
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(newMetadata.snapshotId).isEqualTo(newSnapshotId);
@@ -202,7 +202,7 @@ public class KaldbMetadataStoreTest {
               name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
       assertThat(store.create(testSnapshot).get()).isNull();
 
-      SnapshotMetadata metadata = store.get(name).get();
+      SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -216,7 +216,7 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name).get()).isNull();
 
-      Throwable getMissingNodeEx = catchThrowable(() -> store.get(name).get());
+      Throwable getMissingNodeEx = catchThrowable(() -> store.getNode(name).get());
       assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
 
       Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
@@ -250,7 +250,7 @@ public class KaldbMetadataStoreTest {
       Throwable listEx = catchThrowable(() -> store.list().get());
       assertThat(listEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
 
-      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
       closeZookeeperClientConnection(zooKeeper);
     }
@@ -376,7 +376,7 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch2.await();
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
     }
 
@@ -423,7 +423,7 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch.await();
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(3);
     }
 
@@ -462,7 +462,7 @@ public class KaldbMetadataStoreTest {
       await().until(() -> store.getCached().contains(snapshot2));
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
 
       // Remove listener
@@ -471,10 +471,10 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch.await();
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.get(name1).get()).isEqualTo(snapshot1);
+      assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(3);
 
-      Throwable getEx = catchThrowable(() -> store.get(name2).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name2).get());
       assertThat(getEx.getCause()).isInstanceOf(NoNodeException.class);
     }
 
@@ -510,9 +510,9 @@ public class KaldbMetadataStoreTest {
       assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
 
       // Get throws exception but store is fine.
-      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
       assertThat(store.getCached()).containsOnly(snapshot2);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
@@ -780,7 +780,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot);
 
-      SnapshotMetadata metadata = store.get(name).get();
+      SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -802,7 +802,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
-      SnapshotMetadata newMetadata = store.get(name).get();
+      SnapshotMetadata newMetadata = store.getNode(name).get();
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(newMetadata.snapshotId).isEqualTo(newSnapshotId);
@@ -864,7 +864,7 @@ public class KaldbMetadataStoreTest {
               name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
       assertThat(store.create(testSnapshot).get()).isNull();
 
-      SnapshotMetadata metadata = store.get(name).get();
+      SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(snapshotId);
@@ -878,7 +878,7 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name).get()).isNull();
 
-      Throwable getMissingNodeEx = catchThrowable(() -> store.get(name).get());
+      Throwable getMissingNodeEx = catchThrowable(() -> store.getNode(name).get());
       assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
 
       Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
@@ -912,7 +912,7 @@ public class KaldbMetadataStoreTest {
       Throwable listEx = catchThrowable(() -> store.list().get());
       assertThat(listEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
 
-      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
       closeZookeeperClientConnection(zooKeeper);
     }
@@ -1038,7 +1038,7 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch2.await();
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
     }
 
@@ -1085,7 +1085,7 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch.await();
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(3);
     }
 
@@ -1124,7 +1124,7 @@ public class KaldbMetadataStoreTest {
       await().until(() -> store.getCached().contains(snapshot2));
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
 
       // Remove listener
@@ -1133,10 +1133,10 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch.await();
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.get(name1).get()).isEqualTo(snapshot1);
+      assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(3);
 
-      Throwable getEx = catchThrowable(() -> store.get(name2).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name2).get());
       assertThat(getEx.getCause()).isInstanceOf(NoNodeException.class);
     }
 
@@ -1172,9 +1172,9 @@ public class KaldbMetadataStoreTest {
       assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
 
       // Get throws exception but store is fine.
-      Throwable getEx = catchThrowable(() -> store.get(name1).get());
+      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
-      assertThat(store.get(name2).get()).isEqualTo(snapshot2);
+      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
       assertThat(store.getCached()).containsOnly(snapshot2);
       assertThat(store.list().get()).containsOnly(null, snapshot2);

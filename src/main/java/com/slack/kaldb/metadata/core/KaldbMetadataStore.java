@@ -63,7 +63,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
 
   // TODO: byte arrays every where.
   @SuppressWarnings("UnstableApiUsage")
-  public ListenableFuture<T> get(String path) {
+  public ListenableFuture<T> getNode(String path) {
     String nodePath = getPath(path);
     Function<String, T> deserialize =
         new Function<>() {
@@ -114,7 +114,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
 
             List<ListenableFuture<T>> getFutures = new ArrayList<>(paths.size());
             for (String path : paths) {
-              getFutures.add(get(path));
+              getFutures.add(getNode(path));
             }
             ListenableFuture<List<T>> response = Futures.successfulAsList(getFutures);
             try {
