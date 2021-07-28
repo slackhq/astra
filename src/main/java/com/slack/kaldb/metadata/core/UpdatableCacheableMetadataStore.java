@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.core;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
@@ -27,8 +27,7 @@ public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
     } catch (InvalidProtocolBufferException e) {
       String msg = String.format("Error serializing node %s at path %s", metadataNode, path);
       logger.error(msg, e);
-      // TODO: Create a failed listenable future with exception?
-      return SettableFuture.create();
+      return Futures.immediateFailedFuture(e);
     }
   }
 }
