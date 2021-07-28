@@ -1,5 +1,9 @@
 package com.slack.kaldb.metadata.zookeeper;
 
+import static com.slack.kaldb.metadata.zookeeper.CachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
+import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
@@ -15,6 +19,7 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
+import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,6 +30,7 @@ public class CachedMetadataStoreImplTest {
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private final SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
+  private ZooKeeper zooKeeper;
 
   static class CountingCachedMetadataListener implements CachedMetadataStoreListener {
     private int cacheChangedCounter = 0;
@@ -64,6 +70,7 @@ public class CachedMetadataStoreImplTest {
             new RetryNTimes(1, 500),
             countingFatalErrorHandler,
             meterRegistry);
+    zooKeeper = metadataStore.getCurator().getZookeeperClient().getZooKeeper();
   }
 
   @After
@@ -71,10 +78,6 @@ public class CachedMetadataStoreImplTest {
     metadataStore.close();
     testingServer.close();
     meterRegistry.close();
-  }
-
-  private SnapshotMetadata makeSnapshot(String name) {
-    return new SnapshotMetadata(name, "/testPath_" + name, name + "snapshotId", 1, 100, 1, "1");
   }
 
   private CachedMetadataStore<SnapshotMetadata> makeCachedStore(
@@ -88,7 +91,8 @@ public class CachedMetadataStoreImplTest {
             path,
             metadataSerializer,
             metadataStore.getCurator(),
-            metadataStore.getMetadataExecutorService());
+            metadataStore.getMetadataExecutorService(),
+            meterRegistry);
     if (listener != null) {
       cachedMetadataStore.addListener(listener);
     }
@@ -253,7 +257,51 @@ public class CachedMetadataStoreImplTest {
   public void testCacheOnNonExistentNode() throws Exception {
     final String root = "/root123";
     makeCachedStore(root, null, serDe);
+    // Succeeds since creating a cached store creates the node.
     assertThat(metadataStore.exists(root).get()).isTrue();
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testThrowingListenerOnCache() throws Exception {
+    final String root = "/root";
+    CachedMetadataStoreListener listener =
+        new CachedMetadataStoreListener() {
+          @Override
+          public void cacheChanged() {
+            throw new RuntimeException("fail");
+          }
+
+          @Override
+          public void stateChanged(CuratorFramework client, ConnectionState newState) {
+            throw new RuntimeException("fail");
+          }
+        };
+
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    assertThat(metadataStore.exists(root).get()).isTrue();
+
+    // notification fired without issues ane error is counted.
+    final String node = "/root/node1";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(node, serDe.toJsonStr(snapshot1), true).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node1").get()).isEqualTo(snapshot1));
+    assertThat(cache.getInstances()).containsOnly(snapshot1);
+    assertThat(metadataStore.exists(node).get()).isTrue();
+    assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+    assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
+
+    // Removing the listener shouldn't fire the notification.
+    cache.removeListener(listener);
+
+    final String node2 = "/root/node2";
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.create(node2, serDe.toJsonStr(snapshot2), true).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node2").get()).isEqualTo(snapshot2));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(metadataStore.exists(node2).get()).isTrue();
+    assertThat(metadataStore.get(node2).get()).isEqualTo(serDe.toJsonStr(snapshot2));
+    assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -416,6 +464,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
   // TODO: Add a unit test when server is started or restarted.

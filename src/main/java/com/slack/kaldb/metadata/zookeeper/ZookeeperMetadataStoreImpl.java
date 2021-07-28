@@ -8,6 +8,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.util.FatalErrorHandler;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -57,7 +59,9 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
+  private final MeterRegistry meterRegistry;
 
+  @SuppressWarnings("UnstableApiUsage")
   public ZookeeperMetadataStoreImpl(
       String zkHostPath,
       String zkPathPrefix,
@@ -71,6 +75,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     ensureTrue(sessionTimeoutMs > 0, "sessionTimeoutMs should be a positive number");
     ensureTrue(connectionTimeoutMs > 0, "connectionTimeoutMs should be a positive number");
 
+    this.meterRegistry = meterRegistry;
     this.failureCounter = meterRegistry.counter(METADATA_FAILED_COUNTER);
     this.zkFailureCounter = meterRegistry.counter(ZK_FAILED_COUNTER);
     this.metadataWriteCounter = meterRegistry.counter(METADATA_WRITE_COUNTER);
@@ -115,7 +120,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
     /*
      * If a ZK session expires, we need to create all the watches and ephemeral nodes again.
-     * In such a case, any ephermeral nodes and watches would expire and need to be re-created.
+     * In such a case, any ephemeral nodes and watches would expire and need to be re-created.
      * To keep it simple for now, we terminate the process and let the process initialization
      * register those nodes.
      */
@@ -126,7 +131,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
               if (curatorEvent.getType() == CuratorEventType.WATCHED
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {
-                LOG.warn("The ZK session has expired {}.", curatorEvent.toString());
+                LOG.warn("The ZK session has expired {}.", curatorEvent);
                 fatalErrorHandler.handleFatal(new Throwable("ZK session expired."));
               }
             });
@@ -166,7 +171,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     }
   }
 
-  /** Create an ephermeral node at path */
+  /** Create an ephemeral node at path */
   @Override
   public ListenableFuture<?> createEphemeralNode(String path, String data) {
     return metadataExecutorService.submit(() -> createEphemeralNodeImpl(path, data));
@@ -332,6 +337,20 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   @Override
   public ListenableFuture<List<String>> getChildren(String path) {
     return metadataExecutorService.submit(() -> getChildrenImpl(path));
+  }
+
+  /**
+   * This implementation uses a CachedMetadataStore, a wrapper on curator cache, to cache all the
+   * nodes under a given path.
+   */
+  @Override
+  public <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
+      String path, MetadataSerializer<T> metadataSerializer) {
+    if (!existsImpl(path)) {
+      throw new NoNodeException("Node doesn't exist at path: " + path);
+    }
+    return new CachedMetadataStoreImpl<>(
+        path, metadataSerializer, curator, metadataExecutorService, meterRegistry);
   }
 
   @VisibleForTesting

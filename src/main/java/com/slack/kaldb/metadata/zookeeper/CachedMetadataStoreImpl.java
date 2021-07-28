@@ -4,8 +4,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
@@ -25,6 +28,8 @@ import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A CachedMetadataStoreImpl uses a curator path cache to cache all the nodes under a given node. In
@@ -41,8 +46,14 @@ import org.apache.curator.utils.ZKPaths;
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
+ *
+ * <p>TODO: Prefix this class name with ZK.
  */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
+
+  public static final String CACHE_ERROR_COUNTER = "cache.error";
+
   private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
@@ -54,6 +65,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   private final CountDownLatch initializedLatch = new CountDownLatch(1);
   private final MetadataSerializer<T> metadataSerde;
   private final String pathPrefix;
+  private final Counter errorCounter;
 
   private enum State {
     LATENT,
@@ -70,15 +82,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ThreadFactory threadFactory) {
-    this(path, metadataSerde, curator, convertThreadFactory(threadFactory));
+      ThreadFactory threadFactory,
+      MeterRegistry meterRegistry) {
+    this(path, metadataSerde, curator, convertThreadFactory(threadFactory), meterRegistry);
   }
 
   CachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ExecutorService executorService) {
+      ExecutorService executorService,
+      MeterRegistry meterRegistry) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
@@ -103,6 +117,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
             .build();
     cache.listenable().addListener(listener);
     ensureContainers = new EnsureContainers(curator, path);
+    errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
   }
 
   @Override
@@ -118,9 +133,10 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   @Override
   public void start() throws Exception {
     startImmediate().await();
+    LOG.info("Started caching nodes at path {}.", pathPrefix);
   }
 
-  public CountDownLatch startImmediate() throws Exception {
+  private CountDownLatch startImmediate() throws Exception {
     Preconditions.checkState(
         state.compareAndSet(State.LATENT, State.STARTED), "Cannot be started more than once");
 
@@ -137,6 +153,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
         "Already closed or has not been started");
     listenerContainer.clear();
     CloseableUtils.closeQuietly(cache);
+    LOG.info("Closing cache for path: {}", pathPrefix);
   }
 
   @Override
@@ -175,7 +192,17 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     }
 
     if (notifyListeners && (initializedLatch.getCount() == 0)) {
-      listenerContainer.forEach(CachedMetadataStoreListener::cacheChanged);
+      listenerContainer.forEach(
+          listener -> {
+            try {
+              listener.cacheChanged();
+            } catch (Exception e) {
+              // If a listener throws an exception log it and ignore it.
+              errorCounter.increment();
+              LOG.error("Caught an exception notifying listener " + listener, e);
+            }
+          });
+      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
     }
   }
 
@@ -189,20 +216,37 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return str;
   }
 
+  // Use the path name relative to cache root as the instanceId to better support nested nodes.
   private String instanceIdFromData(ChildData childData) {
     return removeStart(childData.getPath(), pathPrefix);
   }
 
   private void addInstance(ChildData childData) {
+    String instanceId = "";
     try {
-      String instanceId = instanceIdFromData(childData);
+      instanceId = instanceIdFromData(childData);
       T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
-      // TODO: Switch to a relative path, if nested nodes are used widely.
       instances.put(instanceId, serviceInstance);
-    } catch (Exception e) {
+    } catch (InvalidProtocolBufferException e) {
+      // If we are unable to add the updated value to the cache, invalidate the key so cache is
+      // consistent even though it's incomplete. If the incomplete cache becomes an issue,
+      // log a fatal.
+      LOG.error("Invalidating key from cache: {}", instanceId);
+      invalidateKey(instanceId);
+      errorCounter.increment();
       throw new InternalMetadataStoreException(
           "Error adding node at path " + childData.getPath(), e);
     }
+  }
+
+  /**
+   * If we are unable to get the value of the key, invalidate the cache by deleting the key for now.
+   *
+   * <p>TODO: Since deleting the key leaves the cache in an incomplete state, consider making the
+   * value Optional, to better clarify the intent.
+   */
+  private void invalidateKey(String key) {
+    if (!key.isEmpty()) instances.remove(key);
   }
 
   @VisibleForTesting

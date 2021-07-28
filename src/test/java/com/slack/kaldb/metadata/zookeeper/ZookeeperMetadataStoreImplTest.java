@@ -5,20 +5,22 @@ import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.META
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.METADATA_WRITE_COUNTER;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.ZK_FAILED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
+import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
 
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
 import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.apache.zookeeper.ClientCnxn;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
@@ -288,8 +290,8 @@ public class ZookeeperMetadataStoreImplTest {
     String path2 = "/root/1/2/4";
     String path3 = "/root/1/2/5";
 
-    Throwable beforeNodeCrationEx = catchThrowable(() -> metadataStore.getChildren(path1).get());
-    assertThat(beforeNodeCrationEx.getCause()).isInstanceOf(NoNodeException.class);
+    Throwable beforeNodeCreationEx = catchThrowable(() -> metadataStore.getChildren(path1).get());
+    assertThat(beforeNodeCreationEx.getCause()).isInstanceOf(NoNodeException.class);
 
     assertThat(metadataStore.create(path1, "", true).get()).isNull();
     assertThat(metadataStore.create(path2, "", true).get()).isNull();
@@ -484,8 +486,14 @@ public class ZookeeperMetadataStoreImplTest {
     assertThat(ephemeralEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(7);
 
+    Throwable cacheCreationEx =
+        catchThrowable(
+            () -> metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer()));
+    assertThat(cacheCreationEx).isInstanceOf(InternalMetadataStoreException.class);
+    assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(8);
+
     // close the underlying zookeeper connection to ensure it's correctly removed
-    closeZookeeperClientConnection();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
   @Test
@@ -506,28 +514,75 @@ public class ZookeeperMetadataStoreImplTest {
     await().until(() -> countingFatalErrorHandler.getCount() == 1);
 
     // close the underlying zookeeper connection to ensure it's correctly removed
-    closeZookeeperClientConnection();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
-  /**
-   * When using testingServer.close() this ensures that we do not get stuck with infinite socket
-   * retries (ie, Session 0x0 for sever localhost/127.0.0.1:55733, Closing socket connection.
-   * Attempting reconnect except it is a SessionExpiredException.)
-   *
-   * @see <a
-   *     href="https://stackoverflow.com/questions/61781371/wait-for-zookeeper-client-threads-to-stop">Wait
-   *     for Zookeeper client threads to stop</a>
-   * @see <a
-   *     href="https://stackoverflow.com/questions/68215630/why-isnt-curator-recovering-when-zookeeper-is-back-online">Why
-   *     isn't curator recovering when zookeeper is back online?</a>
-   * @see <a href="https://github.com/apache/curator/pull/391">CURATOR-599 Configurable
-   *     ZookeeperFactory by ZKClientConfig</a>
-   */
-  private void closeZookeeperClientConnection()
-      throws NoSuchFieldException, IllegalAccessException, IOException {
-    Field cnField = ZooKeeper.class.getDeclaredField("cnxn");
-    cnField.setAccessible(true);
-    ClientCnxn cnxn = (ClientCnxn) cnField.get(zooKeeper);
-    cnxn.close();
+  @Test(expected = NoNodeException.class)
+  public void testCacheNodeAndChildrenCreatesMissingPath() throws Exception {
+    String root = "/root";
+    metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer());
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testCacheNodeAndChildren() throws Exception {
+    String root = "/root";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+
+    SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
+    CachedMetadataStore<SnapshotMetadata> cache = metadataStore.cacheNodeAndChildren(root, serDe);
+    cache.start();
+
+    final String ephemeralNode = "/root/enode";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.createEphemeralNode(ephemeralNode, serDe.toJsonStr(snapshot1)).get())
+        .isNull();
+
+    final String persistentNode = "/root/node";
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.create(persistentNode, serDe.toJsonStr(snapshot2), true).get())
+        .isNull();
+
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(metadataStore.get(ephemeralNode).get()).isEqualTo(serDe.toJsonStr(snapshot1));
+    assertThat(metadataStore.get(persistentNode).get()).isEqualTo(serDe.toJsonStr(snapshot2));
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+
+    SnapshotMetadata snapshot11 = makeSnapshot("test11");
+    assertThat(metadataStore.put(ephemeralNode, serDe.toJsonStr(snapshot11)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot2);
+
+    SnapshotMetadata snapshot21 = makeSnapshot("test21");
+    assertThat(metadataStore.put(persistentNode, serDe.toJsonStr(snapshot21)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node").get()).isEqualTo(snapshot21));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21);
+
+    final String ephemeralNode2 = "/root/enode2";
+    SnapshotMetadata snapshot12 = makeSnapshot("test12");
+    assertThat(metadataStore.createEphemeralNode(ephemeralNode2, serDe.toJsonStr(snapshot12)).get())
+        .isNull();
+    await().untilAsserted(() -> assertThat(cache.get("enode2").get()).isEqualTo(snapshot12));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21, snapshot12);
+
+    final String persistentNode2 = "/root/node2";
+    SnapshotMetadata snapshot22 = makeSnapshot("test22");
+    assertThat(metadataStore.create(persistentNode2, serDe.toJsonStr(snapshot22), true).get())
+        .isNull();
+    await().untilAsserted(() -> assertThat(cache.get("node2").get()).isEqualTo(snapshot22));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21, snapshot12, snapshot22);
+
+    assertThat(metadataStore.delete(ephemeralNode2).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(3));
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot21, snapshot22);
+
+    // Closing the curator connection expires the ephemeral node and cache is left with
+    // persistent node.
+    metadataStore.close();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(cache.getInstances()).containsOnly(snapshot21, snapshot22);
+
+    cache.close();
   }
 }
