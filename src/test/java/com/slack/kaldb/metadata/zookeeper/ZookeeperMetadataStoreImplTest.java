@@ -5,6 +5,7 @@ import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.META
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.METADATA_WRITE_COUNTER;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl.ZK_FAILED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -16,12 +17,10 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.apache.zookeeper.ClientCnxn;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
@@ -494,7 +493,7 @@ public class ZookeeperMetadataStoreImplTest {
     assertThat(getCount(ZK_FAILED_COUNTER, meterRegistry)).isEqualTo(8);
 
     // close the underlying zookeeper connection to ensure it's correctly removed
-    closeZookeeperClientConnection();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
   @Test
@@ -515,29 +514,7 @@ public class ZookeeperMetadataStoreImplTest {
     await().until(() -> countingFatalErrorHandler.getCount() == 1);
 
     // close the underlying zookeeper connection to ensure it's correctly removed
-    closeZookeeperClientConnection();
-  }
-
-  /**
-   * When using testingServer.close() this ensures that we do not get stuck with infinite socket
-   * retries (ie, Session 0x0 for sever localhost/127.0.0.1:55733, Closing socket connection.
-   * Attempting reconnect except it is a SessionExpiredException.)
-   *
-   * @see <a
-   *     href="https://stackoverflow.com/questions/61781371/wait-for-zookeeper-client-threads-to-stop">Wait
-   *     for Zookeeper client threads to stop</a>
-   * @see <a
-   *     href="https://stackoverflow.com/questions/68215630/why-isnt-curator-recovering-when-zookeeper-is-back-online">Why
-   *     isn't curator recovering when zookeeper is back online?</a>
-   * @see <a href="https://github.com/apache/curator/pull/391">CURATOR-599 Configurable
-   *     ZookeeperFactory by ZKClientConfig</a>
-   */
-  private void closeZookeeperClientConnection()
-      throws NoSuchFieldException, IllegalAccessException, IOException {
-    Field cnField = ZooKeeper.class.getDeclaredField("cnxn");
-    cnField.setAccessible(true);
-    ClientCnxn cnxn = (ClientCnxn) cnField.get(zooKeeper);
-    cnxn.close();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
   @Test(expected = NoNodeException.class)

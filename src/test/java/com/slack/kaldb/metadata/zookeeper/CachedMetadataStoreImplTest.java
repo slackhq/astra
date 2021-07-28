@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.zookeeper;
 
 import static com.slack.kaldb.metadata.zookeeper.CachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -18,6 +19,7 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
+import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +30,7 @@ public class CachedMetadataStoreImplTest {
   private ZookeeperMetadataStoreImpl metadataStore;
   private MeterRegistry meterRegistry;
   private final SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
+  private ZooKeeper zooKeeper;
 
   static class CountingCachedMetadataListener implements CachedMetadataStoreListener {
     private int cacheChangedCounter = 0;
@@ -67,6 +70,7 @@ public class CachedMetadataStoreImplTest {
             new RetryNTimes(1, 500),
             countingFatalErrorHandler,
             meterRegistry);
+    zooKeeper = metadataStore.getCurator().getZookeeperClient().getZooKeeper();
   }
 
   @After
@@ -460,6 +464,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     cache.close();
+    closeZookeeperClientConnection(zooKeeper);
   }
 
   // TODO: Add a unit test when server is started or restarted.

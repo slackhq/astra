@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.core;
 
+import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
@@ -20,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
+import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,6 +48,8 @@ public class KaldbMetadataStoreTest {
   }
 
   public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
+    private ZooKeeper zooKeeper;
+
     private static class DummyPersistentCreatableUpdatableCacheableMetadataStore
         extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableUpdatableCacheableMetadataStore(
@@ -85,6 +89,7 @@ public class KaldbMetadataStoreTest {
       this.store =
           new DummyPersistentCreatableUpdatableCacheableMetadataStore(
               "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+      zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
     @After
@@ -220,7 +225,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testStoreOperationsOnStoppedServer()
-        throws ExecutionException, InterruptedException, IOException {
+        throws ExecutionException, InterruptedException, IOException, NoSuchFieldException,
+            IllegalAccessException {
       assertThat(store.list().get().isEmpty()).isTrue();
 
       final String name1 = "snapshot1";
@@ -246,6 +252,7 @@ public class KaldbMetadataStoreTest {
 
       Throwable getEx = catchThrowable(() -> store.get(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+      closeZookeeperClientConnection(zooKeeper);
     }
 
     @Test
@@ -703,6 +710,8 @@ public class KaldbMetadataStoreTest {
   }
 
   public static class TestEphemeralCreatableUpdatableCacheableMetadataStore {
+    private ZooKeeper zooKeeper;
+
     private static class DummyEphemeralCreatableUpdatableCacheableMetadataStore
         extends EphemeralMutableMetadataStore<SnapshotMetadata> {
       public DummyEphemeralCreatableUpdatableCacheableMetadataStore(
@@ -742,6 +751,7 @@ public class KaldbMetadataStoreTest {
       this.store =
           new DummyEphemeralCreatableUpdatableCacheableMetadataStore(
               "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+      zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
     @After
@@ -877,7 +887,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testStoreOperationsOnStoppedServer()
-        throws ExecutionException, InterruptedException, IOException {
+        throws ExecutionException, InterruptedException, IOException, NoSuchFieldException,
+            IllegalAccessException {
       assertThat(store.list().get().isEmpty()).isTrue();
 
       final String name1 = "snapshot1";
@@ -903,6 +914,7 @@ public class KaldbMetadataStoreTest {
 
       Throwable getEx = catchThrowable(() -> store.get(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
+      closeZookeeperClientConnection(zooKeeper);
     }
 
     @Test
