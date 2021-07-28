@@ -11,7 +11,6 @@ public class SnapshotMetadataStore extends PersistentMutableMetadataStore<Snapsh
 
   // TODO: Add a setup method to initialize the store?
 
-  // TODO: Add listeners to the store and start cache.
   public SnapshotMetadataStore(
       MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
     super(
