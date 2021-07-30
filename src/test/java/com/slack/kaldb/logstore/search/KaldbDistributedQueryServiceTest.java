@@ -21,6 +21,9 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -140,11 +143,15 @@ public class KaldbDistributedQueryServiceTest {
       int waitForSearchMs)
       throws InterruptedException, TimeoutException {
 
+    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
+    KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
+    kafkaWriter.startAsync();
+    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
+
     KaldbIndexer indexer =
-        new KaldbIndexer(
-            chunkManagerUtil.chunkManager,
-            KaldbIndexer.dataTransformerMap.get("api_log"),
-            meterRegistry);
+        new KaldbIndexer(chunkManagerUtil.chunkManager, messageTransformer, kafkaWriter);
     indexer.startAsync();
     indexer.awaitRunning(15, TimeUnit.SECONDS);
 

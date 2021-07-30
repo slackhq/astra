@@ -27,6 +27,8 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -125,13 +127,19 @@ public class KaldbIndexerTest {
             8081);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
+    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManager, messageTransformer);
+    KaldbKafkaWriter kafkaWriter =
+        KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
+    kafkaWriter.startAsync();
+    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
+
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
     sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    kaldbIndexer =
-        new KaldbIndexer(
-            chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"), metricsRegistry);
+    kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
 
@@ -151,7 +159,7 @@ public class KaldbIndexerTest {
     await().until(() -> chunkManager.getChunkMap().size() == 1);
     await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);

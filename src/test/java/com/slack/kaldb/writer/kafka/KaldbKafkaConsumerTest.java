@@ -1,10 +1,10 @@
 package com.slack.kaldb.writer.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.with;
 
 import com.github.charithe.kafka.EphemeralKafkaBroker;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import java.io.IOException;
 import java.time.Duration;
@@ -12,8 +12,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -71,9 +69,9 @@ public class KaldbKafkaConsumerTest {
     public void tearDown()
         throws ExecutionException, InterruptedException, TimeoutException, NoSuchFieldException,
             IllegalAccessException, IOException {
-      ListenableFuture<?> future = testConsumer.triggerShutdown();
-      future.get(1, TimeUnit.SECONDS);
-      assertThat(future.isDone()).isTrue();
+      testConsumer.stopAsync();
+      testConsumer.awaitTerminated(15, TimeUnit.SECONDS);
+      assertThat(testConsumer.isRunning()).isFalse();
 
       // Close server after consumer done.
       kafkaServer.close();
@@ -86,9 +84,9 @@ public class KaldbKafkaConsumerTest {
       final Instant startTime =
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
-      ExecutorService indexerExecutor = Executors.newSingleThreadExecutor();
-      indexerExecutor.submit(testConsumer::start);
-      Thread.sleep(1000); // Wait for consumer start.
+      testConsumer.startAsync();
+      testConsumer.awaitRunning(15, TimeUnit.SECONDS);
+      Thread.sleep(1000);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
       Thread.sleep(500); // Wait for consumption.
@@ -116,7 +114,7 @@ public class KaldbKafkaConsumerTest {
           .pollInterval(1, TimeUnit.SECONDS)
           .await()
           .atMost(45, TimeUnit.SECONDS)
-          .until(() -> testConsumer.isShutdown());
+          .until(() -> !testConsumer.isRunning());
     }
 
     @Test(expected = TimeoutException.class)
@@ -126,19 +124,16 @@ public class KaldbKafkaConsumerTest {
       final Instant startTime =
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
-      ExecutorService indexerExecutor = Executors.newSingleThreadExecutor();
-      indexerExecutor.submit(testConsumer::start);
-      Thread.sleep(1000); // Wait for consumer start.
+      testConsumer.startAsync();
+      testConsumer.awaitRunning(15, TimeUnit.SECONDS);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
-      Thread.sleep(500); // Wait for consumption.
-
-      assertThat(testConsumer.getRecordCount()).isEqualTo(100);
+      await().until(() -> testConsumer.getRecordCount() == 100);
 
       // Closing server before consumer should lead to time out.
       kafkaServer.close();
-      ListenableFuture<?> future = testConsumer.triggerShutdown();
-      future.get(1, TimeUnit.SECONDS);
+      testConsumer.stopAsync();
+      testConsumer.awaitTerminated(15, TimeUnit.SECONDS);
     }
   }
 }

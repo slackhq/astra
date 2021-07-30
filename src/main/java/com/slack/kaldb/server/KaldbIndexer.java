@@ -5,14 +5,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -51,17 +49,18 @@ public class KaldbIndexer extends AbstractIdleService {
 
   private final ChunkManager<LogMessage> chunkManager;
 
-  static KaldbIndexer fromConfig(
-      ChunkManager<LogMessage> chunkManager, MeterRegistry meterRegistry) {
+  public static LogMessageTransformer getLogMessageTransformer() {
     String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
     if (dataTransformerConfig.isEmpty()) {
       throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
     }
-    LogMessageTransformer dataTransformer = dataTransformerMap.get(dataTransformerConfig);
-    if (dataTransformer == null) {
+
+    LogMessageTransformer messageTransformer =
+        KaldbIndexer.dataTransformerMap.get(dataTransformerConfig);
+    if (messageTransformer == null) {
       throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
     }
-    return new KaldbIndexer(chunkManager, dataTransformer, meterRegistry);
+    return messageTransformer;
   }
 
   /**
@@ -94,19 +93,16 @@ public class KaldbIndexer extends AbstractIdleService {
   public KaldbIndexer(
       ChunkManager<LogMessage> chunkManager,
       LogMessageTransformer messageTransformer,
-      MeterRegistry meterRegistry) {
+      KaldbKafkaWriter kafkaWriter) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
-
-    LogMessageWriterImpl logMessageWriterImpl =
-        new LogMessageWriterImpl(chunkManager, messageTransformer);
-    kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
+    this.kafkaWriter = kafkaWriter;
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting indexing into Kaldb.");
-    kafkaWriter.start().get(15, TimeUnit.SECONDS);
+    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
   }
 
   /**
@@ -120,12 +116,12 @@ public class KaldbIndexer extends AbstractIdleService {
 
     // Shutdown kafka consumer cleanly and then the chunkmanager so we can be sure, we have indexed
     // the data we ingested.
-    ListenableFuture<?> kafkaFuture = kafkaWriter.triggerShutdown();
+    kafkaWriter.stopAsync();
     try {
       LOG.info("Waiting for Kafka consumer to close.");
       // Use a more configurable timeout value.
-      kafkaFuture.get(2, TimeUnit.SECONDS);
-      if (kafkaFuture.isDone()) {
+      kafkaWriter.awaitTerminated(2, TimeUnit.SECONDS);
+      if (!kafkaWriter.isRunning()) {
         LOG.info("Closed Kafka consumer cleanly");
       } else {
         LOG.warn("Kafka consumer was not closed cleanly");

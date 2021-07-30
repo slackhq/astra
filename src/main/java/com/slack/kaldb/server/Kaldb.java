@@ -9,6 +9,9 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -74,7 +77,14 @@ public class Kaldb {
       ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
       services.add(chunkManager);
 
-      KaldbIndexer indexer = KaldbIndexer.fromConfig(chunkManager, prometheusMeterRegistry);
+      LogMessageTransformer messageTransformer = KaldbIndexer.getLogMessageTransformer();
+      LogMessageWriterImpl logMessageWriterImpl =
+          new LogMessageWriterImpl(chunkManager, messageTransformer);
+      KaldbKafkaWriter kafkaWriter =
+          KaldbKafkaWriter.fromConfig(logMessageWriterImpl, prometheusMeterRegistry);
+      services.add(kafkaWriter);
+
+      KaldbIndexer indexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
       services.add(indexer);
 
       KaldbLocalQueryService<LogMessage> searcher =
