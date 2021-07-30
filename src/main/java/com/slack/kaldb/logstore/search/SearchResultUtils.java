@@ -29,7 +29,7 @@ public class SearchResultUtils {
     try {
       return fromSearchResultProto(protoSearchResult);
     } catch (IOException e) {
-      return new SearchResult<>(null, 0, 0, null, 1, 1, 0, 0);
+      return SearchResult.empty();
     }
   }
 
