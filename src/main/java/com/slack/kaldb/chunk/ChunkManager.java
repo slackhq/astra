@@ -329,7 +329,7 @@ public class ChunkManager<T> {
         searchResult.totalCount,
         searchResult.buckets,
         searchResult.failedNodes,
-        1,
+        searchResult.totalNodes + 1,
         searchResult.totalSnapshots,
         searchResult.snapshotsWithReplicas);
   }
