@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration monitorInterval="30" status="WARN">
+<Configuration monitorInterval="30" status="WARN" shutdownHook="disable">
+    <!-- we handle shutdown hook directly in Kaldb.addShutdownHook -->
 
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">

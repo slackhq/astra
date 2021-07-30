@@ -1,20 +1,10 @@
 package com.slack.kaldb.server;
 
-import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
-import com.linecorp.armeria.common.logging.LogLevel;
-import com.linecorp.armeria.server.Server;
-import com.linecorp.armeria.server.ServerBuilder;
-import com.linecorp.armeria.server.docs.DocService;
-import com.linecorp.armeria.server.grpc.GrpcService;
-import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
-import com.linecorp.armeria.server.healthcheck.HealthCheckService;
-import com.linecorp.armeria.server.logging.LoggingService;
-import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
-import com.linecorp.armeria.server.management.ManagementService;
-import com.linecorp.armeria.server.metric.MetricCollectingService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.Service;
+import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
-import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
@@ -27,11 +17,15 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,97 +44,6 @@ public class Kaldb {
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  private void addManagementEndpoints(ServerBuilder sb, int serverPort) {
-    sb.decorator(
-        MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-    sb.decorator(getLoggingServiceBuilder().newDecorator());
-    sb.http(serverPort);
-    sb.service("/health", HealthCheckService.builder().build());
-    sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
-    sb.serviceUnder("/docs", new DocService());
-    sb.serviceUnder("/internal/management/", ManagementService.of());
-  }
-
-  public void setup() {
-    LOG.info("Starting Kaldb server");
-    HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
-
-    setupSystemMetrics();
-    if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      LOG.info("Done registering standard JVM metrics for indexer service");
-
-      ServerBuilder sb = Server.builder();
-      // Create an indexer and a grpc search service.
-      KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
-
-      // Create a protobuf handler service that calls chunkManager on search.
-      KaldbLocalQueryService<LogMessage> searcher =
-          new KaldbLocalQueryService<>(indexer.getChunkManager());
-      GrpcServiceBuilder searchBuilder =
-          GrpcService.builder().addService(searcher).enableUnframedRequests(true);
-      sb.service(searchBuilder.build());
-      sb.annotatedService(new ElasticsearchApiService(searcher));
-
-      final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
-      addManagementEndpoints(sb, serverPort);
-
-      Server server = sb.build();
-
-      CompletableFuture<Void> serverFuture = server.start();
-      serverFuture.join();
-      LOG.info("Started indexer server on port: {}", serverPort);
-
-      // TODO: Instead of passing in the indexer, consider creating an interface or make indexer of
-      // subclass of this class?
-      indexer.start();
-    }
-
-    if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
-      ServerBuilder sb = Server.builder();
-
-      GrpcServiceBuilder searchBuilder =
-          GrpcService.builder()
-              .addService(new KaldbDistributedQueryService())
-              .enableUnframedRequests(true);
-      sb.service(searchBuilder.build());
-
-      final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
-      addManagementEndpoints(sb, serverPort);
-
-      Server server = sb.build();
-
-      CompletableFuture<Void> serverFuture = server.start();
-      serverFuture.join();
-      LOG.info("Started query server on port: {}", serverPort);
-    }
-
-    // TODO: On CTRL-C shut down the process cleanly. Ensure no write locks in indexer. Guava
-    // ServiceManager?
-  }
-
-  private LoggingServiceBuilder getLoggingServiceBuilder() {
-    return LoggingService.builder()
-        // Not logging any successful response, say prom scraping /metrics every 30 seconds at INFO
-        .successfulResponseLogLevel(LogLevel.DEBUG)
-        .failureResponseLogLevel(LogLevel.ERROR)
-        // Remove all headers to be sure we aren't leaking any auth/cookie info
-        .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
-  }
-
-  private void setupSystemMetrics() {
-    // Expose JVM metrics.
-    new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
-    new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
-    new JvmGcMetrics().bindTo(prometheusMeterRegistry);
-    new ProcessorMetrics().bindTo(prometheusMeterRegistry);
-    new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
-  }
-
-  public void close() {
-    LOG.info("Shutting down Kaldb server");
-    // TODO: Add a on exit method handler for the serve?
-  }
-
   public static void main(String[] args) throws IOException {
     if (args.length == 0) {
       LOG.info("Config file is needed a first argument");
@@ -149,5 +52,93 @@ public class Kaldb {
 
     Kaldb kalDb = new Kaldb(configFilePath);
     kalDb.setup();
+  }
+
+  public void setup() {
+    setupSystemMetrics();
+
+    Set<Service> services = getServices();
+    ServiceManager serviceManager = new ServiceManager(services);
+    serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
+    addShutdownHook(serviceManager);
+
+    serviceManager.startAsync();
+  }
+
+  public static Set<Service> getServices() {
+    Set<Service> services = new HashSet<>();
+
+    HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
+
+    if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
+      ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
+      services.add(chunkManager);
+
+      KaldbIndexer indexer = KaldbIndexer.fromConfig(chunkManager, prometheusMeterRegistry);
+      services.add(indexer);
+
+      KaldbLocalQueryService<LogMessage> searcher =
+          new KaldbLocalQueryService<>(indexer.getChunkManager());
+      final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaIndexService");
+      services.add(armeriaService);
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
+      KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
+      final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaQueryService");
+      services.add(armeriaService);
+    }
+
+    return services;
+  }
+
+  public static ServiceManager.Listener getServiceManagerListener() {
+    return new ServiceManager.Listener() {
+      @Override
+      public void failure(Service service) {
+        LOG.error(
+            String.format(
+                "Service %s failed with cause %s",
+                service.getClass().toString(), service.failureCause().toString()));
+        // shutdown if any services enters failure state
+        System.exit(1);
+      }
+    };
+  }
+
+  public static void addShutdownHook(ServiceManager serviceManager) {
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  try {
+                    serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
+
+                    // then shut down log4j
+                    if (LogManager.getContext() instanceof LoggerContext) {
+                      LOG.info("Shutting down log4j2");
+                      Configurator.shutdown((LoggerContext) LogManager.getContext());
+                    } else {
+                      LOG.error("Unable to shutdown log4j2");
+                    }
+                  } catch (TimeoutException timeout) {
+                    // stopping timed out
+                  }
+                }));
+  }
+
+  private static void setupSystemMetrics() {
+    // Expose JVM metrics.
+    new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
+    new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
+    new JvmGcMetrics().bindTo(prometheusMeterRegistry);
+    new ProcessorMetrics().bindTo(prometheusMeterRegistry);
+    new JvmThreadMetrics().bindTo(prometheusMeterRegistry);
+
+    LOG.info("Done registering standard JVM metrics for indexer service");
   }
 }

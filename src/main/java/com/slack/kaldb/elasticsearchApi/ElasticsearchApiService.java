@@ -18,15 +18,16 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
+import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Elasticsearch compatible API service, for use in Grafana
@@ -39,10 +40,10 @@ import java.util.Optional;
     "OptionalUsedAsFieldOrParameterType") // Per https://armeria.dev/docs/server-annotated-service/
 public class ElasticsearchApiService {
 
-  private final KaldbLocalQueryService<LogMessage> searcher;
+  private final KaldbServiceGrpc.KaldbServiceImplBase searcher;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public ElasticsearchApiService(KaldbLocalQueryService<LogMessage> searcher) {
+  public ElasticsearchApiService(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
     this.searcher = searcher;
   }
 
@@ -72,7 +73,30 @@ public class ElasticsearchApiService {
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
     // TODO remove join when we move to query service
     List<SearchResponseHit> responseHits = new ArrayList<>();
-    KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest).join();
+
+    CompletableFuture<KaldbSearch.SearchResult> searchResultFuture = new CompletableFuture<>();
+    StreamObserver<KaldbSearch.SearchResult> responseObserver =
+        new StreamObserver<>() {
+          private KaldbSearch.SearchResult searchResult;
+
+          @Override
+          public void onNext(KaldbSearch.SearchResult searchResult) {
+            this.searchResult = searchResult;
+          }
+
+          @Override
+          public void onError(Throwable throwable) {
+            searchResultFuture.completeExceptionally(throwable);
+          }
+
+          @Override
+          public void onCompleted() {
+            searchResultFuture.complete(searchResult);
+          }
+        };
+
+    searcher.search(searchRequest, responseObserver);
+    KaldbSearch.SearchResult searchResult = searchResultFuture.join();
 
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     for (ByteString bytes : hitsByteList) {

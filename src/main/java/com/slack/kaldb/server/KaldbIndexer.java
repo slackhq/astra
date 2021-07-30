@@ -4,15 +4,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.chunk.ChunkManager;
-import com.slack.kaldb.chunk.ChunkRollOverStrategy;
-import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
@@ -34,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * <p>Design should be extensible so we can run as separate components or all components in a single
  * binary.
  */
-public class KaldbIndexer {
+public class KaldbIndexer extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
   @VisibleForTesting
@@ -47,9 +43,6 @@ public class KaldbIndexer {
           "json",
           LogMessageWriterImpl.jsonLogMessageTransformer);
 
-  // TODO: Pass this in via config file.
-  private static final String CHUNK_DATA_PREFIX = "log_data_";
-
   private final KaldbKafkaWriter kafkaWriter;
 
   public ChunkManager<LogMessage> getChunkManager() {
@@ -58,21 +51,8 @@ public class KaldbIndexer {
 
   private final ChunkManager<LogMessage> chunkManager;
 
-  static KaldbIndexer fromConfig(MeterRegistry meterRegistry) {
-    ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
-
-    // TODO: Read the config values for chunk manager from config file.
-    ChunkManager<LogMessage> chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            KaldbConfig.get().getIndexerConfig().getDataDirectory(),
-            chunkRollOverStrategy,
-            meterRegistry,
-            getS3BlobFsClient(KaldbConfig.get()),
-            KaldbConfig.get().getS3Config().getS3Bucket(),
-            ChunkManager.makeDefaultRollOverExecutor(),
-            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS);
-
+  static KaldbIndexer fromConfig(
+      ChunkManager<LogMessage> chunkManager, MeterRegistry meterRegistry) {
     String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
     if (dataTransformerConfig.isEmpty()) {
       throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
@@ -82,19 +62,6 @@ public class KaldbIndexer {
       throw new RuntimeException("Invalid data transformer config: " + dataTransformerConfig);
     }
     return new KaldbIndexer(chunkManager, dataTransformer, meterRegistry);
-  }
-
-  private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
-    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
-    S3BlobFsConfig s3BlobFsConfig =
-        new S3BlobFsConfig(
-            s3Config.getS3AccessKey(),
-            s3Config.getS3SecretKey(),
-            s3Config.getS3Region(),
-            s3Config.getS3EndPoint());
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3BlobFsConfig);
-    return s3BlobFs;
   }
 
   /**
@@ -136,9 +103,10 @@ public class KaldbIndexer {
     kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
   }
 
-  public void start() {
+  @Override
+  protected void startUp() throws Exception {
     LOG.info("Starting indexing into Kaldb.");
-    kafkaWriter.start();
+    kafkaWriter.start().get(15, TimeUnit.SECONDS);
   }
 
   /**
@@ -146,7 +114,8 @@ public class KaldbIndexer {
    * to separate those steps where we stop ingestion and then close the consumer separately. This
    * will help with cleaner indexing.
    */
-  public void close() {
+  @Override
+  protected void shutDown() throws Exception {
     LOG.info("Shutting down Kaldb indexer.");
 
     // Shutdown kafka consumer cleanly and then the chunkmanager so we can be sure, we have indexed
@@ -167,7 +136,14 @@ public class KaldbIndexer {
       LOG.warn("Failed to close kafka consumer cleanly because of an exception.", e);
     }
 
-    chunkManager.close();
+    chunkManager.stopAsync();
+    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+
     LOG.info("Kaldb indexer is closed.");
+  }
+
+  @Override
+  protected String serviceName() {
+    return "kaldbIndexerService";
   }
 }

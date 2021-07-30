@@ -10,6 +10,8 @@ import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -30,7 +32,8 @@ public class ChunkManagerUtil<T> {
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
-      long maxMessagesPerChunk) {
+      long maxMessagesPerChunk)
+      throws TimeoutException {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     // create an S3 client and a bucket for test
@@ -53,15 +56,19 @@ public class ChunkManagerUtil<T> {
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
             10000);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
   }
 
-  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry) {
+  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry)
+      throws TimeoutException {
     this(s3MockRule, meterRegistry, 10 * 1024 * 1024 * 1024L, 10L);
   }
 
-  public void close() throws IOException {
+  public void close() throws IOException, TimeoutException {
     if (chunkManager != null) {
-      chunkManager.close();
+      chunkManager.stopAsync();
+      chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
     }
     if (s3Client != null) {
       s3Client.close();

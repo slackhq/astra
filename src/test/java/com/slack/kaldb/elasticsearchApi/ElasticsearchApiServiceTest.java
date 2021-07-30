@@ -22,6 +22,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -44,7 +46,7 @@ public class ElasticsearchApiServiceTest {
   private static final String CHUNK_DATA_PREFIX = "testData";
 
   @Before
-  public void setUp() throws IOException {
+  public void setUp() throws IOException, TimeoutException {
     KaldbConfigUtil.initEmptyIndexerConfig();
 
     // create an S3 client and a bucket for test
@@ -64,14 +66,17 @@ public class ElasticsearchApiServiceTest {
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
             3000);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
 
     KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
     elasticsearchApiService = new ElasticsearchApiService(searcher);
   }
 
   @After
-  public void tearDown() {
-    chunkManager.close();
+  public void tearDown() throws TimeoutException {
+    chunkManager.stopAsync();
+    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
     s3Client.close();
   }
 
