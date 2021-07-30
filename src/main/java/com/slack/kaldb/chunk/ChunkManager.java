@@ -315,9 +315,23 @@ public class ChunkManager<T> {
     // CompletableFuture<List<SearchResult>>
     CompletableFuture<List<SearchResult<T>>> searchResults = CompletableFutures.allAsList(queries);
 
+    // Increment the node count right at the end so that we increment it only once
     //noinspection unchecked
     return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-        .aggregate(searchResults);
+        .aggregate(searchResults)
+        .thenApply(this::incrementNodeCount);
+  }
+
+  private SearchResult<T> incrementNodeCount(SearchResult<T> searchResult) {
+    return new SearchResult<>(
+        searchResult.hits,
+        searchResult.tookMicros,
+        searchResult.totalCount,
+        searchResult.buckets,
+        searchResult.failedNodes,
+        searchResult.totalNodes + 1,
+        searchResult.totalSnapshots,
+        searchResult.snapshotsWithReplicas);
   }
 
   /**

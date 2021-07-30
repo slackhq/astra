@@ -5,6 +5,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ public class SearchResultTest {
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7);
     KaldbSearch.SearchResult protoSearchResult =
-        KaldbLocalSearcher.toSearchResultProto(makeAsync(searchResult)).join();
+        SearchResultUtils.toSearchResultProto(makeAsync(searchResult)).join();
 
     assertThat(protoSearchResult.getHitsCount()).isEqualTo(numDocs);
     assertThat(protoSearchResult.getTookMicros()).isEqualTo(1);
@@ -48,7 +49,7 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getBucketsCount()).isEqualTo(1);
 
     SearchResult<LogMessage> convertedSearchResult =
-        KaldbLocalSearcher.fromSearchResultProto(protoSearchResult);
+        SearchResultUtils.fromSearchResultProto(protoSearchResult);
 
     assertThat(convertedSearchResult).isEqualTo(searchResult);
   }

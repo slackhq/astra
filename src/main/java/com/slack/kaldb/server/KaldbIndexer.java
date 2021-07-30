@@ -38,7 +38,7 @@ public class KaldbIndexer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
   @VisibleForTesting
-  static final Map<String, LogMessageTransformer> dataTransformerMap =
+  public static final Map<String, LogMessageTransformer> dataTransformerMap =
       ImmutableMap.of(
           "api_log",
           LogMessageWriterImpl.apiLogTransformer,

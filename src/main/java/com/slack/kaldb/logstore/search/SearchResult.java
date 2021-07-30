@@ -7,6 +7,8 @@ import java.util.List;
 
 public class SearchResult<T> {
 
+  private static final SearchResult EMPTY = new SearchResult<>(null, 0, 0, null, 1, 1, 0, 0);
+
   public final long totalCount;
 
   // TODO: Make hits an iterator.
@@ -34,7 +36,6 @@ public class SearchResult<T> {
     this.snapshotsWithReplicas = 0;
   }
 
-  // TODO: Make search result a protobuf?
   // TODO: Move stats into a separate struct.
   public SearchResult(
       List<T> hits,
@@ -81,5 +82,9 @@ public class SearchResult<T> {
         totalNodes,
         totalSnapshots,
         snapshotsWithReplicas);
+  }
+
+  public static SearchResult empty() {
+    return EMPTY;
   }
 }

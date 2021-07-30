@@ -16,6 +16,8 @@ import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
+import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -72,7 +74,8 @@ public class Kaldb {
       KaldbIndexer indexer = KaldbIndexer.fromConfig(prometheusMeterRegistry);
 
       // Create a protobuf handler service that calls chunkManager on search.
-      KaldbLocalSearcher<LogMessage> searcher = new KaldbLocalSearcher<>(indexer.getChunkManager());
+      KaldbLocalQueryService<LogMessage> searcher =
+          new KaldbLocalQueryService<>(indexer.getChunkManager());
       GrpcServiceBuilder searchBuilder =
           GrpcService.builder().addService(searcher).enableUnframedRequests(true);
       sb.service(searchBuilder.build());
@@ -96,7 +99,9 @@ public class Kaldb {
       ServerBuilder sb = Server.builder();
 
       GrpcServiceBuilder searchBuilder =
-          GrpcService.builder().addService(new KaldbQueryService()).enableUnframedRequests(true);
+          GrpcService.builder()
+              .addService(new KaldbDistributedQueryService())
+              .enableUnframedRequests(true);
       sb.service(searchBuilder.build());
 
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
