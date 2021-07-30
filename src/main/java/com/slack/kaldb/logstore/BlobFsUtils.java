@@ -25,27 +25,22 @@ public class BlobFsUtils {
       if (!fileToCopy.exists()) {
         throw new IOException("File doesn't exist at path: " + fileToCopy.getAbsolutePath());
       }
-      URI destUri =
-          (prefix != null && !prefix.isEmpty())
-              ? URI.create(
-                  String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
-              : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
-      blobFs.copyFromLocalFile(fileToCopy, destUri);
+      blobFs.copyFromLocalFile(fileToCopy, createURI(bucket, prefix, fileName));
       success++;
     }
     return success;
   }
 
+  public static URI createURI(String bucket, String prefix, String fileName) {
+    return (prefix != null && !prefix.isEmpty())
+        ? URI.create(String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
+        : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
+  }
+
   // TODO: Can we copy files without list files and a prefix only?
   public static String[] copyFromS3(
       String bucket, String prefix, S3BlobFs s3BlobFs, Path localDirPath) throws Exception {
-    String[] s3Files =
-        (prefix != null && !prefix.isEmpty())
-            ? s3BlobFs.listFiles(
-                URI.create(String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, "")),
-                true)
-            : s3BlobFs.listFiles(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, "")), true);
-
+    String[] s3Files = s3BlobFs.listFiles(createURI(bucket, prefix, ""), true);
     for (String fileName : s3Files) {
       URI fileToCopy = URI.create(fileName);
       File toFile =
