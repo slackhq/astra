@@ -6,10 +6,11 @@ import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunk.ChunkRollOverException;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -147,7 +148,7 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
 
     if (consumer != null) {
       LOG.info("Closing kafka consumer.");
-      consumer.close(15, TimeUnit.SECONDS);
+      consumer.close(Duration.of(15, ChronoUnit.SECONDS));
       LOG.info("Closed kafka consumer.");
     }
   }

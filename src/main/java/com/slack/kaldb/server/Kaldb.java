@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
@@ -114,8 +115,10 @@ public class Kaldb {
             String.format(
                 "Service %s failed with cause %s",
                 service.getClass().toString(), service.failureCause().toString()));
+
         // shutdown if any services enters failure state
-        System.exit(1);
+        new RuntimeHalterImpl()
+            .handleFatal(new Throwable("Shutting down Kaldb due to failed service"));
       }
     };
   }
@@ -128,7 +131,8 @@ public class Kaldb {
                   try {
                     serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
 
-                    // then shut down log4j
+                    // Ensure that log4j is the final thing to shut down, so that it available
+                    // throughout the service manager shutdown lifecycle
                     if (LogManager.getContext() instanceof LoggerContext) {
                       LOG.info("Shutting down log4j2");
                       Configurator.shutdown((LoggerContext) LogManager.getContext());
