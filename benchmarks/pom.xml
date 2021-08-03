@@ -2,12 +2,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <name>JMH Samples</name>
-    <groupId>com.slack.kaldb</groupId>
-    <artifactId>benchmarks</artifactId>
-    <version>0.1-SNAPSHOT</version>
-    <packaging>jar</packaging>
-
     <licenses>
         <license>
             <name>MIT</name>
@@ -16,6 +10,19 @@
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
+
+    <name>Kaldb benchmarks</name>
+    <groupId>com.slack.kaldb</groupId>
+    <artifactId>kaldb-benchmarks</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jmh.version>1.32</jmh.version>
+        <javac.target>11</javac.target>
+        <uberjar.name>benchmarks</uberjar.name>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -36,13 +43,6 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.32</jmh.version>
-        <javac.target>11</javac.target>
-        <uberjar.name>benchmarks</uberjar.name>
-    </properties>
 
     <build>
         <plugins>
@@ -107,7 +107,5 @@
                 <version>3.0.0-M1</version>
             </plugin>
         </plugins>
-
     </build>
-
 </project>
