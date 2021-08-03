@@ -12,6 +12,8 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NoNodeException;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.testlib.Repeat;
+import com.slack.kaldb.testlib.RepeatRule;
 import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -24,6 +26,7 @@ import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -32,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
+
   static SnapshotMetadata makeSnapshot(String name) {
     return makeSnapshot(name, 100);
   }
@@ -48,6 +52,8 @@ public class KaldbMetadataStoreTest {
   }
 
   public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
+    @Rule public RepeatRule repeatRule = new RepeatRule();
+
     private ZooKeeper zooKeeper;
 
     private static class DummyPersistentCreatableUpdatableCacheableMetadataStore
@@ -381,6 +387,7 @@ public class KaldbMetadataStoreTest {
     }
 
     @Test
+    @Repeat(times = 20)
     public void testThrowingListenerOnMetadataStore()
         throws ExecutionException, InterruptedException {
       assertThat(store.list().get().isEmpty()).isTrue();

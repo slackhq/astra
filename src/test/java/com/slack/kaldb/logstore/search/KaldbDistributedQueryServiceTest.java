@@ -20,6 +20,8 @@ import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.Repeat;
+import com.slack.kaldb.testlib.RepeatRule;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
@@ -35,10 +37,12 @@ import java.util.concurrent.TimeoutException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 
 public class KaldbDistributedQueryServiceTest {
 
+  @Rule public RepeatRule repeatRule = new RepeatRule();
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
   private static SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
@@ -209,6 +213,7 @@ public class KaldbDistributedQueryServiceTest {
   // TODO: Add a test for a non-existent server.
 
   @Test
+  @Repeat(times = 20)
   public void testSearch() {
     KaldbSearch.SearchResult searchResponse =
         queryServiceStub.search(
@@ -228,6 +233,7 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @Test
+  @Repeat(times = 20)
   public void testSearchWithOneShardTimeout() {
     KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
     KaldbSearch.SearchResult searchResponse =
