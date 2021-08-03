@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -29,7 +30,7 @@ public class ChunkCleanerTaskTest {
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
-  public void setUp() throws IOException {
+  public void setUp() throws IOException, TimeoutException {
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
@@ -37,7 +38,7 @@ public class ChunkCleanerTaskTest {
   }
 
   @After
-  public void tearDown() throws IOException {
+  public void tearDown() throws IOException, TimeoutException {
     metricsRegistry.close();
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();

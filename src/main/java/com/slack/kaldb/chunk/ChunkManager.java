@@ -4,18 +4,23 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
+import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -43,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * a roll over point(defined by a roll over strategy), the current chunk is marked as read only. At
  * that point a new chunk is created which becomes the active chunk.
  */
-public class ChunkManager<T> {
+public class ChunkManager<T> extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkManager.class);
   public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
 
@@ -76,6 +81,9 @@ public class ChunkManager<T> {
   // TODO: We want to move this to the config eventually
   public static final int QUERY_TIMEOUT_SECONDS = 30;
   public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
+
+  // TODO: Pass this in via config file.
+  private static final String CHUNK_DATA_PREFIX = "log_data_";
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
@@ -131,7 +139,7 @@ public class ChunkManager<T> {
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
-    stopIngestion = false;
+    stopIngestion = true;
     activeChunk = null;
 
     LOG.info(
@@ -334,50 +342,6 @@ public class ChunkManager<T> {
         searchResult.snapshotsWithReplicas);
   }
 
-  /**
-   * Close the chunk manager safely by finishing all the pending roll overs and closing chunks
-   * cleanly. To ensure data integrity don't throw exceptions before chunk close.
-   *
-   * <p>TODO: When closing a ChunkManager we need to ensure that all the active chunks are closed,
-   * and the data is uploaded safely to a remote store. If the active chunks are not closed
-   * correctly, we would throw away indexed data and would need to index the same data again.
-   *
-   * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
-   */
-  public void close() {
-    LOG.info("Closing chunk manager.");
-
-    // Stop executor service from taking on new tasks.
-    rolloverExecutorService.shutdown();
-
-    // Finish existing rollovers.
-    if (rolloverFuture != null && !rolloverFuture.isDone()) {
-      try {
-        LOG.info("Waiting for roll over to complete before closing..");
-        rolloverFuture.get(rolloverFutureTimeoutMs, MILLISECONDS);
-        LOG.info("Roll over completed successfully. Closing rollover task.");
-      } catch (Exception e) {
-        LOG.warn("Roll over failed with Exception", e);
-        // TODO: Throw a roll over failed exception and stop the indexer.
-      }
-    } else {
-      LOG.info("Roll over future completed successfully.");
-    }
-
-    // Close roll over executor service.
-    try {
-      // A short timeout here is fine here since there are no more tasks.
-      rolloverExecutorService.awaitTermination(1, TimeUnit.SECONDS);
-      rolloverExecutorService.shutdownNow();
-    } catch (InterruptedException e) {
-      LOG.warn("Encountered error shutting down roll over executor.", e);
-    }
-    for (Chunk<T> chunk : chunkMap.values()) {
-      chunk.close();
-    }
-    LOG.info("Closed chunk manager.");
-  }
-
   public void removeStaleChunks(List<Map.Entry<String, Chunk<T>>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
@@ -423,5 +387,91 @@ public class ChunkManager<T> {
   @VisibleForTesting
   public ListenableFuture<?> getRolloverFuture() {
     return rolloverFuture;
+  }
+
+  @Override
+  protected void startUp() {
+    LOG.info("Starting chunk manager");
+
+    // todo - we should reconsider what it means to be initialized, vs running
+    // todo - potentially defer threadpool creation until the startup has been called?
+    // prevents use of chunk manager until the service has started
+    stopIngestion = false;
+  }
+
+  /**
+   * Close the chunk manager safely by finishing all the pending roll overs and closing chunks
+   * cleanly. To ensure data integrity don't throw exceptions before chunk close.
+   *
+   * <p>TODO: When closing a ChunkManager we need to ensure that all the active chunks are closed,
+   * and the data is uploaded safely to a remote store. If the active chunks are not closed
+   * correctly, we would throw away indexed data and would need to index the same data again.
+   *
+   * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
+   */
+  @Override
+  protected void shutDown() {
+    LOG.info("Closing chunk manager.");
+
+    // Stop executor service from taking on new tasks.
+    rolloverExecutorService.shutdown();
+
+    // Finish existing rollovers.
+    if (rolloverFuture != null && !rolloverFuture.isDone()) {
+      try {
+        LOG.info("Waiting for roll over to complete before closing..");
+        rolloverFuture.get(rolloverFutureTimeoutMs, MILLISECONDS);
+        LOG.info("Roll over completed successfully. Closing rollover task.");
+      } catch (Exception e) {
+        LOG.warn("Roll over failed with Exception", e);
+        // TODO: Throw a roll over failed exception and stop the indexer.
+      }
+    } else {
+      LOG.info("Roll over future completed successfully.");
+    }
+
+    // Close roll over executor service.
+    try {
+      // A short timeout here is fine here since there are no more tasks.
+      rolloverExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+      rolloverExecutorService.shutdownNow();
+    } catch (InterruptedException e) {
+      LOG.warn("Encountered error shutting down roll over executor.", e);
+    }
+    for (Chunk<T> chunk : chunkMap.values()) {
+      chunk.close();
+    }
+    LOG.info("Closed chunk manager.");
+  }
+
+  public static ChunkManager<LogMessage> fromConfig(MeterRegistry meterRegistry) {
+    ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
+
+    // TODO: Read the config values for chunk manager from config file.
+    ChunkManager<LogMessage> chunkManager =
+        new ChunkManager<>(
+            CHUNK_DATA_PREFIX,
+            KaldbConfig.get().getIndexerConfig().getDataDirectory(),
+            chunkRollOverStrategy,
+            meterRegistry,
+            getS3BlobFsClient(KaldbConfig.get()),
+            KaldbConfig.get().getS3Config().getS3Bucket(),
+            ChunkManager.makeDefaultRollOverExecutor(),
+            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS);
+
+    return chunkManager;
+  }
+
+  private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
+    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
+    S3BlobFsConfig s3BlobFsConfig =
+        new S3BlobFsConfig(
+            s3Config.getS3AccessKey(),
+            s3Config.getS3SecretKey(),
+            s3Config.getS3Region(),
+            s3Config.getS3EndPoint());
+    S3BlobFs s3BlobFs = new S3BlobFs();
+    s3BlobFs.init(s3BlobFsConfig);
+    return s3BlobFs;
   }
 }

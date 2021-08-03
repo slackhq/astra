@@ -21,6 +21,9 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -28,6 +31,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -38,9 +42,6 @@ public class KaldbDistributedQueryServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
   private static SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
-
-  private static KaldbIndexer kaldbIndexer1;
-  private static KaldbIndexer kaldbIndexer2;
 
   private static KaldbServiceGrpc.KaldbServiceBlockingStub queryServiceStub;
   private static Server indexingServer1;
@@ -85,7 +86,7 @@ public class KaldbDistributedQueryServiceTest {
             S3_MOCK_RULE, indexerMetricsRegistry1, 10 * 1024 * 1024 * 1024L, 100);
     indexingServer1 =
         newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
-    indexingServer1.start().join();
+    indexingServer1.start().get(10, TimeUnit.SECONDS);
 
     KaldbConfigs.KaldbConfig kaldbConfig2 =
         KaldbConfigUtil.makeKaldbConfig(
@@ -104,7 +105,7 @@ public class KaldbDistributedQueryServiceTest {
             S3_MOCK_RULE, indexerMetricsRegistry2, 10 * 1024 * 1024 * 1024L, 100);
     indexingServer2 =
         newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
-    indexingServer2.start().join();
+    indexingServer2.start().get(10, TimeUnit.SECONDS);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
@@ -121,7 +122,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2)).isEqualTo(100);
 
     queryServer = newQueryServer();
-    queryServer.start().join();
+    queryServer.start().get(10, TimeUnit.SECONDS);
 
     // We want to query the indexing server
     List<String> servers = new ArrayList<>();
@@ -140,15 +141,19 @@ public class KaldbDistributedQueryServiceTest {
       KaldbConfigs.KaldbConfig kaldbConfig,
       SimpleMeterRegistry meterRegistry,
       int waitForSearchMs)
-      throws InterruptedException {
+      throws InterruptedException, TimeoutException {
+
+    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
+    KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
+    kafkaWriter.startAsync();
+    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 
     KaldbIndexer indexer =
-        new KaldbIndexer(
-            chunkManagerUtil.chunkManager,
-            KaldbIndexer.dataTransformerMap.get("api_log"),
-            meterRegistry);
-    indexer.start();
-    Thread.sleep(1000); // Wait for consumer start.
+        new KaldbIndexer(chunkManagerUtil.chunkManager, messageTransformer, kafkaWriter);
+    indexer.startAsync();
+    indexer.awaitRunning(15, TimeUnit.SECONDS);
 
     KaldbLocalQueryService<LogMessage> service =
         new KaldbLocalQueryService<>(indexer.getChunkManager());
@@ -183,12 +188,6 @@ public class KaldbDistributedQueryServiceTest {
   public static void shutdownServer() throws Exception {
     if (queryServer != null) {
       queryServer.stop().get(30, TimeUnit.SECONDS);
-    }
-    if (kaldbIndexer1 != null) {
-      kaldbIndexer1.close();
-    }
-    if (kaldbIndexer2 != null) {
-      kaldbIndexer2.close();
     }
     if (indexerMetricsRegistry1 != null) {
       indexerMetricsRegistry1.close();

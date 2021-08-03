@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -50,7 +51,7 @@ public class LogMessageWriterImplTest {
   private SimpleMeterRegistry metricsRegistry;
 
   @Before
-  public void setUp() throws InvalidProtocolBufferException {
+  public void setUp() throws InvalidProtocolBufferException, TimeoutException {
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
@@ -58,7 +59,7 @@ public class LogMessageWriterImplTest {
   }
 
   @After
-  public void tearDown() throws IOException {
+  public void tearDown() throws IOException, TimeoutException {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
     }
@@ -447,7 +448,7 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
-  public void testAvgMessageSizeCalculationOnSpanIngestion() throws IOException {
+  public void testAvgMessageSizeCalculationOnSpanIngestion() throws IOException, TimeoutException {
     final String traceId = "t1";
     final long timestampMicros = 1612550512340953L;
     final long durationMicros = 500000L;

@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import org.junit.*;
 
 public class KaldbLocalQueryServiceTest {
@@ -42,7 +43,7 @@ public class KaldbLocalQueryServiceTest {
   private SimpleMeterRegistry metricsRegistry;
 
   @Before
-  public void setUp() throws InvalidProtocolBufferException {
+  public void setUp() throws InvalidProtocolBufferException, TimeoutException {
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
@@ -51,7 +52,7 @@ public class KaldbLocalQueryServiceTest {
   }
 
   @After
-  public void tearDown() throws IOException {
+  public void tearDown() throws IOException, TimeoutException {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
     }

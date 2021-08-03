@@ -999,7 +999,7 @@ public class KaldbMetadataStoreTest {
       notificationCountDownLatch.await();
       assertThat(store.getCached().isEmpty()).isTrue();
       assertThat(store.list().get().isEmpty()).isTrue();
-      assertThat(notificationCounter.get()).isEqualTo(1);
+      await().until(() -> notificationCounter.get() == 1);
     }
 
     @Test

@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
@@ -26,15 +27,14 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -73,14 +73,13 @@ public class KaldbIndexerTest {
   }
 
   @After
-  public void tearDown()
-      throws IOException, ExecutionException, InterruptedException, NoSuchFieldException,
-          IllegalAccessException, TimeoutException {
+  public void tearDown() throws Exception {
     if (server != null) {
       server.stop().get(30, TimeUnit.SECONDS);
     }
     if (kaldbIndexer != null) {
-      kaldbIndexer.close();
+      kaldbIndexer.stopAsync();
+      kaldbIndexer.awaitTerminated(15, TimeUnit.SECONDS);
     }
     kafkaServer.close();
   }
@@ -128,13 +127,22 @@ public class KaldbIndexerTest {
             8081);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
+    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManager, messageTransformer);
+    KaldbKafkaWriter kafkaWriter =
+        KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
+    kafkaWriter.startAsync();
+    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
+
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
     sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    kaldbIndexer =
-        new KaldbIndexer(
-            chunkManager, KaldbIndexer.dataTransformerMap.get("api_log"), metricsRegistry);
+    kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
+
     GrpcServiceBuilder searchBuilder =
         GrpcService.builder()
             .addService(new KaldbLocalQueryService<>(kaldbIndexer.getChunkManager()))
@@ -144,20 +152,16 @@ public class KaldbIndexerTest {
     // wait at most 10 seconds to start before throwing an exception
     server.start().get(10, TimeUnit.SECONDS);
 
-    kaldbIndexer.start();
-    Thread.sleep(1000); // Wait for consumer start.
-
     // Produce messages to kafka, so the indexer can consume them.
     produceMessagesToKafka(broker, startTime);
-    Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
 
     // No need to commit the active chunk since the last chunk is already closed.
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
+    await().until(() -> chunkManager.getChunkMap().size() == 1);
+    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
@@ -174,6 +178,9 @@ public class KaldbIndexerTest {
     assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
     assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
+
+    chunkManager.stopAsync();
+    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
 
     // TODO: delete expired data cleanly.
   }

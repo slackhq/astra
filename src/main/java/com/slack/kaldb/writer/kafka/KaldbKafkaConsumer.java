@@ -2,18 +2,15 @@ package com.slack.kaldb.writer.kafka;
 
 import static java.lang.Integer.parseInt;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunk.ChunkRollOverException;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Properties;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -24,16 +21,19 @@ import org.slf4j.LoggerFactory;
  * be run in a separate thread. Further, it is also important to shutdown the consumer cleanly so
  * that we can guarantee that the data is indexed only once.
  */
-abstract class KaldbKafkaConsumer {
+abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
 
-  private final KafkaConsumer<String, byte[]> consumer;
+  private KafkaConsumer<String, byte[]> consumer;
 
   private final String kafkaTopic;
   private final int kafkaTopicPartition;
-  private boolean stop;
-  private final ListeningExecutorService kafkaConsumerService;
-  private ListenableFuture<?> kafkaConsumerFuture;
+  private final String kafkaTopicPartitionStr;
+  private final String kafkaBootStrapServers;
+  private final String kafkaClientGroup;
+  private final String enableKafkaAutoCommit;
+  private final String kafkaAutoCommitInterval;
+  private final String kafkaSessionTimeout;
 
   public KaldbKafkaConsumer(
       String kafkaTopic,
@@ -43,8 +43,6 @@ abstract class KaldbKafkaConsumer {
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
       String kafkaSessionTimeout) {
-
-    stop = false;
     LOG.info(
         "Kafka params are: kafkaTopicName: {}, kafkaTopicPartition: {}, "
             + "kafkaBootstrapServers:{}, kafkaClientGroup: {}, kafkaAutoCommit:{}, "
@@ -74,32 +72,13 @@ abstract class KaldbKafkaConsumer {
     }
 
     this.kafkaTopic = kafkaTopic;
+    this.kafkaTopicPartitionStr = kafkaTopicPartitionStr;
     this.kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
-
-    // Create kafka consumer
-    this.consumer =
-        buildKafkaConsumer(
-            kafkaBootStrapServers,
-            kafkaClientGroup,
-            enableKafkaAutoCommit,
-            kafkaAutoCommitInterval);
-
-    if (kafkaTopicPartitionStr.isEmpty()) {
-      LOG.info("Subscribing to kafka topic {}", kafkaTopic);
-      consumer.subscribe(
-          Collections.singletonList(kafkaTopic), new KafkaConsumerRebalanceListener());
-    } else {
-      // TODO: Consider using sticky consumer instead of assign?
-      LOG.info(
-          "Assigned to kafka topic {} and partition {}", this.kafkaTopic, this.kafkaTopicPartition);
-      consumer.assign(
-          Collections.singletonList(new TopicPartition(this.kafkaTopic, kafkaTopicPartition)));
-    }
-
-    kafkaConsumerService =
-        MoreExecutors.listeningDecorator(
-            MoreExecutors.getExitingExecutorService(
-                (ThreadPoolExecutor) Executors.newFixedThreadPool(1), 2, TimeUnit.SECONDS));
+    this.kafkaBootStrapServers = kafkaBootStrapServers;
+    this.kafkaClientGroup = kafkaClientGroup;
+    this.enableKafkaAutoCommit = enableKafkaAutoCommit;
+    this.kafkaAutoCommitInterval = kafkaAutoCommitInterval;
+    this.kafkaSessionTimeout = kafkaSessionTimeout;
   }
 
   private KafkaConsumer<String, byte[]> buildKafkaConsumer(
@@ -121,26 +100,35 @@ abstract class KaldbKafkaConsumer {
     return new KafkaConsumer<>(props);
   }
 
-  public ListenableFuture<?> start() {
+  @Override
+  public void startUp() {
     LOG.info("Starting kafka consumer.");
 
-    // We can only have one consumer per class. So, throw an exception if it's called twice.
-    if (kafkaConsumerFuture != null) {
-      throw new IllegalStateException("Start shouldn't be called twice.");
-    }
+    // Create kafka consumer
+    this.consumer =
+        buildKafkaConsumer(
+            kafkaBootStrapServers,
+            kafkaClientGroup,
+            enableKafkaAutoCommit,
+            kafkaAutoCommitInterval);
 
-    kafkaConsumerFuture = kafkaConsumerService.submit(this::run);
-    return kafkaConsumerFuture;
+    if (kafkaTopicPartitionStr.isEmpty()) {
+      LOG.info("Subscribing to kafka topic {}", kafkaTopic);
+      consumer.subscribe(
+          Collections.singletonList(kafkaTopic), new KafkaConsumerRebalanceListener());
+    } else {
+      // TODO: Consider using sticky consumer instead of assign?
+      LOG.info(
+          "Assigned to kafka topic {} and partition {}", this.kafkaTopic, this.kafkaTopicPartition);
+      consumer.assign(
+          Collections.singletonList(new TopicPartition(this.kafkaTopic, kafkaTopicPartition)));
+    }
   }
 
-  private void run() {
-    while (true) {
+  @Override
+  protected void run() {
+    while (isRunning()) {
       try {
-        if (stop) {
-          close();
-          break;
-        }
-
         long kafkaPollTimeoutMs = 100;
         consumeMessages(kafkaPollTimeoutMs);
       } catch (RejectedExecutionException e) {
@@ -157,6 +145,12 @@ abstract class KaldbKafkaConsumer {
         new RuntimeHalterImpl().handleFatal(e);
       }
     }
+
+    if (consumer != null) {
+      LOG.info("Closing kafka consumer.");
+      consumer.close(Duration.of(15, ChronoUnit.SECONDS));
+      LOG.info("Closed kafka consumer.");
+    }
   }
 
   protected KafkaConsumer<String, byte[]> getConsumer() {
@@ -168,22 +162,4 @@ abstract class KaldbKafkaConsumer {
   }
 
   abstract void consumeMessages(long kafkaPollTimeoutMs) throws IOException;
-
-  private void close() {
-    if (stop && consumer != null) {
-      LOG.info("Closing kafka consumer.");
-      consumer.close();
-      kafkaConsumerService.shutdown();
-      LOG.info("Closed kafka consumer.");
-    }
-  }
-
-  public ListenableFuture<?> triggerShutdown() {
-    stop = true;
-    return kafkaConsumerFuture;
-  }
-
-  public boolean isShutdown() {
-    return kafkaConsumerService.isShutdown();
-  }
 }

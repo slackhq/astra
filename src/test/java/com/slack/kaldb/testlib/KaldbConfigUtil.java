@@ -40,6 +40,7 @@ public class KaldbConfigUtil {
             .setCommitDurationSecs(10)
             .setRefreshDurationSecs(10)
             .setStaleDurationSecs(7200)
+            .setDataTransformer("log_message")
             .build();
 
     KaldbConfigs.QueryServiceConfig queryConfig =
