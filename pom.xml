@@ -579,6 +579,12 @@
                         <!--
                             <debugForkedProcess>true</debugForkedProcess>
                         -->
+                        <properties>
+                            <property>
+                                <name>listener</name>
+                                <value>com.slack.kaldb.testlib.FailOnLingeringThreadsRunListener</value>
+                            </property>
+                        </properties>
                     </configuration>
                 </plugin>
                 <plugin>
