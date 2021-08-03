@@ -13,4 +13,5 @@ Format - `mvn fmt:format -f benchmarks/pom.xml`
 
 To run it from IntelliJ directly https://plugins.jetbrains.com/plugin/7529-jmh-java-microbenchmark-harness
 
+ `java -jar benchmarks/target/benchmarks.jar -h` - is a goldmine of options
 
