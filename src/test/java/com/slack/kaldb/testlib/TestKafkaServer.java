@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
@@ -82,11 +83,8 @@ public class TestKafkaServer {
     // Create a kafka broker
     broker = EphemeralKafkaBroker.create();
     brokerStart = broker.start();
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      // Ignore
-    }
+    Futures.getUnchecked(brokerStart);
+
     logDir = Paths.get(broker.getLogDir().get());
     assertThat(Files.exists(logDir)).isTrue();
   }
