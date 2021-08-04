@@ -237,10 +237,10 @@ public class KaldbDistributedQueryServiceTest {
                 .setBucketCount(2)
                 .build());
 
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(200);
     assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(searchResponse.getTotalCount()).isEqualTo(200);
+    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
   }
 
   @Test
@@ -257,9 +257,9 @@ public class KaldbDistributedQueryServiceTest {
                 .setBucketCount(2)
                 .build());
 
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
     assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(searchResponse.getFailedNodes()).isEqualTo(1);
+    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
   }
 }
