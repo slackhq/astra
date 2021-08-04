@@ -30,6 +30,8 @@ public class IndexingBenchmark {
   LuceneIndexStoreImpl logStore;
   private Random random;
 
+  private LogMessage logMessage;
+
   @Setup(Level.Iteration)
   public void createIndexer() throws IOException {
     random = new Random();
@@ -41,6 +43,11 @@ public class IndexingBenchmark {
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
             tempDirectory.toFile(), commitInterval, refreshInterval, registry);
+
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp);
+    fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, "Log Message");
+    logMessage = new LogMessage("testindex", "INFO", "1", fieldMap);
   }
 
   @TearDown(Level.Iteration)
@@ -54,10 +61,6 @@ public class IndexingBenchmark {
 
   @Benchmark
   public void measureIndexing() {
-    Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp);
-    fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, "Log Message");
-    LogMessage logMessage = new LogMessage("testindex", "INFO", "1", fieldMap);
     logStore.addMessage(logMessage);
   }
 }
