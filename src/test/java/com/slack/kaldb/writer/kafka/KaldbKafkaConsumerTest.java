@@ -14,6 +14,7 @@ import java.time.ZoneOffset;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.junit.After;
 import org.junit.Before;
@@ -29,7 +30,7 @@ public class KaldbKafkaConsumerTest {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumerTest.class);
 
   static class TestKaldbKafkaConsumer extends KaldbKafkaConsumer {
-    private int recordCount = 0;
+    private final AtomicInteger recordCount = new AtomicInteger(0);
 
     public TestKaldbKafkaConsumer(String kafkaBootStrapServers, String testKafkaClientGroup) {
       super(
@@ -46,11 +47,11 @@ public class KaldbKafkaConsumerTest {
     void consumeMessages(long kafkaPollTimeoutMs) {
       ConsumerRecords<String, byte[]> records =
           getConsumer().poll(Duration.ofMillis(kafkaPollTimeoutMs));
-      recordCount += records.count();
+      recordCount.addAndGet(records.count());
     }
 
     public int getRecordCount() {
-      return recordCount;
+      return recordCount.get();
     }
   }
 
@@ -86,12 +87,10 @@ public class KaldbKafkaConsumerTest {
 
       testConsumer.startAsync();
       testConsumer.awaitRunning(15, TimeUnit.SECONDS);
-      Thread.sleep(1000);
+      await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
-      Thread.sleep(500); // Wait for consumption.
-
-      assertThat(testConsumer.getRecordCount()).isEqualTo(100);
+      await().until(() -> testConsumer.getRecordCount() == 100);
     }
   }
 
@@ -126,9 +125,18 @@ public class KaldbKafkaConsumerTest {
 
       testConsumer.startAsync();
       testConsumer.awaitRunning(15, TimeUnit.SECONDS);
+      await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
-      await().until(() -> testConsumer.getRecordCount() == 100);
+      await()
+          .until(
+              () -> {
+                long recordCount = testConsumer.getRecordCount();
+                if (recordCount != 100) {
+                  LOG.warn(String.format("Current record count %s", recordCount));
+                }
+                return recordCount == 100;
+              });
 
       // Closing server before consumer should lead to time out.
       kafkaServer.close();

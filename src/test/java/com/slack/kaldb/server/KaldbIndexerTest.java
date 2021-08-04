@@ -142,6 +142,7 @@ public class KaldbIndexerTest {
     kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     GrpcServiceBuilder searchBuilder =
         GrpcService.builder()

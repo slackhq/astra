@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
@@ -13,11 +14,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -76,19 +80,25 @@ public class TestKafkaServer {
 
   private final EphemeralKafkaBroker broker;
   private final CompletableFuture<Void> brokerStart;
+  private final AdminClient adminClient;
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
     // Create a kafka broker
     broker = EphemeralKafkaBroker.create();
     brokerStart = broker.start();
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      // Ignore
-    }
+    Futures.getUnchecked(brokerStart);
+
     logDir = Paths.get(broker.getLogDir().get());
     assertThat(Files.exists(logDir)).isTrue();
+
+    Properties props = new Properties();
+    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, broker.getBrokerList().get());
+    adminClient = AdminClient.create(props);
+  }
+
+  public int getConnectedConsumerGroups() throws ExecutionException, InterruptedException {
+    return adminClient.listConsumerGroups().all().get().size();
   }
 
   public CompletableFuture<Void> getBrokerStart() {
