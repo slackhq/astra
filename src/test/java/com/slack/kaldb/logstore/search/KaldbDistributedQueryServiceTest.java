@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
@@ -24,6 +25,7 @@ import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -111,15 +113,29 @@ public class KaldbDistributedQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1, TEST_KAFKA_PARTITION_1);
-    Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry1)).isEqualTo(100);
+    await()
+        .until(
+            () -> {
+              try {
+                return getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry1) == 100;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime2 =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2, TEST_KAFKA_PARTITION_2);
-    Thread.sleep(1000); // Wait for consumer to finish consumption and roll over chunk.
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2)).isEqualTo(100);
+    await()
+        .until(
+            () -> {
+              try {
+                return getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2) == 100;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
 
     queryServer = newQueryServer();
     queryServer.start().get(10, TimeUnit.SECONDS);
