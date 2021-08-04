@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -9,6 +10,7 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.slack.kaldb.config.KaldbConfig;
@@ -245,21 +247,22 @@ public class KaldbDistributedQueryServiceTest {
 
   @Test
   public void testSearchWithOneShardTimeout() {
-    KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
-    KaldbSearch.SearchResult searchResponse =
-        queryServiceStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("*:*")
-                .setStartTimeEpochMs(0L)
-                .setEndTimeEpochMs(1601547099000L)
-                .setHowMany(100)
-                .setBucketCount(2)
-                .build());
-
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(1);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    for (int i = 0; i < 100; i++) {
+      KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
+      KaldbSearch.SearchResult searchResponse =
+          queryServiceStub.search(
+              KaldbSearch.SearchRequest.newBuilder()
+                  .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                  .setQueryString("*:*")
+                  .setStartTimeEpochMs(0L)
+                  .setEndTimeEpochMs(1601547099000L)
+                  .setHowMany(100)
+                  .setBucketCount(2)
+                  .build());
+      assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
+      assertThat(searchResponse.getFailedNodes()).isEqualTo(1);
+      assertThat(searchResponse.getTotalCount()).isEqualTo(100);
+      assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    }
   }
 }

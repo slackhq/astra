@@ -15,6 +15,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
 
   @Override
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
+    System.out.println("Request received q=" + request.getQueryString());
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
     CompletableFuture<SearchResult<T>> searchResult = chunkManager.query(query);
     return SearchResultUtils.toSearchResultProto(searchResult);

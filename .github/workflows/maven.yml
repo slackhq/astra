@@ -28,9 +28,5 @@ jobs:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
-    - name: Ensure code is formatted
-      run: mvn com.coveo:fmt-maven-plugin:check --file kaldb/pom.xml
-    - name: Ensure jmh benchmark code is formatted
-      run: mvn com.coveo:fmt-maven-plugin:check --file benchmarks/pom.xml
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
+    - name: Run One Test
+      run: mvn -Dtest=KaldbDistributedQueryServiceTest test --file kaldb/pom.xml

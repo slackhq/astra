@@ -12,8 +12,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   public static List<String> servers = new ArrayList<>();
 
@@ -38,6 +42,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // take
       // Alternately use completeOnTimeout and the value can then we configured per request and not
       // as part of the config
+      System.out.println("Setting deadline as " + READ_TIMEOUT_MS);
       KaldbServiceGrpc.KaldbServiceFutureStub stub =
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -46,7 +51,19 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
     return futures
         .stream()
-        .map(result -> result.exceptionally(ex -> error))
+        .map(
+            result ->
+                result.handle(
+                    (response, ex) -> {
+                      if (ex != null) {
+                        System.out.println("Node failed to respond");
+                        System.out.println(ex);
+                        LOG.warn("Node failed to respond ", ex);
+                        return error;
+                      } else {
+                        return response;
+                      }
+                    }))
         .collect(CompletableFutures.joinList());
   }
 
