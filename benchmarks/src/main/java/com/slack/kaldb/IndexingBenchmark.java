@@ -41,7 +41,8 @@ public class IndexingBenchmark {
     registry = new SimpleMeterRegistry();
     tempDirectory =
         Files.createDirectories(
-            Paths.get("jmh", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
+            Paths.get(
+                "benchmarks", "jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
             tempDirectory.toFile(), commitInterval, refreshInterval, registry);
