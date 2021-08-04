@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
 
 /* An interface that implements a read and write interface for the LogStore */
@@ -36,6 +37,9 @@ public interface LogStore<T> {
    * if no new commits are performed on the index.
    */
   public IndexCommit getIndexCommit();
+
+  // needed by JMH tests. Cannot add @VisibleForTesting on an abstract class
+  public IndexWriter getIndexWriter();
 
   public void releaseIndexCommit(IndexCommit indexCommit);
 

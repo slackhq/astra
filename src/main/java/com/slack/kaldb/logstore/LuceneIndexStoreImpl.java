@@ -251,6 +251,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     return null;
   }
 
+  @Override
+  public IndexWriter getIndexWriter() {
+    return indexWriter.get();
+  }
+
   public void releaseIndexCommit(IndexCommit indexCommit) {
     if (indexCommit != null) {
       try {
