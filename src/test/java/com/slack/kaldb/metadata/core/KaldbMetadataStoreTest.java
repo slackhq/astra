@@ -273,6 +273,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
@@ -335,6 +336,7 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name1).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 0);
       assertThat(store.getCached().isEmpty()).isTrue();
       assertThat(store.list().get().isEmpty()).isTrue();
       assertThat(notificationCounter.get()).isEqualTo(1);
@@ -374,6 +376,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
       notificationCountDownLatch2.await();
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -421,6 +424,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -460,6 +464,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       await().until(() -> store.getCached().contains(snapshot2));
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -469,6 +474,7 @@ public class KaldbMetadataStoreTest {
       store.removeListener(regularListener2);
       assertThat(store.delete(name2).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
@@ -514,6 +520,7 @@ public class KaldbMetadataStoreTest {
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot2);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
     }
@@ -581,6 +588,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
 
       // Updates throw an exception.
@@ -588,6 +596,7 @@ public class KaldbMetadataStoreTest {
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
 
       // Adding a snapshot with the same name but different values throws exception.
@@ -598,6 +607,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
 
       assertThat(store.delete(name1).get()).isNull();
@@ -935,6 +945,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
@@ -968,6 +979,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot1).get()).isNull();
       notificationCountDownLatch.await();
       await().until(() -> store.getCached().contains(newSnapshot1));
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(newSnapshot1);
       assertThat(store.list().get()).containsOnly(newSnapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
@@ -997,6 +1009,7 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name1).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 0);
       assertThat(store.getCached().isEmpty()).isTrue();
       assertThat(store.list().get().isEmpty()).isTrue();
       await().until(() -> notificationCounter.get() == 1);
@@ -1036,6 +1049,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
       notificationCountDownLatch2.await();
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -1083,6 +1097,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -1122,6 +1137,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       await().until(() -> store.getCached().contains(snapshot2));
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
@@ -1131,6 +1147,7 @@ public class KaldbMetadataStoreTest {
       store.removeListener(regularListener2);
       assertThat(store.delete(name2).get()).isNull();
       notificationCountDownLatch.await();
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
@@ -1176,6 +1193,7 @@ public class KaldbMetadataStoreTest {
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot2);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
     }
@@ -1243,6 +1261,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
 
       // Updates throw an exception.
@@ -1250,6 +1269,7 @@ public class KaldbMetadataStoreTest {
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 2);
       assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
 
       // Adding a snapshot with the same name but different values throws exception.
@@ -1260,6 +1280,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 1);
       assertThat(store.getCached()).containsOnly(snapshot1);
 
       assertThat(store.delete(name1).get()).isNull();
