@@ -306,6 +306,8 @@ public class ChunkManager<T> extends AbstractIdleService {
                 chunkFuture ->
                     chunkFuture.exceptionally(
                         err -> {
+                          LOG.error("Error searching chunk future", err);
+
                           // We catch IllegalArgumentException ( and any other exception that
                           // represents a parse failure ) and instead of returning an empty result
                           // we throw back an error to the user

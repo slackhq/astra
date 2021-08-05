@@ -38,8 +38,12 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryServiceTest {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryServiceTest.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
@@ -245,6 +249,7 @@ public class KaldbDistributedQueryServiceTest {
 
   @Test
   public void testSearchWithOneShardTimeout() {
+    LOG.warn("----------- testSearchWithOneShardTimeout -------------");
     KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
     KaldbSearch.SearchResult searchResponse =
         queryServiceStub.search(

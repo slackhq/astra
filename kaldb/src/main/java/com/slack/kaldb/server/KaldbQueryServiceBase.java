@@ -4,10 +4,13 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServiceImplBase {
+  protected final ExecutorService queryServiceExecutor = Executors.newFixedThreadPool(16);
 
   private static final Logger LOG = LoggerFactory.getLogger(KaldbQueryServiceBase.class);
 
@@ -26,7 +29,8 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
                 responseObserver.onNext(result);
                 responseObserver.onCompleted();
               }
-            });
+            },
+            queryServiceExecutor);
   }
 
   public abstract CompletableFuture<KaldbSearch.SearchResult> doSearch(

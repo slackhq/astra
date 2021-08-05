@@ -7,13 +7,17 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.spotify.futures.ListenableFuturesExtra;
+import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   public static List<String> servers = new ArrayList<>();
 
@@ -41,9 +45,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       KaldbServiceGrpc.KaldbServiceFutureStub stub =
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
       futures.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
     }
+
     return futures
         .stream()
         .map(result -> result.exceptionally(ex -> error))
@@ -66,5 +70,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .aggregate(searchResults);
 
     return SearchResultUtils.toSearchResultProto(aggregatedResult);
+  }
+
+  @Override
+  public void search(
+      KaldbSearch.SearchRequest request,
+      StreamObserver<KaldbSearch.SearchResult> responseObserver) {
+    LOG.warn("Beginning distributed query");
+    super.search(request, responseObserver);
   }
 }

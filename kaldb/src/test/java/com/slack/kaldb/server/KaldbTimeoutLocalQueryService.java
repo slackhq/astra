@@ -23,6 +23,7 @@ public class KaldbTimeoutLocalQueryService extends KaldbServiceGrpc.KaldbService
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
     try {
+      LOG.warn(String.format("Delaying search by %s ms", waitMS));
       Thread.sleep(waitMS);
     } catch (InterruptedException e) {
       LOG.warn("Pause interrupted" + e);
