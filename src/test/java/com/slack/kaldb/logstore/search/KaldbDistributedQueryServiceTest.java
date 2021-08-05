@@ -32,18 +32,22 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryServiceTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
   private static SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryServiceTest.class);
 
   private static KaldbServiceGrpc.KaldbServiceBlockingStub queryServiceStub;
   private static Server indexingServer1;
@@ -142,8 +146,8 @@ public class KaldbDistributedQueryServiceTest {
 
     // We want to query the indexing server
     List<String> servers = new ArrayList<>();
-    servers.add(String.format("gproto+http://127.0.0.1:%s/", indexingServer1.activeLocalPort()));
     servers.add(String.format("gproto+http://127.0.0.1:%s/", indexingServer2.activeLocalPort()));
+    servers.add(String.format("gproto+http://127.0.0.1:%s/", indexingServer1.activeLocalPort()));
     KaldbDistributedQueryService.servers = servers;
 
     queryServiceStub =
@@ -246,6 +250,15 @@ public class KaldbDistributedQueryServiceTest {
   @Test
   public void testSearchWithOneShardTimeout() {
     KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
+
+    LOG.warn(
+        String.format(
+            "Current common thread parallelism: %s, pool size: %s, activeThreads: %s, queuedTasks: %s",
+            ForkJoinPool.commonPool().getParallelism(),
+            ForkJoinPool.commonPool().getPoolSize(),
+            ForkJoinPool.commonPool().getActiveThreadCount(),
+            ForkJoinPool.commonPool().getQueuedTaskCount()));
+
     KaldbSearch.SearchResult searchResponse =
         queryServiceStub.search(
             KaldbSearch.SearchRequest.newBuilder()
