@@ -50,7 +50,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     return futures
         .stream()
-        .map(result -> result.exceptionally(ex -> error))
+        .map(
+            result ->
+                result.exceptionally(
+                    ex -> {
+                      LOG.error("Result exception", ex);
+                      return error;
+                    }))
         .collect(CompletableFutures.joinList());
   }
 
