@@ -1,5 +1,6 @@
 package com.slack.kaldb.server;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.grpc.stub.StreamObserver;
@@ -10,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServiceImplBase {
-  protected final ExecutorService queryServiceExecutor = Executors.newFixedThreadPool(16);
+  protected final ExecutorService queryServiceExecutor =
+      Executors.newFixedThreadPool(
+          16, new ThreadFactoryBuilder().setNameFormat("kaldb-query-executor-%d").build());
 
   private static final Logger LOG = LoggerFactory.getLogger(KaldbQueryServiceBase.class);
 

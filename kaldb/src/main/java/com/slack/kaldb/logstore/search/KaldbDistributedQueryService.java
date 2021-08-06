@@ -44,6 +44,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // as part of the config
       KaldbServiceGrpc.KaldbServiceFutureStub stub =
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+              .withExecutor(queryServiceExecutor)
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
       futures.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
     }
@@ -83,6 +84,22 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
     LOG.warn("Beginning distributed query");
-    super.search(request, responseObserver);
+    super.search(request, new StreamObserver<>() {
+      @Override
+      public void onNext(KaldbSearch.SearchResult value) {
+        responseObserver.onNext(value);
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        responseObserver.onError(t);
+      }
+
+      @Override
+      public void onCompleted() {
+        responseObserver.onCompleted();
+        LOG.warn("Distributed search complete, responseObserver notified");
+      }
+    });
   }
 }
