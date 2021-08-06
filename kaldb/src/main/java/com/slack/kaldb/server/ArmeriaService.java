@@ -54,7 +54,10 @@ public class ArmeriaService extends AbstractIdleService {
   public Server getServer() {
     ServerBuilder sb = Server.builder();
     GrpcServiceBuilder searchBuilder =
-        GrpcService.builder().addService(searcher).enableUnframedRequests(true);
+        GrpcService.builder()
+            .addService(searcher)
+            .useBlockingTaskExecutor(true)
+            .enableUnframedRequests(true);
     sb.service(searchBuilder.build());
 
     sb.annotatedService(new ElasticsearchApiService(searcher));

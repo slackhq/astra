@@ -179,13 +179,17 @@ public class KaldbDistributedQueryServiceTest {
       return Server.builder()
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
-          .service(GrpcService.builder().addService(wrapperService).build())
+          .service(
+              GrpcService.builder()
+                  .addService(wrapperService)
+                  .useBlockingTaskExecutor(true)
+                  .build())
           .build();
     } else {
       return Server.builder()
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
-          .service(GrpcService.builder().addService(service).build())
+          .service(GrpcService.builder().addService(service).useBlockingTaskExecutor(true).build())
           .build();
     }
   }
@@ -196,7 +200,7 @@ public class KaldbDistributedQueryServiceTest {
         // Hardcoding this could mean port collisions b/w tests running in parallel.
         .http(0)
         .verboseResponses(true)
-        .service(GrpcService.builder().addService(service).build())
+        .service(GrpcService.builder().addService(service).useBlockingTaskExecutor(true).build())
         .build();
   }
 
