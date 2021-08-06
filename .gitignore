@@ -1,5 +1,20 @@
-.idea/
+# Gradle.
+# Ignore the generated local settings file.
+/gradle.properties
+.gradle/
+build/
+
+# Ignore gradle wrapper jar.
+gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+/.idea/
 *.iml
+
+# macOS
+.DS_Store
+
+# Others
 target/
 *.swp
 *~

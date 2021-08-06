@@ -11,3 +11,9 @@ To build the binary: `mvn clean package`
 
 IntelliJ: Import the project as a maven project.
 
+## Build but excude test
+gradle build -x test
+
+## Run test
+gradle cleanTest test
+
