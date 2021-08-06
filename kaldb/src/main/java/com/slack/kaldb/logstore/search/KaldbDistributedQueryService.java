@@ -12,8 +12,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   public static List<String> servers = new ArrayList<>();
 
@@ -46,7 +50,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
     return futures
         .stream()
-        .map(result -> result.exceptionally(ex -> error))
+        .map(
+            result ->
+                result.exceptionally(
+                    ex -> {
+                      LOG.error("Node failed to respond ", ex);
+                      return error;
+                    }))
         .collect(CompletableFutures.joinList());
   }
 
