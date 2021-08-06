@@ -211,7 +211,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
             query.endTimeEpochMs,
             query.howMany,
             query.bucketCount);
-    LOG.warn(String.format("Finished logSearcher query in %s micros", result.tookMicros));
+    LOG.warn(
+        String.format("Finished logSearcher query in %s milliseconds", result.tookMicros / 1000));
     return result;
   }
 }
