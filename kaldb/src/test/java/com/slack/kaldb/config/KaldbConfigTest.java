@@ -182,6 +182,14 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isEqualTo(8081);
+
+    final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
+    final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("zk://1.2.3.4:9092");
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("/root/zkPath");
+    assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
+    assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
+    assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
   }
 
   @Test
@@ -232,6 +240,14 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isEqualTo(8081);
+
+    final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
+    final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("zk://1.2.3.4:9092");
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("/root/zkPath");
+    assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
+    assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
+    assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
   }
 
   @Test(expected = RuntimeException.class)
@@ -278,6 +294,14 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isZero();
+
+    final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
+    final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getZkConnectString()).isEmpty();
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEmpty();
+    assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isZero();
+    assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isZero();
+    assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isZero();
   }
 
   @Test
@@ -314,6 +338,14 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerPort()).isZero();
+
+    final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
+    final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
+    assertThat(zookeeperConfig.getZkConnectString()).isEmpty();
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEmpty();
+    assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isZero();
+    assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isZero();
+    assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isZero();
   }
 
   @Test

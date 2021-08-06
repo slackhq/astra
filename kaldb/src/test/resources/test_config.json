@@ -29,5 +29,14 @@
   },
   "queryConfig": {
     "serverPort": 8081
+  },
+  "metadataStoreConfig": {
+    "zookeeperConfig": {
+      "zkConnectString": "zk://1.2.3.4:9092",
+      "zkPathPrefix":  "/root/zkPath",
+      "zkSessionTimeoutMs": 1000,
+      "zkConnectionTimeoutMs": 1500,
+      "sleepBetweenRetriesMs": 500
+    }
   }
 }
