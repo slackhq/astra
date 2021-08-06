@@ -9,6 +9,7 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.slack.kaldb.config.KaldbConfig;
@@ -177,12 +178,17 @@ public class KaldbDistributedQueryServiceTest {
       KaldbTimeoutLocalQueryService wrapperService =
           new KaldbTimeoutLocalQueryService(service, waitForSearchMs);
       return Server.builder()
+          .workerGroup(
+              EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer-delayed", true),
+              true)
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(wrapperService).build())
           .build();
     } else {
       return Server.builder()
+          .workerGroup(
+              EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer", true), true)
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(service).build())
@@ -193,6 +199,8 @@ public class KaldbDistributedQueryServiceTest {
   public static Server newQueryServer() {
     KaldbDistributedQueryService service = new KaldbDistributedQueryService();
     return Server.builder()
+        .workerGroup(
+            EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-query", true), true)
         // Hardcoding this could mean port collisions b/w tests running in parallel.
         .http(0)
         .verboseResponses(true)
