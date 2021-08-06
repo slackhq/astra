@@ -9,6 +9,7 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.slack.kaldb.config.KaldbConfig;
@@ -27,6 +28,7 @@ import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.netty.channel.EventLoopGroup;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -38,8 +40,11 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryServiceTest {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryServiceTest.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
@@ -60,6 +65,9 @@ public class KaldbDistributedQueryServiceTest {
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static TestKafkaServer kafkaServer;
+
+  private static EventLoopGroup eventLoopGroups =
+      EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-small", true);
 
   @BeforeClass
   // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
@@ -177,12 +185,20 @@ public class KaldbDistributedQueryServiceTest {
       KaldbTimeoutLocalQueryService wrapperService =
           new KaldbTimeoutLocalQueryService(service, waitForSearchMs);
       return Server.builder()
+          .workerGroup(eventLoopGroups, true)
+          //              EventLoopGroups.newEventLoopGroup(4,
+          // "armeria-common-worker-indexer-delayed", true),
+          //              true)
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(wrapperService).build())
           .build();
     } else {
       return Server.builder()
+          .workerGroup(eventLoopGroups, true)
+          //          .workerGroup(
+          //              EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer",
+          // true), true)
           .http(kaldbConfig.getIndexerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(service).build())
@@ -193,6 +209,10 @@ public class KaldbDistributedQueryServiceTest {
   public static Server newQueryServer() {
     KaldbDistributedQueryService service = new KaldbDistributedQueryService();
     return Server.builder()
+        .workerGroup(eventLoopGroups, true)
+        //        .workerGroup(
+        //            EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-query", true),
+        // true)
         // Hardcoding this could mean port collisions b/w tests running in parallel.
         .http(0)
         .verboseResponses(true)
@@ -203,19 +223,19 @@ public class KaldbDistributedQueryServiceTest {
   @AfterClass
   public static void shutdownServer() throws Exception {
     if (queryServer != null) {
-      queryServer.stop().get(30, TimeUnit.SECONDS);
+      queryServer.stop().get(45, TimeUnit.SECONDS);
     }
     if (indexerMetricsRegistry1 != null) {
       indexerMetricsRegistry1.close();
     }
     if (indexingServer1 != null) {
-      indexingServer1.stop().get(30, TimeUnit.SECONDS);
+      indexingServer1.stop().get(45, TimeUnit.SECONDS);
     }
     if (indexerMetricsRegistry2 != null) {
       indexerMetricsRegistry2.close();
     }
     if (indexingServer2 != null) {
-      indexingServer2.stop().get(30, TimeUnit.SECONDS);
+      indexingServer2.stop().get(45, TimeUnit.SECONDS);
     }
     if (kafkaServer != null) {
       kafkaServer.close();
@@ -246,6 +266,9 @@ public class KaldbDistributedQueryServiceTest {
   @Test
   public void testSearchWithOneShardTimeout() {
     KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
+
+    //    for (int i = 0; i < 100; i++) {
+    //    LOG.warn(String.format("running testSearchWithOneShardTimeout - %s", i));
     KaldbSearch.SearchResult searchResponse =
         queryServiceStub.search(
             KaldbSearch.SearchRequest.newBuilder()
@@ -261,5 +284,6 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(searchResponse.getFailedNodes()).isEqualTo(1);
     assertThat(searchResponse.getTotalCount()).isEqualTo(100);
     assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    //    }
   }
 }
