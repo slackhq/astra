@@ -202,12 +202,16 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   public SearchResult<T> query(SearchQuery query) {
-    return logSearcher.search(
-        query.indexName,
-        query.queryStr,
-        query.startTimeEpochMs,
-        query.endTimeEpochMs,
-        query.howMany,
-        query.bucketCount);
+    LOG.warn("Beginning logSearcher query");
+    SearchResult<T> result =
+        logSearcher.search(
+            query.indexName,
+            query.queryStr,
+            query.startTimeEpochMs,
+            query.endTimeEpochMs,
+            query.howMany,
+            query.bucketCount);
+    LOG.warn(String.format("Finished logSearcher query in %s micros", result.tookMicros));
+    return result;
   }
 }

@@ -284,10 +284,10 @@ public class ChunkManager<T> extends AbstractIdleService {
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
   public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
-
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
+    LOG.warn("Beginning chunkmanager query");
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkMap
             .values()
