@@ -166,8 +166,7 @@ public class KaldbDistributedQueryServiceTest {
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 
-    KaldbIndexer indexer =
-        new KaldbIndexer(chunkManagerUtil.chunkManager, messageTransformer, kafkaWriter);
+    KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
     indexer.startAsync();
     indexer.awaitRunning(15, TimeUnit.SECONDS);
 

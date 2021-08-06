@@ -74,6 +74,9 @@ public class Kaldb {
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
+    MetadataStoreService metadataStoreService = new MetadataStoreService(prometheusMeterRegistry);
+    services.add(metadataStoreService);
+
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
       services.add(chunkManager);
@@ -85,7 +88,7 @@ public class Kaldb {
           KaldbKafkaWriter.fromConfig(logMessageWriterImpl, prometheusMeterRegistry);
       services.add(kafkaWriter);
 
-      KaldbIndexer indexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
+      KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter);
       services.add(indexer);
 
       KaldbLocalQueryService<LogMessage> searcher =

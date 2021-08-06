@@ -139,7 +139,7 @@ public class KaldbIndexerTest {
     ServerBuilder sb = Server.builder();
     sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
+    kaldbIndexer = new KaldbIndexer(chunkManager, kafkaWriter);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
