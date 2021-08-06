@@ -84,22 +84,24 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
     LOG.warn("Beginning distributed query");
-    super.search(request, new StreamObserver<>() {
-      @Override
-      public void onNext(KaldbSearch.SearchResult value) {
-        responseObserver.onNext(value);
-      }
+    super.search(
+        request,
+        new StreamObserver<>() {
+          @Override
+          public void onNext(KaldbSearch.SearchResult value) {
+            responseObserver.onNext(value);
+          }
 
-      @Override
-      public void onError(Throwable t) {
-        responseObserver.onError(t);
-      }
+          @Override
+          public void onError(Throwable t) {
+            responseObserver.onError(t);
+          }
 
-      @Override
-      public void onCompleted() {
-        responseObserver.onCompleted();
-        LOG.warn("Distributed search complete, responseObserver notified");
-      }
-    });
+          @Override
+          public void onCompleted() {
+            responseObserver.onCompleted();
+            LOG.warn("Distributed search complete, responseObserver notified");
+          }
+        });
   }
 }
