@@ -20,7 +20,7 @@ public class MetadataStoreService extends AbstractIdleService {
     this.meterRegistry = meterRegistry;
   }
 
-  public SnapshotMetadataStore getSnapshotStore(boolean shouldCache) throws Exception {
+  public synchronized SnapshotMetadataStore getSnapshotStore(boolean shouldCache) throws Exception {
     if (!isRunning()) {
       throw new IllegalStateException("Can't create snapshot store before staring.");
     }
@@ -30,7 +30,7 @@ public class MetadataStoreService extends AbstractIdleService {
     return snapshotStore;
   }
 
-  public SearchMetadataStore getSearchStore(boolean shouldCache) throws Exception {
+  public synchronized SearchMetadataStore getSearchStore(boolean shouldCache) throws Exception {
     if (!isRunning()) {
       throw new IllegalStateException("Can't create search store before staring.");
     }
