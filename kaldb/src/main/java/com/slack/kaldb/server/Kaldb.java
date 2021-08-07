@@ -48,7 +48,7 @@ public class Kaldb {
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws Exception {
     if (args.length == 0) {
       LOG.info("Config file is needed a first argument");
     }
@@ -58,7 +58,7 @@ public class Kaldb {
     kalDb.setup();
   }
 
-  public void setup() {
+  public void setup() throws Exception {
     setupSystemMetrics();
 
     Set<Service> services = getServices();
@@ -87,7 +87,6 @@ public class Kaldb {
       KaldbKafkaWriter kafkaWriter =
           KaldbKafkaWriter.fromConfig(logMessageWriterImpl, prometheusMeterRegistry);
       services.add(kafkaWriter);
-
       KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter);
       services.add(indexer);
 

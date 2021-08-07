@@ -157,7 +157,7 @@ public class KaldbDistributedQueryServiceTest {
       KaldbConfigs.KaldbConfig kaldbConfig,
       SimpleMeterRegistry meterRegistry,
       int waitForSearchMs)
-      throws InterruptedException, TimeoutException {
+      throws TimeoutException {
 
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
     LogMessageWriterImpl logMessageWriterImpl =
