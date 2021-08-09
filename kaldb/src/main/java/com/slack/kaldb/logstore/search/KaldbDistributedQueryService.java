@@ -1,11 +1,11 @@
 package com.slack.kaldb.logstore.search;
 
 import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.internal.shaded.futures.CompletableFutures;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
+import com.spotify.futures.CompletableFutures;
 import com.spotify.futures.ListenableFuturesExtra;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +26,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // TODO: ChunkManager#QUERY_TIMEOUT_SECONDS and this could be unified?
   public static int READ_TIMEOUT_MS = 15000;
 
-  public static final KaldbSearch.SearchResult error =
+  public static final KaldbSearch.SearchResult emptyResult =
       KaldbSearch.SearchResult.newBuilder().setFailedNodes(1).setTotalNodes(1).build();
 
   // TODO Cache the stub
@@ -35,7 +35,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
       KaldbSearch.SearchRequest request) {
 
-    List<CompletableFuture<KaldbSearch.SearchResult>> futures = new ArrayList<>(servers.size());
+    List<CompletableFuture<KaldbSearch.SearchResult>> queryServers =
+        new ArrayList<>(servers.size());
 
     for (String server : servers) {
       // With the deadline we are keeping a high limit on how much time can each CompletableFuture
@@ -46,18 +47,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
-      futures.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
+      queryServers.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
     }
-    return futures
-        .stream()
-        .map(
-            result ->
-                result.exceptionally(
-                    ex -> {
-                      LOG.error("Node failed to respond ", ex);
-                      return error;
-                    }))
-        .collect(CompletableFutures.joinList());
+    return CompletableFutures.successfulAsList(
+        queryServers,
+        ex -> {
+          LOG.error("Node failed to respond ", ex);
+          return emptyResult;
+        });
   }
 
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
