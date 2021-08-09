@@ -66,7 +66,7 @@ public class ReadWriteChunkImplTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
       chunk.close();
       registry.close();
     }

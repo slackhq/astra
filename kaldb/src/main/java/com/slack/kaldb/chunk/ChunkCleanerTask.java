@@ -1,6 +1,7 @@
 package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.AbstractScheduledService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ import org.slf4j.LoggerFactory;
  * The chunk cleaner task removes snapshotted chunks after a configurable duration from the chunk
  * manager.
  */
-public class ChunkCleanerTask<T> implements Runnable {
+public class ChunkCleanerTask<T> extends AbstractScheduledService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerTask.class);
 
@@ -24,15 +25,6 @@ public class ChunkCleanerTask<T> implements Runnable {
   public ChunkCleanerTask(ChunkManager chunkManager, Duration staleDelayDuration) {
     this.chunkManager = chunkManager;
     this.staleDelayDuration = staleDelayDuration;
-  }
-
-  @Override
-  public void run() {
-    try {
-      runAt(Instant.now());
-    } catch (Exception e) {
-      LOG.error("ChunkCleanerTask failed with error", e);
-    }
   }
 
   @VisibleForTesting
@@ -70,5 +62,19 @@ public class ChunkCleanerTask<T> implements Runnable {
         staleChunks.size());
     chunkManager.removeStaleChunks(staleChunks);
     return staleChunks.size();
+  }
+
+  @Override
+  protected void runOneIteration() {
+    try {
+      runAt(Instant.now());
+    } catch (Exception e) {
+      LOG.error("ChunkCleanerTask failed with error", e);
+    }
+  }
+
+  @Override
+  protected Scheduler scheduler() {
+    return Scheduler.newFixedDelaySchedule(staleDelayDuration, staleDelayDuration);
   }
 }

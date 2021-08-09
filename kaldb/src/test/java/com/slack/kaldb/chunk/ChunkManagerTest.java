@@ -32,6 +32,9 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.*;
@@ -71,6 +74,54 @@ public class ChunkManagerTest {
       chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
     }
     s3Client.close();
+  }
+
+  @Test
+  public void closeDuringCleanerTask()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
+
+    final String CHUNK_DATA_PREFIX = "testData";
+    chunkManager =
+        new ChunkManager<>(
+            CHUNK_DATA_PREFIX,
+            temporaryFolder.newFolder().getAbsolutePath(),
+            chunkRollOverStrategy,
+            metricsRegistry,
+            s3BlobFs,
+            S3_TEST_BUCKET,
+            MoreExecutors.newDirectExecutorService(),
+            3000);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    for (LogMessage m : messages) {
+      final int msgSize = m.toString().length();
+      chunkManager.addMessage(m, msgSize, 100);
+      chunkManager.getActiveChunk().commit();
+
+      // force creation of a unique chunk for every message
+      chunkManager.rollOverActiveChunk();
+    }
+    assertThat(chunkManager.getChunkMap().size()).isEqualTo(100);
+
+    // attempt to clean all chunks while shutting the service down
+    // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
+    // these to run immediately
+    ChunkCleanerTask<LogMessage> chunkCleanerTask =
+        new ChunkCleanerTask<>(chunkManager, Duration.ZERO);
+    ExecutorService executorService = Executors.newSingleThreadExecutor();
+    Future<?> cleanerTask = executorService.submit(chunkCleanerTask::runOneIteration);
+
+    chunkManager.stopAsync();
+
+    // wait for both to be complete
+    chunkManager.awaitTerminated(10, TimeUnit.SECONDS);
+    cleanerTask.get(10, TimeUnit.SECONDS);
+
+    assertThat(chunkManager.getChunkMap().size()).isEqualTo(0);
   }
 
   @Test
