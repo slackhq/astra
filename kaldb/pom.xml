@@ -575,6 +575,9 @@
                     <version>2.22.2</version>
                     <configuration>
                         <trimStackTrace>false</trimStackTrace>
+                        <systemPropertyVariables>
+                            <log4j.configurationFile>src/test/resources/log4j2.xml</log4j.configurationFile>
+                        </systemPropertyVariables>
                         <!--
                             <debugForkedProcess>true</debugForkedProcess>
                         -->
