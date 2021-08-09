@@ -4,12 +4,7 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.*;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.config.KaldbConfig;
@@ -152,7 +147,9 @@ public class ChunkManager<T> extends AbstractIdleService {
      One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
   */
   private static ExecutorService queryThreadPool() {
-    return Executors.newFixedThreadPool(LOCAL_QUERY_THREAD_POOL_SIZE);
+    return Executors.newFixedThreadPool(
+        LOCAL_QUERY_THREAD_POOL_SIZE,
+        new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
   /**
@@ -301,11 +298,12 @@ public class ChunkManager<T> extends AbstractIdleService {
                     CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
                         // the future and pass this timeout
-                        .completeOnTimeout(errorResult, QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                        .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
                         err -> {
+                          LOG.warn("Chunk Query Exception " + err);
                           // We catch IllegalArgumentException ( and any other exception that
                           // represents a parse failure ) and instead of returning an empty result
                           // we throw back an error to the user
