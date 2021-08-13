@@ -77,6 +77,11 @@
         </dependency>
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
+            <artifactId>armeria-brave</artifactId>
+            <version>${armeria.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria-grpc</artifactId>
             <version>${armeria.version}</version>
             <exclusions>
@@ -393,6 +398,25 @@
             <groupId>com.spotify</groupId>
             <artifactId>futures-extra</artifactId>
             <version>4.2.0</version>
+        </dependency>
+
+        <!-- Zipkin -->
+        <dependency>
+            <groupId>io.zipkin.brave</groupId>
+            <artifactId>brave-instrumentation-grpc</artifactId>
+            <version>5.13.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.brave</groupId>
+            <artifactId>brave-context-log4j2</artifactId>
+            <version>5.13.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-sender-urlconnection</artifactId>
+            <version>2.16.3</version>
         </dependency>
 
     </dependencies>

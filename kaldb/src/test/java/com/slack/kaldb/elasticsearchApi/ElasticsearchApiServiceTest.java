@@ -2,6 +2,7 @@ package com.slack.kaldb.elasticsearchApi;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +48,7 @@ public class ElasticsearchApiServiceTest {
 
   @Before
   public void setUp() throws IOException, TimeoutException {
+    Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
 
     // create an S3 client and a bucket for test

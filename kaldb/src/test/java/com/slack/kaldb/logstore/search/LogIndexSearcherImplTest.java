@@ -7,6 +7,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -26,6 +28,11 @@ public class LogIndexSearcherImplTest {
       new TemporaryLogStoreAndSearcherRule(false);
 
   public LogIndexSearcherImplTest() throws IOException {}
+
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    Tracing.newBuilder().build();
+  }
 
   private void loadTestData(Instant time) {
     strictLogStore.logStore.addMessage(

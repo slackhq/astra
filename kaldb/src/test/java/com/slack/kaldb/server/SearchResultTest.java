@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import brave.Tracing;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchResult;
@@ -18,7 +19,7 @@ public class SearchResultTest {
 
   @Test
   public void testSearchResultObjectConversions() throws Exception {
-
+    Tracing.newBuilder().build();
     List<LogMessage> logMessages = new ArrayList<>();
     Random random = new Random();
 

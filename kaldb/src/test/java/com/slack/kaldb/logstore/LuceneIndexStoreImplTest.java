@@ -14,6 +14,7 @@ import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessag
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.index.IndexCommit;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -48,6 +50,11 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 @SuppressWarnings("unused")
 @RunWith(Enclosed.class)
 public class LuceneIndexStoreImplTest {
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    Tracing.newBuilder().build();
+  }
+
   public static class TestsWithForgivingLogStore {
     @Rule
     public TemporaryLogStoreAndSearcherRule forgivingLogStore =

@@ -26,6 +26,8 @@ s3Config:
   s3EndPoint: ${S3_ENDPOINT:-http://localhost:9090}
   s3Bucket: ${S3_BUCKET:-test-s3-bucket}
 
+tracingConfig:
+  zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-http://localhost:9411/api/v2/spans}
 
 queryConfig:
   serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}

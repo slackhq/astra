@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.histogram.HistogramBucket;
@@ -26,10 +28,15 @@ public class SearchResultUtils {
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(
       KaldbSearch.SearchResult protoSearchResult) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("SearchResultUtils.fromSearchResultProtoOrEmpty");
     try {
       return fromSearchResultProto(protoSearchResult);
     } catch (IOException e) {
+      span.error(e);
       return SearchResult.empty();
+    } finally {
+      span.finish();
     }
   }
 
@@ -64,6 +71,17 @@ public class SearchResultUtils {
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("SearchResultUtils.toSearchResultProto");
+    span.tag("totalCount", String.valueOf(searchResult.totalCount));
+    span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
+    span.tag("failedNodes", String.valueOf(searchResult.failedNodes));
+    span.tag("totalNodes", String.valueOf(searchResult.totalNodes));
+    span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
+    span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
+    span.tag("hits", String.valueOf(searchResult.hits.size()));
+    span.tag("buckets", String.valueOf(searchResult.buckets.size()));
+
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
@@ -95,7 +113,7 @@ public class SearchResultUtils {
               .build());
     }
     searchResultBuilder.addAllBuckets(protoBuckets);
-
+    span.finish();
     return searchResultBuilder.build();
   }
 }
