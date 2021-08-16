@@ -274,8 +274,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   @Override
   public void close() {
     if (indexWriter.isEmpty()) {
-      throw new IllegalStateException(
-          "This function shouldn't be called when index writer is null");
+      // Closable.close() requires this be idempotent, so silently exit instead of throwing an
+      // exception
+      return;
     }
 
     timer.cancel();

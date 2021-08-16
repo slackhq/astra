@@ -99,7 +99,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);

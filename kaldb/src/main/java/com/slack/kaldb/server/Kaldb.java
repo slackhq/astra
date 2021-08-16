@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.chunk.ChunkCleanerTask;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -23,6 +24,7 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -75,8 +77,15 @@ public class Kaldb {
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
+
       ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
       services.add(chunkManager);
+
+      ChunkCleanerTask<LogMessage> chunkCleanerTask =
+          new ChunkCleanerTask<>(
+              chunkManager,
+              Duration.ofSeconds(KaldbConfig.get().getIndexerConfig().getStaleDurationSecs()));
+      services.add(chunkCleanerTask);
 
       LogMessageTransformer messageTransformer = KaldbIndexer.getLogMessageTransformer();
       LogMessageWriterImpl logMessageWriterImpl =

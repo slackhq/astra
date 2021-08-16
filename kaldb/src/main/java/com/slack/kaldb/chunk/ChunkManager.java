@@ -52,8 +52,11 @@ public class ChunkManager<T> extends AbstractIdleService {
   // TODO: ChunkDataPrefix can be moved to KaldbConfig?
   private final String chunkDataPrefix;
 
-  private final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>(16);
-  private final Object chunkMapSync = new Object();
+  // ConcurrentHashMap here guarantees we will not have race conditions when updating and reading
+  // the chunkMap. There is a possibility when reading that the values will be stale, so care
+  // should be taken to ensure that the possibility of the chunk having already been removed is
+  // considered.
+  private final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>();
 
   // TODO: Pass a reference to BlobFS instead of S3BlobFS.
   private final S3BlobFs s3BlobFs;
@@ -266,10 +269,8 @@ public class ChunkManager<T> extends AbstractIdleService {
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
       Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
-      synchronized (chunkMapSync) {
-        chunkMap.put(newChunk.id(), newChunk);
-        activeChunk = newChunk;
-      }
+      chunkMap.put(newChunk.id(), newChunk);
+      activeChunk = newChunk;
     }
     return activeChunk;
   }
@@ -359,9 +360,8 @@ public class ChunkManager<T> extends AbstractIdleService {
               LOG.info("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
-              synchronized (chunkMapSync) {
-                chunkMap.remove(entry.getKey());
-              }
+              // Note that any pending queries may still hold references to these chunks
+              chunkMap.remove(entry.getKey());
 
               chunk.close();
               chunk.cleanup();
@@ -409,7 +409,7 @@ public class ChunkManager<T> extends AbstractIdleService {
    * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
    */
   @Override
-  protected void shutDown() {
+  protected void shutDown() throws IOException {
     LOG.info("Closing chunk manager.");
 
     // Stop executor service from taking on new tasks.
