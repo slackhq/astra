@@ -7,3 +7,6 @@ bazel-*
 .ijwb/
 out/
 benchmarks/jmh-output/
+
+# Mac
+.DS_STORE
