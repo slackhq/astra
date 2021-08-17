@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
@@ -15,8 +17,12 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
 
   @Override
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.doSearch");
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
     CompletableFuture<SearchResult<T>> searchResult = chunkManager.query(query);
-    return SearchResultUtils.toSearchResultProto(searchResult);
+    CompletableFuture<KaldbSearch.SearchResult> result =
+        SearchResultUtils.toSearchResultProto(searchResult);
+    result.thenRun(span::finish);
+    return result;
   }
 }

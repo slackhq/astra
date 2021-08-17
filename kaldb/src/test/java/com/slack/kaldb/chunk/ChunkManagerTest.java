@@ -13,6 +13,7 @@ import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -56,6 +57,7 @@ public class ChunkManagerTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
+    Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test

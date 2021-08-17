@@ -4,6 +4,8 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
@@ -85,13 +87,23 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     ensureTrue(bucketCount >= 0, "bucket count should not be negative.");
     ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
 
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
+    span.tag("indexName", indexName);
+    span.tag("queryStr", queryStr);
+    span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
+    span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
+    span.tag("howMany", String.valueOf(howMany));
+    span.tag("bucketCount", String.valueOf(bucketCount));
+
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
       Query query = buildQuery(indexName, queryStr, startTimeMsEpoch, endTimeMsEpoch);
+      span.tag("lucene query", query.toString());
 
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
       IndexSearcher searcher = searcherManager.acquire();
+      span.annotate("searchManager.acquire complete");
       try {
         TopFieldCollector topFieldCollector = buildTopFieldCollector(howMany);
         StatsCollector statsCollector =
@@ -99,6 +111,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         Collector collectorChain = MultiCollector.wrap(topFieldCollector, statsCollector);
 
         searcher.search(query, collectorChain);
+        span.annotate("searcher.search complete");
         List<LogMessage> results;
         if (howMany > 0) {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
@@ -126,10 +139,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         searcherManager.release(searcher);
       }
     } catch (ParseException e) {
+      span.error(e);
       throw new IllegalArgumentException("Unable to parse query string: " + queryStr, e);
       // TODO: Return Empty search result?
     } catch (IOException e) {
+      span.error(e);
       throw new IllegalArgumentException("Failed to acquire an index searcher.", e);
+    } finally {
+      span.finish();
     }
   }
 

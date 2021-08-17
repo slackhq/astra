@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.testlib.HistogramUtil.makeHistogram;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.linecorp.armeria.internal.shaded.futures.CompletableFutures;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.HistogramBucket;
@@ -17,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.junit.Before;
 import org.junit.Test;
 
 public class SearchResultAggregatorImplTest {
@@ -38,6 +40,11 @@ public class SearchResultAggregatorImplTest {
         totalNodes,
         totalSnapshots,
         snapshotsWithReplicas);
+  }
+
+  @Before
+  public void setUp() throws Exception {
+    Tracing.newBuilder().build();
   }
 
   @Test

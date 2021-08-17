@@ -101,7 +101,7 @@ public class Kaldb {
           new KaldbLocalQueryService<>(indexer.getChunkManager());
       final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaIndexService");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
       services.add(armeriaService);
     }
 
@@ -109,7 +109,7 @@ public class Kaldb {
       KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaQueryService");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");
       services.add(armeriaService);
     }
 

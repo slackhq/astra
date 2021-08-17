@@ -1,5 +1,8 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.grpc.GrpcTracing;
 import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -34,6 +37,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
       KaldbSearch.SearchRequest request) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     List<CompletableFuture<KaldbSearch.SearchResult>> queryServers =
         new ArrayList<>(servers.size());
@@ -43,18 +48,25 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // take
       // Alternately use completeOnTimeout and the value can then we configured per request and not
       // as part of the config
+
       KaldbServiceGrpc.KaldbServiceFutureStub stub =
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+              .withInterceptors(
+                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
       queryServers.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
     }
-    return CompletableFutures.successfulAsList(
-        queryServers,
-        ex -> {
-          LOG.error("Node failed to respond ", ex);
-          return emptyResult;
-        });
+
+    try {
+      return CompletableFutures.successfulAsList(
+          queryServers,
+          ex -> {
+            LOG.error("Node failed to respond ", ex);
+            return emptyResult;
+          });
+    } finally {
+      span.finish();
+    }
   }
 
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {

@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.logstore.LogMessage;
@@ -30,6 +32,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   }
 
   private SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("SearchResultAggregatorImpl.aggregate");
     long tookMicros = 0;
     int failedNodes = 0;
     int totalNodes = 0;
@@ -64,14 +68,18 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 
-    return new SearchResult<>(
-        resultHits,
-        tookMicros,
-        totalCount,
-        histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
-        failedNodes,
-        totalNodes,
-        totalSnapshots,
-        snapshpotReplicas);
+    try {
+      return new SearchResult<>(
+          resultHits,
+          tookMicros,
+          totalCount,
+          histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
+          failedNodes,
+          totalNodes,
+          totalSnapshots,
+          snapshpotReplicas);
+    } finally {
+      span.finish();
+    }
   }
 }

@@ -1,11 +1,16 @@
 package com.slack.kaldb.server;
 
+import brave.Tracing;
+import brave.context.log4j2.ThreadContextScopeDecorator;
+import brave.handler.SpanHandler;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.brave.BraveService;
 import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
@@ -14,6 +19,7 @@ import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -22,6 +28,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zipkin2.reporter.Sender;
+import zipkin2.reporter.brave.AsyncZipkinSpanHandler;
+import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 public class ArmeriaService extends AbstractIdleService {
   private final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
@@ -59,12 +68,38 @@ public class ArmeriaService extends AbstractIdleService {
 
     sb.annotatedService(new ElasticsearchApiService(searcher));
 
-    addManagementEndpoints(sb, serverPort);
+    addManagementEndpoints(sb);
+    addTracing(sb);
 
     return sb.build();
   }
 
-  private void addManagementEndpoints(ServerBuilder sb, int serverPort) {
+  private void addTracing(ServerBuilder sb) {
+    String endpoint = KaldbConfig.get().getTracingConfig().getZipkinEndpoint();
+    SpanHandler spanHandler = new SpanHandler() {};
+
+    if (!endpoint.isBlank()) {
+      LOG.info(String.format("Trace reporting enabled: %s", endpoint));
+      Sender sender = URLConnectionSender.create(endpoint);
+      spanHandler = AsyncZipkinSpanHandler.create(sender);
+    } else {
+      LOG.info("Trace reporting disabled");
+    }
+
+    // always add a tracer, even if we're not reporting
+    Tracing tracing =
+        Tracing.newBuilder()
+            .localServiceName(this.serviceName)
+            .currentTraceContext(
+                RequestContextCurrentTraceContext.builder()
+                    .addScopeDecorator(ThreadContextScopeDecorator.get())
+                    .build())
+            .addSpanHandler(spanHandler)
+            .build();
+    sb.decorator(BraveService.newDecorator(tracing));
+  }
+
+  private void addManagementEndpoints(ServerBuilder sb) {
     sb.decorator(
         MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
     sb.decorator(getLoggingServiceBuilder().newDecorator());

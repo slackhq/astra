@@ -3,8 +3,11 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.*;
+import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.config.KaldbConfig;
@@ -297,7 +300,39 @@ public class ChunkManager<T> extends AbstractIdleService {
                         query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
             .map(
                 (chunk) ->
-                    CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                              ScopedSpan span =
+                                  Tracing.currentTracer()
+                                      .startScopedSpan("ReadWriteChunkImpl.query");
+                              span.tag("chunkId", chunk.info().chunkId);
+                              span.tag(
+                                  "chunkCreationTimeSecsSinceEpoch",
+                                  String.valueOf(chunk.info().getChunkCreationTimeEpochSecs()));
+                              span.tag(
+                                  "chunkLastUpdatedTimeSecsEpochSecs",
+                                  String.valueOf(
+                                      chunk.info().getChunkLastUpdatedTimeSecsEpochSecs()));
+                              span.tag(
+                                  "dataStartTimeEpochSecs",
+                                  String.valueOf(chunk.info().getDataStartTimeEpochSecs()));
+                              span.tag(
+                                  "dataEndTimeEpochSecs",
+                                  String.valueOf(chunk.info().getDataEndTimeEpochSecs()));
+                              span.tag(
+                                  "chunkSnapshotTimeEpochSecs",
+                                  String.valueOf(chunk.info().getChunkSnapshotTimeEpochSecs()));
+                              span.tag("numDocs", String.valueOf(chunk.info().getNumDocs()));
+                              span.tag("chunkSize", String.valueOf(chunk.info().getChunkSize()));
+                              span.tag("readOnly", String.valueOf(chunk.isReadOnly()));
+
+                              try {
+                                return chunk.query(query);
+                              } finally {
+                                span.finish();
+                              }
+                            },
+                            RequestContext.makeContextPropagating(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
                         // the future and pass this timeout
                         .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))

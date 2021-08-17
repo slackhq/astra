@@ -1,5 +1,7 @@
 package com.slack.kaldb.elasticsearchApi;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
@@ -59,6 +61,7 @@ public class ElasticsearchApiService {
   public HttpResponse multiSearch(String postBody) throws IOException {
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
     List<EsSearchResponse> responses = new ArrayList<>();
+    Tracing.current().tracer().currentSpanCustomizer().tag("postBody", postBody);
 
     for (EsSearchRequest request : requests) {
       responses.add(doSearch(request));
@@ -70,7 +73,13 @@ public class ElasticsearchApiService {
   }
 
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
+    span.tag("indexName", searchRequest.getIndexName());
+    span.tag("queryString", searchRequest.getQueryString());
+    span.tag("queryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
+    span.tag("queryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
+
     // TODO remove join when we move to query service
     List<SearchResponseHit> responseHits = new ArrayList<>();
 
@@ -95,9 +104,11 @@ public class ElasticsearchApiService {
           }
         };
 
+    span.annotate("initiating search");
     searcher.search(searchRequest, responseObserver);
     KaldbSearch.SearchResult searchResult = searchResultFuture.join();
 
+    span.annotate("building response");
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     for (ByteString bytes : hitsByteList) {
       responseHits.add(SearchResponseHit.fromByteString(bytes));
@@ -131,11 +142,15 @@ public class ElasticsearchApiService {
             .hits(responseHits)
             .build();
 
-    return new EsSearchResponse.Builder()
-        .hits(hitsMetadata)
-        .aggregations(aggregationResponseMap)
-        .status(200)
-        .build();
+    try {
+      return new EsSearchResponse.Builder()
+          .hits(hitsMetadata)
+          .aggregations(aggregationResponseMap)
+          .status(200)
+          .build();
+    } finally {
+      span.finish();
+    }
   }
 
   /**

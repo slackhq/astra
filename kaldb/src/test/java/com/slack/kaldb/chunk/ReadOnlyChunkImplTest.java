@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -32,6 +33,7 @@ public class ReadOnlyChunkImplTest {
 
   @Before
   public void setUp() throws IOException {
+    Tracing.newBuilder().build();
     registry = new SimpleMeterRegistry();
     File localStore = temporaryFolder.newFolder();
 
