@@ -51,7 +51,8 @@ public class SearchResultUtils {
     }
     List<HistogramBucket> histogramBuckets = new ArrayList<>();
     for (KaldbSearch.HistogramBucket protoBucket : protoSearchResult.getBucketsList()) {
-      histogramBuckets.add(new HistogramBucket(protoBucket.getLow(), protoBucket.getHigh()));
+      histogramBuckets.add(
+          new HistogramBucket(protoBucket.getLow(), protoBucket.getHigh(), protoBucket.getCount()));
     }
 
     return new SearchResult<>(
