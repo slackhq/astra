@@ -5,7 +5,26 @@ deleteDatasources:
     orgId: 1
 
 datasources:
-  - name: KalDB
+  - name: KalDB Query
+    type: elasticsearch
+    access: proxy
+    url: "host.docker.internal:8081"
+    password:
+    user:
+    database: testindex
+    basicAuth: false
+    basicAuthUser:
+    basicAuthPassword:
+    withCredentials:
+    isDefault: true
+    jsonData:
+      timeField: "@timestamp"
+      esVersion: 7.0.0
+      maxConcurrentShardRequests: 5
+      logMessageField: "_source"
+      logLevelField: ""
+    version: 1
+  - name: KalDB Index
     type: elasticsearch
     access: proxy
     url: "host.docker.internal:8080"
@@ -16,7 +35,7 @@ datasources:
     basicAuthUser:
     basicAuthPassword:
     withCredentials:
-    isDefault: true
+    isDefault: false
     jsonData:
       timeField: "@timestamp"
       esVersion: 7.0.0

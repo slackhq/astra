@@ -13,14 +13,18 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
 
   private double count;
 
-  public HistogramBucket(double low, double high) {
+  public HistogramBucket(double low, double high, double count) {
     if (low >= high) {
       throw new IllegalArgumentException(
           String.format("The low %s should be higher than high %s", low, high));
     }
     this.low = low;
     this.high = high;
-    this.count = 0;
+    this.count = count;
+  }
+
+  public HistogramBucket(double low, double high) {
+    this(low, high, 0);
   }
 
   public void increment(double incr) {
