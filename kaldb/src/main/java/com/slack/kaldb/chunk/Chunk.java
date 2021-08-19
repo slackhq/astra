@@ -5,12 +5,14 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
  * A chunk stores messages for a specific time range. It can concurrently store messages and respond
  * to queries. Optionally a chunk can be read only at which point it can only be queried.
  */
-public interface Chunk<T> {
+public interface Chunk<T> extends Closeable {
 
   /* A string that uniquely identifies this chunk. */
   String id();
@@ -50,7 +52,7 @@ public interface Chunk<T> {
   // Map<String, Object> getStats();
 
   /** Close the chunk. */
-  void close();
+  void close() throws IOException;
 
   /** Enable/disable read only mode for the store. */
   void setReadOnly(boolean readOnly);

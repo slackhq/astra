@@ -16,8 +16,11 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
 
+    // There is a nuance between handle vs handleAsync/whenCompleteAsync
+    // handleAsync/whenCompleteAsync will cause the callback to be invoked from Java's default
+    // fork-join pool
     doSearch(request)
-        .whenCompleteAsync(
+        .handle(
             (result, t) -> {
               if (t != null) {
                 LOG.error("Error completing the future", t);
@@ -26,6 +29,7 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
                 responseObserver.onNext(result);
                 responseObserver.onCompleted();
               }
+              return null;
             });
   }
 

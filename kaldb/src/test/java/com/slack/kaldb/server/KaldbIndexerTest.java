@@ -7,6 +7,7 @@ import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.linecorp.armeria.client.Clients;
@@ -64,6 +65,7 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
+    Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =

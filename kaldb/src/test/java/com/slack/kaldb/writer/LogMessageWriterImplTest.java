@@ -10,6 +10,7 @@ import static com.slack.kaldb.testlib.SpanUtil.makeSpanBuilder;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
@@ -52,6 +53,7 @@ public class LogMessageWriterImplTest {
 
   @Before
   public void setUp() throws InvalidProtocolBufferException, TimeoutException {
+    Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =

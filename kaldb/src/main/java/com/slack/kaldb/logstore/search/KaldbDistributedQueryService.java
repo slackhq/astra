@@ -1,19 +1,26 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.ScopedSpan;
+import brave.Tracing;
+import brave.grpc.GrpcTracing;
 import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.internal.shaded.futures.CompletableFutures;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
+import com.spotify.futures.CompletableFutures;
 import com.spotify.futures.ListenableFuturesExtra;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   public static List<String> servers = new ArrayList<>();
 
@@ -22,7 +29,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // TODO: ChunkManager#QUERY_TIMEOUT_SECONDS and this could be unified?
   public static int READ_TIMEOUT_MS = 15000;
 
-  public static final KaldbSearch.SearchResult error =
+  public static final KaldbSearch.SearchResult emptyResult =
       KaldbSearch.SearchResult.newBuilder().setFailedNodes(1).setTotalNodes(1).build();
 
   // TODO Cache the stub
@@ -30,24 +37,36 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
       KaldbSearch.SearchRequest request) {
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
-    List<CompletableFuture<KaldbSearch.SearchResult>> futures = new ArrayList<>(servers.size());
+    List<CompletableFuture<KaldbSearch.SearchResult>> queryServers =
+        new ArrayList<>(servers.size());
 
     for (String server : servers) {
       // With the deadline we are keeping a high limit on how much time can each CompletableFuture
       // take
       // Alternately use completeOnTimeout and the value can then we configured per request and not
       // as part of the config
+
       KaldbServiceGrpc.KaldbServiceFutureStub stub =
           Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+              .withInterceptors(
+                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-      futures.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
+      queryServers.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
     }
-    return futures
-        .stream()
-        .map(result -> result.exceptionally(ex -> error))
-        .collect(CompletableFutures.joinList());
+
+    try {
+      return CompletableFutures.successfulAsList(
+          queryServers,
+          ex -> {
+            LOG.error("Node failed to respond ", ex);
+            return emptyResult;
+          });
+    } finally {
+      span.finish();
+    }
   }
 
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {

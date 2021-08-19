@@ -3,13 +3,11 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.*;
+import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.config.KaldbConfig;
@@ -57,8 +55,11 @@ public class ChunkManager<T> extends AbstractIdleService {
   // TODO: ChunkDataPrefix can be moved to KaldbConfig?
   private final String chunkDataPrefix;
 
-  private final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>(16);
-  private final Object chunkMapSync = new Object();
+  // ConcurrentHashMap here guarantees we will not have race conditions when updating and reading
+  // the chunkMap. There is a possibility when reading that the values will be stale, so care
+  // should be taken to ensure that the possibility of the chunk having already been removed is
+  // considered.
+  private final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>();
 
   // TODO: Pass a reference to BlobFS instead of S3BlobFS.
   private final S3BlobFs s3BlobFs;
@@ -79,7 +80,8 @@ public class ChunkManager<T> extends AbstractIdleService {
   private ListenableFuture<Boolean> rolloverFuture;
 
   // TODO: We want to move this to the config eventually
-  public static final int QUERY_TIMEOUT_SECONDS = 30;
+  // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
+  public static final int QUERY_TIMEOUT_SECONDS = 10;
   public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
 
   // TODO: Pass this in via config file.
@@ -152,7 +154,9 @@ public class ChunkManager<T> extends AbstractIdleService {
      One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
   */
   private static ExecutorService queryThreadPool() {
-    return Executors.newFixedThreadPool(LOCAL_QUERY_THREAD_POOL_SIZE);
+    return Executors.newFixedThreadPool(
+        LOCAL_QUERY_THREAD_POOL_SIZE,
+        new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
   /**
@@ -268,10 +272,8 @@ public class ChunkManager<T> extends AbstractIdleService {
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
       Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
-      synchronized (chunkMapSync) {
-        chunkMap.put(newChunk.id(), newChunk);
-        activeChunk = newChunk;
-      }
+      chunkMap.put(newChunk.id(), newChunk);
+      activeChunk = newChunk;
     }
     return activeChunk;
   }
@@ -298,14 +300,47 @@ public class ChunkManager<T> extends AbstractIdleService {
                         query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
             .map(
                 (chunk) ->
-                    CompletableFuture.supplyAsync(() -> chunk.query(query), queryExecutorService)
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                              ScopedSpan span =
+                                  Tracing.currentTracer()
+                                      .startScopedSpan("ReadWriteChunkImpl.query");
+                              span.tag("chunkId", chunk.info().chunkId);
+                              span.tag(
+                                  "chunkCreationTimeSecsSinceEpoch",
+                                  String.valueOf(chunk.info().getChunkCreationTimeEpochSecs()));
+                              span.tag(
+                                  "chunkLastUpdatedTimeSecsEpochSecs",
+                                  String.valueOf(
+                                      chunk.info().getChunkLastUpdatedTimeSecsEpochSecs()));
+                              span.tag(
+                                  "dataStartTimeEpochSecs",
+                                  String.valueOf(chunk.info().getDataStartTimeEpochSecs()));
+                              span.tag(
+                                  "dataEndTimeEpochSecs",
+                                  String.valueOf(chunk.info().getDataEndTimeEpochSecs()));
+                              span.tag(
+                                  "chunkSnapshotTimeEpochSecs",
+                                  String.valueOf(chunk.info().getChunkSnapshotTimeEpochSecs()));
+                              span.tag("numDocs", String.valueOf(chunk.info().getNumDocs()));
+                              span.tag("chunkSize", String.valueOf(chunk.info().getChunkSize()));
+                              span.tag("readOnly", String.valueOf(chunk.isReadOnly()));
+
+                              try {
+                                return chunk.query(query);
+                              } finally {
+                                span.finish();
+                              }
+                            },
+                            RequestContext.makeContextPropagating(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
                         // the future and pass this timeout
-                        .completeOnTimeout(errorResult, QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                        .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
                         err -> {
+                          LOG.warn("Chunk Query Exception " + err);
                           // We catch IllegalArgumentException ( and any other exception that
                           // represents a parse failure ) and instead of returning an empty result
                           // we throw back an error to the user
@@ -360,9 +395,8 @@ public class ChunkManager<T> extends AbstractIdleService {
               LOG.info("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
-              synchronized (chunkMapSync) {
-                chunkMap.remove(entry.getKey());
-              }
+              // Note that any pending queries may still hold references to these chunks
+              chunkMap.remove(entry.getKey());
 
               chunk.close();
               chunk.cleanup();
@@ -410,7 +444,7 @@ public class ChunkManager<T> extends AbstractIdleService {
    * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
    */
   @Override
-  protected void shutDown() {
+  protected void shutDown() throws IOException {
     LOG.info("Closing chunk manager.");
 
     // Stop executor service from taking on new tasks.

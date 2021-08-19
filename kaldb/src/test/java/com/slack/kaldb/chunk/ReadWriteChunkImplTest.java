@@ -12,6 +12,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
@@ -58,6 +59,7 @@ public class ReadWriteChunkImplTest {
 
     @Before
     public void setUp() throws IOException {
+      Tracing.newBuilder().build();
       registry = new SimpleMeterRegistry();
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -66,7 +68,7 @@ public class ReadWriteChunkImplTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
       chunk.close();
       registry.close();
     }

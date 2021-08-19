@@ -17,6 +17,7 @@ message KaldbConfig {
     QueryServiceConfig queryConfig = 4;
     MetadataStoreConfig metadataStoreConfig = 5;
     repeated NodeRole nodeRoles = 6;
+    TracingConfig tracingConfig = 7;
 }
 
 message KafkaConfig {
@@ -47,6 +48,10 @@ message S3Config {
     string s3Region = 3;
     string s3EndPoint = 4;
     string s3Bucket = 5;
+}
+
+message TracingConfig {
+    string zipkinEndpoint = 1;
 }
 
 message QueryServiceConfig {

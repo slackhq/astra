@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.lucene.index.IndexCommit;
@@ -7,7 +8,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
 
 /* An interface that implements a read and write interface for the LogStore */
-public interface LogStore<T> {
+public interface LogStore<T> extends Closeable {
   void addMessage(T message);
 
   // TODO: Instead of exposing the searcherManager, consider returning an instance of the searcher.
@@ -16,8 +17,6 @@ public interface LogStore<T> {
   void commit();
 
   void refresh();
-
-  void close();
 
   boolean isOpen();
 

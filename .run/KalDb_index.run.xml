@@ -1,5 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="KalDb" type="Application" factoryName="Application">
+  <configuration default="false" name="KalDb Index Node" type="Application" factoryName="Application">
+    <envs>
+      <env name="NODE_ROLES" value="INDEX" />
+    </envs>
     <option name="MAIN_CLASS_NAME" value="com.slack.kaldb.server.Kaldb" />
     <module name="kaldb" />
     <option name="PROGRAM_PARAMETERS" value="config/config.yaml" />

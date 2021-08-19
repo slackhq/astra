@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.chunk.ChunkCleanerTask;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -23,6 +24,7 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -78,8 +80,15 @@ public class Kaldb {
     services.add(metadataStoreService);
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
+
       ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
       services.add(chunkManager);
+
+      ChunkCleanerTask<LogMessage> chunkCleanerTask =
+          new ChunkCleanerTask<>(
+              chunkManager,
+              Duration.ofSeconds(KaldbConfig.get().getIndexerConfig().getStaleDurationSecs()));
+      services.add(chunkCleanerTask);
 
       LogMessageTransformer messageTransformer = KaldbIndexer.getLogMessageTransformer();
       LogMessageWriterImpl logMessageWriterImpl =
@@ -94,7 +103,7 @@ public class Kaldb {
           new KaldbLocalQueryService<>(indexer.getChunkManager());
       final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaIndexService");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
       services.add(armeriaService);
     }
 
@@ -102,7 +111,7 @@ public class Kaldb {
       KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "armeriaQueryService");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");
       services.add(armeriaService);
     }
 

@@ -71,7 +71,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public void commit() {}
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     logSearcher.close();
     LOG.info("Closed chunk {}", chunkInfo);
   }

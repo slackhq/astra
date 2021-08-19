@@ -27,28 +27,18 @@ services:
     image: 'grafana/grafana:8.0.3'
     container_name: kaldb_grafana
     ports:
-      - 3000:3000
+      - '3000:3000'
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning
       - ../slack-kaldb-app:/var/lib/grafana/plugins
     environment:
+      GF_LOG_MODE: "console file"
+      GF_LOG_LEVEL: "debug"
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
       GF_PATHS_PLUGINS: "/var/lib/grafana/plugins"
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-kaldb-app"
-
-  grafana7:
-    image: 'grafana/grafana:7.3.6'
-    container_name: kaldb_grafana7
-    ports:
-      - 3001:3000
-    volumes:
-      - ./config/grafana/provisioning:/etc/grafana/provisioning
-    environment:
-      GF_AUTH_DISABLE_LOGIN_FORM: "true"
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "slack-kaldb-app,slack-kaldb-app-backend-datasource"
 
   s3:
     image: 'adobe/s3mock:2.1.29'
