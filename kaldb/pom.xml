@@ -498,9 +498,10 @@
                                     -->
                                     <artifact>*:*</artifact>
                                     <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
+                                        <!-- Exclude module-info.class since it breaks strong encapsulation. -->
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/**</exclude>
+                                        <exclude>*</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
