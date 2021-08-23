@@ -501,7 +501,7 @@
                                         <!-- Exclude module-info.class since it breaks strong encapsulation. -->
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/**</exclude>
-                                        <exclude>*</exclude>
+                                        <exclude>codegen-resources/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

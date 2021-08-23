@@ -109,6 +109,7 @@
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/**</exclude>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>codegen-resources/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
