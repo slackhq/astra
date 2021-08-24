@@ -1,14 +1,17 @@
 package com.slack.kaldb.server;
 
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 
 public class MetadataStoreService extends AbstractIdleService {
   private final MeterRegistry meterRegistry;
+  private final KaldbConfigs.ZookeeperConfig zookeeperConfig;
   private MetadataStore metadataStore;
 
   public static String SNAPSHOT_METADATA_PATH = "/snapshots";
@@ -16,8 +19,14 @@ public class MetadataStoreService extends AbstractIdleService {
   private SnapshotMetadataStore snapshotStore;
   private SearchMetadataStore searchStore;
 
-  MetadataStoreService(MeterRegistry meterRegistry) {
+  public MetadataStoreService(MeterRegistry meterRegistry) {
+    this(meterRegistry, KaldbConfig.get().getMetadataStoreConfig().getZookeeperConfig());
+  }
+
+  public MetadataStoreService(
+      MeterRegistry meterRegistry, KaldbConfigs.ZookeeperConfig zookeeperConfig) {
     this.meterRegistry = meterRegistry;
+    this.zookeeperConfig = zookeeperConfig;
   }
 
   public synchronized SnapshotMetadataStore getSnapshotStore(boolean shouldCache) throws Exception {
@@ -41,8 +50,8 @@ public class MetadataStoreService extends AbstractIdleService {
   }
 
   @Override
-  protected void startUp() throws Exception {
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry);
+  protected void startUp() {
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zookeeperConfig);
   }
 
   @Override

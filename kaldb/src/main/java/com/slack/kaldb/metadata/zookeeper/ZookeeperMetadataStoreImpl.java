@@ -8,7 +8,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -55,11 +54,10 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   public static final String METADATA_WRITE_COUNTER = "metadata.write";
   public static final String METADATA_READ_COUNTER = "metadata.read";
 
-  private static int ZK_RETRY_COUNT = 3;
+  private static final int ZK_RETRY_COUNT = 3;
 
-  public static ZookeeperMetadataStoreImpl fromConfig(MeterRegistry meterRegistry) {
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfig.get().getMetadataStoreConfig().getZookeeperConfig();
+  public static ZookeeperMetadataStoreImpl fromConfig(
+      MeterRegistry meterRegistry, KaldbConfigs.ZookeeperConfig zkConfig) {
     return new ZookeeperMetadataStoreImpl(
         zkConfig.getZkConnectString(),
         zkConfig.getZkPathPrefix(),

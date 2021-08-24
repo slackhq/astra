@@ -20,6 +20,7 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbIndexer;
 import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.curator.test.TestingServer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -61,16 +63,21 @@ public class KaldbDistributedQueryServiceTest {
 
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
+  private static final String METADATA_ZK_PATH_PREFIX = "test-metadata";
   private static TestKafkaServer kafkaServer;
+  private static TestingServer testingServer;
 
   @BeforeClass
   // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
-  public static void initialize() throws Exception {
+  public static void setUp() throws Exception {
     Tracing.newBuilder().build();
     kafkaServer = new TestKafkaServer();
 
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
+
+    testingServer = new TestingServer();
+    String zkConnectString = testingServer.getConnectString();
 
     KaldbConfigs.KaldbConfig kaldbConfig1 =
         KaldbConfigUtil.makeKaldbConfig(
@@ -80,7 +87,9 @@ public class KaldbDistributedQueryServiceTest {
             TEST_KAFKA_PARTITION_1,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081);
+            8081,
+            zkConnectString,
+            METADATA_ZK_PATH_PREFIX);
 
     // Needed to set refresh/commit interval etc
     // Will be same for both indexing servers
@@ -101,7 +110,9 @@ public class KaldbDistributedQueryServiceTest {
             TEST_KAFKA_PARTITION_2,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081);
+            8081,
+            zkConnectString,
+            METADATA_ZK_PATH_PREFIX);
 
     // Set it to the new config so that the new kafka writer picks up this config
     KaldbConfig.initFromConfigObject(kaldbConfig2);
@@ -165,11 +176,15 @@ public class KaldbDistributedQueryServiceTest {
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
+    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
     KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 
-    KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
+    KaldbIndexer indexer =
+        new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter, metadataStoreService);
     indexer.startAsync();
     indexer.awaitRunning(15, TimeUnit.SECONDS);
 
@@ -210,7 +225,7 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @AfterClass
-  public static void shutdownServer() throws Exception {
+  public static void tearDown() throws Exception {
     if (queryServer != null) {
       queryServer.stop().get(30, TimeUnit.SECONDS);
     }
@@ -228,6 +243,9 @@ public class KaldbDistributedQueryServiceTest {
     }
     if (kafkaServer != null) {
       kafkaServer.close();
+    }
+    if (testingServer != null) {
+      testingServer.close();
     }
   }
 

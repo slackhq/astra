@@ -36,6 +36,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
+import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -52,6 +53,7 @@ public class KaldbIndexerTest {
 
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
+  private static final String METADATA_ZK_PATH_PREFIX = "test-metadata";
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
@@ -62,11 +64,13 @@ public class KaldbIndexerTest {
   private SimpleMeterRegistry metricsRegistry;
   private Server server;
   private TestKafkaServer kafkaServer;
+  private TestingServer testingServer;
 
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
+    testingServer = new TestingServer();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
@@ -84,6 +88,9 @@ public class KaldbIndexerTest {
       kaldbIndexer.awaitTerminated(15, TimeUnit.SECONDS);
     }
     kafkaServer.close();
+    if (testingServer != null) {
+      testingServer.close();
+    }
   }
 
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
@@ -108,6 +115,7 @@ public class KaldbIndexerTest {
             .build());
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testIndexFromKafkaSearchViaGrpcSearchApi() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
@@ -126,12 +134,17 @@ public class KaldbIndexerTest {
             TEST_KAFKA_PARTITION,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081);
+            8081,
+            testingServer.getConnectString(),
+            METADATA_ZK_PATH_PREFIX);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
+    MetadataStoreService metadataStoreService = new MetadataStoreService(metricsRegistry);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
     KaldbKafkaWriter kafkaWriter =
         KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
     kafkaWriter.startAsync();
@@ -141,7 +154,7 @@ public class KaldbIndexerTest {
     ServerBuilder sb = Server.builder();
     sb.http(kaldbCfg.getIndexerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    kaldbIndexer = new KaldbIndexer(chunkManager, kafkaWriter);
+    kaldbIndexer = new KaldbIndexer(chunkManager, kafkaWriter, metadataStoreService);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
