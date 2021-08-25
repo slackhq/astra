@@ -178,10 +178,12 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
-    assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
-    assertThat(readConfig.getServerPort()).isEqualTo(8081);
+    final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
+    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isEqualTo(8081);
+    assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -236,10 +238,12 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
-    assertThat(indexerConfig.getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
-    assertThat(readConfig.getServerPort()).isEqualTo(8081);
+    assertThat(readConfig.getServerConfig().getServerPort()).isEqualTo(8081);
+    assertThat(readConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -290,10 +294,12 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
-    assertThat(indexerConfig.getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
-    assertThat(readConfig.getServerPort()).isZero();
+    final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
+    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -334,10 +340,12 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
-    assertThat(indexerConfig.getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 
-    final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
-    assertThat(readConfig.getServerPort()).isZero();
+    final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
+    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
