@@ -9,6 +9,8 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -71,7 +73,7 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices() {
+  public static Set<Service> getServices() throws Exception {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
@@ -105,6 +107,14 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
       services.add(armeriaService);
+
+      // TODO: Move this registration to chunk manager.
+      // Register indexer node synchronously.
+      SearchMetadataStore searchStore = metadataStoreService.getSearchStore(false);
+      SearchMetadata searchMetadata =
+          SearchContext.fromConfig(KaldbConfig.get().getIndexerConfig().getServerConfig())
+              .toSearchMetadata("LIVE");
+      searchStore.create(searchMetadata).get();
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
