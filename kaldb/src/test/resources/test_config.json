@@ -25,10 +25,16 @@
     "staleDurationSecs": 7200,
     "dataTransformer": "api_log",
     "dataDirectory": "/tmp",
-    "serverPort": 8080
+    "serverConfig": {
+      "serverPort": 8080,
+      "serverAddress": "localhost"
+    }
   },
   "queryConfig": {
-    "serverPort": 8081
+    "serverConfig": {
+      "serverPort": 8081,
+      "serverAddress": "1.2.3.4"
+    }
   },
   "metadataStoreConfig": {
     "zookeeperConfig": {

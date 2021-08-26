@@ -55,7 +55,7 @@ message TracingConfig {
 }
 
 message QueryServiceConfig {
-    int32 serverPort = 1;
+    ServerConfig serverConfig = 1;
 }
 
 message IndexerConfig {
@@ -66,5 +66,10 @@ message IndexerConfig {
     int64 staleDurationSecs= 5;
     string dataTransformer = 6;
     string dataDirectory = 7;
-    int32 serverPort = 8;
+    ServerConfig serverConfig = 8;
+}
+
+message ServerConfig {
+    int32 serverPort = 1;
+    string serverAddress = 2;
 }

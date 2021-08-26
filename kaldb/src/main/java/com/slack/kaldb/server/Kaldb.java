@@ -101,7 +101,7 @@ public class Kaldb {
 
       KaldbLocalQueryService<LogMessage> searcher =
           new KaldbLocalQueryService<>(indexer.getChunkManager());
-      final int serverPort = KaldbConfig.get().getIndexerConfig().getServerPort();
+      final int serverPort = KaldbConfig.get().getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
       services.add(armeriaService);
@@ -109,7 +109,7 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
-      final int serverPort = KaldbConfig.get().getQueryConfig().getServerPort();
+      final int serverPort = KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");
       services.add(armeriaService);

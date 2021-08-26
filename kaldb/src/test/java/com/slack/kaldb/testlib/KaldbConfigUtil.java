@@ -36,7 +36,11 @@ public class KaldbConfigUtil {
 
     KaldbConfigs.IndexerConfig indexerConfig =
         KaldbConfigs.IndexerConfig.newBuilder()
-            .setServerPort(indexerPort)
+            .setServerConfig(
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerPort(indexerPort)
+                    .setServerAddress("localhost")
+                    .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(100)
             .setCommitDurationSecs(10)
@@ -57,7 +61,13 @@ public class KaldbConfigUtil {
         KaldbConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
 
     KaldbConfigs.QueryServiceConfig queryConfig =
-        KaldbConfigs.QueryServiceConfig.newBuilder().setServerPort(queryPort).build();
+        KaldbConfigs.QueryServiceConfig.newBuilder()
+            .setServerConfig(
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerPort(queryPort)
+                    .setServerAddress("localhost")
+                    .build())
+            .build();
 
     return KaldbConfigs.KaldbConfig.newBuilder()
         .setKafkaConfig(kafkaConfig)

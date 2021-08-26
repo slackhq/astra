@@ -152,7 +152,7 @@ public class KaldbIndexerTest {
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
-    sb.http(kaldbCfg.getIndexerConfig().getServerPort());
+    sb.http(kaldbCfg.getIndexerConfig().getServerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     kaldbIndexer = new KaldbIndexer(chunkManager, kafkaWriter, metadataStoreService);
     kaldbIndexer.startAsync();
