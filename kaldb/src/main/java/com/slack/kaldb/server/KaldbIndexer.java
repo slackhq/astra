@@ -42,7 +42,6 @@ public class KaldbIndexer extends AbstractIdleService {
           LogMessageWriterImpl.jsonLogMessageTransformer);
 
   private final KaldbKafkaWriter kafkaWriter;
-  private final MetadataStoreService metadataStoreService;
 
   public ChunkManager<LogMessage> getChunkManager() {
     return chunkManager;
@@ -91,20 +90,15 @@ public class KaldbIndexer extends AbstractIdleService {
    * messages, persist the indexed messages and metadata successfully and then close the
    * chunkManager and then the consumer,
    */
-  public KaldbIndexer(
-      ChunkManager<LogMessage> chunkManager,
-      KaldbKafkaWriter kafkaWriter,
-      MetadataStoreService metadataStoreService) {
+  public KaldbIndexer(ChunkManager<LogMessage> chunkManager, KaldbKafkaWriter kafkaWriter) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
     this.kafkaWriter = kafkaWriter;
-    this.metadataStoreService = metadataStoreService;
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting indexing into Kaldb.");
-    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
   }
 

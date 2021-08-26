@@ -96,7 +96,7 @@ public class Kaldb {
       KaldbKafkaWriter kafkaWriter =
           KaldbKafkaWriter.fromConfig(logMessageWriterImpl, prometheusMeterRegistry);
       services.add(kafkaWriter);
-      KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter, metadataStoreService);
+      KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter);
       services.add(indexer);
 
       KaldbLocalQueryService<LogMessage> searcher =
