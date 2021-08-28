@@ -3,9 +3,7 @@ package com.slack.kaldb.server;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
-/**
- * SearchContext class creates a searchable URL for a snapshot from the host name and port name.
- */
+/** SearchContext class creates a searchable URL for a snapshot from the host name and port name. */
 public class SearchContext {
   public static SearchContext fromConfig(KaldbConfigs.ServerConfig serverConfig) {
     return new SearchContext(serverConfig.getServerAddress(), serverConfig.getServerPort());

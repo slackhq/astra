@@ -9,8 +9,6 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
-import com.slack.kaldb.metadata.search.SearchMetadata;
-import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -110,11 +108,11 @@ public class Kaldb {
 
       // TODO: Move this registration to chunk manager.
       // Register indexer node synchronously.
-      SearchMetadataStore searchStore = metadataStoreService.getSearchStore(false);
-      SearchMetadata searchMetadata =
-          SearchContext.fromConfig(KaldbConfig.get().getIndexerConfig().getServerConfig())
-              .toSearchMetadata("LIVE");
-      searchStore.create(searchMetadata).get();
+      //      SearchMetadataStore searchStore = metadataStoreService.getSearchStore(false);
+      //      SearchMetadata searchMetadata =
+      //          SearchContext.fromConfig(KaldbConfig.get().getIndexerConfig().getServerConfig())
+      //              .toSearchMetadata("LIVE");
+      //      searchStore.create(searchMetadata).get();
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
