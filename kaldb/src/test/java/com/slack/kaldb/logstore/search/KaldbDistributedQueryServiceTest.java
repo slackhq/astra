@@ -46,8 +46,8 @@ import org.junit.Test;
 public class KaldbDistributedQueryServiceTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
-  private static SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
-  private static SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
+  private static final SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
+  private static final SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
 
   private static KaldbServiceGrpc.KaldbServiceBlockingStub queryServiceStub;
   private static Server indexingServer1;
