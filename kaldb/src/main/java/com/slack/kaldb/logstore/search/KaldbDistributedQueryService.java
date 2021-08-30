@@ -3,6 +3,9 @@ package com.slack.kaldb.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -24,6 +27,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   public static List<String> servers = new ArrayList<>();
 
+  private final LoadingCache<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubLoadingCache =
+      CacheBuilder.newBuilder().build(CacheLoader.from(this::getKaldbServiceGrpcClient));
+
+  private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
+    return Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+        .withInterceptors(GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor());
+  }
+
   // public so that we can override in tests
   // TODO: In the future expose this as a config in the proto
   // TODO: ChunkManager#QUERY_TIMEOUT_SECONDS and this could be unified?
@@ -32,7 +43,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static final KaldbSearch.SearchResult emptyResult =
       KaldbSearch.SearchResult.newBuilder().setFailedNodes(1).setTotalNodes(1).build();
 
-  // TODO Cache the stub
   // TODO Integrate with ZK to update list of servers
 
   private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
@@ -48,13 +58,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // take
       // Alternately use completeOnTimeout and the value can then we configured per request and not
       // as part of the config
-
-      KaldbServiceGrpc.KaldbServiceFutureStub stub =
-          Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
-              .withInterceptors(
-                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      queryServers.add(ListenableFuturesExtra.toCompletableFuture(stub.search(request)));
+      queryServers.add(
+          ListenableFuturesExtra.toCompletableFuture(
+                  stubLoadingCache
+                      .getUnchecked(server)
+                      .withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                      .search(request))
+              .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
     }
 
     try {
