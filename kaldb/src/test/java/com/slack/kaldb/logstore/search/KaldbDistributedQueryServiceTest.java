@@ -183,7 +183,7 @@ public class KaldbDistributedQueryServiceTest {
           .workerGroup(
               EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer-delayed", true),
               true)
-          .http(kaldbConfig.getIndexerConfig().getServerPort())
+          .http(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(wrapperService).build())
           .build();
@@ -191,7 +191,7 @@ public class KaldbDistributedQueryServiceTest {
       return Server.builder()
           .workerGroup(
               EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer", true), true)
-          .http(kaldbConfig.getIndexerConfig().getServerPort())
+          .http(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort())
           .verboseResponses(true)
           .service(GrpcService.builder().addService(service).build())
           .build();
