@@ -82,7 +82,7 @@ public class ApiLogFormatter {
       } else if (entry.getValue() instanceof Double) {
         tagBuilder.setVType(Trace.ValueType.FLOAT64);
         tagBuilder.setVFloat64((double) entry.getValue());
-      } else {
+      } else if (entry.getValue() != null) {
         tagBuilder.setVType(Trace.ValueType.BINARY);
         tagBuilder.setVBinary(ByteString.copyFrom(entry.getValue().toString().getBytes()));
       }
