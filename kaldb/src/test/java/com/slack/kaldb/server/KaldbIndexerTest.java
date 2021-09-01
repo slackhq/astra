@@ -71,6 +71,7 @@ public class KaldbIndexerTest {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     testingServer = new TestingServer();
+    testingServer.start();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);

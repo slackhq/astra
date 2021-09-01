@@ -77,6 +77,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(broker.isRunning()).isTrue();
 
     testingServer = new TestingServer();
+    testingServer.start();
     String zkConnectString = testingServer.getConnectString();
 
     KaldbConfigs.KaldbConfig kaldbConfig1 =
