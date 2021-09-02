@@ -12,6 +12,7 @@ import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
 import com.linecorp.armeria.server.docs.DocService;
+import com.linecorp.armeria.server.encoding.EncodingService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
@@ -68,10 +69,15 @@ public class ArmeriaService extends AbstractIdleService {
 
     sb.annotatedService(new ElasticsearchApiService(searcher));
 
+    addCompression(sb);
     addManagementEndpoints(sb);
     addTracing(sb);
 
     return sb.build();
+  }
+
+  private void addCompression(ServerBuilder sb) {
+    sb.decorator(EncodingService.builder().newDecorator());
   }
 
   private void addTracing(ServerBuilder sb) {
