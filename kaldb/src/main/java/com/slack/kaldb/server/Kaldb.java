@@ -25,6 +25,7 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -109,6 +110,8 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
+      KaldbDistributedQueryService.servers =
+          new ArrayList<>(KaldbConfig.get().getQueryConfig().getTmpIndexNodesList());
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");

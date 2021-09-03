@@ -69,7 +69,7 @@ public class ElasticsearchApiService {
 
     SearchResponseMetadata responseMetadata = new SearchResponseMetadata(0, responses);
     return HttpResponse.of(
-        HttpStatus.OK, MediaType.JSON, objectMapper.writeValueAsString(responseMetadata));
+        HttpStatus.OK, MediaType.JSON_UTF_8, objectMapper.writeValueAsString(responseMetadata));
   }
 
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
