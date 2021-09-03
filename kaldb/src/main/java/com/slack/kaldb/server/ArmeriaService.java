@@ -8,6 +8,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
+import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
@@ -24,6 +25,7 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +37,8 @@ import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 public class ArmeriaService extends AbstractIdleService {
   private final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
+
+  private static final int WORKER_EVENT_LOOP_THREADS = 16;
 
   private final PrometheusMeterRegistry prometheusMeterRegistry;
   private final KaldbServiceGrpc.KaldbServiceImplBase searcher;
@@ -69,11 +73,18 @@ public class ArmeriaService extends AbstractIdleService {
 
     sb.annotatedService(new ElasticsearchApiService(searcher));
 
+    initializeEventLoop(sb);
     addCompression(sb);
     addManagementEndpoints(sb);
     addTracing(sb);
 
     return sb.build();
+  }
+
+  private void initializeEventLoop(ServerBuilder sb) {
+    EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
+    EventLoopGroups.warmUp(eventLoopGroup);
+    sb.workerGroup(eventLoopGroup, true);
   }
 
   private void addCompression(ServerBuilder sb) {
