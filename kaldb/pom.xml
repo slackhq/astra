@@ -13,12 +13,12 @@
         <javac.target>11</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.13</http.client.version>
-        <http.core.version>4.4.9</http.core.version>
-        <protobuf.version>3.12.0</protobuf.version>
-        <grpc.version>1.30.0</grpc.version>
-        <armeria.version>1.8.0</armeria.version>
+        <http.core.version>4.4.14</http.core.version>
+        <protobuf.version>3.17.3</protobuf.version>
+        <grpc.version>1.40.1</grpc.version>
+        <armeria.version>1.11.0</armeria.version>
         <micrometer.version>1.5.1</micrometer.version>
-        <jackson.version>2.11.1</jackson.version>
+        <jackson.version>2.12.5</jackson.version>
         <lucene.version>8.4.1</lucene.version>
         <curator.version>5.1.0</curator.version>
         <log4j.version>2.14.1</log4j.version>
