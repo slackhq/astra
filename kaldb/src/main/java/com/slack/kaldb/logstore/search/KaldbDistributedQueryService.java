@@ -32,6 +32,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
     return Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+        .withCompression("gzip")
         .withInterceptors(GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor());
   }
 

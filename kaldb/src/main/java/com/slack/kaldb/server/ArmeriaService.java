@@ -135,6 +135,8 @@ public class ArmeriaService extends AbstractIdleService {
         // Not logging any successful response, say prom scraping /metrics every 30 seconds at INFO
         .successfulResponseLogLevel(LogLevel.DEBUG)
         .failureResponseLogLevel(LogLevel.ERROR)
+        // Remove the content to prevent blowing up the logs
+        .responseContentSanitizer((ctx, content) -> "truncated")
         // Remove all headers to be sure we aren't leaking any auth/cookie info
         .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
   }
