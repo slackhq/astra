@@ -105,14 +105,6 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
       services.add(armeriaService);
-
-      // TODO: Move this registration to chunk manager.
-      // Register indexer node synchronously.
-      //      SearchMetadataStore searchStore = metadataStoreService.getSearchStore(false);
-      //      SearchMetadata searchMetadata =
-      //          SearchContext.fromConfig(KaldbConfig.get().getIndexerConfig().getServerConfig())
-      //              .toSearchMetadata("LIVE");
-      //      searchStore.create(searchMetadata).get();
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
