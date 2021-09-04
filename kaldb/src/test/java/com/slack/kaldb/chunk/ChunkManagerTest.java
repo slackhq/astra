@@ -5,6 +5,7 @@ import static com.slack.kaldb.chunk.ChunkManager.LIVE_MESSAGES_INDEXED;
 import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_COMPLETED;
 import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -73,7 +74,7 @@ public class ChunkManagerTest {
     metricsRegistry.close();
     if (chunkManager != null) {
       chunkManager.stopAsync();
-      chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     s3Client.close();
   }
@@ -82,7 +83,7 @@ public class ChunkManagerTest {
       ChunkRollOverStrategy chunkRollOverStrategy,
       String s3TestBucket,
       ListeningExecutorService listeningExecutorService,
-      int i2)
+      int rollOverFutureTimeoutMs)
       throws IOException, TimeoutException {
     chunkManager =
         new ChunkManager<>(
@@ -93,9 +94,9 @@ public class ChunkManagerTest {
             s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
-            i2);
+            rollOverFutureTimeoutMs);
     chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
