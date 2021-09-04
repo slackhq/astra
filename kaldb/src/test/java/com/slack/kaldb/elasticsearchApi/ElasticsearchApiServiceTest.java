@@ -7,14 +7,12 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
-import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -23,7 +21,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
@@ -31,59 +28,38 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private S3Client s3Client;
-  private ChunkManager<LogMessage> chunkManager;
   private ElasticsearchApiService elasticsearchApiService;
 
-  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
-  private static final String CHUNK_DATA_PREFIX = "testData";
+  private SimpleMeterRegistry metricsRegistry;
+  private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
   public void setUp() throws IOException, TimeoutException {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
 
-    // create an S3 client and a bucket for test
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
+    metricsRegistry = new SimpleMeterRegistry();
+    chunkManagerUtil =
+        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
 
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
-
-    chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            temporaryFolder.newFolder().getAbsolutePath(),
-            new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L),
-            new SimpleMeterRegistry(),
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
-
-    KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
+    KaldbLocalQueryService<LogMessage> searcher =
+        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
     elasticsearchApiService = new ElasticsearchApiService(searcher);
   }
 
   @After
-  public void tearDown() throws TimeoutException {
-    chunkManager.stopAsync();
-    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
-    s3Client.close();
+  public void tearDown() throws TimeoutException, IOException {
+    chunkManagerUtil.close();
+    metricsRegistry.close();
   }
 
   // todo - test mapping
-
   @Test
   public void testResultsAreReturnedForValidQuery() throws IOException {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
@@ -261,6 +237,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
+    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
