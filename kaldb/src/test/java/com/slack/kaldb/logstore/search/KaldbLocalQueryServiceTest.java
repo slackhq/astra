@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
@@ -43,7 +42,7 @@ public class KaldbLocalQueryServiceTest {
   private SimpleMeterRegistry metricsRegistry;
 
   @Before
-  public void setUp() throws InvalidProtocolBufferException, TimeoutException {
+  public void setUp() throws Exception {
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =

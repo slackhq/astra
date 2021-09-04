@@ -18,7 +18,10 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.spotify.futures.CompletableFutures;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -65,6 +68,7 @@ public class ChunkManager<T> extends AbstractIdleService {
   private final S3BlobFs s3BlobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
+  private final MetadataStoreService metadataStoreService;
   private Chunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
@@ -98,6 +102,11 @@ public class ChunkManager<T> extends AbstractIdleService {
    */
   private boolean stopIngestion;
 
+  /** Declare all the data stores used by Chunk manager here. */
+  private SnapshotMetadataStore snapshotMetadataStore;
+
+  private SearchMetadataStore searchMetadataStore;
+
   /**
    * For capacity planning, we want to control how many roll overs are in progress at the same time.
    * To maintain flexibility on the final policy, we will implement it using a ThreadPoolExecutor.
@@ -124,7 +133,8 @@ public class ChunkManager<T> extends AbstractIdleService {
       S3BlobFs s3BlobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      long rollOverFutureTimeoutMs) {
+      long rollOverFutureTimeoutMs,
+      MetadataStoreService metadataStoreService) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
@@ -141,6 +151,7 @@ public class ChunkManager<T> extends AbstractIdleService {
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
+    this.metadataStoreService = metadataStoreService;
     stopIngestion = true;
     activeChunk = null;
 
@@ -424,8 +435,17 @@ public class ChunkManager<T> extends AbstractIdleService {
   }
 
   @Override
-  protected void startUp() {
+  protected void startUp() throws Exception {
     LOG.info("Starting chunk manager");
+    metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
+    searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), KaldbConfig.SEARCH_METADATA_STORE_PATH, false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(),
+            KaldbConfig.SNAPSHOT_METADATA_STORE_PATH,
+            false);
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -475,10 +495,13 @@ public class ChunkManager<T> extends AbstractIdleService {
     for (Chunk<T> chunk : chunkMap.values()) {
       chunk.close();
     }
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
     LOG.info("Closed chunk manager.");
   }
 
-  public static ChunkManager<LogMessage> fromConfig(MeterRegistry meterRegistry) {
+  public static ChunkManager<LogMessage> fromConfig(
+      MeterRegistry meterRegistry, MetadataStoreService metadataStoreService) {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
     // TODO: Read the config values for chunk manager from config file.
@@ -491,7 +514,8 @@ public class ChunkManager<T> extends AbstractIdleService {
             getS3BlobFsClient(KaldbConfig.get()),
             KaldbConfig.get().getS3Config().getS3Bucket(),
             ChunkManager.makeDefaultRollOverExecutor(),
-            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS);
+            ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
+            metadataStoreService);
 
     return chunkManager;
   }

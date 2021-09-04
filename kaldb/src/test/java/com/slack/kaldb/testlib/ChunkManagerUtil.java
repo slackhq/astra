@@ -1,5 +1,7 @@
 package com.slack.kaldb.testlib;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -7,12 +9,14 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
+import org.apache.curator.test.TestingServer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
@@ -27,13 +31,15 @@ public class ChunkManagerUtil<T> {
   public final S3Client s3Client;
   public static final String S3_TEST_BUCKET = "test-kaldb-logs";
   public final ChunkManager<T> chunkManager;
+  private final TestingServer localZkServer;
+  private final MetadataStoreService metadataStoreService;
 
   public ChunkManagerUtil(
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
       long maxMessagesPerChunk)
-      throws TimeoutException {
+      throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
     // create an S3 client and a bucket for test
@@ -46,6 +52,12 @@ public class ChunkManagerUtil<T> {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
 
+    localZkServer = new TestingServer();
+    localZkServer.start();
+
+    metadataStoreService = new MetadataStoreService(meterRegistry);
+    metadataStoreService.startAsync();
+
     chunkManager =
         new ChunkManager<>(
             "testData",
@@ -55,13 +67,13 @@ public class ChunkManagerUtil<T> {
             s3BlobFs,
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
-            10000);
+            10000,
+            metadataStoreService);
     chunkManager.startAsync();
     chunkManager.awaitRunning(15, TimeUnit.SECONDS);
   }
 
-  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry)
-      throws TimeoutException {
+  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry) throws Exception {
     this(s3MockRule, meterRegistry, 10 * 1024 * 1024 * 1024L, 10L);
   }
 
@@ -72,6 +84,11 @@ public class ChunkManagerUtil<T> {
     }
     if (s3Client != null) {
       s3Client.close();
+    }
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    if (localZkServer != null) {
+      localZkServer.close();
     }
     FileUtils.deleteDirectory(tempFolder);
   }

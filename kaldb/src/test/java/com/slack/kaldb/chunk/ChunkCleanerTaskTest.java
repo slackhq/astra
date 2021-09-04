@@ -30,7 +30,7 @@ public class ChunkCleanerTaskTest {
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
-  public void setUp() throws IOException, TimeoutException {
+  public void setUp() throws Exception {
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =

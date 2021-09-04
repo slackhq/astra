@@ -11,6 +11,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import org.apache.commons.text.StringSubstitutor;
 
@@ -20,6 +21,11 @@ import org.apache.commons.text.StringSubstitutor;
  * <p>TODO: Set reasonable defaults for the config values.
  */
 public class KaldbConfig {
+  public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
+
+  public static String SEARCH_METADATA_STORE_PATH = "search";
+  public static String SNAPSHOT_METADATA_STORE_PATH = "snapshots";
+
   private static KaldbConfig _instance = null;
 
   // Parse a json string as a KaldbConfig proto struct.
