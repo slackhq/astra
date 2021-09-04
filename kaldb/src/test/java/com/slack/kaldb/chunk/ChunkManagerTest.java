@@ -211,7 +211,6 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    final String CHUNK_DATA_PREFIX = "testData";
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
@@ -320,7 +319,7 @@ public class ChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
     // Wait for roll over.
-    rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
+    final boolean awaitTermination = rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
 
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
@@ -395,7 +394,7 @@ public class ChunkManagerTest {
     testOneFailedChunk(secondChunk);
   }
 
-  public void testOneFailedChunk(ChunkInfo secondChunk) throws Exception {
+  public void testOneFailedChunk(ChunkInfo secondChunk) {
     Chunk<LogMessage> chunk = chunkManager.getChunkMap().get(secondChunk.chunkId);
 
     testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3, 0, MAX_TIME);
