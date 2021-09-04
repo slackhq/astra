@@ -1,5 +1,6 @@
 package com.slack.kaldb.server;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -81,7 +82,7 @@ public class KaldbIndexerTest {
     }
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
-      kaldbIndexer.awaitTerminated(15, TimeUnit.SECONDS);
+      kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
   }
@@ -143,7 +144,7 @@ public class KaldbIndexerTest {
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
     kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
     kaldbIndexer.startAsync();
-    kaldbIndexer.awaitRunning(15, TimeUnit.SECONDS);
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     GrpcServiceBuilder searchBuilder =
@@ -183,7 +184,7 @@ public class KaldbIndexerTest {
     assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
 
     chunkManager.stopAsync();
-    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     // TODO: delete expired data cleanly.
   }

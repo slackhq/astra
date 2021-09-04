@@ -128,9 +128,8 @@ public class ChunkManagerTest {
     Future<?> cleanerTask = executorService.submit(chunkCleanerTask::runOneIteration);
 
     chunkManager.stopAsync();
-
     // wait for both to be complete
-    chunkManager.awaitTerminated(10, TimeUnit.SECONDS);
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     cleanerTask.get(10, TimeUnit.SECONDS);
 
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(0);
@@ -662,7 +661,7 @@ public class ChunkManagerTest {
     }
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
     chunkManager.stopAsync();
-    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
