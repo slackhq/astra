@@ -78,25 +78,34 @@ public class ChunkManagerTest {
     s3Client.close();
   }
 
+  private void initChunkManager(
+      ChunkRollOverStrategy chunkRollOverStrategy,
+      String s3TestBucket,
+      ListeningExecutorService listeningExecutorService,
+      int i2)
+      throws IOException, TimeoutException {
+    chunkManager =
+        new ChunkManager<>(
+            "testData",
+            temporaryFolder.newFolder().getAbsolutePath(),
+            chunkRollOverStrategy,
+            metricsRegistry,
+            s3BlobFs,
+            s3TestBucket,
+            listeningExecutorService,
+            i2);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+  }
+
   @Test
   public void closeDuringCleanerTask()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
-    final String CHUNK_DATA_PREFIX = "testData";
-    chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     for (LogMessage m : messages) {
@@ -132,18 +141,8 @@ public class ChunkManagerTest {
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
     final String CHUNK_DATA_PREFIX = "testData";
-    chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     int actualChunkSize = 0;
@@ -212,18 +211,8 @@ public class ChunkManagerTest {
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     final String CHUNK_DATA_PREFIX = "testData";
-    chunkManager =
-        new ChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     for (LogMessage m : messages) {
@@ -248,18 +237,7 @@ public class ChunkManagerTest {
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            rollOverExecutor,
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
 
     // Add a message
     LogMessage msg1 = MessageUtil.makeMessage(1);
@@ -285,18 +263,8 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     // Add a message
     LogMessage msg1 = MessageUtil.makeMessage(1);
@@ -340,18 +308,7 @@ public class ChunkManagerTest {
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            rollOverExecutor,
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -380,18 +337,8 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -467,18 +414,8 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -548,18 +485,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -596,18 +523,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            MoreExecutors.newDirectExecutorService(),
-            3000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -716,18 +633,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            ChunkManager.makeDefaultRollOverExecutor(),
-            10000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -745,18 +652,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            ChunkManager.makeDefaultRollOverExecutor(),
-            10000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
 
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
@@ -785,18 +682,11 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET + "Fail", // Missing S3 bucket.
-            ChunkManager.makeDefaultRollOverExecutor(),
-            10000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET + "Fail",
+        ChunkManager.makeDefaultRollOverExecutor(),
+        10000);
 
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
@@ -826,18 +716,11 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET + "Fail", // Missing S3 bucket.
-            ChunkManager.makeDefaultRollOverExecutor(),
-            10000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET + "Fail",
+        ChunkManager.makeDefaultRollOverExecutor(),
+        10000);
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -869,18 +752,11 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET + "Fail", // Missing S3 bucket.
-            MoreExecutors.newDirectExecutorService(),
-            10000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET + "Fail",
+        MoreExecutors.newDirectExecutorService(),
+        10000);
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -916,18 +792,8 @@ public class ChunkManagerTest {
     final long maxBytesPerChunk = 100L;
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, msgsPerChunk);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            ChunkManager.makeDefaultRollOverExecutor(),
-            5000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
 
     List<LogMessage> messages1 = messages.subList(0, 3);
     List<LogMessage> messages2 = messages.subList(3, 6);
@@ -974,18 +840,8 @@ public class ChunkManagerTest {
     final long msgsPerChunk = 10L;
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, msgsPerChunk);
-    chunkManager =
-        new ChunkManager<>(
-            "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            S3_TEST_BUCKET,
-            ChunkManager.makeDefaultRollOverExecutor(),
-            5000);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
 
     List<LogMessage> messages1 = messages.subList(0, 10);
     List<LogMessage> messages2 = messages.subList(10, 20);
