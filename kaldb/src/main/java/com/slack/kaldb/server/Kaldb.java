@@ -72,7 +72,7 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices() throws Exception {
+  public static Set<Service> getServices() {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
