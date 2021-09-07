@@ -26,7 +26,6 @@ import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSe
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
-import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -34,12 +33,12 @@ import java.io.IOException;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.curator.test.TestingServer;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -56,8 +55,6 @@ public class ChunkManagerTest {
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
   private S3BlobFs s3BlobFs;
-  private TestingServer localZkServer;
-  private MetadataStoreService metadataStoreService;
 
   @Before
   public void setUp() throws InvalidProtocolBufferException {
@@ -73,37 +70,15 @@ public class ChunkManagerTest {
   }
 
   @After
-  public void tearDown() throws TimeoutException, IOException {
+  public void tearDown() throws TimeoutException {
     metricsRegistry.close();
     if (chunkManager != null) {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-<<<<<<< HEAD
-    }
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    if (localZkServer != null) {
-      localZkServer.stop();
-=======
->>>>>>> master
     }
     s3Client.close();
   }
 
-<<<<<<< HEAD
-  @Test
-  public void closeDuringCleanerTask() throws Exception {
-    ChunkRollOverStrategy chunkRollOverStrategy =
-        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
-
-    final String CHUNK_DATA_PREFIX = "testData";
-    makeChunkManager(
-        chunkRollOverStrategy,
-        CHUNK_DATA_PREFIX,
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
   private void initChunkManager(
       ChunkRollOverStrategy chunkRollOverStrategy,
       String s3TestBucket,
@@ -132,7 +107,6 @@ public class ChunkManagerTest {
 
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     for (LogMessage m : messages) {
@@ -162,22 +136,13 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddMessage() throws Exception {
+  public void testAddMessage() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
     final String CHUNK_DATA_PREFIX = "testData";
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        CHUNK_DATA_PREFIX,
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     int actualChunkSize = 0;
@@ -241,22 +206,12 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddAndSearchMessageInMultipleSlices() throws Exception {
+  public void testAddAndSearchMessageInMultipleSlices() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-<<<<<<< HEAD
-    final String CHUNK_DATA_PREFIX = "testData";
-    makeChunkManager(
-        chunkRollOverStrategy,
-        CHUNK_DATA_PREFIX,
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     for (LogMessage m : messages) {
@@ -276,16 +231,12 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws Exception {
+  public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
-<<<<<<< HEAD
-    makeChunkManager(chunkRollOverStrategy, "testData", S3_TEST_BUCKET, rollOverExecutor, 3000);
-=======
     initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
->>>>>>> master
 
     // Add a message
     LogMessage msg1 = MessageUtil.makeMessage(1);
@@ -307,21 +258,12 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ReadOnlyChunkInsertionException.class)
-  public void testMessagesAddedToActiveChunks() throws Exception {
+  public void testMessagesAddedToActiveChunks() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     // Add a message
     LogMessage msg1 = MessageUtil.makeMessage(1);
@@ -358,46 +300,14 @@ public class ChunkManagerTest {
     chunk1.addMessage(msg4);
   }
 
-  private void makeChunkManager(
-      ChunkRollOverStrategy chunkRollOverStrategy,
-      String testData,
-      String s3TestBucket,
-      ListeningExecutorService listeningExecutorService,
-      int i)
-      throws Exception {
-    localZkServer = new TestingServer();
-    localZkServer.start();
-
-    metadataStoreService = new MetadataStoreService(metricsRegistry);
-    metadataStoreService.startAsync();
-
-<<<<<<< HEAD
-    chunkManager =
-        new ChunkManager<>(
-            testData,
-            temporaryFolder.newFolder().getAbsolutePath(),
-            chunkRollOverStrategy,
-            metricsRegistry,
-            s3BlobFs,
-            s3TestBucket,
-            listeningExecutorService,
-            i,
-            metadataStoreService);
-    chunkManager.startAsync();
-    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-  }
-
   @Test
-  public void testMultiThreadedChunkRollover() throws Exception {
+  public void testMultiThreadedChunkRollover()
+      throws IOException, InterruptedException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
-    makeChunkManager(chunkRollOverStrategy, "testData", S3_TEST_BUCKET, rollOverExecutor, 3000);
-=======
-    ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
     initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -426,17 +336,8 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -512,17 +413,8 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
     // Add 11 messages to initiate first roll over.
@@ -577,7 +469,7 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk() throws Exception {
+  public void testCommitInvalidChunk() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -592,17 +484,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -622,7 +505,7 @@ public class ChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch() throws Exception {
+  public void testMultiChunkSearch() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -639,17 +522,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        MoreExecutors.newDirectExecutorService(),
-        3000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
->>>>>>> master
 
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -750,7 +624,7 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ChunkRollOverInProgressException.class)
-  public void testChunkRollOverInProgressExceptionIsThrown() throws Exception {
+  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -758,17 +632,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        ChunkManager.makeDefaultRollOverExecutor(),
-        10000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
->>>>>>> master
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -778,7 +643,7 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testSuccessfulRollOverFinishesOnClose() throws Exception {
+  public void testSuccessfulRollOverFinishesOnClose() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -786,17 +651,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        ChunkManager.makeDefaultRollOverExecutor(),
-        10000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
->>>>>>> master
 
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
@@ -817,7 +673,7 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testFailedRollOverFinishesOnClose() throws Exception {
+  public void testFailedRollOverFinishesOnClose() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -825,14 +681,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-=======
     initChunkManager(
         chunkRollOverStrategy,
->>>>>>> master
         S3_TEST_BUCKET + "Fail",
         ChunkManager.makeDefaultRollOverExecutor(),
         10000);
@@ -856,7 +706,8 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ChunkRollOverException.class)
-  public void testRollOverFailure() throws Exception {
+  public void testRollOverFailure()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -864,14 +715,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-=======
     initChunkManager(
         chunkRollOverStrategy,
->>>>>>> master
         S3_TEST_BUCKET + "Fail",
         ChunkManager.makeDefaultRollOverExecutor(),
         10000);
@@ -897,7 +742,8 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ChunkRollOverException.class)
-  public void testRollOverFailureWithDirectExecutor() throws Exception {
+  public void testRollOverFailureWithDirectExecutor()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -905,14 +751,8 @@ public class ChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-=======
     initChunkManager(
         chunkRollOverStrategy,
->>>>>>> master
         S3_TEST_BUCKET + "Fail",
         MoreExecutors.newDirectExecutorService(),
         10000);
@@ -940,7 +780,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testMultipleByteRollOversSuccessfully() throws Exception {
+  public void testMultipleByteRollOversSuccessfully()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -950,17 +791,8 @@ public class ChunkManagerTest {
     final long maxBytesPerChunk = 100L;
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, msgsPerChunk);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        ChunkManager.makeDefaultRollOverExecutor(),
-        5000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
->>>>>>> master
 
     List<LogMessage> messages1 = messages.subList(0, 3);
     List<LogMessage> messages2 = messages.subList(3, 6);
@@ -997,7 +829,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testMultipleCountRollOversSuccessfully() throws Exception {
+  public void testMultipleCountRollOversSuccessfully()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -1006,17 +839,8 @@ public class ChunkManagerTest {
     final long msgsPerChunk = 10L;
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, msgsPerChunk);
-<<<<<<< HEAD
-    makeChunkManager(
-        chunkRollOverStrategy,
-        "testData",
-        S3_TEST_BUCKET,
-        ChunkManager.makeDefaultRollOverExecutor(),
-        5000);
-=======
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
->>>>>>> master
 
     List<LogMessage> messages1 = messages.subList(0, 10);
     List<LogMessage> messages2 = messages.subList(10, 20);

@@ -34,39 +34,19 @@ public class ElasticsearchApiServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-<<<<<<< HEAD
-  private S3Client s3Client;
   private ElasticsearchApiService elasticsearchApiService;
 
-  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
-=======
-  private ElasticsearchApiService elasticsearchApiService;
-
->>>>>>> master
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
-  public void setUp() throws Exception {
+  public void setUp() throws IOException, TimeoutException {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
 
-<<<<<<< HEAD
-    // create an S3 client and a bucket for test
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
-
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
-
-    metricsRegistry = new SimpleMeterRegistry();
-    chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
-=======
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
->>>>>>> master
 
     KaldbLocalQueryService<LogMessage> searcher =
         new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
@@ -76,10 +56,6 @@ public class ElasticsearchApiServiceTest {
   @After
   public void tearDown() throws TimeoutException, IOException {
     chunkManagerUtil.close();
-<<<<<<< HEAD
-    s3Client.close();
-=======
->>>>>>> master
     metricsRegistry.close();
   }
 
@@ -261,11 +237,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
-<<<<<<< HEAD
-    final ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-=======
     ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
->>>>>>> master
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
