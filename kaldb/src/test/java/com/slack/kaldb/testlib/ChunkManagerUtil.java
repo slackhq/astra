@@ -9,6 +9,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -29,6 +30,7 @@ public class ChunkManagerUtil<T> {
   private final File tempFolder;
   public final S3Client s3Client;
   public static final String S3_TEST_BUCKET = "test-kaldb-logs";
+  public static final String ZK_PATH_PREFIX = "testZK";
   public final ChunkManager<T> chunkManager;
   private final TestingServer localZkServer;
   private final MetadataStoreService metadataStoreService;
@@ -54,7 +56,16 @@ public class ChunkManagerUtil<T> {
     localZkServer = new TestingServer();
     localZkServer.start();
 
-    metadataStoreService = new MetadataStoreService(meterRegistry);
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(localZkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(15000)
+            .setZkConnectionTimeoutMs(15000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
     metadataStoreService.startAsync();
 
     chunkManager =

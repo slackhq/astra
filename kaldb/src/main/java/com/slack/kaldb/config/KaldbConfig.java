@@ -23,8 +23,8 @@ import org.apache.commons.text.StringSubstitutor;
 public class KaldbConfig {
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
 
-  public static String SEARCH_METADATA_STORE_PATH = "search";
-  public static String SNAPSHOT_METADATA_STORE_PATH = "snapshots";
+  public static String SEARCH_METADATA_STORE_PATH = "/search";
+  public static String SNAPSHOT_METADATA_STORE_PATH = "/snapshots";
 
   private static KaldbConfig _instance = null;
 

@@ -77,7 +77,8 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
 
   public void close() {
     if (cache.isEmpty()) {
-      throw new UnsupportedOperationException();
+      // TODO: Can we just ignore this case?
+      // throw new UnsupportedOperationException();
     } else {
       cache.get().close();
       watchers.clear();
