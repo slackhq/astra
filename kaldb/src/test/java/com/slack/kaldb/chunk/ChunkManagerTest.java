@@ -56,7 +56,7 @@ public class ChunkManagerTest {
   private S3Client s3Client;
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
-  private static final String ZK_PATH_PREFIX = "testZk";
+  private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private MetadataStoreService metadataStoreService;
@@ -85,6 +85,8 @@ public class ChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
     metadataStoreService = new MetadataStoreService(metricsRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @After
