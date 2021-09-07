@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -102,7 +103,7 @@ public class KaldbIndexer extends AbstractIdleService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting indexing into Kaldb.");
-    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
+    kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   /**
@@ -133,7 +134,7 @@ public class KaldbIndexer extends AbstractIdleService {
     }
 
     chunkManager.stopAsync();
-    chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     LOG.info("Kaldb indexer is closed.");
   }
