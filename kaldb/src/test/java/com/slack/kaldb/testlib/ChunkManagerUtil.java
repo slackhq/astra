@@ -13,7 +13,6 @@ import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.test.TestingServer;
@@ -70,7 +69,7 @@ public class ChunkManagerUtil<T> {
             10000,
             metadataStoreService);
     chunkManager.startAsync();
-    chunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry) throws Exception {
@@ -80,7 +79,7 @@ public class ChunkManagerUtil<T> {
   public void close() throws IOException, TimeoutException {
     if (chunkManager != null) {
       chunkManager.stopAsync();
-      chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     if (s3Client != null) {
       s3Client.close();

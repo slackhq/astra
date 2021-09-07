@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
@@ -29,18 +28,21 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+<<<<<<< HEAD
   private S3Client s3Client;
   private ElasticsearchApiService elasticsearchApiService;
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+=======
+  private ElasticsearchApiService elasticsearchApiService;
+
+>>>>>>> master
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
@@ -49,6 +51,7 @@ public class ElasticsearchApiServiceTest {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
 
+<<<<<<< HEAD
     // create an S3 client and a bucket for test
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
@@ -59,6 +62,11 @@ public class ElasticsearchApiServiceTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+=======
+    metricsRegistry = new SimpleMeterRegistry();
+    chunkManagerUtil =
+        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+>>>>>>> master
 
     KaldbLocalQueryService<LogMessage> searcher =
         new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
@@ -68,12 +76,14 @@ public class ElasticsearchApiServiceTest {
   @After
   public void tearDown() throws TimeoutException, IOException {
     chunkManagerUtil.close();
+<<<<<<< HEAD
     s3Client.close();
+=======
+>>>>>>> master
     metricsRegistry.close();
   }
 
   // todo - test mapping
-
   @Test
   public void testResultsAreReturnedForValidQuery() throws IOException {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
@@ -251,7 +261,11 @@ public class ElasticsearchApiServiceTest {
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
+<<<<<<< HEAD
     final ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+=======
+    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+>>>>>>> master
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
