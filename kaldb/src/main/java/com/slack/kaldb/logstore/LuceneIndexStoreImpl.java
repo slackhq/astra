@@ -274,22 +274,21 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
    */
   @Override
   public void close() {
-    if (indexWriter.isEmpty()) {
-      // Closable.close() requires this be idempotent, so silently exit instead of throwing an
-      // exception
-      return;
-    }
+    synchronized (this) {
+      if (indexWriter.isEmpty()) {
+        // Closable.close() requires this be idempotent, so silently exit instead of throwing an
+        // exception
+        return;
+      }
 
-    timer.cancel();
-    try {
-      indexWriter.get().close();
-    } catch (NoSuchElementException ignored) {
-      // indexWriter already closed - potentially by another thread
-      LOG.debug("Index already closed");
-    } catch (IOException e) {
-      LOG.error("Error closing index " + id, e);
+      timer.cancel();
+      try {
+        indexWriter.get().close();
+      } catch (IOException | NoSuchElementException e) {
+        LOG.error("Error closing index " + id, e);
+      }
+      indexWriter = Optional.empty();
     }
-    indexWriter = Optional.empty();
   }
 
   // TODO: Currently, deleting the index. May need to delete the folder.
