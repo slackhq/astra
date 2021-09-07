@@ -51,7 +51,7 @@ public class Kaldb {
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) throws IOException {
     if (args.length == 0) {
       LOG.info("Config file is needed a first argument");
     }
@@ -61,7 +61,7 @@ public class Kaldb {
     kalDb.setup();
   }
 
-  public void setup() throws Exception {
+  public void setup() {
     setupSystemMetrics();
 
     Set<Service> services = getServices();
