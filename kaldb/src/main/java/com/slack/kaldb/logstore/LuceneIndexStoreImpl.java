@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -282,6 +283,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     timer.cancel();
     try {
       indexWriter.get().close();
+    } catch (NoSuchElementException ignored) {
+      // indexWriter already closed - potentially by another thread
+      LOG.debug("Index already closed");
     } catch (IOException e) {
       LOG.error("Error closing index " + id, e);
     }
