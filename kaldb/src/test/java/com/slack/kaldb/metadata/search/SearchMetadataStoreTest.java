@@ -46,8 +46,7 @@ public class SearchMetadataStoreTest {
 
   @Test
   public void testSearchMetadataStoreIsNotUpdatable() throws Exception {
-    store =
-        new SearchMetadataStore(true, "/search", zkMetadataStore, new SearchMetadataSerializer());
+    store = new SearchMetadataStore(zkMetadataStore, "/search", true);
     SearchMetadata searchMetadata = new SearchMetadata("test", "snapshot", "http");
     Throwable ex = catchThrowable(() -> store.update(searchMetadata));
     assertThat(ex).isInstanceOf(UnsupportedOperationException.class);
