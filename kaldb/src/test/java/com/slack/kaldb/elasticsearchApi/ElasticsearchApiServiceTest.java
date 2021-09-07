@@ -40,7 +40,7 @@ public class ElasticsearchApiServiceTest {
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
-  public void setUp() throws IOException, TimeoutException {
+  public void setUp() throws Exception {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
 
