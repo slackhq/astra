@@ -19,13 +19,14 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.AlreadyClosedLogIndexSearcherImpl;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -39,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.curator.test.TestingServer;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -54,10 +56,13 @@ public class ChunkManagerTest {
   private S3Client s3Client;
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+  private static final String ZK_PATH_PREFIX = "testZk";
   private S3BlobFs s3BlobFs;
+  private TestingServer localZkServer;
+  private MetadataStoreService metadataStoreService;
 
   @Before
-  public void setUp() throws InvalidProtocolBufferException {
+  public void setUp() throws Exception {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
@@ -67,16 +72,34 @@ public class ChunkManagerTest {
 
     s3BlobFs = new S3BlobFs();
     s3BlobFs.init(s3Client);
+
+    localZkServer = new TestingServer();
+    localZkServer.start();
+
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(localZkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(15000)
+            .setZkConnectionTimeoutMs(15000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    metadataStoreService = new MetadataStoreService(metricsRegistry, zkConfig);
   }
 
   @After
-  public void tearDown() throws TimeoutException {
+  public void tearDown() throws TimeoutException, IOException {
     metricsRegistry.close();
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     if (chunkManager != null) {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     s3Client.close();
+    if (localZkServer != null) {
+      localZkServer.stop();
+    }
   }
 
   private void initChunkManager(
@@ -94,7 +117,8 @@ public class ChunkManagerTest {
             s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
-            rollOverFutureTimeoutMs);
+            rollOverFutureTimeoutMs,
+            metadataStoreService);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
