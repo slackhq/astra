@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -171,11 +172,11 @@ public class KaldbDistributedQueryServiceTest {
         new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
     KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
     kafkaWriter.startAsync();
-    kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
+    kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
     indexer.startAsync();
-    indexer.awaitRunning(15, TimeUnit.SECONDS);
+    indexer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     KaldbLocalQueryService<LogMessage> service =
         new KaldbLocalQueryService<>(indexer.getChunkManager());

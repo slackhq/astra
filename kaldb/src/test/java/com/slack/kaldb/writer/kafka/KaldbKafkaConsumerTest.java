@@ -1,5 +1,6 @@
 package com.slack.kaldb.writer.kafka;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.with;
@@ -71,7 +72,7 @@ public class KaldbKafkaConsumerTest {
         throws ExecutionException, InterruptedException, TimeoutException, NoSuchFieldException,
             IllegalAccessException, IOException {
       testConsumer.stopAsync();
-      testConsumer.awaitTerminated(15, TimeUnit.SECONDS);
+      testConsumer.awaitTerminated(DEFAULT_START_STOP_DURATION);
       assertThat(testConsumer.isRunning()).isFalse();
 
       // Close server after consumer done.
@@ -86,7 +87,7 @@ public class KaldbKafkaConsumerTest {
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
       testConsumer.startAsync();
-      testConsumer.awaitRunning(15, TimeUnit.SECONDS);
+      testConsumer.awaitRunning(DEFAULT_START_STOP_DURATION);
       await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
@@ -124,7 +125,7 @@ public class KaldbKafkaConsumerTest {
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
       testConsumer.startAsync();
-      testConsumer.awaitRunning(15, TimeUnit.SECONDS);
+      testConsumer.awaitRunning(DEFAULT_START_STOP_DURATION);
       await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
@@ -141,7 +142,7 @@ public class KaldbKafkaConsumerTest {
       // Closing server before consumer should lead to time out.
       kafkaServer.close();
       testConsumer.stopAsync();
-      testConsumer.awaitTerminated(15, TimeUnit.SECONDS);
+      testConsumer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
   }
 }
