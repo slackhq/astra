@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -273,19 +274,21 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
    */
   @Override
   public void close() {
-    if (indexWriter.isEmpty()) {
-      // Closable.close() requires this be idempotent, so silently exit instead of throwing an
-      // exception
-      return;
-    }
+    synchronized (this) {
+      if (indexWriter.isEmpty()) {
+        // Closable.close() requires this be idempotent, so silently exit instead of throwing an
+        // exception
+        return;
+      }
 
-    timer.cancel();
-    try {
-      indexWriter.get().close();
-    } catch (IOException e) {
-      LOG.error("Error closing index " + id, e);
+      timer.cancel();
+      try {
+        indexWriter.get().close();
+      } catch (IOException | NoSuchElementException e) {
+        LOG.error("Error closing index " + id, e);
+      }
+      indexWriter = Optional.empty();
     }
-    indexWriter = Optional.empty();
   }
 
   // TODO: Currently, deleting the index. May need to delete the folder.
