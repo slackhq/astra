@@ -81,9 +81,7 @@ public class KaldbDistributedQueryServiceTest {
             TEST_KAFKA_PARTITION_1,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081,
-            "",
-            "");
+            8081);
 
     // Needed to set refresh/commit interval etc
     // Will be same for both indexing servers
@@ -104,9 +102,7 @@ public class KaldbDistributedQueryServiceTest {
             TEST_KAFKA_PARTITION_2,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081,
-            "",
-            "");
+            8081);
 
     // Set it to the new config so that the new kafka writer picks up this config
     KaldbConfig.initFromConfigObject(kaldbConfig2);
@@ -174,7 +170,8 @@ public class KaldbDistributedQueryServiceTest {
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
+    KaldbIndexer indexer =
+        new KaldbIndexer(chunkManagerUtil.chunkManager, messageTransformer, kafkaWriter);
     indexer.startAsync();
     indexer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
