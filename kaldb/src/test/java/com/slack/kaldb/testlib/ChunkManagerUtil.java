@@ -9,6 +9,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -40,6 +41,21 @@ public class ChunkManagerUtil<T> {
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
       long maxMessagesPerChunk)
+      throws Exception {
+    this(
+        s3MockRule,
+        meterRegistry,
+        maxBytesPerChunk,
+        maxMessagesPerChunk,
+        new SearchContext("localhost", 10009));
+  }
+
+  public ChunkManagerUtil(
+      S3MockRule s3MockRule,
+      MeterRegistry meterRegistry,
+      long maxBytesPerChunk,
+      long maxMessagesPerChunk,
+      SearchContext searchContext)
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -78,13 +94,10 @@ public class ChunkManagerUtil<T> {
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
             10000,
-            metadataStoreService);
+            metadataStoreService,
+            searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-  }
-
-  public ChunkManagerUtil(S3MockRule s3MockRule, MeterRegistry meterRegistry) throws Exception {
-    this(s3MockRule, meterRegistry, 10 * 1024 * 1024 * 1024L, 10L);
   }
 
   public void close() throws IOException, TimeoutException {

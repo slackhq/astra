@@ -5,6 +5,7 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
 public class KaldbConfigUtil {
+  // TODO: Drop this method since we can no longer initialize the chunk manager using this.
   // Initialize kaldb config with empty for tests.
   public static void initEmptyIndexerConfig() throws InvalidProtocolBufferException {
     KaldbConfig.initFromJsonStr("{\"nodeRoles\": [INDEX]}");

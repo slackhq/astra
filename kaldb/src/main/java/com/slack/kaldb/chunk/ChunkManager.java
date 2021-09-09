@@ -18,6 +18,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -69,6 +70,7 @@ public class ChunkManager<T> extends AbstractIdleService {
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStoreService metadataStoreService;
+  private final SearchContext searchContext;
   private Chunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
@@ -134,7 +136,8 @@ public class ChunkManager<T> extends AbstractIdleService {
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
       long rollOverFutureTimeoutMs,
-      MetadataStoreService metadataStoreService) {
+      MetadataStoreService metadataStoreService,
+      SearchContext searchContext) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
@@ -152,6 +155,7 @@ public class ChunkManager<T> extends AbstractIdleService {
     this.rolloverFuture = null;
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
     this.metadataStoreService = metadataStoreService;
+    this.searchContext = searchContext;
     stopIngestion = true;
     activeChunk = null;
 
@@ -447,10 +451,18 @@ public class ChunkManager<T> extends AbstractIdleService {
             KaldbConfig.SNAPSHOT_METADATA_STORE_PATH,
             false);
 
+    // Temporarily, register the indexer here. Later, move it closer to chunk metadata registration.
+    // SearchMetadata searchMetadata = toSearchMetadata("LIVE", searchContext);
+    // searchMetadataStore.create(searchMetadata).get();
+
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
     // prevents use of chunk manager until the service has started
     stopIngestion = false;
+  }
+
+  private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
+    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /**
@@ -501,7 +513,9 @@ public class ChunkManager<T> extends AbstractIdleService {
   }
 
   public static ChunkManager<LogMessage> fromConfig(
-      MeterRegistry meterRegistry, MetadataStoreService metadataStoreService) {
+      MeterRegistry meterRegistry,
+      MetadataStoreService metadataStoreService,
+      KaldbConfigs.ServerConfig serverConfig) {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
     // TODO: Read the config values for chunk manager from config file.
@@ -515,7 +529,8 @@ public class ChunkManager<T> extends AbstractIdleService {
             KaldbConfig.get().getS3Config().getS3Bucket(),
             ChunkManager.makeDefaultRollOverExecutor(),
             ChunkManager.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
-            metadataStoreService);
+            metadataStoreService,
+            SearchContext.fromConfig(serverConfig));
 
     return chunkManager;
   }

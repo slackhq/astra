@@ -110,6 +110,7 @@ public class ChunkManagerTest {
       ListeningExecutorService listeningExecutorService,
       int rollOverFutureTimeoutMs)
       throws IOException, TimeoutException {
+    SearchContext searchContext = new SearchContext("localhost", 1000);
     chunkManager =
         new ChunkManager<>(
             "testData",
@@ -120,7 +121,8 @@ public class ChunkManagerTest {
             s3TestBucket,
             listeningExecutorService,
             rollOverFutureTimeoutMs,
-            metadataStoreService);
+            metadataStoreService,
+            searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
