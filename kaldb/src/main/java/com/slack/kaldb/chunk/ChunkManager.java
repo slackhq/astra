@@ -451,9 +451,11 @@ public class ChunkManager<T> extends AbstractIdleService {
             KaldbConfig.SNAPSHOT_METADATA_STORE_PATH,
             false);
 
+    // TODO: Remove this registration one snapshot is registered.
     // Temporarily, register the indexer here. Later, move it closer to chunk metadata registration.
-    // SearchMetadata searchMetadata = toSearchMetadata("LIVE", searchContext);
-    // searchMetadataStore.create(searchMetadata).get();
+    SearchMetadata searchMetadata =
+        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
+    searchMetadataStore.create(searchMetadata).get();
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -546,5 +548,15 @@ public class ChunkManager<T> extends AbstractIdleService {
     S3BlobFs s3BlobFs = new S3BlobFs();
     s3BlobFs.init(s3BlobFsConfig);
     return s3BlobFs;
+  }
+
+  @VisibleForTesting
+  public SnapshotMetadataStore getSnapshotMetadataStore() {
+    return snapshotMetadataStore;
+  }
+
+  @VisibleForTesting
+  public SearchMetadataStore getSearchMetadataStore() {
+    return searchMetadataStore;
   }
 }
