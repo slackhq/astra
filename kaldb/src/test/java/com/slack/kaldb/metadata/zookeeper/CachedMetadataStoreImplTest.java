@@ -7,6 +7,7 @@ import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
 
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -15,6 +16,8 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
@@ -23,8 +26,12 @@ import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CachedMetadataStoreImplTest {
+
+  private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImplTest.class);
 
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl metadataStore;
@@ -98,6 +105,65 @@ public class CachedMetadataStoreImplTest {
     }
     cachedMetadataStore.start();
     return cachedMetadataStore;
+  }
+
+  @Test
+  public void raceCondition() throws Exception {
+    AtomicBoolean metadataStoreClosed = new AtomicBoolean(false);
+    AtomicInteger listenerExecutions = new AtomicInteger(0);
+
+    String root = "/race";
+    assertThat(metadataStore.create(root, "", true).get()).isNull();
+    CachedMetadataStore<SnapshotMetadata> cache =
+        makeCachedStore(
+            "/race",
+            new CachedMetadataStoreListener() {
+              @Override
+              public void cacheChanged() {
+                LOG.info("Cache change started execution");
+                try {
+                  Thread.sleep(500);
+                } catch (InterruptedException ignored) {
+                }
+
+                if (metadataStoreClosed.get()) {
+                  // we are operating in a listener _after_ curator has closed
+                  LOG.info("Metadata store is closed, but we are still executing");
+                  listenerExecutions.incrementAndGet();
+                }
+                LOG.info("Cache change finished execution");
+              }
+
+              @Override
+              public void stateChanged(CuratorFramework client, ConnectionState newState) {}
+            },
+            serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
+
+    String path1 = "/race/1";
+    SnapshotMetadata snapshot1 = makeSnapshot("race1");
+    metadataStore.create(path1, serDe.toJsonStr(snapshot1), true).get();
+    String path2 = "/race/2";
+    SnapshotMetadata snapshot2 = makeSnapshot("race2");
+    metadataStore.create(path2, serDe.toJsonStr(snapshot2), true).get();
+    String path3 = "/race/3";
+    SnapshotMetadata snapshot3 = makeSnapshot("race3");
+    metadataStore.create(path3, serDe.toJsonStr(snapshot3), true).get();
+
+    // wait until all 3 records safely made it into the cache
+    await().until(() -> cache.getInstances().size() == 3);
+
+    metadataStore.close();
+    metadataStoreClosed.set(true);
+
+    // verify that no listener executions have fired yet
+    assertThat(listenerExecutions.get()).isEqualTo(0);
+
+    // allow time for any queued executions to complete
+    Thread.sleep(3000);
+
+    // verify that we still did not see any executions
+    assertEquals(0, listenerExecutions.get());
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -419,7 +485,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Closing the curator connection expires the ephemeral node and cache is updated also.
-    metadataStore.close();
+    metadataStore.getCurator().close();
     await().untilAsserted(() -> assertThat(cache.getInstances().isEmpty()).isTrue());
     assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
@@ -506,7 +572,7 @@ public class CachedMetadataStoreImplTest {
 
     // Closing the curator connection expires the ephemeral node and cache is left with
     // persistent node.
-    metadataStore.close();
+    metadataStore.getCurator().close();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(1));
     assertThat(cache.getInstances()).containsOnly(snapshot21);
 

@@ -18,7 +18,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.RetryPolicy;
@@ -98,15 +97,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     this.metadataWriteCounter = meterRegistry.counter(METADATA_WRITE_COUNTER);
     this.metadataReadCounter = meterRegistry.counter(METADATA_READ_COUNTER);
 
-    // TODO: Pass the thread pool in a constructor so we can use direct executor in tests if needed.
-    // Create an executor service that runs all the ZK operations
-    ThreadFactory metadataStoreThreadFactory =
-        new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool").build();
-    ThreadPoolExecutor executor =
-        (ThreadPoolExecutor) Executors.newCachedThreadPool(metadataStoreThreadFactory);
-    this.metadataExecutorService =
-        MoreExecutors.listeningDecorator(
-            MoreExecutors.getExitingExecutorService(executor, 1, TimeUnit.SECONDS));
+    this.metadataExecutorService = this.buildExecutor();
 
     // TODO: In future add ZK auth credentials can be passed in here.
     this.curator =
@@ -116,6 +107,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
             .connectionTimeoutMs(connectionTimeoutMs)
             .sessionTimeoutMs(sessionTimeoutMs)
             .retryPolicy(retryPolicy)
+            .runSafeService(metadataExecutorService)
             .build();
 
     // A catch-all handler for any errors we may have missed.
@@ -164,7 +156,43 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
         retryPolicy);
   }
 
+  private ListeningExecutorService buildExecutor() {
+    // TODO: Pass the thread pool in a constructor so we can use direct executor in tests if needed.
+    // Create an executor service that runs all the ZK operations
+    ThreadPoolExecutor executor =
+        (ThreadPoolExecutor)
+            Executors.newCachedThreadPool(
+                new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool").build());
+
+    executor.setRejectedExecutionHandler(
+        (runnable, threadPoolExecutor) -> {
+          if (threadPoolExecutor.isTerminated()) {
+            LOG.info(
+                String.format(
+                    "Expected rejected execution during threadpool shutdown - %s",
+                    threadPoolExecutor));
+          } else {
+            LOG.error(String.format("Unexpected rejected execution - %s", threadPoolExecutor));
+          }
+        });
+
+    return MoreExecutors.listeningDecorator(executor);
+  }
+
   public void close() {
+    LOG.info("Shutting down executor service");
+    // request a shutdown - stops new tasks, but allows existing ones to complete
+    metadataExecutorService.shutdown();
+    try {
+      boolean completedTermination = metadataExecutorService.awaitTermination(10, TimeUnit.SECONDS);
+      if (!completedTermination) {
+        LOG.error(
+            "Failed to gracefully shutdown metadataExecutorService in time, proceeding with shutdown anyways.");
+      }
+    } catch (InterruptedException e) {
+      LOG.error("Interrupted while shutting down metadataExecutorService");
+    }
+
     LOG.info("Closing curator connection.");
     curator.close();
     LOG.info("Closed curator connection successfully.");
