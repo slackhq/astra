@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +76,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
+  private final ExecutorService runSafeService;
   private final MeterRegistry meterRegistry;
 
   @SuppressWarnings("UnstableApiUsage")
@@ -98,6 +100,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     this.metadataReadCounter = meterRegistry.counter(METADATA_READ_COUNTER);
 
     this.metadataExecutorService = this.buildExecutor();
+    this.runSafeService = this.buildRunSafeService();
 
     // TODO: In future add ZK auth credentials can be passed in here.
     this.curator =
@@ -107,7 +110,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
             .connectionTimeoutMs(connectionTimeoutMs)
             .sessionTimeoutMs(sessionTimeoutMs)
             .retryPolicy(retryPolicy)
-            .runSafeService(metadataExecutorService)
+            .runSafeService(runSafeService)
             .build();
 
     // A catch-all handler for any errors we may have missed.
@@ -162,35 +165,41 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     ThreadPoolExecutor executor =
         (ThreadPoolExecutor)
             Executors.newCachedThreadPool(
-                new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool").build());
-
-    executor.setRejectedExecutionHandler(
-        (runnable, threadPoolExecutor) -> {
-          if (threadPoolExecutor.isTerminated()) {
-            LOG.info(
-                String.format(
-                    "Expected rejected execution during threadpool shutdown - %s",
-                    threadPoolExecutor));
-          } else {
-            LOG.error(String.format("Unexpected rejected execution - %s", threadPoolExecutor));
-          }
-        });
+                new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool-%d").build());
 
     return MoreExecutors.listeningDecorator(executor);
   }
 
+  private ExecutorService buildRunSafeService() {
+    return Executors.newSingleThreadExecutor(
+        new ThreadFactoryBuilder().setNameFormat("zk-metadata-runsafe-%d").build());
+  }
+
   public void close() {
-    LOG.info("Shutting down executor service");
-    // request a shutdown - stops new tasks, but allows existing ones to complete
+    LOG.info("Shutting down metadata executor service");
+    // shutdown the main ZK executor
     metadataExecutorService.shutdown();
+
+    LOG.info("Shutting down metadata runsafe service");
+    // shutdown the Curator runSafe executor
+    runSafeService.shutdown();
+
     try {
-      boolean completedTermination = metadataExecutorService.awaitTermination(10, TimeUnit.SECONDS);
-      if (!completedTermination) {
+      boolean metadataCompletedShutdown =
+          metadataExecutorService.awaitTermination(10, TimeUnit.SECONDS);
+      if (!metadataCompletedShutdown) {
         LOG.error(
             "Failed to gracefully shutdown metadataExecutorService in time, proceeding with shutdown anyways.");
       }
+
+      boolean runsafeCompletedShutdown = runSafeService.awaitTermination(10, TimeUnit.SECONDS);
+      if (!runsafeCompletedShutdown) {
+        LOG.error(
+            "Failed to gracefully shutdown runSafeService in time, proceeding with shutdown anyways.");
+      }
     } catch (InterruptedException e) {
-      LOG.error("Interrupted while shutting down metadataExecutorService");
+      LOG.error(
+          "Interrupted while attempting to shutting down executor services, proceeding anyways");
     }
 
     LOG.info("Closing curator connection.");

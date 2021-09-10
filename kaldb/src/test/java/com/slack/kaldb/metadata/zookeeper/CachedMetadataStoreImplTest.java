@@ -16,6 +16,8 @@ import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.framework.CuratorFramework;
@@ -111,6 +113,7 @@ public class CachedMetadataStoreImplTest {
   public void raceCondition() throws Exception {
     AtomicBoolean metadataStoreClosed = new AtomicBoolean(false);
     AtomicInteger listenerExecutions = new AtomicInteger(0);
+    CountDownLatch countDownLatch = new CountDownLatch(3);
 
     String root = "/race";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
@@ -132,6 +135,7 @@ public class CachedMetadataStoreImplTest {
                   listenerExecutions.incrementAndGet();
                 }
                 LOG.info("Cache change finished execution");
+                countDownLatch.countDown();
               }
 
               @Override
@@ -160,7 +164,7 @@ public class CachedMetadataStoreImplTest {
     assertThat(listenerExecutions.get()).isEqualTo(0);
 
     // allow time for any queued executions to complete
-    Thread.sleep(3000);
+    assertThat(countDownLatch.await(3000, TimeUnit.MILLISECONDS)).isTrue();
 
     // verify that we still did not see any executions
     assertEquals(0, listenerExecutions.get());
