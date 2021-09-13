@@ -10,9 +10,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
-import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.FatalErrorHandler;
-import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
@@ -25,7 +23,6 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorEventType;
-import org.apache.curator.retry.RetryNTimes;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Watcher;
@@ -53,20 +50,6 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   public static final String ZK_FAILED_COUNTER = "metadata.failed.zk";
   public static final String METADATA_WRITE_COUNTER = "metadata.write";
   public static final String METADATA_READ_COUNTER = "metadata.read";
-
-  private static final int ZK_RETRY_COUNT = 3;
-
-  public static ZookeeperMetadataStoreImpl fromConfig(
-      MeterRegistry meterRegistry, KaldbConfigs.ZookeeperConfig zkConfig) {
-    return new ZookeeperMetadataStoreImpl(
-        zkConfig.getZkConnectString(),
-        zkConfig.getZkPathPrefix(),
-        zkConfig.getZkSessionTimeoutMs(),
-        zkConfig.getZkConnectionTimeoutMs(),
-        new RetryNTimes(ZK_RETRY_COUNT, zkConfig.getSleepBetweenRetriesMs()),
-        new RuntimeHalterImpl(),
-        meterRegistry);
-  }
 
   private final CuratorFramework curator;
   private final Counter failureCounter;

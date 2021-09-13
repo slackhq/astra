@@ -91,7 +91,10 @@ public class KaldbIndexer extends AbstractIdleService {
    * messages, persist the indexed messages and metadata successfully and then close the
    * chunkManager and then the consumer,
    */
-  public KaldbIndexer(ChunkManager<LogMessage> chunkManager, KaldbKafkaWriter kafkaWriter) {
+  public KaldbIndexer(
+      ChunkManager<LogMessage> chunkManager,
+      LogMessageTransformer messageTransformer,
+      KaldbKafkaWriter kafkaWriter) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
     this.kafkaWriter = kafkaWriter;
