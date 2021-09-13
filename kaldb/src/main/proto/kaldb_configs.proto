@@ -37,9 +37,9 @@ message MetadataStoreConfig {
 message ZookeeperConfig {
     string zkConnectString = 1;
     string zkPathPrefix = 2;
-    int32 zkSessionTimeoutMs = 3;
-    int32 zkConnectionTimeoutMs = 4;
-    int32 sleepBetweenRetriesMs = 5;
+    int64 zkSessionTimeoutMs = 3;
+    int64 zkConnectionTimeoutMs = 4;
+    int64 sleepBetweenRetriesMs = 5;
 }
 
 message S3Config {

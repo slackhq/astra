@@ -127,9 +127,7 @@ public class KaldbIndexerTest {
             TEST_KAFKA_PARTITION,
             KALDB_TEST_CLIENT,
             TEST_S3_BUCKET,
-            8081,
-            "",
-            "");
+            8081);
     KaldbConfig.initFromConfigObject(kaldbCfg);
 
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
@@ -144,7 +142,7 @@ public class KaldbIndexerTest {
     ServerBuilder sb = Server.builder();
     sb.http(kaldbCfg.getIndexerConfig().getServerConfig().getServerPort());
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-    kaldbIndexer = new KaldbIndexer(chunkManager, kafkaWriter);
+    kaldbIndexer = new KaldbIndexer(chunkManager, messageTransformer, kafkaWriter);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
