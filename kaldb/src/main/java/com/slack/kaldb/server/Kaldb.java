@@ -45,6 +45,7 @@ public class Kaldb {
 
   private static final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+  protected ServiceManager serviceManager;
 
   public Kaldb(Path configFilePath) throws IOException {
     Metrics.addRegistry(prometheusMeterRegistry);
@@ -58,16 +59,16 @@ public class Kaldb {
     Path configFilePath = Path.of(args[0]);
 
     Kaldb kalDb = new Kaldb(configFilePath);
-    kalDb.setup();
+    kalDb.start();
   }
 
-  public void setup() {
+  public void start() {
     setupSystemMetrics();
 
     Set<Service> services = getServices();
-    ServiceManager serviceManager = new ServiceManager(services);
+    serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
-    addShutdownHook(serviceManager);
+    addShutdownHook();
 
     serviceManager.startAsync();
   }
@@ -137,26 +138,25 @@ public class Kaldb {
     };
   }
 
-  public static void addShutdownHook(ServiceManager serviceManager) {
-    Runtime.getRuntime()
-        .addShutdownHook(
-            new Thread(
-                () -> {
-                  try {
-                    serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
+  public void shutdown() {
+    try {
+      serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
 
-                    // Ensure that log4j is the final thing to shut down, so that it available
-                    // throughout the service manager shutdown lifecycle
-                    if (LogManager.getContext() instanceof LoggerContext) {
-                      LOG.info("Shutting down log4j2");
-                      Configurator.shutdown((LoggerContext) LogManager.getContext());
-                    } else {
-                      LOG.error("Unable to shutdown log4j2");
-                    }
-                  } catch (TimeoutException timeout) {
-                    // stopping timed out
-                  }
-                }));
+      // Ensure that log4j is the final thing to shut down, so that it available
+      // throughout the service manager shutdown lifecycle
+      if (LogManager.getContext() instanceof LoggerContext) {
+        LOG.info("Shutting down log4j2");
+        Configurator.shutdown((LoggerContext) LogManager.getContext());
+      } else {
+        LOG.error("Unable to shutdown log4j2");
+      }
+    } catch (TimeoutException timeout) {
+      // stopping timed out
+    }
+  }
+
+  private void addShutdownHook() {
+    Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
   private static void setupSystemMetrics() {
