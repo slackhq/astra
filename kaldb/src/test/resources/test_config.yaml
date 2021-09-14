@@ -35,8 +35,8 @@ s3Config:
 
 metadataStoreConfig:
   zookeeperConfig:
-    zkConnectString: "zk://1.2.3.4:9092"
-    zkPathPrefix: "/root/zkPath"
+    zkConnectString: "1.2.3.4:9092"
+    zkPathPrefix: "zkPrefix"
     zkSessionTimeoutMs: 1000
     zkConnectionTimeoutMs: 1500
     sleepBetweenRetriesMs: 500

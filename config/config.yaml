@@ -36,3 +36,11 @@ queryConfig:
   serverConfig:
     serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}
     serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
+
+metadataStoreConfig:
+  zookeeperConfig:
+    zkConnectString: "127.0.0.1:2181"
+    zkPathPrefix: "kaldb"
+    zkSessionTimeoutMs: 1000
+    zkConnectionTimeoutMs: 1500
+    sleepBetweenRetriesMs: 500
