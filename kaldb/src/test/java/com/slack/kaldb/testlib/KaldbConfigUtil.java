@@ -17,9 +17,7 @@ public class KaldbConfigUtil {
       int kafkaPartition,
       String kafkaClientGroup,
       String s3Bucket,
-      int queryPort,
-      String metadataZkConnectionString,
-      String metadataZkPathPrefix) {
+      int queryPort) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -49,17 +47,6 @@ public class KaldbConfigUtil {
             .setDataTransformer("log_message")
             .build();
 
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(metadataZkConnectionString)
-            .setZkPathPrefix(metadataZkPathPrefix)
-            .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(15000)
-            .setSleepBetweenRetriesMs(1000)
-            .build();
-    KaldbConfigs.MetadataStoreConfig metadataStoreConfig =
-        KaldbConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
-
     KaldbConfigs.QueryServiceConfig queryConfig =
         KaldbConfigs.QueryServiceConfig.newBuilder()
             .setServerConfig(
@@ -74,7 +61,6 @@ public class KaldbConfigUtil {
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
         .setQueryConfig(queryConfig)
-        .setMetadataStoreConfig(metadataStoreConfig)
         .build();
   }
 }

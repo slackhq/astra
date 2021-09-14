@@ -4,6 +4,37 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
+enum CacheSlotState {
+  FREE = 0;
+  ASSIGNED = 1;
+  LOADING = 2;
+  LIVE = 3;
+  EVICT = 4;
+  EVICTING = 5;
+};
+
+message CacheSlotMetadata {
+  // Name of the cache slot
+  string name = 1;
+
+  // Unique ID of the replica
+  string replicaId = 2;
+
+  // State of the cache slot
+  CacheSlotState cacheSlotState = 3;
+
+  // Last updated timestamp
+  int64 updatedTimeUtc = 4;
+}
+
+message ReplicaMetadata {
+  // Name of the replica
+  string name = 1;
+
+  // Unique ID for the snapshot blob
+  string snapshotId = 2;
+}
+
 message SnapshotMetadata {
   // Name of the snapshot
   string name = 1;
