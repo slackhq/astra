@@ -110,7 +110,7 @@ public class CachedMetadataStoreImplTest {
   }
 
   @Test
-  public void raceCondition() throws Exception {
+  public void raceConditionOnMetadataStoreCloseListeners() throws Exception {
     AtomicBoolean metadataStoreClosed = new AtomicBoolean(false);
     AtomicInteger listenerExecutions = new AtomicInteger(0);
     CountDownLatch countDownLatch = new CountDownLatch(3);
