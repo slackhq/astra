@@ -6,6 +6,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunk.ChunkManager;
@@ -15,7 +16,6 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.util.JsonUtil;
 import io.grpc.StatusRuntimeException;
@@ -43,7 +43,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Before
   public void setUp() throws Exception {
-    KaldbConfigUtil.initEmptyIndexerConfig();
+    Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
