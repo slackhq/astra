@@ -13,7 +13,6 @@ import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -42,7 +41,6 @@ public class ElasticsearchApiServiceTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    KaldbConfigUtil.initEmptyIndexerConfig();
 
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
