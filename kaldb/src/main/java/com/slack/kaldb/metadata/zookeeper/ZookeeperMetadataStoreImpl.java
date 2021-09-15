@@ -17,8 +17,8 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.RetryPolicy;
@@ -76,6 +76,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
   // A thread pool to run all the metadata store operations in.
   private final ListeningExecutorService metadataExecutorService;
+  private final ExecutorService runSafeService;
   private final MeterRegistry meterRegistry;
 
   @SuppressWarnings("UnstableApiUsage")
@@ -98,15 +99,8 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     this.metadataWriteCounter = meterRegistry.counter(METADATA_WRITE_COUNTER);
     this.metadataReadCounter = meterRegistry.counter(METADATA_READ_COUNTER);
 
-    // TODO: Pass the thread pool in a constructor so we can use direct executor in tests if needed.
-    // Create an executor service that runs all the ZK operations
-    ThreadFactory metadataStoreThreadFactory =
-        new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool").build();
-    ThreadPoolExecutor executor =
-        (ThreadPoolExecutor) Executors.newCachedThreadPool(metadataStoreThreadFactory);
-    this.metadataExecutorService =
-        MoreExecutors.listeningDecorator(
-            MoreExecutors.getExitingExecutorService(executor, 1, TimeUnit.SECONDS));
+    this.metadataExecutorService = this.buildExecutor();
+    this.runSafeService = this.buildRunSafeService();
 
     // TODO: In future add ZK auth credentials can be passed in here.
     this.curator =
@@ -116,6 +110,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
             .connectionTimeoutMs(connectionTimeoutMs)
             .sessionTimeoutMs(sessionTimeoutMs)
             .retryPolicy(retryPolicy)
+            .runSafeService(runSafeService)
             .build();
 
     // A catch-all handler for any errors we may have missed.
@@ -164,7 +159,49 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
         retryPolicy);
   }
 
+  private ListeningExecutorService buildExecutor() {
+    // TODO: Pass the thread pool in a constructor so we can use direct executor in tests if needed.
+    // Create an executor service that runs all the ZK operations
+    ThreadPoolExecutor executor =
+        (ThreadPoolExecutor)
+            Executors.newCachedThreadPool(
+                new ThreadFactoryBuilder().setNameFormat("kaldb-metadata-store-pool-%d").build());
+
+    return MoreExecutors.listeningDecorator(executor);
+  }
+
+  private ExecutorService buildRunSafeService() {
+    return Executors.newSingleThreadExecutor(
+        new ThreadFactoryBuilder().setNameFormat("zk-metadata-runsafe-%d").build());
+  }
+
   public void close() {
+    LOG.info("Shutting down metadata executor service");
+    // shutdown the main ZK executor
+    metadataExecutorService.shutdown();
+
+    LOG.info("Shutting down metadata runsafe service");
+    // shutdown the Curator runSafe executor
+    runSafeService.shutdown();
+
+    try {
+      boolean metadataCompletedShutdown =
+          metadataExecutorService.awaitTermination(10, TimeUnit.SECONDS);
+      if (!metadataCompletedShutdown) {
+        LOG.error(
+            "Failed to gracefully shutdown metadataExecutorService in time, proceeding with shutdown anyways.");
+      }
+
+      boolean runsafeCompletedShutdown = runSafeService.awaitTermination(10, TimeUnit.SECONDS);
+      if (!runsafeCompletedShutdown) {
+        LOG.error(
+            "Failed to gracefully shutdown runSafeService in time, proceeding with shutdown anyways.");
+      }
+    } catch (InterruptedException e) {
+      LOG.error(
+          "Interrupted while attempting to shutting down executor services, proceeding anyways");
+    }
+
     LOG.info("Closing curator connection.");
     curator.close();
     LOG.info("Closed curator connection successfully.");
