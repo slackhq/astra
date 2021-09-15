@@ -20,7 +20,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
@@ -53,7 +52,6 @@ public class LogMessageWriterImplTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
