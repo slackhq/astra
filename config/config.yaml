@@ -39,8 +39,8 @@ queryConfig:
 
 metadataStoreConfig:
   zookeeperConfig:
-    zkConnectString: "127.0.0.1:2181"
-    zkPathPrefix: "kaldb"
-    zkSessionTimeoutMs: 1000
-    zkConnectionTimeoutMs: 1500
-    sleepBetweenRetriesMs: 500
+    zkConnectString: ${KALDB_ZK_CONNECTION_STRING:-localhost:2181}
+    zkPathPrefix: ${KALDB_ZK_PATH_PREFIX:-kaldb}
+    zkSessionTimeoutMs: ${KALDB_ZK_SESSION_TIMEOUT_MS:-5000}
+    zkConnectionTimeoutMs: ${KALDB_ZK_CONNECT_TIMEOUT_MS:-500}
+    sleepBetweenRetriesMs: ${KALDB_ZK_SLEEP_RETRIES_MS:-100}
