@@ -18,6 +18,7 @@ message KaldbConfig {
     MetadataStoreConfig metadataStoreConfig = 5;
     repeated NodeRole nodeRoles = 6;
     TracingConfig tracingConfig = 7;
+    CacheConfig cacheConfig = 8;
 }
 
 message KafkaConfig {
@@ -73,4 +74,10 @@ message IndexerConfig {
 message ServerConfig {
     int32 serverPort = 1;
     string serverAddress = 2;
+}
+
+message CacheConfig {
+    int64 slotsPerInstance = 1;
+    int64 staleDurationSecs = 2;
+    ServerConfig serverConfig = 3;
 }

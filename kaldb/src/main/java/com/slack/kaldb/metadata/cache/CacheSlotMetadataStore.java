@@ -9,14 +9,8 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
 
   private static final Logger LOG = LoggerFactory.getLogger(CacheSlotMetadataStore.class);
 
-  public CacheSlotMetadataStore(
-      MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
-    super(
-        shouldCache,
-        true,
-        snapshotStorePath,
-        metadataStore,
-        new CacheSlotMetadataSerializer(),
-        LOG);
+  public CacheSlotMetadataStore(MetadataStore metadataStore, String snapshotStorePath)
+      throws Exception {
+    super(true, true, snapshotStorePath, metadataStore, new CacheSlotMetadataSerializer(), LOG);
   }
 }

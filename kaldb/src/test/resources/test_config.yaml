@@ -40,3 +40,10 @@ metadataStoreConfig:
     zkSessionTimeoutMs: 1000
     zkConnectionTimeoutMs: 1500
     sleepBetweenRetriesMs: 500
+
+cacheConfig:
+  slotsPerInstance: 3
+  staleDurationSecs: 7200
+  serverConfig:
+    serverPort: 8082
+    serverAddress: localhost

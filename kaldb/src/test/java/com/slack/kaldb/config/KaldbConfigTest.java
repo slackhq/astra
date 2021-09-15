@@ -192,6 +192,13 @@ public class KaldbConfigTest {
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+
+    final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
+    final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
+    assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(3);
+    assertThat(cacheConfig.getStaleDurationSecs()).isEqualTo(7200);
+    assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test
@@ -252,6 +259,13 @@ public class KaldbConfigTest {
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
+
+    final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
+    final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
+    assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(3);
+    assertThat(cacheConfig.getStaleDurationSecs()).isEqualTo(7200);
+    assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test(expected = RuntimeException.class)

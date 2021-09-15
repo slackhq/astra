@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="KalDb Cache Node" type="Application" factoryName="Application">
+    <envs>
+      <env name="NODE_ROLES" value="CACHE" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.slack.kaldb.server.Kaldb" />
+    <module name="kaldb" />
+    <option name="PROGRAM_PARAMETERS" value="config/config.yaml" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

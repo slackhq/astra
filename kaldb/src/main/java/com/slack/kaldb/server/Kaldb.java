@@ -119,6 +119,28 @@ public class Kaldb {
       services.add(armeriaService);
     }
 
+    if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
+      ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
+      services.add(chunkManager);
+
+      ChunkCleanerTask<LogMessage> chunkCleanerTask =
+          new ChunkCleanerTask<>(
+              chunkManager,
+              Duration.ofSeconds(KaldbConfig.get().getCacheConfig().getStaleDurationSecs()));
+      services.add(chunkCleanerTask);
+
+      CacheSlotMetadataStoreService cacheSlotMetadataStoreService =
+          new CacheSlotMetadataStoreService(
+              metadataStoreService, chunkManager, KaldbConfig.get().getCacheConfig());
+      services.add(cacheSlotMetadataStoreService);
+
+      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
+      final int serverPort = KaldbConfig.get().getCacheConfig().getServerConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbCache");
+      services.add(armeriaService);
+    }
+
     return services;
   }
 
