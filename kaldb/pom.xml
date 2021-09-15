@@ -19,6 +19,8 @@
         <armeria.version>1.11.0</armeria.version>
         <micrometer.version>1.5.1</micrometer.version>
         <jackson.version>2.10.5</jackson.version>
+        <!-- remove special databind version when jackson.version is the same -->
+        <jackson.databind.version>${jackson.version}.1</jackson.databind.version>
         <lucene.version>8.4.1</lucene.version>
         <curator.version>5.1.0</curator.version>
         <log4j.version>2.14.1</log4j.version>
@@ -159,7 +161,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
+            <version>${jackson.databind.version}</version>
         </dependency>
 
         <!-- YAML config parsing dependencies -->
