@@ -30,4 +30,13 @@ public class SearchContextTest {
   public void testNullHostname() {
     new SearchContext(null, 1000);
   }
+
+  @Test
+  public void testUrl() {
+    SearchContext searchContext = new SearchContext(HOSTNAME, PORT);
+    final String url = searchContext.toUrl();
+    assertThat(url).isNotEmpty();
+    assertThat(url).contains(HOSTNAME);
+    assertThat(url).contains(String.valueOf(PORT));
+  }
 }
