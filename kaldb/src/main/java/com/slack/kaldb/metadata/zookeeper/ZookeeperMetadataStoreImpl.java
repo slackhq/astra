@@ -79,7 +79,6 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   private final ExecutorService runSafeService;
   private final MeterRegistry meterRegistry;
 
-  @SuppressWarnings("UnstableApiUsage")
   public ZookeeperMetadataStoreImpl(
       String zkConnectString,
       String zkPathPrefix,
