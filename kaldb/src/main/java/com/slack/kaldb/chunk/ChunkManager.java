@@ -451,8 +451,8 @@ public class ChunkManager<T> extends AbstractIdleService {
             KaldbConfig.SNAPSHOT_METADATA_STORE_PATH,
             false);
 
-    // TODO: Remove this registration one snapshot is registered.
-    // Temporarily, register the indexer here. Later, move it closer to chunk metadata registration.
+    // TODO: Temporarily, register the indexer here. Later, move it closer to chunk metadata
+    // creation.
     SearchMetadata searchMetadata =
         toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
     searchMetadataStore.create(searchMetadata).get();
