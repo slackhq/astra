@@ -579,7 +579,7 @@ public class ZookeeperMetadataStoreImplTest {
 
     // Closing the curator connection expires the ephemeral node and cache is left with
     // persistent node.
-    metadataStore.close();
+    metadataStore.getCurator().close();
     await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
     assertThat(cache.getInstances()).containsOnly(snapshot21, snapshot22);
 

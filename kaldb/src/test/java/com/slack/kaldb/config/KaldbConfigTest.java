@@ -187,8 +187,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
-    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("zk://1.2.3.4:9092");
-    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("/root/zkPath");
+    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("1.2.3.4:9092");
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("zkPrefix");
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
@@ -247,8 +247,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
-    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("zk://1.2.3.4:9092");
-    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("/root/zkPath");
+    assertThat(zookeeperConfig.getZkConnectString()).isEqualTo("1.2.3.4:9092");
+    assertThat(zookeeperConfig.getZkPathPrefix()).isEqualTo("zkPrefix");
     assertThat(zookeeperConfig.getZkSessionTimeoutMs()).isEqualTo(1000);
     assertThat(zookeeperConfig.getZkConnectionTimeoutMs()).isEqualTo(1500);
     assertThat(zookeeperConfig.getSleepBetweenRetriesMs()).isEqualTo(500);
