@@ -84,7 +84,7 @@ public class ChunkManagerTest {
             .setZkConnectString(localZkServer.getConnectString())
             .setZkPathPrefix(ZK_PATH_PREFIX)
             .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(15000)
+            .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
             .build();
     metadataStoreService = new MetadataStoreService(metricsRegistry, zkConfig);
