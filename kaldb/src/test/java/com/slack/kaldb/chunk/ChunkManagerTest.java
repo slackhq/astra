@@ -445,7 +445,7 @@ public class ChunkManagerTest {
     // chunk 2 which has docs 12-21 is corrupted
     // an alternate approach I tried was the statement below
     // chunk.getLogSearcher().close();
-    // this worked but was kinda flakey since it messes with shutdown and refresh intervals
+    // this worked but was kinda flaky since it messes with shutdown and refresh intervals
     chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl());
 
     testChunkManagerSearch(chunkManager, "Message18", 0, 3, 2, 0, MAX_TIME);
@@ -783,7 +783,7 @@ public class ChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
-    // Adding a message after a roll over fails throws an exception.
+    // Adding a message after a rollover fails throws an exception.
     final List<LogMessage> newMessage =
         MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
     for (LogMessage m : newMessage) {
@@ -821,7 +821,7 @@ public class ChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
-    // Adding a message after a roll over fails throws an exception.
+    // Adding a message after a rollover fails throws an exception.
     final List<LogMessage> newMessage =
         MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
     for (LogMessage m : newMessage) {
