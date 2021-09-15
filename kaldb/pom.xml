@@ -18,7 +18,7 @@
         <grpc.version>1.40.1</grpc.version>
         <armeria.version>1.11.0</armeria.version>
         <micrometer.version>1.5.1</micrometer.version>
-        <jackson.version>2.12.5</jackson.version>
+        <jackson.version>2.10.5</jackson.version>
         <lucene.version>8.4.1</lucene.version>
         <curator.version>5.1.0</curator.version>
         <log4j.version>2.14.1</log4j.version>
@@ -320,6 +320,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.0</version>
+            <scope>test</scope>
+        </dependency>
+        
         <!-- Apache curator dependencies -->
         <dependency>
             <groupId>org.apache.curator</groupId>
