@@ -101,18 +101,12 @@ public class ChunkManagerUtil<T> {
   }
 
   public void close() throws IOException, TimeoutException {
-    if (chunkManager != null) {
-      chunkManager.stopAsync();
-      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    }
-    if (s3Client != null) {
-      s3Client.close();
-    }
+    chunkManager.stopAsync();
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    s3Client.close();
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    if (localZkServer != null) {
-      localZkServer.close();
-    }
+    localZkServer.close();
     FileUtils.deleteDirectory(tempFolder);
   }
 }
