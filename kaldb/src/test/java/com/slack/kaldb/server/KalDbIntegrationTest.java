@@ -35,10 +35,13 @@ public class KalDbIntegrationTest {
   @Before
   public void start() throws Exception {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     KaldbConfig.reset();
