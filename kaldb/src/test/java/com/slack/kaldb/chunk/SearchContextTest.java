@@ -16,17 +16,17 @@ public class SearchContextTest {
     assertThat(searchContext.port).isEqualTo(PORT);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testNegativePort() {
     new SearchContext(HOSTNAME, -1);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testEmptyHostname() {
     new SearchContext("", 1000);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testNullHostname() {
     new SearchContext(null, 1000);
   }

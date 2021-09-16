@@ -1,6 +1,6 @@
 package com.slack.kaldb.chunk;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
@@ -13,8 +13,8 @@ public class SearchContext {
   public final int port;
 
   public SearchContext(String hostname, int port) {
-    checkState(hostname != null && !hostname.isEmpty(), "hostname field can't be null or empty");
-    checkState(port > 0, "port value has to be a positive number.");
+    checkArgument(hostname != null && !hostname.isEmpty(), "hostname field can't be null or empty");
+    checkArgument(port > 0, "port value has to be a positive number.");
 
     this.hostname = hostname;
     this.port = port;
