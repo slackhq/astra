@@ -282,7 +282,8 @@ public class ChunkManager<T> extends AbstractIdleService {
    */
   private Chunk<T> getOrCreateActiveChunk() throws IOException {
     if (activeChunk == null) {
-      // TODO: Move this line into sync block if make chunk is fast.
+      // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
+      //  complicates unit tests.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
