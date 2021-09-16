@@ -33,17 +33,11 @@ public class KalDbIntegrationTest {
   private final ObjectMapper om = new ObjectMapper();
 
   @Before
-  public void start() throws Exception {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+  public void start() throws IOException, Exception {
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);
 
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     KaldbConfig.reset();
     kaldb = new Kaldb(Path.of("../config/config.yaml"));
     LOG.info("Starting kalDb with the resolved configs: {}", KaldbConfig.get().toString());
