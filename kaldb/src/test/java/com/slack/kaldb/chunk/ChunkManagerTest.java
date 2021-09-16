@@ -102,9 +102,7 @@ public class ChunkManagerTest {
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     s3Client.close();
-    if (localZkServer != null) {
-      localZkServer.stop();
-    }
+    localZkServer.stop();
   }
 
   private void initChunkManager(
