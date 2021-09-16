@@ -34,10 +34,13 @@ public class KalDbIntegrationTest {
 
   @Before
   public void start() throws Exception {
+<<<<<<< Updated upstream
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);
 
+=======
+>>>>>>> Stashed changes
     KaldbConfig.reset();
     kaldb = new Kaldb(Path.of("../config/config.yaml"));
     LOG.info("Starting kalDb with the resolved configs: {}", KaldbConfig.get().toString());
