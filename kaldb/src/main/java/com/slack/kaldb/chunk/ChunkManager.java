@@ -445,11 +445,11 @@ public class ChunkManager<T> extends AbstractIdleService {
     metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
     searchMetadataStore =
         new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), KaldbConfig.SEARCH_METADATA_STORE_PATH, false);
+            metadataStoreService.getMetadataStore(), KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH, false);
     snapshotMetadataStore =
         new SnapshotMetadataStore(
             metadataStoreService.getMetadataStore(),
-            KaldbConfig.SNAPSHOT_METADATA_STORE_PATH,
+            KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
             false);
 
     // TODO: Temporarily, register the indexer here. Later, move it closer to chunk metadata
