@@ -699,8 +699,9 @@ public class KaldbMetadataStoreTest {
       assertThat(addListenerEx).isInstanceOf(UnsupportedOperationException.class);
       Throwable removeListenerEx = catchThrowable(() -> store.removeListener(listener));
       assertThat(removeListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      Throwable closeEx = catchThrowable(() -> store.close());
-      assertThat(closeEx).isInstanceOf(UnsupportedOperationException.class);
+      // store.close() works and is idempotent when cache is disabled.
+      store.close();
+      store.close();
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
@@ -1372,8 +1373,9 @@ public class KaldbMetadataStoreTest {
       assertThat(addListenerEx).isInstanceOf(UnsupportedOperationException.class);
       Throwable removeListenerEx = catchThrowable(() -> store.removeListener(listener));
       assertThat(removeListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      Throwable closeEx = catchThrowable(() -> store.close());
-      assertThat(closeEx).isInstanceOf(UnsupportedOperationException.class);
+      // store.close() works and is idempotent when cache is disabled.
+      store.close();
+      store.close();
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);

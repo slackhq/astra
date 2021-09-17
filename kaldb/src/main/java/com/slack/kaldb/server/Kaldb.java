@@ -52,7 +52,7 @@ public class Kaldb {
     KaldbConfig.initFromFile(configFilePath);
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws Exception {
     if (args.length == 0) {
       LOG.info("Config file is needed a first argument");
     }
@@ -62,7 +62,7 @@ public class Kaldb {
     kalDb.start();
   }
 
-  public void start() {
+  public void start() throws Exception {
     setupSystemMetrics();
 
     Set<Service> services = getServices();
@@ -73,7 +73,7 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices() {
+  public static Set<Service> getServices() throws Exception {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
@@ -82,8 +82,11 @@ public class Kaldb {
     services.add(metadataStoreService);
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-
-      ChunkManager<LogMessage> chunkManager = ChunkManager.fromConfig(prometheusMeterRegistry);
+      ChunkManager<LogMessage> chunkManager =
+          ChunkManager.fromConfig(
+              prometheusMeterRegistry,
+              metadataStoreService,
+              KaldbConfig.get().getIndexerConfig().getServerConfig());
       services.add(chunkManager);
 
       ChunkCleanerTask<LogMessage> chunkCleanerTask =

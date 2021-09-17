@@ -33,7 +33,7 @@ public class KalDbIntegrationTest {
   private final ObjectMapper om = new ObjectMapper();
 
   @Before
-  public void start() throws Exception {
+  public void start() throws IOException, Exception {
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);

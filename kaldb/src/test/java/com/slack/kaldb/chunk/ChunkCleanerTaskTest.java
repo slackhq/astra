@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -30,8 +29,7 @@ public class ChunkCleanerTaskTest {
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
   @Before
-  public void setUp() throws IOException, TimeoutException {
-    KaldbConfigUtil.initEmptyIndexerConfig();
+  public void setUp() throws Exception {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);

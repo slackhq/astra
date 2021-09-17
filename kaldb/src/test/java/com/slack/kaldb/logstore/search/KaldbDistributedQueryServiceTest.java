@@ -14,6 +14,7 @@ import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
+import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -89,9 +90,10 @@ public class KaldbDistributedQueryServiceTest {
     // Will be same for both indexing servers
     KaldbConfig.initFromConfigObject(kaldbConfig1);
 
+    SearchContext searchContext1 = new SearchContext("localhost", 10000);
     ChunkManagerUtil<LogMessage> chunkManagerUtil1 =
         new ChunkManagerUtil<>(
-            S3_MOCK_RULE, indexerMetricsRegistry1, 10 * 1024 * 1024 * 1024L, 100);
+            S3_MOCK_RULE, indexerMetricsRegistry1, 10 * 1024 * 1024 * 1024L, 100, searchContext1);
     indexingServer1 =
         newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
     indexingServer1.start().get(10, TimeUnit.SECONDS);
@@ -109,10 +111,11 @@ public class KaldbDistributedQueryServiceTest {
             "");
 
     // Set it to the new config so that the new kafka writer picks up this config
+    SearchContext searchContext2 = new SearchContext("localhost", 10001);
     KaldbConfig.initFromConfigObject(kaldbConfig2);
     ChunkManagerUtil<LogMessage> chunkManagerUtil2 =
         new ChunkManagerUtil<>(
-            S3_MOCK_RULE, indexerMetricsRegistry2, 10 * 1024 * 1024 * 1024L, 100);
+            S3_MOCK_RULE, indexerMetricsRegistry2, 10 * 1024 * 1024 * 1024L, 100, searchContext2);
     indexingServer2 =
         newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
     indexingServer2.start().get(10, TimeUnit.SECONDS);

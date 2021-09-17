@@ -13,19 +13,22 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.AlreadyClosedLogIndexSearcherImpl;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -39,6 +42,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.curator.test.TestingServer;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -46,6 +50,7 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class ChunkManagerTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  public static final String HOSTNAME = "localhost";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private ChunkManager<LogMessage> chunkManager = null;
@@ -54,10 +59,13 @@ public class ChunkManagerTest {
   private S3Client s3Client;
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+  private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
+  private TestingServer localZkServer;
+  private MetadataStoreService metadataStoreService;
 
   @Before
-  public void setUp() throws InvalidProtocolBufferException {
+  public void setUp() throws Exception {
     Tracing.newBuilder().build();
     KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
@@ -67,16 +75,34 @@ public class ChunkManagerTest {
 
     s3BlobFs = new S3BlobFs();
     s3BlobFs.init(s3Client);
+
+    localZkServer = new TestingServer();
+    localZkServer.start();
+
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(localZkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(15000)
+            .setZkConnectionTimeoutMs(1500)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    metadataStoreService = new MetadataStoreService(metricsRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @After
-  public void tearDown() throws TimeoutException {
+  public void tearDown() throws TimeoutException, IOException {
     metricsRegistry.close();
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     if (chunkManager != null) {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     s3Client.close();
+    localZkServer.stop();
   }
 
   private void initChunkManager(
@@ -84,7 +110,9 @@ public class ChunkManagerTest {
       String s3TestBucket,
       ListeningExecutorService listeningExecutorService,
       int rollOverFutureTimeoutMs)
-      throws IOException, TimeoutException {
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+    final int port = 10000;
+    SearchContext searchContext = new SearchContext(HOSTNAME, port);
     chunkManager =
         new ChunkManager<>(
             "testData",
@@ -94,9 +122,20 @@ public class ChunkManagerTest {
             s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
-            rollOverFutureTimeoutMs);
+            rollOverFutureTimeoutMs,
+            metadataStoreService,
+            searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // TODO: This is temporary, move this registration closer to logic.
+    // Test search end point registration.
+    await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
+    SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
+    assertThat(searchMetadata.name).isEqualTo("localhost");
+    assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
+    assertThat(searchMetadata.url).contains(HOSTNAME);
+    assertThat(searchMetadata.url).contains(String.valueOf(port));
   }
 
   @Test
@@ -136,7 +175,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddMessage() throws IOException, TimeoutException {
+  public void testAddMessage()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
@@ -206,7 +246,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddAndSearchMessageInMultipleSlices() throws IOException, TimeoutException {
+  public void testAddAndSearchMessageInMultipleSlices()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -231,7 +272,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
+  public void testAddMessageWithPropertyTypeErrors()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -258,7 +300,8 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ReadOnlyChunkInsertionException.class)
-  public void testMessagesAddedToActiveChunks() throws IOException, TimeoutException {
+  public void testMessagesAddedToActiveChunks()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -302,7 +345,7 @@ public class ChunkManagerTest {
 
   @Test
   public void testMultiThreadedChunkRollover()
-      throws IOException, InterruptedException, TimeoutException {
+      throws IOException, InterruptedException, TimeoutException, ExecutionException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -400,7 +443,7 @@ public class ChunkManagerTest {
     // chunk 2 which has docs 12-21 is corrupted
     // an alternate approach I tried was the statement below
     // chunk.getLogSearcher().close();
-    // this worked but was kinda flakey since it messes with shutdown and refresh intervals
+    // this worked but was kinda flaky since it messes with shutdown and refresh intervals
     chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl());
 
     testChunkManagerSearch(chunkManager, "Message18", 0, 3, 2, 0, MAX_TIME);
@@ -469,7 +512,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk() throws IOException, TimeoutException {
+  public void testCommitInvalidChunk()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -505,7 +549,8 @@ public class ChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch() throws IOException, TimeoutException {
+  public void testMultiChunkSearch()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -624,7 +669,8 @@ public class ChunkManagerTest {
   }
 
   @Test(expected = ChunkRollOverInProgressException.class)
-  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException {
+  public void testChunkRollOverInProgressExceptionIsThrown()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -643,7 +689,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testSuccessfulRollOverFinishesOnClose() throws IOException, TimeoutException {
+  public void testSuccessfulRollOverFinishesOnClose()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -673,7 +720,8 @@ public class ChunkManagerTest {
   }
 
   @Test
-  public void testFailedRollOverFinishesOnClose() throws IOException, TimeoutException {
+  public void testFailedRollOverFinishesOnClose()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -733,7 +781,7 @@ public class ChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
-    // Adding a message after a roll over fails throws an exception.
+    // Adding a message after a rollover fails throws an exception.
     final List<LogMessage> newMessage =
         MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
     for (LogMessage m : newMessage) {
@@ -771,7 +819,7 @@ public class ChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
-    // Adding a message after a roll over fails throws an exception.
+    // Adding a message after a rollover fails throws an exception.
     final List<LogMessage> newMessage =
         MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
     for (LogMessage m : newMessage) {

@@ -75,13 +75,10 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
     else cache.get().start();
   }
 
+  // Close is idempotent and also works when cache is disabled.
   public void close() {
-    if (cache.isEmpty()) {
-      throw new UnsupportedOperationException();
-    } else {
-      cache.get().close();
-      watchers.clear();
-    }
+    if (!cache.isEmpty()) cache.get().close();
+    watchers.clear();
   }
 
   public List<T> getCached() {

@@ -79,16 +79,15 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
   private final ExecutorService runSafeService;
   private final MeterRegistry meterRegistry;
 
-  @SuppressWarnings("UnstableApiUsage")
   public ZookeeperMetadataStoreImpl(
-      String zkHostPath,
+      String zkConnectString,
       String zkPathPrefix,
       int sessionTimeoutMs,
       int connectionTimeoutMs,
       RetryPolicy retryPolicy,
       FatalErrorHandler fatalErrorHandler,
       MeterRegistry meterRegistry) {
-    ensureNonEmptyString(zkHostPath, "zkHostPath can't be null or empty");
+    ensureNonEmptyString(zkConnectString, "zkConnectString can't be null or empty");
     ensureNonEmptyString(zkPathPrefix, "zkPathPrefix can't be null or empty");
     ensureTrue(sessionTimeoutMs > 0, "sessionTimeoutMs should be a positive number");
     ensureTrue(connectionTimeoutMs > 0, "connectionTimeoutMs should be a positive number");
@@ -105,7 +104,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     // TODO: In future add ZK auth credentials can be passed in here.
     this.curator =
         CuratorFrameworkFactory.builder()
-            .connectString(zkHostPath)
+            .connectString(zkConnectString)
             .namespace(zkPathPrefix)
             .connectionTimeoutMs(connectionTimeoutMs)
             .sessionTimeoutMs(sessionTimeoutMs)
@@ -152,7 +151,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     LOG.info(
         "Started curator server with the following config zkhost: {}, path prefix: {}, "
             + "connection timeout ms: {}, session timeout ms {} and retry policy {}",
-        zkHostPath,
+        zkConnectString,
         zkPathPrefix,
         connectionTimeoutMs,
         sessionTimeoutMs,
