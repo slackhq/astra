@@ -445,7 +445,9 @@ public class ChunkManager<T> extends AbstractIdleService {
     metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
     searchMetadataStore =
         new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH, false);
+            metadataStoreService.getMetadataStore(),
+            KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
+            false);
     snapshotMetadataStore =
         new SnapshotMetadataStore(
             metadataStoreService.getMetadataStore(),

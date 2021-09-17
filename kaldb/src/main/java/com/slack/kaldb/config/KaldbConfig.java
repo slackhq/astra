@@ -21,9 +21,10 @@ import org.apache.commons.text.StringSubstitutor;
  * <p>TODO: Set reasonable defaults for the config values.
  */
 public class KaldbConfig {
+  // Default start/stop duration for guava services.
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
 
-  // Zookepper paths for various stores.
+  // Zookeeper paths for meta data stores.
   public static String SEARCH_METADATA_STORE_ZK_PATH = "/search";
   public static String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
 
