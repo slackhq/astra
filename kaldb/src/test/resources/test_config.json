@@ -44,5 +44,12 @@
       "zkConnectionTimeoutMs": 1500,
       "sleepBetweenRetriesMs": 500
     }
+  },
+  "cacheConfig": {
+    "slotsPerInstance": 10,
+    "serverConfig": {
+      "serverPort": 8082,
+      "serverAddress": "localhost"
+    }
   }
 }

@@ -4,6 +4,7 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 
 public class CacheSlotMetadata extends KaldbMetadata {
+  public static final String METADATA_SLOT_NAME = "SLOT";
 
   public final Metadata.CacheSlotState cacheSlotState;
   public final String replicaId;
