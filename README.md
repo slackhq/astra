@@ -18,9 +18,11 @@ To build the binary: `mvn clean package`
 
 > IntelliJ: Import the project as a Maven project.
 
-IntelliJ run configs are provided for all node types, and execute using the provided `config/config.yaml`. To start the
-application dependencies (Zookeeper, Kafka, S3) you can use the provided docker compose file.
+IntelliJ run configs are provided for all node types, and execute using the provided `config/config.yaml`. These 
+configurations are stored in the `.run` folder and should automatically be detected by IntelliJ upon importing the 
+project.
 
+To start the application dependencies (Zookeeper, Kafka, S3) you can use the provided docker compose file:
 ```bash
 docker-compose up
 ```
