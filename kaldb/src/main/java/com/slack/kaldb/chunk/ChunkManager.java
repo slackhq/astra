@@ -443,22 +443,25 @@ public class ChunkManager<T> extends AbstractIdleService {
   protected void startUp() throws Exception {
     LOG.info("Starting chunk manager");
     metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
-    searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(),
-            KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
-            false);
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(),
-            KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
-            false);
 
-    // TODO: Temporarily, register the indexer here. Later, move it closer to chunk metadata
-    // creation.
-    SearchMetadata searchMetadata =
-        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
-    searchMetadataStore.create(searchMetadata).get();
+    // TODO: Allow multiple nodes to register against the /search path
+    // searchMetadataStore =
+    // new SearchMetadataStore(
+    //         metadataStoreService.getMetadataStore(),
+    //        KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
+    //        false);
+
+    // TODO: Allow multiple nodes to register against the /snapshots path
+    // snapshotMetadataStore =
+    //    new SnapshotMetadataStore(
+    //        metadataStoreService.getMetadataStore(),
+    //        KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
+    //       false);
+
+    // TODO: Move this registration closer to chunk metadata
+    // SearchMetadata searchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME,
+    // searchContext);
+    // searchMetadataStore.create(searchMetadata).get();
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -467,7 +470,8 @@ public class ChunkManager<T> extends AbstractIdleService {
   }
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
+    return new SearchMetadata(
+        searchContext.hostname + Math.random(), snapshotName, searchContext.toUrl());
   }
 
   /**
@@ -512,8 +516,8 @@ public class ChunkManager<T> extends AbstractIdleService {
     for (Chunk<T> chunk : chunkMap.values()) {
       chunk.close();
     }
-    searchMetadataStore.close();
-    snapshotMetadataStore.close();
+    // searchMetadataStore.close();
+    // snapshotMetadataStore.close();
     LOG.info("Closed chunk manager.");
   }
 
