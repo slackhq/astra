@@ -17,8 +17,8 @@ import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
-import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.RollOverChunkTask;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
@@ -112,7 +112,7 @@ public class KaldbIndexerTest {
   public void testIndexFromKafkaSearchViaGrpcSearchApi() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();

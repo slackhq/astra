@@ -2,7 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.ChunkManager;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import java.util.concurrent.CompletableFuture;

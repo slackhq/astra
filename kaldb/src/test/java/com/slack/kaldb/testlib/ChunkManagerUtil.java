@@ -6,10 +6,10 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.chunk.ChunkManager;
-import com.slack.kaldb.chunk.ChunkRollOverStrategy;
-import com.slack.kaldb.chunk.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategy;
+import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,7 +32,7 @@ public class ChunkManagerUtil<T> {
   public final S3Client s3Client;
   public static final String S3_TEST_BUCKET = "test-kaldb-logs";
   public static final String ZK_PATH_PREFIX = "testZK";
-  public final ChunkManager<T> chunkManager;
+  public final IndexingChunkManager<T> chunkManager;
   private final TestingServer localZkServer;
   private final MetadataStoreService metadataStoreService;
 
@@ -85,7 +85,7 @@ public class ChunkManagerUtil<T> {
     metadataStoreService.startAsync();
 
     chunkManager =
-        new ChunkManager<>(
+        new IndexingChunkManager<>(
             "testData",
             tempFolder.getAbsolutePath(),
             chunkRollOverStrategy,

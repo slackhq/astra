@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunk.manager.indexing;
 
 public class ChunkRollOverException extends RuntimeException {
   public ChunkRollOverException(String message) {

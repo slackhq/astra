@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,9 +21,9 @@ public class ChunkCleanerTask<T> extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerTask.class);
 
   private final Duration staleDelayDuration;
-  private final ChunkManager chunkManager;
+  private final IndexingChunkManager chunkManager;
 
-  public ChunkCleanerTask(ChunkManager chunkManager, Duration staleDelayDuration) {
+  public ChunkCleanerTask(IndexingChunkManager chunkManager, Duration staleDelayDuration) {
     this.chunkManager = chunkManager;
     this.staleDelayDuration = staleDelayDuration;
   }

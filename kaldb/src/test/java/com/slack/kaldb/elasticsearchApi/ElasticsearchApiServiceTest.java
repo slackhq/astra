@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -235,7 +235,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     for (LogMessage m : messages) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }

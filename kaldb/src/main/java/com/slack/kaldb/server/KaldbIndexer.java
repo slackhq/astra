@@ -6,7 +6,7 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -44,11 +44,11 @@ public class KaldbIndexer extends AbstractIdleService {
 
   private final KaldbKafkaWriter kafkaWriter;
 
-  public ChunkManager<LogMessage> getChunkManager() {
+  public IndexingChunkManager<LogMessage> getChunkManager() {
     return chunkManager;
   }
 
-  private final ChunkManager<LogMessage> chunkManager;
+  private final IndexingChunkManager<LogMessage> chunkManager;
 
   public static LogMessageTransformer getLogMessageTransformer() {
     String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
@@ -91,7 +91,7 @@ public class KaldbIndexer extends AbstractIdleService {
    * messages, persist the indexed messages and metadata successfully and then close the
    * chunkManager and then the consumer,
    */
-  public KaldbIndexer(ChunkManager<LogMessage> chunkManager, KaldbKafkaWriter kafkaWriter) {
+  public KaldbIndexer(IndexingChunkManager<LogMessage> chunkManager, KaldbKafkaWriter kafkaWriter) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
     this.kafkaWriter = kafkaWriter;

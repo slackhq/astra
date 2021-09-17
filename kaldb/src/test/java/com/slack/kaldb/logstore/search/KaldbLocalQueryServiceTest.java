@@ -9,8 +9,8 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
-import com.slack.kaldb.chunk.ChunkManager;
 import com.slack.kaldb.chunk.RollOverChunkTask;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -59,7 +59,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Test
   public void testKalDbSearch() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -130,7 +130,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Test
   public void testKalDbSearchNoData() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -181,7 +181,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Test
   public void testKalDbSearchNoHits() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -233,7 +233,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Test
   public void testKalDbSearchNoHistogram() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -290,7 +290,7 @@ public class KaldbLocalQueryServiceTest {
 
   @Test
   public void testKalDbBadArgSearch() throws Throwable {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -322,7 +322,7 @@ public class KaldbLocalQueryServiceTest {
   @Test
   public void testKalDbGrpcSearch() throws IOException {
     // Load test data into chunk manager.
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -402,7 +402,7 @@ public class KaldbLocalQueryServiceTest {
   @Test(expected = StatusRuntimeException.class)
   public void testKalDbGrpcSearchThrowsException() throws IOException {
     // Load test data into chunk manager.
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();

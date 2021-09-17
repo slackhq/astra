@@ -6,8 +6,11 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -30,6 +33,7 @@ public class ChunkCleanerTaskTest {
 
   @Before
   public void setUp() throws Exception {
+    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
@@ -37,6 +41,7 @@ public class ChunkCleanerTaskTest {
 
   @After
   public void tearDown() throws IOException, TimeoutException {
+    KaldbConfig.reset();
     metricsRegistry.close();
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
@@ -45,7 +50,7 @@ public class ChunkCleanerTaskTest {
 
   @Test
   public void testDeleteStaleDataOn1Chunk() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerTask<LogMessage> chunkCleanerTask =
         new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
@@ -101,7 +106,7 @@ public class ChunkCleanerTaskTest {
 
   @Test
   public void testDeleteStateDataOn2Chunks() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerTask<LogMessage> chunkCleanerTask =
         new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
@@ -182,7 +187,7 @@ public class ChunkCleanerTaskTest {
 
   @Test
   public void testDeleteStaleDataOnMultipleChunks() throws IOException {
-    ChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
     ChunkCleanerTask<LogMessage> chunkCleanerTask =
         new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));

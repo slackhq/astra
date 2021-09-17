@@ -4,7 +4,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunk.ChunkCleanerTask;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.caching.CachingChunkManager;
+import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -82,8 +83,8 @@ public class Kaldb {
     services.add(metadataStoreService);
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      ChunkManager<LogMessage> chunkManager =
-          ChunkManager.fromConfig(
+      IndexingChunkManager<LogMessage> chunkManager =
+          IndexingChunkManager.fromConfig(
               prometheusMeterRegistry,
               metadataStoreService,
               KaldbConfig.get().getIndexerConfig().getServerConfig());
@@ -123,8 +124,8 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
-      ChunkManager<LogMessage> chunkManager =
-          ChunkManager.fromConfig(
+      CachingChunkManager<LogMessage> chunkManager =
+          CachingChunkManager.fromConfig(
               prometheusMeterRegistry,
               metadataStoreService,
               KaldbConfig.get().getCacheConfig().getServerConfig());
