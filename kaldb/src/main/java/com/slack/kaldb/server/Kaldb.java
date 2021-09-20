@@ -122,6 +122,21 @@ public class Kaldb {
       services.add(armeriaService);
     }
 
+    if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
+      ChunkManager<LogMessage> chunkManager =
+          ChunkManager.fromConfig(
+              prometheusMeterRegistry,
+              metadataStoreService,
+              KaldbConfig.get().getCacheConfig().getServerConfig());
+      services.add(chunkManager);
+
+      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
+      final int serverPort = KaldbConfig.get().getCacheConfig().getServerConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbCache");
+      services.add(armeriaService);
+    }
+
     return services;
   }
 

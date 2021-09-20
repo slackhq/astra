@@ -30,6 +30,8 @@ public class KaldbConfig {
 
   private static KaldbConfig _instance = null;
 
+  public static final String CACHE_SLOT_STORE_ZK_PATH = "/cacheSlot";
+
   // Parse a json string as a KaldbConfig proto struct.
   @VisibleForTesting
   static KaldbConfigs.KaldbConfig fromJsonConfig(String jsonStr)
