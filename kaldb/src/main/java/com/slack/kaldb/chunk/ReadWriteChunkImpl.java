@@ -73,7 +73,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    *
    * @param message a LogMessage object.
    */
-  @Override
   public void addMessage(T message) {
     if (!readOnly) {
       logStore.addMessage(message);
@@ -105,18 +104,15 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     LOG.info("Closed chunk {}", chunkInfo);
   }
 
-  @Override
   public void setReadOnly(boolean readOnly) {
     this.readOnly = readOnly;
   }
 
-  @Override
   public void commit() {
     logStore.commit();
     logStore.refresh();
   }
 
-  @Override
   public void preSnapshot() {
     LOG.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
@@ -129,7 +125,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    *
    * @return true on success, false on failure.
    */
-  @Override
   public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
     LOG.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
@@ -157,7 +152,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  @Override
   public void postSnapshot() {
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
@@ -190,7 +184,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.logSearcher = logSearcher;
   }
 
-  @Override
   public boolean isReadOnly() {
     return readOnly;
   }

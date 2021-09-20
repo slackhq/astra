@@ -67,7 +67,7 @@ public class ChunkCleanerTaskTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
-    Chunk<LogMessage> chunk = chunkManager.getActiveChunk();
+    ReadWriteChunkImpl<LogMessage> chunk = chunkManager.getActiveChunk();
     assertThat(chunk.isReadOnly()).isFalse();
     assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isZero();
 
@@ -123,7 +123,7 @@ public class ChunkCleanerTaskTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
-    final Chunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    final ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isFalse();
     assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isZero();
 
@@ -138,7 +138,7 @@ public class ChunkCleanerTaskTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
-    final Chunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
+    final ReadWriteChunkImpl<LogMessage> chunk2 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isTrue();
     assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
     assertThat(chunk2.isReadOnly()).isFalse();
@@ -225,7 +225,7 @@ public class ChunkCleanerTaskTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(4);
 
     for (Chunk<LogMessage> c : chunkManager.getChunkMap().values()) {
-      assertThat(c.isReadOnly()).isTrue();
+      assertThat(((ReadWriteChunkImpl) c).isReadOnly()).isTrue();
       assertThat(c.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
     }
 

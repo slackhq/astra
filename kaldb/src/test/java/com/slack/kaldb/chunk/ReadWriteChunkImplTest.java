@@ -55,7 +55,7 @@ public class ReadWriteChunkImplTest {
     private MeterRegistry registry;
     private final Duration commitInterval = Duration.ofSeconds(5 * 60);
     private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
-    private Chunk<LogMessage> chunk;
+    private ReadWriteChunkImpl<LogMessage> chunk;
 
     @Before
     public void setUp() throws IOException {
@@ -331,7 +331,7 @@ public class ReadWriteChunkImplTest {
     private SimpleMeterRegistry registry;
     private final Duration commitInterval = Duration.ofSeconds(5 * 60);
     private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
-    private Chunk<LogMessage> chunk;
+    private ReadWriteChunkImpl<LogMessage> chunk;
 
     @Before
     public void setUp() throws IOException {

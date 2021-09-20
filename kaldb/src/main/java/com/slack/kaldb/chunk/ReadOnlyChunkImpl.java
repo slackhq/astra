@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -37,23 +36,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final ChunkInfo chunkInfo;
   private LogIndexSearcher<T> logSearcher;
 
-  // TODO: Move this flag into LogStore?.
-  private final boolean readOnly;
-
   public ReadOnlyChunkImpl(Path dataDirectory, ChunkInfo chunkInfo, MeterRegistry metricsRegistry)
       throws IOException {
     this.logSearcher =
         (LogIndexSearcher<T>)
             new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
     this.chunkInfo = chunkInfo;
-    this.readOnly = true;
     LOG.info("Created a new read only chunk {}", chunkInfo);
-  }
-
-  @Override
-  public void addMessage(T message) {
-    throw new ReadOnlyChunkInsertionException(
-        String.format("Chunk %s is a read only chunk", chunkInfo));
   }
 
   @Override
@@ -66,37 +55,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return chunkInfo.containsDataInTimeRange(startTs, endTs);
   }
 
-  /* Since this chunk is read-only, commit is a no-op. */
-  @Override
-  public void commit() {}
-
   @Override
   public void close() throws IOException {
     logSearcher.close();
     LOG.info("Closed chunk {}", chunkInfo);
-  }
-
-  @Override
-  public void setReadOnly(boolean readOnly) {
-    if (!readOnly) {
-      throw new UnsupportedOperationException("ReadOnly chunk can't be set to write.");
-    }
-  }
-
-  @Override
-  public void preSnapshot() {
-    LOG.info("Finished pre-snapshot for RO chunk {}", chunkInfo);
-  }
-
-  @Override
-  public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
-    LOG.info("Failed snapshot to S3 for RO chunk {}", chunkInfo);
-    throw new UnsupportedOperationException("ReadOnly chunk can't be snapshotted.");
-  }
-
-  @Override
-  public void postSnapshot() {
-    LOG.info("Finished post-snapshot for RO chunk {}", chunkInfo);
   }
 
   /** Deletes the log store data from local disk. Should be called after close(). */
@@ -116,11 +78,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
-  }
-
-  @Override
-  public boolean isReadOnly() {
-    return readOnly;
   }
 
   @Override

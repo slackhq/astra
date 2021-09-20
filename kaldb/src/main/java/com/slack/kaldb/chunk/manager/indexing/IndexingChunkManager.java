@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadWriteChunkImpl;
 import com.slack.kaldb.chunk.RollOverChunkTask;
@@ -52,7 +51,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStoreService metadataStoreService;
   private final SearchContext searchContext;
-  private Chunk<T> activeChunk;
+  private ReadWriteChunkImpl<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
   private final AtomicLong liveMessagesIndexedGauge;
@@ -161,7 +160,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     }
 
     // find the active chunk and add a message to it
-    Chunk<T> currentChunk = getOrCreateActiveChunk();
+    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk();
     currentChunk.addMessage(message);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
@@ -183,7 +182,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * This method initiates a roll over of the active chunk. In future, consider moving the some of
    * the roll over logic into ChunkImpl.
    */
-  private void doRollover(Chunk<T> currentChunk) {
+  private void doRollover(ReadWriteChunkImpl<T> currentChunk) {
     // Set activeChunk to null first, so we can initiate the roll over.
     activeChunk = null;
     liveBytesIndexedGauge.set(0);
@@ -192,7 +191,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     currentChunk.info().setChunkLastUpdatedTimeSecsEpochSecs(Instant.now().getEpochSecond());
 
     RollOverChunkTask<T> rollOverChunkTask =
-        new RollOverChunkTask<>(
+        new RollOverChunkTask<T>(
             currentChunk, meterRegistry, s3BlobFs, s3Bucket, currentChunk.info().chunkId);
 
     if ((rolloverFuture == null) || rolloverFuture.isDone()) {
@@ -232,7 +231,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   }
 
   @VisibleForTesting
-  public Chunk<T> getActiveChunk() {
+  public ReadWriteChunkImpl<T> getActiveChunk() {
     return activeChunk;
   }
 
@@ -244,14 +243,16 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * data in the chunk is set as system time. However, this assumption may not be true always. In
    * future, set the start time of the chunk based on the timestamp from the message.
    */
-  private Chunk<T> getOrCreateActiveChunk() throws IOException {
+  private ReadWriteChunkImpl<T> getOrCreateActiveChunk() throws IOException {
     if (activeChunk == null) {
       // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
       //  complicates unit tests.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
-      Chunk<T> newChunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
+
+      ReadWriteChunkImpl<T> newChunk =
+          new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
       chunkMap.put(newChunk.id(), newChunk);
       activeChunk = newChunk;
     }
@@ -402,19 +403,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
             SearchContext.fromConfig(serverConfig));
 
     return chunkManager;
-  }
-
-  private static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
-    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
-    S3BlobFsConfig s3BlobFsConfig =
-        new S3BlobFsConfig(
-            s3Config.getS3AccessKey(),
-            s3Config.getS3SecretKey(),
-            s3Config.getS3Region(),
-            s3Config.getS3EndPoint());
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3BlobFsConfig);
-    return s3BlobFs;
   }
 
   @VisibleForTesting

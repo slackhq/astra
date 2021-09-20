@@ -74,46 +74,12 @@ public class ReadOnlyChunkImplTest {
             registry);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testReadOnlySnapshot() throws IOException {
-    ReadOnlyChunkImpl<LogMessage> chunk =
-        new ReadOnlyChunkImpl<>(
-            Paths.get(localIndexPath), new ChunkInfo("testDataSet2", 0), registry);
-    chunk.preSnapshot();
-    chunk.snapshotToS3("", "", null);
-  }
-
-  @Test(expected = UnsupportedOperationException.class)
-  public void testReadOnlyChunkForWrites() throws IOException {
-    ReadOnlyChunkImpl<LogMessage> chunk =
-        new ReadOnlyChunkImpl<>(
-            Paths.get(localIndexPath), new ChunkInfo("testDataSet2", 0), registry);
-    assertThat(chunk.isReadOnly()).isTrue();
-
-    // Setting readonly to true has no impact.
-    chunk.setReadOnly(true);
-
-    // Setting readonly to false throws exception.
-    chunk.setReadOnly(false);
-  }
-
-  @Test(expected = ReadOnlyChunkInsertionException.class)
-  public void testInsertionOnReadOnlyChunk() throws IOException {
-    ReadOnlyChunkImpl<LogMessage> chunk =
-        new ReadOnlyChunkImpl<>(
-            Paths.get(localIndexPath), new ChunkInfo("testDataSet2", 0), registry);
-    assertThat(chunk.isReadOnly()).isTrue();
-
-    chunk.addMessage(MessageUtil.makeMessage(1));
-  }
-
   @Test
   public void testAddAndSearchChunk() throws IOException {
     // Search using a read only chunk.
     ReadOnlyChunkImpl<LogMessage> newChunk =
         new ReadOnlyChunkImpl<>(
             Paths.get(localIndexPath), new ChunkInfo("testDataSet2", 0), registry);
-    assertThat(newChunk.isReadOnly()).isTrue();
     SearchResult<LogMessage> newChunkResults = newChunk.query(searchQuery);
     assertThat(newChunkResults.hits.size()).isEqualTo(1);
   }

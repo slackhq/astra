@@ -6,11 +6,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linecorp.armeria.common.RequestContext;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFsConfig;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,7 +94,6 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
                                   String.valueOf(chunk.info().getChunkSnapshotTimeEpochSecs()));
                               span.tag("numDocs", String.valueOf(chunk.info().getNumDocs()));
                               span.tag("chunkSize", String.valueOf(chunk.info().getChunkSize()));
-                              span.tag("readOnly", String.valueOf(chunk.isReadOnly()));
 
                               try {
                                 return chunk.query(query);
@@ -147,5 +149,18 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   @VisibleForTesting
   public Map<String, Chunk<T>> getChunkMap() {
     return chunkMap;
+  }
+
+  protected static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {
+    KaldbConfigs.S3Config s3Config = kaldbCfg.getS3Config();
+    S3BlobFsConfig s3BlobFsConfig =
+        new S3BlobFsConfig(
+            s3Config.getS3AccessKey(),
+            s3Config.getS3SecretKey(),
+            s3Config.getS3Region(),
+            s3Config.getS3EndPoint());
+    S3BlobFs s3BlobFs = new S3BlobFs();
+    s3BlobFs.init(s3BlobFsConfig);
+    return s3BlobFs;
   }
 }

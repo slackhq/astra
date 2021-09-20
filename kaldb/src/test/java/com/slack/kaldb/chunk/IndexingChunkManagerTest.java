@@ -324,7 +324,7 @@ public class IndexingChunkManagerTest {
     LogMessage msg2 = MessageUtil.makeMessage(2);
 
     chunkManager.addMessage(msg1, msg1.toString().length(), 100);
-    Chunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
