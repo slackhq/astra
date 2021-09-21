@@ -1,13 +1,23 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.config.KaldbConfig.CACHE_SLOT_STORE_ZK_PATH;
+import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
-import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
-import io.micrometer.core.instrument.MeterRegistry;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.server.MetadataStoreService;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.time.Instant;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,16 +43,72 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
 
-  private final ChunkInfo chunkInfo;
+  private ChunkInfo chunkInfo;
   private LogIndexSearcher<T> logSearcher;
 
-  public ReadOnlyChunkImpl(Path dataDirectory, ChunkInfo chunkInfo, MeterRegistry metricsRegistry)
-      throws IOException {
-    this.logSearcher =
-        (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
-    this.chunkInfo = chunkInfo;
-    LOG.info("Created a new read only chunk {}", chunkInfo);
+  private final String chunkId;
+  private final CacheSlotMetadataStore cacheSlotMetadataStore;
+  private final CacheSlotMetadata cacheSlotMetadata;
+  private final ExecutorService executorService;
+
+  public ReadOnlyChunkImpl(
+      String chunkId,
+      MetadataStoreService metadataStoreService,
+      KaldbConfigs.CacheConfig cacheConfig)
+      throws Exception {
+    this.chunkId = chunkId;
+    this.executorService =
+        Executors.newSingleThreadExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat(String.format("readonly-chunk-%s-%%d", chunkId))
+                .build());
+
+    String serverAddress = cacheConfig.getServerConfig().getServerAddress();
+    String slotId = String.format("%s-%s", serverAddress, chunkId);
+
+    String cacheSlotPath = String.format("%s/%s", CACHE_SLOT_STORE_ZK_PATH, slotId);
+    cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), cacheSlotPath, true);
+    cacheSlotMetadataStore.addListener(cacheNodeListener());
+
+    cacheSlotMetadata =
+        new CacheSlotMetadata(
+            METADATA_SLOT_NAME, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
+
+    // todo - this is async, but we don't need to wait for it?
+    cacheSlotMetadataStore.update(cacheSlotMetadata);
+
+    LOG.info("Created a new read only chunk {}", chunkId);
+  }
+
+  private KaldbMetadataStoreChangeListener cacheNodeListener() {
+    return () -> {
+      LOG.debug("Change on chunk {} - {}", chunkId, cacheSlotMetadata.toString());
+
+      if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
+        LOG.info(String.format("Chunk %s - ASSIGNED received", chunkId));
+        executorService.submit(this::handleChunkAssignment);
+      } else if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.EVICT)) {
+        LOG.info(String.format("Chunk %s - EVICT received", chunkId));
+        executorService.submit(this::handleChunkEviction);
+      }
+    };
+  }
+
+  private void handleChunkAssignment() {
+    // // todo - move to CacheConfig?
+    //    Path dataDirectory = Path.of(KaldbConfig.get().getIndexerConfig().getDataDirectory());
+
+    //    this.logSearcher =
+    //        (LogIndexSearcher<T>)
+    //            new
+    // LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+    // this.chunkinfo = ?
+  }
+
+  private void handleChunkEviction() {
+    chunkInfo = null;
+    logSearcher = null;
   }
 
   @Override
@@ -52,20 +118,28 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public boolean containsDataInTimeRange(long startTs, long endTs) {
-    return chunkInfo.containsDataInTimeRange(startTs, endTs);
+    if (chunkInfo != null) {
+      return chunkInfo.containsDataInTimeRange(startTs, endTs);
+    }
+    return false;
   }
 
   @Override
   public void close() throws IOException {
-    logSearcher.close();
-    LOG.info("Closed chunk {}", chunkInfo);
+    if (logSearcher != null) {
+      logSearcher.close();
+    }
+
+    executorService.shutdown();
+    cacheSlotMetadataStore.close();
+
+    LOG.info("Closed chunk {}", chunkId);
+    cleanup();
   }
 
   /** Deletes the log store data from local disk. Should be called after close(). */
-  @Override
   public void cleanup() {
     // TODO: Implement chunk state cleanup
-    throw new UnsupportedOperationException("To be implemented.");
   }
 
   @Override
@@ -82,17 +156,21 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public String id() {
-    return chunkInfo.chunkId;
+    return chunkId;
   }
 
   @Override
   public SearchResult<T> query(SearchQuery query) {
-    return logSearcher.search(
-        query.indexName,
-        query.queryStr,
-        query.startTimeEpochMs,
-        query.endTimeEpochMs,
-        query.howMany,
-        query.bucketCount);
+    if (logSearcher != null) {
+      return logSearcher.search(
+          query.indexName,
+          query.queryStr,
+          query.startTimeEpochMs,
+          query.endTimeEpochMs,
+          query.howMany,
+          query.bucketCount);
+    } else {
+      return SearchResult.empty();
+    }
   }
 }

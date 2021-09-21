@@ -3,7 +3,6 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
-import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -22,9 +21,7 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -32,7 +29,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -267,7 +263,7 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
     }
 
-    @Test(expected = ReadOnlyChunkInsertionException.class)
+    @Test(expected = IllegalStateException.class)
     public void testAddMessageToReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       for (LogMessage m : messages) {
@@ -281,7 +277,7 @@ public class ReadWriteChunkImplTest {
       chunk.addMessage(MessageUtil.makeMessage(101));
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void testCleanupOnOpenChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       for (LogMessage m : messages) {
@@ -335,6 +331,7 @@ public class ReadWriteChunkImplTest {
 
     @Before
     public void setUp() throws IOException {
+      Tracing.newBuilder().build();
       registry = new SimpleMeterRegistry();
       LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -424,24 +421,24 @@ public class ReadWriteChunkImplTest {
       chunk.close();
       chunk.cleanup();
 
-      // Download data from S3, create a new chunk and query the data in that chunk.
+      // TODO: Download data from S3, create a new chunk and query the data in that chunk.
       // Download files from S3 to local FS.
-      File newLocalFolderPath = localDownloadFolder.newFolder();
-      String[] s3Files =
-          copyFromS3(bucket, "", s3BlobFs, Paths.get(newLocalFolderPath.getAbsolutePath()));
-      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-          .isEqualTo(s3Files.length);
-
-      ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-          new ReadOnlyChunkImpl<>(
-              newLocalFolderPath.getAbsoluteFile().toPath(),
-              new ChunkInfo("testDataSet2", 0),
-              registry);
-      SearchResult<LogMessage> newChunkResults = readOnlyChunk.query(searchQuery);
-      assertThat(newChunkResults.hits.size()).isEqualTo(1);
-      readOnlyChunk.close();
-      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-          .isEqualTo(s3Files.length);
+      //      File newLocalFolderPath = localDownloadFolder.newFolder();
+      //      String[] s3Files =
+      //          copyFromS3(bucket, "", s3BlobFs, Paths.get(newLocalFolderPath.getAbsolutePath()));
+      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
+      //          .isEqualTo(s3Files.length);
+      //
+      //      ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+      //          new ReadOnlyChunkImpl<>(
+      //              newLocalFolderPath.getAbsoluteFile().toPath(),
+      //              new ChunkInfo("testDataSet2", 0),
+      //              registry);
+      //      SearchResult<LogMessage> newChunkResults = readOnlyChunk.query(searchQuery);
+      //      assertThat(newChunkResults.hits.size()).isEqualTo(1);
+      //      readOnlyChunk.close();
+      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
+      //          .isEqualTo(s3Files.length);
 
       // TODO: Test search via read write chunk.query API. Also, add a few more messages to search.
       //      LuceneIndexStoreImpl rwLogStore =

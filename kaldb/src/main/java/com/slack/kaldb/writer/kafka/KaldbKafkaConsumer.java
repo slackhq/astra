@@ -3,7 +3,6 @@ package com.slack.kaldb.writer.kafka;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
-import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverException;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.IOException;
 import java.time.Duration;
@@ -135,7 +134,7 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
         // This case shouldn't happen since there is only one thread queuing tasks here and we check
         // that the queue is empty before polling kafka.
         LOG.error("Rejected execution shouldn't happen ", e);
-      } catch (ChunkRollOverException | IOException e) {
+      } catch (IllegalStateException | IOException e) {
         // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
         // the program, since consuming more messages from Kafka would only make the issue worse.
         LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);

@@ -3,8 +3,8 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
-import com.slack.kaldb.chunk.ChunkCleanerTask;
 import com.slack.kaldb.chunk.manager.caching.CachingChunkManager;
+import com.slack.kaldb.chunk.manager.indexing.ChunkCleanerService;
 import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -90,11 +90,11 @@ public class Kaldb {
               KaldbConfig.get().getIndexerConfig().getServerConfig());
       services.add(chunkManager);
 
-      ChunkCleanerTask<LogMessage> chunkCleanerTask =
-          new ChunkCleanerTask<>(
+      ChunkCleanerService<LogMessage> chunkCleanerService =
+          new ChunkCleanerService<>(
               chunkManager,
               Duration.ofSeconds(KaldbConfig.get().getIndexerConfig().getStaleDurationSecs()));
-      services.add(chunkCleanerTask);
+      services.add(chunkCleanerService);
 
       LogMessageTransformer messageTransformer = KaldbIndexer.getLogMessageTransformer();
       LogMessageWriterImpl logMessageWriterImpl =
@@ -125,10 +125,10 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
       CachingChunkManager<LogMessage> chunkManager =
-          CachingChunkManager.fromConfig(
-              prometheusMeterRegistry,
-              metadataStoreService,
-              KaldbConfig.get().getCacheConfig().getServerConfig());
+          new CachingChunkManager<>(
+              prometheusMeterRegistry, metadataStoreService, KaldbConfig.get().getCacheConfig());
+      CachingChunkManager.fromConfig(
+          prometheusMeterRegistry, metadataStoreService, KaldbConfig.get().getCacheConfig());
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);

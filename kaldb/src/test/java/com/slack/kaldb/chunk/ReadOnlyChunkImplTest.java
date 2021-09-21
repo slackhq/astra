@@ -13,14 +13,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
-import org.apache.lucene.index.IndexNotFoundException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class ReadOnlyChunkImplTest {
@@ -63,24 +60,5 @@ public class ReadOnlyChunkImplTest {
   @After
   public void tearDown() {
     registry.close();
-  }
-
-  @Test(expected = IndexNotFoundException.class)
-  public void testIndexNotFoundException() throws IOException {
-    ReadOnlyChunkImpl<LogMessage> chunk =
-        new ReadOnlyChunkImpl<>(
-            Paths.get(temporaryFolder.newFolder().getAbsolutePath()),
-            new ChunkInfo("testDataSet2", 0),
-            registry);
-  }
-
-  @Test
-  public void testAddAndSearchChunk() throws IOException {
-    // Search using a read only chunk.
-    ReadOnlyChunkImpl<LogMessage> newChunk =
-        new ReadOnlyChunkImpl<>(
-            Paths.get(localIndexPath), new ChunkInfo("testDataSet2", 0), registry);
-    SearchResult<LogMessage> newChunkResults = newChunk.query(searchQuery);
-    assertThat(newChunkResults.hits.size()).isEqualTo(1);
   }
 }

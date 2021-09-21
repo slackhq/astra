@@ -1,10 +1,10 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_COMPLETED;
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
+import static com.slack.kaldb.chunk.manager.indexing.RollOverChunkTask.ROLLOVERS_COMPLETED;
+import static com.slack.kaldb.chunk.manager.indexing.RollOverChunkTask.ROLLOVERS_FAILED;
+import static com.slack.kaldb.chunk.manager.indexing.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -21,8 +21,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.manager.ChunkManager;
-import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverException;
-import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverInProgressException;
+import com.slack.kaldb.chunk.manager.indexing.ChunkCleanerService;
 import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
@@ -172,10 +171,10 @@ public class IndexingChunkManagerTest {
     // attempt to clean all chunks while shutting the service down
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
     // these to run immediately
-    ChunkCleanerTask<LogMessage> chunkCleanerTask =
-        new ChunkCleanerTask<>(chunkManager, Duration.ZERO);
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, Duration.ZERO);
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    Future<?> cleanerTask = executorService.submit(chunkCleanerTask::runOneIteration);
+    Future<?> cleanerTask = executorService.submit(() -> chunkCleanerService.runAt(Instant.now()));
 
     chunkManager.stopAsync();
     // wait for both to be complete
@@ -310,7 +309,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
   }
 
-  @Test(expected = ReadOnlyChunkInsertionException.class)
+  @Test(expected = IllegalStateException.class)
   public void testMessagesAddedToActiveChunks()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -679,7 +678,7 @@ public class IndexingChunkManagerTest {
     // TODO: Test the entire search response in all queries and not just hits.
   }
 
-  @Test(expected = ChunkRollOverInProgressException.class)
+  @Test(expected = IllegalStateException.class)
   public void testChunkRollOverInProgressExceptionIsThrown()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
@@ -770,7 +769,7 @@ public class IndexingChunkManagerTest {
     assertThat(rollOverFuture.isDone()).isTrue();
   }
 
-  @Test(expected = ChunkRollOverException.class)
+  @Test(expected = IllegalStateException.class)
   public void testRollOverFailure()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
@@ -806,7 +805,7 @@ public class IndexingChunkManagerTest {
     }
   }
 
-  @Test(expected = ChunkRollOverException.class)
+  @Test(expected = IllegalStateException.class)
   public void testRollOverFailureWithDirectExecutor()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =

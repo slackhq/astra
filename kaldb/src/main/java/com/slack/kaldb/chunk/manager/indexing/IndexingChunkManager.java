@@ -12,7 +12,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadWriteChunkImpl;
-import com.slack.kaldb.chunk.RollOverChunkTask;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunk.manager.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
@@ -156,7 +155,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
       LOG.warn("Stopping ingestion due to a chunk roll over exception.");
-      throw new ChunkRollOverException("Stopping ingestion due to chunk roll over exception.");
+      throw new IllegalStateException("Stopping ingestion due to chunk roll over exception.");
     }
 
     // find the active chunk and add a message to it
@@ -213,7 +212,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           },
           MoreExecutors.directExecutor());
     } else {
-      throw new ChunkRollOverInProgressException(
+      throw new IllegalStateException(
           String.format(
               "The chunk roll over %s is already in progress."
                   + "It is not recommended to index faster than we can roll over, since we may not be able to keep up.",
@@ -281,7 +280,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
               chunkMap.remove(entry.getKey());
 
               chunk.close();
-              chunk.cleanup();
               LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
             } else {
               LOG.warn(

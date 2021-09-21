@@ -83,7 +83,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
         chunkInfo.updateDataTimeRange(((LogMessage) message).timeSinceEpochMilli);
       }
     } else {
-      throw new ReadOnlyChunkInsertionException(String.format("Chunk %s is read only", chunkInfo));
+      throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));
     }
   }
 
@@ -102,6 +102,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
+    cleanup();
   }
 
   public void setReadOnly(boolean readOnly) {
@@ -157,10 +158,10 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   /** Deletes the log store data from local disk. Should be called after close(). */
-  @Override
   public void cleanup() {
     if (logStore.isOpen()) {
-      throw new IllegalStateException("Clean up can only be called on a closed logstore.");
+      // since this is called from close() this method must also be reentrant
+      return;
     }
     try {
       logStore.cleanup();
@@ -168,7 +169,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     } catch (IOException e) {
       String msg = String.format("Error cleaning up chunk %s", chunkInfo);
       LOG.error(msg, e);
-      throw new ChunkStateException(msg);
     }
   }
 

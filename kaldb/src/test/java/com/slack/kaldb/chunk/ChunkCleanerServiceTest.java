@@ -6,7 +6,9 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.chunk.manager.indexing.ChunkCleanerService;
 import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
+import com.slack.kaldb.chunk.manager.indexing.RollOverChunkTask;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -26,7 +28,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-public class ChunkCleanerTaskTest {
+public class ChunkCleanerServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
@@ -51,8 +53,8 @@ public class ChunkCleanerTaskTest {
   @Test
   public void testDeleteStaleDataOn1Chunk() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-    ChunkCleanerTask<LogMessage> chunkCleanerTask =
-        new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -90,25 +92,25 @@ public class ChunkCleanerTaskTest {
 
     // Running an hour before snapshot won't delete it.
     final Instant snapshotTimeMinus1h = snapshotTime.minusSeconds(60 * 60);
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTimeMinus1h)).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTimeMinus1h)).isZero();
 
     // Running at snapshot time won't delete it since the delay pushes it by 100 secs,.
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime)).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTime)).isZero();
 
     // Running at snapshot time won't delete it since the delay pushes it by 100 secs,.
     final Instant oneSecondBeforeSnapshotDelay = snapshotTime.plusSeconds(99);
-    assertThat(chunkCleanerTask.deleteStaleData(oneSecondBeforeSnapshotDelay)).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(oneSecondBeforeSnapshotDelay)).isZero();
 
     // Delete the chunk once we hit the time threshold.
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
     assertThat(chunkManager.getChunkMap().size()).isZero();
   }
 
   @Test
   public void testDeleteStateDataOn2Chunks() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-    ChunkCleanerTask<LogMessage> chunkCleanerTask =
-        new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -165,23 +167,26 @@ public class ChunkCleanerTaskTest {
     chunk2.info().setChunkSnapshotTimeEpochSecs(chunk2SnapshotTime.getEpochSecond());
 
     // Running an hour before snapshot won't delete it.
-    assertThat(chunkCleanerTask.deleteStaleData(chunk2SnapshotTime.minusSeconds(60 * 60))).isZero();
-    assertThat(chunkCleanerTask.deleteStaleData(chunk2SnapshotTime)).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.minusSeconds(60 * 60)))
+        .isZero();
+    assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime)).isZero();
 
     // Running at snapshot time won't delete it since the delay pushes it by 100 secs,.
-    assertThat(chunkCleanerTask.deleteStaleData(chunk2SnapshotTime.plusSeconds(99))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(99))).isZero();
 
     // Delete the chunk2 once we hit the time threshold.
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
-    assertThat(chunkCleanerTask.deleteStaleData(chunk2SnapshotTime.plusSeconds(101))).isEqualTo(1);
+    assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(101)))
+        .isEqualTo(1);
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
     assertThat(chunkManager.getChunkMap().containsValue(chunk1)).isTrue();
     assertThat(chunkManager.getChunkMap().containsValue(chunk2)).isFalse();
 
     // Delete chunk1.
-    assertThat(chunkCleanerTask.deleteStaleData(chunk2SnapshotTime.plusSeconds(3600))).isZero();
-    assertThat(chunkCleanerTask.deleteStaleData(chunk1SnapshotTime.plusSeconds(99))).isZero();
-    assertThat(chunkCleanerTask.deleteStaleData(chunk1SnapshotTime.plusSeconds(100))).isEqualTo(1);
+    assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(3600))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(chunk1SnapshotTime.plusSeconds(99))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(chunk1SnapshotTime.plusSeconds(100)))
+        .isEqualTo(1);
     assertThat(chunkManager.getChunkMap().size()).isZero();
   }
 
@@ -189,13 +194,13 @@ public class ChunkCleanerTaskTest {
   public void testDeleteStaleDataOnMultipleChunks() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
-    ChunkCleanerTask<LogMessage> chunkCleanerTask =
-        new ChunkCleanerTask<>(chunkManager, Duration.ofSeconds(100));
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
     assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
-    assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs)).isZero();
-    assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs + 1)).isZero();
-    assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 2)).isZero();
-    assertThat(chunkCleanerTask.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 3)).isZero();
+    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs)).isZero();
+    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 1)).isZero();
+    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 2)).isZero();
+    assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 3)).isZero();
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -238,16 +243,18 @@ public class ChunkCleanerTaskTest {
       i++;
     }
 
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime.minusSeconds(3600 * 4))).isZero();
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime.minusSeconds(3600 * 3))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTime.minusSeconds(3600 * 4))).isZero();
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTime.minusSeconds(3600 * 3))).isZero();
     assertThat(
-            chunkCleanerTask.deleteStaleData(snapshotTime.minusSeconds(3600 * 3).plusSeconds(100)))
+            chunkCleanerService.deleteStaleData(
+                snapshotTime.minusSeconds(3600 * 3).plusSeconds(100)))
         .isEqualTo(1);
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(3);
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime.minusSeconds(3600).plusSeconds(100)))
+    assertThat(
+            chunkCleanerService.deleteStaleData(snapshotTime.minusSeconds(3600).plusSeconds(100)))
         .isEqualTo(2);
     assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
-    assertThat(chunkCleanerTask.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
+    assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
     assertThat(chunkManager.getChunkMap().size()).isZero();
   }
 }

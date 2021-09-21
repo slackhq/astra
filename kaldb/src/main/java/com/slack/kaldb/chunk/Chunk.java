@@ -37,9 +37,6 @@ public interface Chunk<T> extends Closeable {
   /** Close the chunk. */
   void close() throws IOException;
 
-  /** Cleanup the chunk */
-  void cleanup();
-
   @VisibleForTesting
   LogIndexSearcher<T> getLogSearcher();
 

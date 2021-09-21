@@ -1,8 +1,8 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunk.manager.indexing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
-import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
+import com.slack.kaldb.chunk.Chunk;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,17 +13,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The chunk cleaner task removes snapshotted chunks after a configurable duration from the chunk
+ * The chunk cleaner service removes snapshot chunks after a configurable duration from the chunk
  * manager.
  */
-public class ChunkCleanerTask<T> extends AbstractScheduledService {
+public class ChunkCleanerService<T> extends AbstractScheduledService {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerTask.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerService.class);
 
   private final Duration staleDelayDuration;
   private final IndexingChunkManager chunkManager;
 
-  public ChunkCleanerTask(IndexingChunkManager chunkManager, Duration staleDelayDuration) {
+  public ChunkCleanerService(IndexingChunkManager chunkManager, Duration staleDelayDuration) {
     this.chunkManager = chunkManager;
     this.staleDelayDuration = staleDelayDuration;
   }

@@ -1,6 +1,7 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunk.manager.indexing;
 
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.chunk.ReadWriteChunkImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
