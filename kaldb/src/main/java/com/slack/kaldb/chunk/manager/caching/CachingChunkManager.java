@@ -10,7 +10,6 @@ import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,17 +34,10 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     LOG.info("Starting caching chunk manager");
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    IntStream.rangeClosed(0, Math.toIntExact(cacheConfig.getSlotsPerInstance() - 1))
-        .forEach(
-            (slotIterator) -> {
-              String chunkId = UUID.randomUUID().toString();
-              try {
-                chunkMap.put(
-                    chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, cacheConfig));
-              } catch (Exception e) {
-                LOG.error("Error creating chunk", e);
-              }
-            });
+    for (int i = 0; i < cacheConfig.getSlotsPerInstance(); i++) {
+      String chunkId = UUID.randomUUID().toString();
+      chunkMap.put(chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, cacheConfig));
+    }
   }
 
   @Override

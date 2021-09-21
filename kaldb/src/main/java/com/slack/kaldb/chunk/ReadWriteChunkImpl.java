@@ -174,12 +174,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   @VisibleForTesting
-  public LogIndexSearcher<T> getLogSearcher() {
-    return logSearcher;
-  }
-
-  @Override
-  @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
   }

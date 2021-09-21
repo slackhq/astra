@@ -24,21 +24,13 @@ public interface Chunk<T> extends Closeable {
    */
   SearchResult<T> query(SearchQuery query);
 
-  /** A chunk contains some metadata like the list of chunks it can contain. */
   ChunkInfo info();
 
   /** Return true if the chunk contains data within that time range. */
   boolean containsDataInTimeRange(long startTs, long endTs);
 
-  // Return a map of stats about the index.
-  // NOTE: With metrics baked in this may be redundant or return a metrics object?
-  // Map<String, Object> getStats();
-
   /** Close the chunk. */
   void close() throws IOException;
-
-  @VisibleForTesting
-  LogIndexSearcher<T> getLogSearcher();
 
   @VisibleForTesting
   void setLogSearcher(LogIndexSearcher<T> logSearcher);
