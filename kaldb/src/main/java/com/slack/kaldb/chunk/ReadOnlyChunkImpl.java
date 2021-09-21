@@ -178,15 +178,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cleanup();
   }
 
-  /** Deletes the log store data from local disk. Should be called after close(). */
+  /** Deletes the log store data from local disk. */
   public void cleanup() {
     // TODO: Implement chunk state cleanup
-  }
-
-  @Override
-  @VisibleForTesting
-  public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
-    this.logSearcher = logSearcher;
   }
 
   @Override

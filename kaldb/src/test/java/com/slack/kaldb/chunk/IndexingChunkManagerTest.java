@@ -447,7 +447,8 @@ public class IndexingChunkManagerTest {
   }
 
   public void testOneFailedChunk(ChunkInfo secondChunk) {
-    Chunk<LogMessage> chunk = chunkManager.getChunkMap().get(secondChunk.chunkId);
+    ReadWriteChunkImpl<LogMessage> chunk =
+        (ReadWriteChunkImpl<LogMessage>) chunkManager.getChunkMap().get(secondChunk.chunkId);
 
     testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3, 0, MAX_TIME);
     // chunk 2 which has docs 12-21 is corrupted
@@ -505,7 +506,10 @@ public class IndexingChunkManagerTest {
     chunkManager
         .getChunkMap()
         .values()
-        .forEach(chunk -> chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
+        .forEach(
+            chunk ->
+                ((ReadWriteChunkImpl) chunk)
+                    .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
     testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0, 0, MAX_TIME);
@@ -514,7 +518,10 @@ public class IndexingChunkManagerTest {
     chunkManager
         .getChunkMap()
         .values()
-        .forEach(chunk -> chunk.setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
+        .forEach(
+            chunk ->
+                ((ReadWriteChunkImpl) chunk)
+                    .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));

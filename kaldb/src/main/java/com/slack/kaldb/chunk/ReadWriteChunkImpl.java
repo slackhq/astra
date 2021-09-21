@@ -157,7 +157,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
-  /** Deletes the log store data from local disk. Should be called after close(). */
+  /** Deletes the log store data from local disk. */
   public void cleanup() {
     if (logStore.isOpen()) {
       // since this is called from close() this method must also be reentrant
@@ -172,7 +172,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  @Override
   @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
