@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +37,6 @@ import org.slf4j.LoggerFactory;
  * <p>TODO: In future, make chunkInfo read only for more safety.
  *
  * <p>TODO: Is chunk responsible for maintaining it's own metadata?
- *
- * <p>TODO: Move common operations between RO and RW chunk stores into a base class.
  */
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
@@ -48,7 +47,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final String chunkId;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
-  private final CacheSlotMetadata cacheSlotMetadata;
   private final ExecutorService executorService;
 
   public ReadOnlyChunkImpl(
@@ -71,31 +69,48 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), cacheSlotPath, true);
     cacheSlotMetadataStore.addListener(cacheNodeListener());
 
-    cacheSlotMetadata =
+    CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             METADATA_SLOT_NAME, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
-
-    // todo - this is async, but we don't need to wait for it?
-    cacheSlotMetadataStore.update(cacheSlotMetadata);
+    cacheSlotMetadataStore.create(cacheSlotMetadata);
 
     LOG.info("Created a new read only chunk {}", chunkId);
   }
 
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
     return () -> {
+      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
       LOG.debug("Change on chunk {} - {}", chunkId, cacheSlotMetadata.toString());
 
       if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
         LOG.info(String.format("Chunk %s - ASSIGNED received", chunkId));
-        executorService.submit(this::handleChunkAssignment);
+        executorService.submit(
+            () -> {
+              try {
+                handleChunkAssignment();
+              } catch (Exception e) {
+                LOG.error("Error handling chunk assignment", e);
+              }
+            });
       } else if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.EVICT)) {
         LOG.info(String.format("Chunk %s - EVICT received", chunkId));
-        executorService.submit(this::handleChunkEviction);
+        executorService.submit(
+            () -> {
+              try {
+                handleChunkEviction();
+              } catch (Exception e) {
+                LOG.error("Error handling chunk eviction", e);
+              }
+            });
       }
     };
   }
 
-  private void handleChunkAssignment() {
+  private void handleChunkAssignment() throws Exception {
+    setChunkMetadataState(Metadata.CacheSlotState.LOADING);
+
+    // todo - load asset from S3 into chunkManager
+
     // // todo - move to CacheConfig?
     //    Path dataDirectory = Path.of(KaldbConfig.get().getIndexerConfig().getDataDirectory());
 
@@ -104,11 +119,37 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     //            new
     // LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
     // this.chunkinfo = ?
+
+    setChunkMetadataState(Metadata.CacheSlotState.LIVE);
   }
 
-  private void handleChunkEviction() {
+  private void handleChunkEviction() throws Exception {
+    setChunkMetadataState(Metadata.CacheSlotState.EVICTING);
+
     chunkInfo = null;
     logSearcher = null;
+
+    setChunkMetadataState(Metadata.CacheSlotState.FREE);
+  }
+
+  @VisibleForTesting
+  public void setChunkMetadataState(Metadata.CacheSlotState newChunkState) throws Exception {
+    CacheSlotMetadata chunkMetadata = cacheSlotMetadataStore.getCached().get(0);
+    CacheSlotMetadata updatedChunkMetadata =
+        new CacheSlotMetadata(
+            chunkMetadata.name,
+            newChunkState,
+            newChunkState.equals(Metadata.CacheSlotState.FREE) ? "" : chunkMetadata.replicaId,
+            Instant.now().toEpochMilli());
+    cacheSlotMetadataStore.update(updatedChunkMetadata).get(5, TimeUnit.SECONDS);
+  }
+
+  @VisibleForTesting
+  public Metadata.CacheSlotState getChunkMetadataState() {
+    if (cacheSlotMetadataStore.getCached().isEmpty()) {
+      return null;
+    }
+    return cacheSlotMetadataStore.getCached().get(0).cacheSlotState;
   }
 
   @Override
