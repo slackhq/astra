@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
@@ -1391,6 +1392,72 @@ public class KaldbMetadataStoreTest {
 
       Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
       assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+  }
+
+  public static class TestAbstractMetadataStore {
+    private static class DummyEphemeralCreatableMetadataStore
+        extends EphemeralMutableMetadataStore<SnapshotMetadata> {
+      public DummyEphemeralCreatableMetadataStore(
+          String storeFolder,
+          MetadataStore metadataStore,
+          MetadataSerializer<SnapshotMetadata> metadataSerializer,
+          Logger logger)
+          throws Exception {
+        super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+      }
+    }
+
+    private static final Logger LOG = LoggerFactory.getLogger(TestAbstractMetadataStore.class);
+
+    private TestingServer testingServer;
+    private ZookeeperMetadataStoreImpl zkMetadataStore;
+    private MeterRegistry meterRegistry;
+
+    @Before
+    public void setUp() throws Exception {
+      meterRegistry = new SimpleMeterRegistry();
+      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
+      // flaky.
+      testingServer = new TestingServer();
+      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
+      zkMetadataStore =
+          new ZookeeperMetadataStoreImpl(
+              testingServer.getConnectString(),
+              "test",
+              1000,
+              1000,
+              new RetryNTimes(1, 500),
+              countingFatalErrorHandler,
+              meterRegistry);
+    }
+
+    @After
+    public void tearDown() throws IOException {
+      zkMetadataStore.close();
+      testingServer.close();
+      meterRegistry.close();
+    }
+
+    @Test
+    public void shouldAllowMultipleInstantiationsConcurrently() throws Exception {
+      // Attempt to instantiate multiple metadata stores at the same path
+      DummyEphemeralCreatableMetadataStore metadataStore1 =
+          new DummyEphemeralCreatableMetadataStore(
+              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+
+      // this is not expected to throw an exception on instantiation
+      DummyEphemeralCreatableMetadataStore metadataStore2 =
+          new DummyEphemeralCreatableMetadataStore(
+              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+
+      SnapshotMetadata snapshotMetadata1 = makeSnapshot("shouldAllowMultipleMetadataStores");
+      metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);
+
+      await().until(() -> metadataStore2.getCached().size() > 0);
+
+      SnapshotMetadata snapshotMetadata2 = metadataStore2.getCached().get(0);
+      assertThat(snapshotMetadata1).isEqualTo(snapshotMetadata2);
     }
   }
 }

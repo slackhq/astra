@@ -303,24 +303,22 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     LOG.info("Starting indexing chunk manager");
     metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
 
-    // TODO: Allow multiple nodes to register against the /search path
-    // searchMetadataStore =
-    // new SearchMetadataStore(
-    //         metadataStoreService.getMetadataStore(),
-    //        KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
-    //        false);
+    searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(),
+            KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
+            false);
 
-    // TODO: Allow multiple nodes to register against the /snapshots path
-    // snapshotMetadataStore =
-    //    new SnapshotMetadataStore(
-    //        metadataStoreService.getMetadataStore(),
-    //        KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
-    //       false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(),
+            KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
+            false);
 
     // TODO: Move this registration closer to chunk metadata
-    // SearchMetadata searchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME,
-    // searchContext);
-    // searchMetadataStore.create(searchMetadata).get();
+    SearchMetadata searchMetadata =
+        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
+    searchMetadataStore.create(searchMetadata).get();
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -329,8 +327,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   }
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(
-        searchContext.hostname + Math.random(), snapshotName, searchContext.toUrl());
+    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /**
@@ -375,8 +372,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     for (Chunk<T> chunk : chunkMap.values()) {
       chunk.close();
     }
-    // searchMetadataStore.close();
-    // snapshotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
     LOG.info("Closed indexing chunk manager.");
   }
 
