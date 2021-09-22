@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk.manager.caching;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.manager.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
@@ -18,15 +19,18 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStoreService metadataStoreService;
-  private final KaldbConfigs.CacheConfig cacheConfig;
+  private final KaldbConfigs.KaldbConfig kaldbConfig;
+  private final S3BlobFs s3BlobFs;
 
   public CachingChunkManager(
       MeterRegistry registry,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.CacheConfig cacheConfig) {
+      KaldbConfigs.KaldbConfig kaldbConfig,
+      S3BlobFs s3BlobFs) {
     this.meterRegistry = registry;
     this.metadataStoreService = metadataStoreService;
-    this.cacheConfig = cacheConfig;
+    this.kaldbConfig = kaldbConfig;
+    this.s3BlobFs = s3BlobFs;
   }
 
   @Override
@@ -34,9 +38,10 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     LOG.info("Starting caching chunk manager");
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    for (int i = 0; i < cacheConfig.getSlotsPerInstance(); i++) {
+    for (int i = 0; i < kaldbConfig.getCacheConfig().getSlotsPerInstance(); i++) {
       String chunkId = UUID.randomUUID().toString();
-      chunkMap.put(chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, cacheConfig));
+      chunkMap.put(
+          chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, kaldbConfig, s3BlobFs));
     }
   }
 
@@ -62,7 +67,8 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.CacheConfig cacheConfig) {
-    return new CachingChunkManager<>(meterRegistry, metadataStoreService, cacheConfig);
+      KaldbConfigs.KaldbConfig kaldbConfig) {
+    return new CachingChunkManager<>(
+        meterRegistry, metadataStoreService, kaldbConfig, getS3BlobFsClient(kaldbConfig));
   }
 }

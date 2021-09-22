@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.replica;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.core.PersistentMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
@@ -12,5 +13,9 @@ public class ReplicaMetadataStore extends PersistentMutableMetadataStore<Replica
       MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
     super(
         shouldCache, false, snapshotStorePath, metadataStore, new ReplicaMetadataSerializer(), LOG);
+  }
+
+  public ListenableFuture<ReplicaMetadata> getReplicaMetadataById(String replicaId) {
+    return getNode(replicaId);
   }
 }

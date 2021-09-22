@@ -78,5 +78,6 @@ message ServerConfig {
 
 message CacheConfig {
     int32 slotsPerInstance = 1;
-    ServerConfig serverConfig = 2;
+    string dataDirectory = 2;
+    ServerConfig serverConfig = 3;
 }

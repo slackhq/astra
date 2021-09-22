@@ -109,6 +109,14 @@ public class ChunkInfo {
     this.chunkLastUpdatedTimeSecsEpochSecs = chunkLastUpdatedTimeSecsEpochSecs;
   }
 
+  public void setDataStartTimeEpochSecs(long dataStartTimeEpochSecs) {
+    this.dataStartTimeEpochSecs = dataStartTimeEpochSecs;
+  }
+
+  public void setDataEndTimeEpochSecs(long dataEndTimeEpochSecs) {
+    this.dataEndTimeEpochSecs = dataEndTimeEpochSecs;
+  }
+
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTs, long endTs) {
     ensureTrue(endTs >= 0, "end timestamp should be greater than zero: " + endTs);

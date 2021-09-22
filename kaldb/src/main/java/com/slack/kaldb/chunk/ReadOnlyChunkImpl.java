@@ -1,24 +1,37 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.config.KaldbConfig.CACHE_SLOT_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
+import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
+import com.slack.kaldb.metadata.replica.ReplicaMetadata;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.server.MetadataStoreService;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,28 +59,45 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private LogIndexSearcher<T> logSearcher;
 
   private final String chunkId;
-  private final CacheSlotMetadataStore cacheSlotMetadataStore;
+  private final KaldbConfigs.S3Config s3Config;
+  protected final CacheSlotMetadataStore cacheSlotMetadataStore;
+  private final ReplicaMetadataStore replicaMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
   private final ExecutorService executorService;
+  private final S3BlobFs s3BlobFs;
+  private final Path dataDirectory;
 
   public ReadOnlyChunkImpl(
       String chunkId,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.CacheConfig cacheConfig)
+      KaldbConfigs.KaldbConfig kaldbConfig,
+      S3BlobFs s3BlobFs)
       throws Exception {
     this.chunkId = chunkId;
+    this.s3BlobFs = s3BlobFs;
+    this.s3Config = kaldbConfig.getS3Config();
+    this.dataDirectory =
+        Path.of(String.format("%s/%s", kaldbConfig.getCacheConfig().getDataDirectory(), chunkId));
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
                 .setNameFormat(String.format("readonly-chunk-%s-%%d", chunkId))
                 .build());
 
-    String serverAddress = cacheConfig.getServerConfig().getServerAddress();
+    String serverAddress = kaldbConfig.getCacheConfig().getServerConfig().getServerAddress();
     String slotId = String.format("%s-%s", serverAddress, chunkId);
 
     String cacheSlotPath = String.format("%s/%s", CACHE_SLOT_STORE_ZK_PATH, slotId);
     cacheSlotMetadataStore =
         new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), cacheSlotPath, true);
     cacheSlotMetadataStore.addListener(cacheNodeListener());
+
+    replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -87,7 +117,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         executorService.submit(
             () -> {
               try {
-                handleChunkAssignment();
+                handleChunkAssignment(cacheSlotMetadata);
               } catch (Exception e) {
                 LOG.error("Error handling chunk assignment", e);
               }
@@ -97,7 +127,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         executorService.submit(
             () -> {
               try {
-                handleChunkEviction();
+                handleChunkEviction(cacheSlotMetadata);
               } catch (Exception e) {
                 LOG.error("Error handling chunk eviction", e);
               }
@@ -106,29 +136,61 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     };
   }
 
-  private void handleChunkAssignment() throws Exception {
+  private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) throws Exception {
     setChunkMetadataState(Metadata.CacheSlotState.LOADING);
 
-    // todo - load asset from S3 into chunkManager
+    // todo - what if these fail lookups?
+    ReplicaMetadata replicaMetadata =
+        replicaMetadataStore
+            .getReplicaMetadataById(cacheSlotMetadata.replicaId)
+            .get(5, TimeUnit.SECONDS);
+    SnapshotMetadata snapshotMetadata =
+        snapshotMetadataStore
+            .getSnapshotMetadataById(replicaMetadata.snapshotId)
+            .get(5, TimeUnit.SECONDS);
 
-    // // todo - move to CacheConfig?
-    //    Path dataDirectory = Path.of(KaldbConfig.get().getIndexerConfig().getDataDirectory());
+    // todo - verify this
+    String chunkId = snapshotMetadata.snapshotId;
+    String prefix = chunkId;
+    String[] filesCopied = copyFromS3(s3Config.getS3Bucket(), prefix, s3BlobFs, dataDirectory);
+    LOG.info("Successfully copied the following files from S3 {}", filesCopied);
 
-    //    this.logSearcher =
-    //        (LogIndexSearcher<T>)
-    //            new
-    // LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
-    // this.chunkinfo = ?
+    if (filesCopied.length == 0) {
+      LOG.error("No files found on blob storage");
+
+      // reset to free for re-assignment
+      setChunkMetadataState(Metadata.CacheSlotState.FREE);
+      return;
+    }
+
+    this.logSearcher =
+        (LogIndexSearcher<T>)
+            new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+
+    this.chunkInfo = new ChunkInfo(chunkId, Instant.now().toEpochMilli());
+
+    // todo - this should probably be in ms, not seconds
+    chunkInfo.setDataStartTimeEpochSecs(snapshotMetadata.startTimeUtc / 1000);
+    chunkInfo.setDataEndTimeEpochSecs(snapshotMetadata.endTimeUtc / 1000);
+
+    // todo - do we set these values as well?
+    chunkInfo.setChunkSize(Files.size(dataDirectory));
+    chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
+    chunkInfo.setChunkLastUpdatedTimeSecsEpochSecs(snapshotMetadata.endTimeUtc / 1000);
+    chunkInfo.setChunkSnapshotTimeEpochSecs(snapshotMetadata.endTimeUtc / 1000);
 
     setChunkMetadataState(Metadata.CacheSlotState.LIVE);
   }
 
-  private void handleChunkEviction() throws Exception {
+  private void handleChunkEviction(CacheSlotMetadata cacheSlotMetadata) throws Exception {
     setChunkMetadataState(Metadata.CacheSlotState.EVICTING);
 
     chunkInfo = null;
+
+    logSearcher.close();
     logSearcher = null;
 
+    FileUtils.cleanDirectory(dataDirectory.toFile());
     setChunkMetadataState(Metadata.CacheSlotState.FREE);
   }
 
