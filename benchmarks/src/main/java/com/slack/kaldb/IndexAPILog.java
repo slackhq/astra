@@ -29,8 +29,8 @@ import org.openjdk.jmh.annotations.*;
 public class IndexAPILog {
 
   private Random random;
-  private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-  private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
+  private final Duration commitInterval = Duration.ofMinutes(5);
+  private final Duration refreshInterval = Duration.ofSeconds(30);
 
   private Path tempDirectory;
   private MeterRegistry registry;

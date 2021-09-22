@@ -31,8 +31,8 @@ public class IndexTraceLogBenchmark {
   private static final String INDEX_NAME = "spans";
 
   private Random random;
-  private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-  private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
+  private final Duration commitInterval = Duration.ofMinutes(5);
+  private final Duration refreshInterval = Duration.ofSeconds(30);
 
   BufferedReader reader = null;
 
@@ -43,56 +43,8 @@ public class IndexTraceLogBenchmark {
   private int skipCount;
   private int indexCount;
 
-  //  // In a static because we want this only once
-  //  static {
-  //    String traceLogFile = System.getProperty("jmh.trace.log.file", "trace_logs.txt");
-  //    try {
-  //      createMurronTraceLogFile(traceLogFile);
-  //    } catch (IOException e) {
-  //      System.out.println(e);
-  //    }
-  //  }
-  //
-  //  // We wanted to write out this intermediary file so that the benchmarks are more accurate
-  //  // However I haven't figured out out a good way to write it to a file such that we can read it
-  // ( ser-de )
-  //  // So for now i am commenting out this approach
-  //  private static void createMurronTraceLogFile(String traceLogFile) throws IOException {
-  //
-  //    try (BufferedReader reader =
-  //            Files.newBufferedReader(Path.of(traceLogFile), StandardCharsets.UTF_8);
-  //        BufferedWriter writer =
-  //            Files.newBufferedWriter(
-  //                Path.of("trace_logs_murron.txt"),
-  //                StandardCharsets.UTF_8,
-  //                StandardOpenOption.CREATE_NEW)) {
-  //      String message;
-  //      try {
-  //        while ((message = reader.readLine()) != null) {
-  //          Trace.ListOfSpans.Builder builder = Trace.ListOfSpans.newBuilder();
-  //          JsonFormat.parser().merge(message, builder);
-  //          Trace.ListOfSpans spans = builder.build();
-  //
-  //          writer.write(String.valueOf(spans.getSpans(0).getStartTimestampMicros()));
-  //          writer.write(" ");
-  //          writer.write(spans.toByteString().toString(StandardCharsets.UTF_8));
-  //          writer.newLine();
-  //        }
-  //
-  //        // So that we don't run out of disk spaces
-  //        Files.delete(Path.of(traceLogFile));
-  //      } catch (IOException e) {
-  //        skipCount++;
-  //      }
-  //      System.out.println("Unable to parse " + skipCount + " lines");
-  //    }
-  //  }
-
   @Setup(Level.Iteration)
   public void createIndexer() throws Exception {
-
-    //        reader = Files.newBufferedReader(Path.of("trace_logs.txt"),
-    // StandardCharsets.UTF_8);
 
     String traceLogFile = System.getProperty("jmh.trace.log.file", "trace_logs.txt");
     reader = Files.newBufferedReader(Path.of(traceLogFile));
