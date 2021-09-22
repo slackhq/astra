@@ -24,9 +24,13 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.lucene.store.Directory;
 import org.openjdk.jmh.annotations.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @State(Scope.Thread)
 public class IndexAPILog {
+
+  private static final Logger LOG = LoggerFactory.getLogger(IndexAPILog.class);
 
   private Random random;
   private final Duration commitInterval = Duration.ofMinutes(5);
@@ -69,7 +73,7 @@ public class IndexAPILog {
     }
     if (indexCount != 0) {
       // Displaying indexCount only makes sense in measureAPILogIndexingSlingshotMode
-      System.out.println(
+      LOG.info(
           "Indexed = "
               + indexCount
               + " Skipped = "
@@ -77,7 +81,7 @@ public class IndexAPILog {
               + " Index size = "
               + FileUtils.byteCountToDisplaySize(indexedBytes));
     } else {
-      System.out.println(
+      LOG.info((
           "Skipped = "
               + skipCount
               + " Index size = "
@@ -109,11 +113,11 @@ public class IndexAPILog {
             LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
         logStore.addMessage(localLogMessage);
       } catch (Exception e) {
-        System.out.println("skipping - cannot transform " + e);
+        LOG.error("skipping - cannot transform " + e);
         skipCount++;
       }
     } else {
-      System.out.println("resetting - reach EOF");
+      LOG.warn("resetting - reach EOF");
       reader = Files.newBufferedReader(Path.of(apiLogFile));
     }
   }
@@ -137,7 +141,7 @@ public class IndexAPILog {
           logStore.addMessage(localLogMessage);
           indexCount++;
         } catch (Exception e) {
-          System.out.println("skipping - cannot transform " + e);
+          LOG.error("skipping - cannot transform " + e);
         }
       }
     } while (line != null);
@@ -173,7 +177,7 @@ public class IndexAPILog {
           "testKey",
           testMurronMsg.toByteString().toByteArray());
     } catch (Exception e) {
-      System.out.println("skipping - cannot parse input" + e);
+      LOG.error("skipping - cannot parse input" + e);
       skipCount++;
       return null;
     }

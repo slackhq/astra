@@ -24,9 +24,13 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.lucene.store.Directory;
 import org.openjdk.jmh.annotations.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @State(Scope.Thread)
 public class IndexTraceLogBenchmark {
+
+  private static final Logger LOG = LoggerFactory.getLogger(IndexTraceLogBenchmark.class);
 
   private static final String INDEX_NAME = "spans";
 
@@ -70,7 +74,7 @@ public class IndexTraceLogBenchmark {
     for (String segmentFile : segmentFiles) {
       indexedBytes += directory.fileLength(segmentFile);
     }
-    System.out.println(
+    LOG.info(
         "Indexed = "
             + indexCount
             + " Skipped = "
@@ -101,7 +105,7 @@ public class IndexTraceLogBenchmark {
         indexCount++;
       } catch (Exception e) {
         skipCount++;
-        System.out.println("skipping - cannot transform " + e);
+        LOG.error("skipping - cannot transform " + e);
       }
     }
   }
