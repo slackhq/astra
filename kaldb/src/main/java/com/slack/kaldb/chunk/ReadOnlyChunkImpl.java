@@ -27,10 +27,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,7 +128,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         executorService.submit(
             () -> {
               try {
-                handleChunkEviction(cacheSlotMetadata);
+                handleChunkEviction();
               } catch (Exception e) {
                 LOG.error("Error handling chunk eviction", e);
               }
@@ -138,51 +139,51 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) throws Exception {
     setChunkMetadataState(Metadata.CacheSlotState.LOADING);
+    SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
 
-    // todo - what if these fail lookups?
-    ReplicaMetadata replicaMetadata =
-        replicaMetadataStore
-            .getReplicaMetadataById(cacheSlotMetadata.replicaId)
-            .get(5, TimeUnit.SECONDS);
-    SnapshotMetadata snapshotMetadata =
-        snapshotMetadataStore
-            .getSnapshotMetadataById(replicaMetadata.snapshotId)
-            .get(5, TimeUnit.SECONDS);
+    // todo - verify this - chunkId == prefix == snapshotId
+    String chunkId, prefix = snapshotMetadata.snapshotId;
 
-    // todo - verify this
-    String chunkId = snapshotMetadata.snapshotId;
-    String prefix = chunkId;
-    String[] filesCopied = copyFromS3(s3Config.getS3Bucket(), prefix, s3BlobFs, dataDirectory);
-    LOG.info("Successfully copied the following files from S3 {}", filesCopied);
-
-    if (filesCopied.length == 0) {
-      LOG.error("No files found on blob storage");
-
-      // reset to free for re-assignment
+    if (copyFromS3(s3Config.getS3Bucket(), prefix, s3BlobFs, dataDirectory).length == 0) {
+      LOG.error("No files found on blob storage, releasing slot for re-assignment");
       setChunkMetadataState(Metadata.CacheSlotState.FREE);
       return;
     }
 
+    this.chunkInfo = getChunkInfo(snapshotMetadata, dataDirectory);
     this.logSearcher =
         (LogIndexSearcher<T>)
             new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
 
-    this.chunkInfo = new ChunkInfo(chunkId, Instant.now().toEpochMilli());
-
-    // todo - this should probably be in ms, not seconds
-    chunkInfo.setDataStartTimeEpochMs(snapshotMetadata.startTimeUtc / 1000);
-    chunkInfo.setDataEndTimeEpochMs(snapshotMetadata.endTimeUtc / 1000);
-
-    // todo - do we set these values as well?
-    chunkInfo.setChunkSize(Files.size(dataDirectory));
-    chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    chunkInfo.setChunkLastUpdatedTimeEpochMs(snapshotMetadata.endTimeUtc);
-    chunkInfo.setChunkSnapshotTimeEpochMs(snapshotMetadata.endTimeUtc);
-
     setChunkMetadataState(Metadata.CacheSlotState.LIVE);
   }
 
-  private void handleChunkEviction(CacheSlotMetadata cacheSlotMetadata) throws Exception {
+  private SnapshotMetadata getSnapshotMetadata(String replicaId)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    ReplicaMetadata replicaMetadata =
+        replicaMetadataStore.getNode(replicaId).get(5, TimeUnit.SECONDS);
+    return snapshotMetadataStore.getNode(replicaMetadata.snapshotId).get(5, TimeUnit.SECONDS);
+  }
+
+  private ChunkInfo getChunkInfo(SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+    ChunkInfo chunkInfo = new ChunkInfo(chunkId, Instant.now().toEpochMilli());
+
+    chunkInfo.setDataStartTimeEpochMs(snapshotMetadata.startTimeUtc);
+    chunkInfo.setDataEndTimeEpochMs(snapshotMetadata.endTimeUtc);
+
+    // todo - do we need to set these values?
+    chunkInfo.setChunkLastUpdatedTimeEpochMs(snapshotMetadata.endTimeUtc);
+    chunkInfo.setChunkSnapshotTimeEpochMs(snapshotMetadata.endTimeUtc);
+
+    try {
+      chunkInfo.setChunkSize(Files.size(dataDirectory));
+      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
+    } catch (IOException ignored) {
+    }
+    return chunkInfo;
+  }
+
+  private void handleChunkEviction() throws Exception {
     setChunkMetadataState(Metadata.CacheSlotState.EVICTING);
 
     chunkInfo = null;

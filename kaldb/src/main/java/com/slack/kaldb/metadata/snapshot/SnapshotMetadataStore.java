@@ -1,6 +1,5 @@
 package com.slack.kaldb.metadata.snapshot;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.core.PersistentMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
@@ -21,9 +20,5 @@ public class SnapshotMetadataStore extends PersistentMutableMetadataStore<Snapsh
         metadataStore,
         new SnapshotMetadataSerializer(),
         LOG);
-  }
-
-  public ListenableFuture<SnapshotMetadata> getSnapshotMetadataById(String snapshotId) {
-    return getNode(snapshotId);
   }
 }
