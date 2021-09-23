@@ -43,6 +43,7 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
+  dataDirectory: "/tmp"
   serverConfig:
     serverPort: 8082
     serverAddress: localhost
