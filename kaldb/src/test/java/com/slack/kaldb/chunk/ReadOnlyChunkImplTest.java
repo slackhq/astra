@@ -1,6 +1,7 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
@@ -24,6 +25,7 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -132,6 +134,15 @@ public class ReadOnlyChunkImplTest {
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
 
+    // ensure we registered a search node for this cache slot
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+    await().until(() -> searchMetadataStore.getCached().size() == 1);
+    assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.getCached().get(0).url).isEqualTo("localhost:8080");
+    assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo("localhost");
+
     // todo - consider adding additional chunkInfo validations
     assertThat(readOnlyChunk.info().getNumDocs()).isEqualTo(10);
 
@@ -140,6 +151,9 @@ public class ReadOnlyChunkImplTest {
 
     // ensure that the evicted chunk was released
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    // ensure the search metadata node was unregistered
+    await().until(() -> searchMetadataStore.getCached().size() == 0);
 
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
@@ -199,6 +213,12 @@ public class ReadOnlyChunkImplTest {
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
+    // ensure we did not register a search node
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+    assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
+
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
@@ -244,6 +264,12 @@ public class ReadOnlyChunkImplTest {
 
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    // ensure we did not register a search node
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+    assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
 
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
@@ -329,7 +355,10 @@ public class ReadOnlyChunkImplTest {
                 String.format(
                     "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
             .setServerConfig(
-                KaldbConfigs.ServerConfig.newBuilder().setServerAddress("localhost").build())
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerAddress("localhost")
+                    .setServerPort(8080)
+                    .build())
             .build();
 
     KaldbConfigs.S3Config s3Config =

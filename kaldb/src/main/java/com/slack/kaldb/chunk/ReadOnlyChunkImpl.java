@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.config.KaldbConfig.CACHE_SLOT_STORE_ZK_PATH;
 import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
@@ -19,6 +20,8 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -60,15 +63,19 @@ import org.slf4j.LoggerFactory;
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
+  private static final int TIMEOUT_MS = 5000;
 
   private ChunkInfo chunkInfo;
   private LogIndexSearcher<T> logSearcher;
+  private SearchMetadata searchMetadata;
 
   private final String chunkId;
   private final KaldbConfigs.S3Config s3Config;
+  private final SearchContext searchContext;
   protected final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
+  private final SearchMetadataStore searchMetadataStore;
   private final ExecutorService executorService;
   private final S3BlobFs s3BlobFs;
   private final Path dataDirectory;
@@ -99,6 +106,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             new ThreadFactoryBuilder()
                 .setNameFormat(String.format("readonly-chunk-%s-%%d", chunkId))
                 .build());
+    this.searchContext = SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig());
 
     String serverAddress = kaldbConfig.getCacheConfig().getServerConfig().getServerAddress();
     String slotId = String.format("%s-%s", serverAddress, chunkId);
@@ -114,6 +122,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     snapshotMetadataStore =
         new SnapshotMetadataStore(
             metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -144,6 +155,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     };
   }
 
+  private void registerSearchMetadata(String snapshotName)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    this.searchMetadata =
+        new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
+    searchMetadataStore.create(searchMetadata).get(5, TimeUnit.SECONDS);
+  }
+
+  private void unregisterSearchMetadata()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    if (this.searchMetadata != null) {
+      searchMetadataStore.delete(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+  }
+
   private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     try {
       if (!setChunkMetadataState(Metadata.CacheSlotState.LOADING)) {
@@ -167,6 +192,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
+      registerSearchMetadata(snapshotMetadata.name);
+
       successfulChunkAssignments.increment();
     } catch (Exception e) {
       failedChunkAssignments.increment();
@@ -182,7 +209,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       throws ExecutionException, InterruptedException, TimeoutException {
     ReplicaMetadata replicaMetadata =
         replicaMetadataStore.getNode(replicaId).get(5, TimeUnit.SECONDS);
-    return snapshotMetadataStore.getNode(replicaMetadata.snapshotId).get(5, TimeUnit.SECONDS);
+    return snapshotMetadataStore
+        .getNode(replicaMetadata.snapshotId)
+        .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   private ChunkInfo getChunkInfo(SnapshotMetadata snapshotMetadata, Path dataDirectory) {
@@ -207,6 +236,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       if (!setChunkMetadataState(Metadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
       }
+
+      // remove this from being query-able
+      unregisterSearchMetadata();
 
       logSearcher.close();
       chunkInfo = null;
@@ -236,7 +268,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             newChunkState.equals(Metadata.CacheSlotState.FREE) ? "" : chunkMetadata.replicaId,
             Instant.now().toEpochMilli());
     try {
-      cacheSlotMetadataStore.update(updatedChunkMetadata).get(5, TimeUnit.SECONDS);
+      cacheSlotMetadataStore.update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state");

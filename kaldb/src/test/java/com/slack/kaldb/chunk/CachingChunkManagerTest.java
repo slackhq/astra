@@ -52,7 +52,7 @@ public class CachingChunkManagerTest {
   }
 
   @Test
-  public void config() throws TimeoutException {
+  public void shouldHandleLifecycle() throws TimeoutException {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
@@ -60,7 +60,10 @@ public class CachingChunkManagerTest {
                 String.format(
                     "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
             .setServerConfig(
-                KaldbConfigs.ServerConfig.newBuilder().setServerAddress("localhost").build())
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerAddress("localhost")
+                    .setServerPort(8080)
+                    .build())
             .build();
 
     KaldbConfigs.S3Config s3Config =
