@@ -41,7 +41,9 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     for (int i = 0; i < kaldbConfig.getCacheConfig().getSlotsPerInstance(); i++) {
       String chunkId = UUID.randomUUID().toString();
       chunkMap.put(
-          chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, kaldbConfig, s3BlobFs));
+          chunkId,
+          new ReadOnlyChunkImpl<>(
+              chunkId, metadataStoreService, kaldbConfig, meterRegistry, s3BlobFs));
     }
   }
 

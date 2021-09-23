@@ -106,7 +106,11 @@ public class ReadOnlyChunkImplTest {
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl(
-            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+            UUID.randomUUID().toString(),
+            metadataStoreService,
+            kaldbConfig,
+            meterRegistry,
+            s3BlobFs);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -126,6 +130,7 @@ public class ReadOnlyChunkImplTest {
                 500,
                 0));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
+    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
 
     // todo - consider adding additional chunkInfo validations
     assertThat(readOnlyChunk.info().getNumDocs()).isEqualTo(10);
@@ -147,6 +152,9 @@ public class ReadOnlyChunkImplTest {
                 0));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
+    assertThat(readOnlyChunk.successfulChunkEvictions.count()).isEqualTo(1);
+
+    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(0);
 
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
@@ -177,7 +185,11 @@ public class ReadOnlyChunkImplTest {
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl(
-            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+            UUID.randomUUID().toString(),
+            metadataStoreService,
+            kaldbConfig,
+            meterRegistry,
+            s3BlobFs);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -186,6 +198,9 @@ public class ReadOnlyChunkImplTest {
 
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
+    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
@@ -216,7 +231,11 @@ public class ReadOnlyChunkImplTest {
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl(
-            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+            UUID.randomUUID().toString(),
+            metadataStoreService,
+            kaldbConfig,
+            meterRegistry,
+            s3BlobFs);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -225,6 +244,9 @@ public class ReadOnlyChunkImplTest {
 
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
+    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);

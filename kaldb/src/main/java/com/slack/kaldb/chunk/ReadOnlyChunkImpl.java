@@ -7,6 +7,7 @@ import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
@@ -23,10 +24,14 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.server.MetadataStoreService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -68,10 +73,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final S3BlobFs s3BlobFs;
   private final Path dataDirectory;
 
+  public static final String SUCCESSFUL_CHUNK_ASSIGNMENT = "chunk_assign_success";
+  public static final String SUCCESSFUL_CHUNK_EVICTION = "chunk_evict_success";
+  public static final String FAILED_CHUNK_ASSIGNMENT = "chunk_assign_fail";
+  public static final String FAILED_CHUNK_EVICTION = "chunk_evict_fail";
+  protected final Counter successfulChunkAssignments;
+  protected final Counter successfulChunkEvictions;
+  protected final Counter failedChunkAssignments;
+  protected final Counter failedChunkEvictions;
+
   public ReadOnlyChunkImpl(
       String chunkId,
       MetadataStoreService metadataStoreService,
       KaldbConfigs.KaldbConfig kaldbConfig,
+      MeterRegistry meterRegistry,
       S3BlobFs s3BlobFs)
       throws Exception {
     this.chunkId = chunkId;
@@ -105,6 +120,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             METADATA_SLOT_NAME, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotMetadata);
 
+    Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotId", slotId));
+    successfulChunkAssignments = meterRegistry.counter(SUCCESSFUL_CHUNK_ASSIGNMENT, meterTags);
+    successfulChunkEvictions = meterRegistry.counter(SUCCESSFUL_CHUNK_EVICTION, meterTags);
+    failedChunkAssignments = meterRegistry.counter(FAILED_CHUNK_ASSIGNMENT, meterTags);
+    failedChunkEvictions = meterRegistry.counter(FAILED_CHUNK_EVICTION, meterTags);
+
     LOG.info("Created a new read only chunk {}", chunkId);
   }
 
@@ -115,31 +136,19 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
         LOG.info(String.format("Chunk %s - ASSIGNED received", chunkId));
-        executorService.submit(
-            () -> {
-              try {
-                handleChunkAssignment(cacheSlotMetadata);
-              } catch (Exception e) {
-                LOG.error("Error handling chunk assignment", e);
-              }
-            });
+        executorService.submit(() -> handleChunkAssignment(cacheSlotMetadata));
       } else if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.EVICT)) {
         LOG.info(String.format("Chunk %s - EVICT received", chunkId));
-        executorService.submit(
-            () -> {
-              try {
-                handleChunkEviction();
-              } catch (Exception e) {
-                LOG.error("Error handling chunk eviction", e);
-              }
-            });
+        executorService.submit(this::handleChunkEviction);
       }
     };
   }
 
-  private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) throws Exception {
+  private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     try {
-      setChunkMetadataState(Metadata.CacheSlotState.LOADING);
+      if (!setChunkMetadataState(Metadata.CacheSlotState.LOADING)) {
+        throw new InterruptedException("Failed to set chunk metadata state to loading");
+      }
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
 
       // todo - verify this - chunkId == prefix == snapshotId
@@ -154,11 +163,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
 
-      setChunkMetadataState(Metadata.CacheSlotState.LIVE);
+      if (!setChunkMetadataState(Metadata.CacheSlotState.LIVE)) {
+        throw new InterruptedException("Failed to set chunk metadata state to loading");
+      }
+
+      successfulChunkAssignments.increment();
     } catch (Exception e) {
-      // if any error occurs during the chunk assignment, ensure we release the slot
+      failedChunkAssignments.increment();
+
+      // if any error occurs during the chunk assignment, try to release the slot for re-assignment
+      // - disregard any errors
       setChunkMetadataState(Metadata.CacheSlotState.FREE);
-      throw e;
+      LOG.error("Error handling chunk assignment", e);
     }
   }
 
@@ -186,20 +202,32 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return chunkInfo;
   }
 
-  private void handleChunkEviction() throws Exception {
-    setChunkMetadataState(Metadata.CacheSlotState.EVICTING);
+  private void handleChunkEviction() {
+    try {
+      if (!setChunkMetadataState(Metadata.CacheSlotState.EVICTING)) {
+        throw new InterruptedException("Failed to set chunk metadata state to evicting");
+      }
 
-    chunkInfo = null;
+      logSearcher.close();
+      chunkInfo = null;
+      logSearcher = null;
 
-    logSearcher.close();
-    logSearcher = null;
+      FileUtils.cleanDirectory(dataDirectory.toFile());
+      if (!setChunkMetadataState(Metadata.CacheSlotState.FREE)) {
+        throw new InterruptedException("Failed to set chunk metadata state to free");
+      }
 
-    FileUtils.cleanDirectory(dataDirectory.toFile());
-    setChunkMetadataState(Metadata.CacheSlotState.FREE);
+      successfulChunkEvictions.increment();
+    } catch (Exception e) {
+      // leave the slot state stuck in evicting, as something is broken, and we don't want a
+      // re-assignment or queries hitting this slot
+      failedChunkEvictions.increment();
+      LOG.error("Error handling chunk eviction", e);
+    }
   }
 
   @VisibleForTesting
-  public void setChunkMetadataState(Metadata.CacheSlotState newChunkState) throws Exception {
+  public boolean setChunkMetadataState(Metadata.CacheSlotState newChunkState) {
     CacheSlotMetadata chunkMetadata = cacheSlotMetadataStore.getCached().get(0);
     CacheSlotMetadata updatedChunkMetadata =
         new CacheSlotMetadata(
@@ -207,7 +235,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             newChunkState,
             newChunkState.equals(Metadata.CacheSlotState.FREE) ? "" : chunkMetadata.replicaId,
             Instant.now().toEpochMilli());
-    cacheSlotMetadataStore.update(updatedChunkMetadata).get(5, TimeUnit.SECONDS);
+    try {
+      cacheSlotMetadataStore.update(updatedChunkMetadata).get(5, TimeUnit.SECONDS);
+      return true;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Error setting chunk metadata state");
+      return false;
+    }
   }
 
   @VisibleForTesting
