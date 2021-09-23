@@ -1,64 +1,246 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
+import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.blobfs.LocalBlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.replica.ReplicaMetadata;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.curator.test.TestingServer;
+import org.apache.lucene.index.IndexCommit;
+import org.assertj.core.util.Files;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.ClassRule;
+import org.junit.Test;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class ReadOnlyChunkImplTest {
+  private final String TEST_S3_BUCKET =
+      String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
 
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  private TestingServer testingServer;
+  private MeterRegistry meterRegistry;
+  private S3BlobFs s3BlobFs;
 
-  private MeterRegistry registry;
-  private String localIndexPath;
-  private SearchQuery searchQuery;
+  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
   @Before
-  public void setUp() throws IOException {
+  public void startup() throws Exception {
     Tracing.newBuilder().build();
-    registry = new SimpleMeterRegistry();
-    File localStore = temporaryFolder.newFolder();
+    meterRegistry = new SimpleMeterRegistry();
+    testingServer = new TestingServer();
 
-    // Create a lucene index for reads.
-    LuceneIndexStoreImpl logStore =
-        LuceneIndexStoreImpl.makeLogStore(
-            localStore, Duration.ofSeconds(5 * 60), Duration.ofSeconds(5 * 60), registry);
-    ReadWriteChunkImpl<LogMessage> chunk =
-        new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
-    localIndexPath = logStore.getDirectory().toAbsolutePath().toString();
-
-    // Add messages to the store using a ReadWriteChunkImpl.
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-    for (LogMessage m : messages) {
-      chunk.addMessage(m);
-    }
-    chunk.commit();
-
-    // Search the chunk to make sure this works
-    searchQuery = new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunk.query(searchQuery);
-    assertThat(results.hits.size()).isEqualTo(1);
-
-    chunk.close();
+    S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
+    s3BlobFs = new S3BlobFs();
+    s3BlobFs.init(s3Client);
   }
 
   @After
-  public void tearDown() {
-    registry.close();
+  public void shutdown() throws IOException {
+    s3BlobFs.close();
+    testingServer.close();
+    meterRegistry.close();
+  }
+
+  @Test
+  public void shouldHandleChunkLivecycle() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("test")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+
+    String replicaId = "foo";
+    String snapshotId = "bar";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStoreService, snapshotId);
+    initializeBlobStorageWithIndex(snapshotId);
+
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl(
+            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+
+    // wait for chunk to register
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assignReplicaToChunk(replicaId, readOnlyChunk);
+
+    // ensure that the chunk was marked LIVE
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
+
+    SearchResult<LogMessage> logMessageSearchResult =
+        readOnlyChunk.query(
+            new SearchQuery(
+                MessageUtil.TEST_INDEX_NAME,
+                "*:*",
+                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                500,
+                0));
+    assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
+
+    // todo - consider adding additional chunkInfo validations
+    assertThat(readOnlyChunk.info().getNumDocs()).isEqualTo(10);
+
+    // mark the chunk for eviction
+    readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotState.EVICT);
+
+    // ensure that the evicted chunk was released
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    SearchResult<LogMessage> logMessageEmptySearchResult =
+        readOnlyChunk.query(
+            new SearchQuery(
+                MessageUtil.TEST_INDEX_NAME,
+                "*:*",
+                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                500,
+                0));
+    assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
+    assertThat(readOnlyChunk.info()).isNull();
+
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+  }
+
+  private void assignReplicaToChunk(String replicaId, ReadOnlyChunkImpl<LogMessage> readOnlyChunk) {
+    CacheSlotMetadataStore cacheSlotMetadataStore = readOnlyChunk.cacheSlotMetadataStore;
+    CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
+
+    // update chunk to assigned
+    CacheSlotMetadata updatedCacheSlotMetadata =
+        new CacheSlotMetadata(
+            cacheSlotMetadata.name,
+            Metadata.CacheSlotState.ASSIGNED,
+            replicaId,
+            Instant.now().toEpochMilli());
+    cacheSlotMetadataStore.update(updatedCacheSlotMetadata);
+  }
+
+  private void initializeZkSnapshot(MetadataStoreService metadataStoreService, String snapshotId)
+      throws Exception {
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    snapshotMetadataStore
+        .create(
+            new SnapshotMetadata(
+                snapshotId,
+                "path",
+                snapshotId,
+                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                1,
+                "partitionId"))
+        .get(5, TimeUnit.SECONDS);
+  }
+
+  private void initializeZkReplica(
+      MetadataStoreService metadataStoreService, String replicaId, String snapshotId)
+      throws Exception {
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    replicaMetadataStore
+        .create(new ReplicaMetadata(replicaId, snapshotId))
+        .get(5, TimeUnit.SECONDS);
+  }
+
+  private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {
+    LuceneIndexStoreImpl logStore =
+        LuceneIndexStoreImpl.makeLogStore(
+            Files.newTemporaryFolder(),
+            Duration.ofSeconds(60),
+            Duration.ofSeconds(60),
+            meterRegistry);
+    addMessages(logStore, 1, 10, true);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(REFRESHES_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(COMMITS_COUNTER, meterRegistry)).isEqualTo(1);
+
+    Path dirPath = logStore.getDirectory().toAbsolutePath();
+    IndexCommit indexCommit = logStore.getIndexCommit();
+    Collection<String> activeFiles = indexCommit.getFileNames();
+    LocalBlobFs localBlobFs = new LocalBlobFs();
+
+    logStore.close();
+    assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
+        .isGreaterThanOrEqualTo(activeFiles.size());
+
+    // Copy files to S3.
+    copyToS3(dirPath, activeFiles, TEST_S3_BUCKET, snapshotId, s3BlobFs);
+  }
+
+  private KaldbConfigs.KaldbConfig getKaldbConfig() {
+    KaldbConfigs.CacheConfig cacheConfig =
+        KaldbConfigs.CacheConfig.newBuilder()
+            .setSlotsPerInstance(3)
+            .setDataDirectory(
+                String.format(
+                    "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
+            .setServerConfig(
+                KaldbConfigs.ServerConfig.newBuilder().setServerAddress("localhost").build())
+            .build();
+
+    KaldbConfigs.S3Config s3Config =
+        KaldbConfigs.S3Config.newBuilder()
+            .setS3Bucket(TEST_S3_BUCKET)
+            .setS3Region("us-east-1")
+            .build();
+
+    return KaldbConfigs.KaldbConfig.newBuilder()
+        .setCacheConfig(cacheConfig)
+        .setS3Config(s3Config)
+        .build();
   }
 }

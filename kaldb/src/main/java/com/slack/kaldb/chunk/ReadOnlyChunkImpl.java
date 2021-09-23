@@ -174,7 +174,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     // todo - do we need to set these values?
     chunkInfo.setChunkLastUpdatedTimeEpochMs(snapshotMetadata.endTimeUtc);
     chunkInfo.setChunkSnapshotTimeEpochMs(snapshotMetadata.endTimeUtc);
-
     try {
       chunkInfo.setChunkSize(Files.size(dataDirectory));
       chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
