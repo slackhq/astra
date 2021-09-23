@@ -138,24 +138,28 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   }
 
   private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) throws Exception {
-    setChunkMetadataState(Metadata.CacheSlotState.LOADING);
-    SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
+    try {
+      setChunkMetadataState(Metadata.CacheSlotState.LOADING);
+      SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
 
-    // todo - verify this - chunkId == prefix == snapshotId
-    String chunkId, prefix = snapshotMetadata.snapshotId;
+      // todo - verify this - chunkId == prefix == snapshotId
+      String chunkId, prefix = snapshotMetadata.snapshotId;
 
-    if (copyFromS3(s3Config.getS3Bucket(), prefix, s3BlobFs, dataDirectory).length == 0) {
-      LOG.error("No files found on blob storage, releasing slot for re-assignment");
+      if (copyFromS3(s3Config.getS3Bucket(), prefix, s3BlobFs, dataDirectory).length == 0) {
+        throw new IOException("No files found on blob storage, released slot for re-assignment");
+      }
+
+      this.chunkInfo = getChunkInfo(snapshotMetadata, dataDirectory);
+      this.logSearcher =
+          (LogIndexSearcher<T>)
+              new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+
+      setChunkMetadataState(Metadata.CacheSlotState.LIVE);
+    } catch (Exception e) {
+      // if any error occurs during the chunk assignment, ensure we release the slot
       setChunkMetadataState(Metadata.CacheSlotState.FREE);
-      return;
+      throw e;
     }
-
-    this.chunkInfo = getChunkInfo(snapshotMetadata, dataDirectory);
-    this.logSearcher =
-        (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
-
-    setChunkMetadataState(Metadata.CacheSlotState.LIVE);
   }
 
   private SnapshotMetadata getSnapshotMetadata(String replicaId)

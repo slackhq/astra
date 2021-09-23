@@ -86,7 +86,7 @@ public class ReadOnlyChunkImplTest {
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("test")
+            .setZkPathPrefix("shouldHandleChunkLivecycle")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -147,6 +147,84 @@ public class ReadOnlyChunkImplTest {
                 0));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
+
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void shouldHandleMissingS3Assets() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("shouldHandleMissingS3Assets")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+
+    String replicaId = "foo";
+    String snapshotId = "bar";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStoreService, snapshotId);
+
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl(
+            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+
+    // wait for chunk to register
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assignReplicaToChunk(replicaId, readOnlyChunk);
+
+    // assert that the chunk was released back to free
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void shouldHandleMissingZkData() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("shouldHandleMissingZkData")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+
+    String replicaId = "foo";
+    String snapshotId = "bar";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
+    // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
+
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl(
+            UUID.randomUUID().toString(), metadataStoreService, kaldbConfig, s3BlobFs);
+
+    // wait for chunk to register
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assignReplicaToChunk(replicaId, readOnlyChunk);
+
+    // assert that the chunk was released back to free
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
