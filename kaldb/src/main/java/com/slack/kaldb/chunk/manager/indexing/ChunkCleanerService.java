@@ -37,15 +37,15 @@ public class ChunkCleanerService<T> extends AbstractScheduledService {
 
   @VisibleForTesting
   public int deleteStaleData(Instant startInstant) {
-    final long staleCutOffSecs =
-        startInstant.minusSeconds(staleDelayDuration.toSeconds()).getEpochSecond();
-    return deleteStaleChunksPastCutOff(staleCutOffSecs);
+    final long staleCutOffMs =
+        startInstant.minusSeconds(staleDelayDuration.toSeconds()).toEpochMilli();
+    return deleteStaleChunksPastCutOff(staleCutOffMs);
   }
 
   @VisibleForTesting
-  public int deleteStaleChunksPastCutOff(long staleDataCutOffSecs) {
-    if (staleDataCutOffSecs <= 0) {
-      throw new IllegalArgumentException("staleDataCutoffSecs can't be negative");
+  public int deleteStaleChunksPastCutOff(long staleDataCutOffMs) {
+    if (staleDataCutOffMs <= 0) {
+      throw new IllegalArgumentException("staleDataCutoffMs can't be negative");
     }
 
     List<Map.Entry<String, Chunk<T>>> staleChunks = new ArrayList<>();
@@ -53,13 +53,13 @@ public class ChunkCleanerService<T> extends AbstractScheduledService {
     Set<Map.Entry<String, Chunk<T>>> mapEntries = chunkManager.getChunkMap().entrySet();
     for (Map.Entry<String, Chunk<T>> chunkEntry : mapEntries) {
       Chunk<T> chunk = chunkEntry.getValue();
-      if (chunk.info().getChunkSnapshotTimeEpochSecs() <= staleDataCutOffSecs) {
+      if (chunk.info().getChunkSnapshotTimeEpochMs() <= staleDataCutOffMs) {
         staleChunks.add(chunkEntry);
       }
     }
     LOG.info(
-        "Number of stale chunks at staleDataCutOffSecs {} is {}",
-        staleDataCutOffSecs,
+        "Number of stale chunks at staleDataCutOffMs {} is {}",
+        staleDataCutOffMs,
         staleChunks.size());
     chunkManager.removeStaleChunks(staleChunks);
     return staleChunks.size();

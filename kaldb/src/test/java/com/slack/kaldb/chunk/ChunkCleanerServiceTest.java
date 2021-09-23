@@ -71,7 +71,7 @@ public class ChunkCleanerServiceTest {
 
     ReadWriteChunkImpl<LogMessage> chunk = chunkManager.getActiveChunk();
     assertThat(chunk.isReadOnly()).isFalse();
-    assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     // Commit the chunk and roll it over.
     chunkManager.rollOverActiveChunk();
@@ -84,11 +84,11 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
     assertThat(chunk.isReadOnly()).isTrue();
-    assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isNotZero();
 
     // Set the chunk snapshot time to a known value.
     final Instant snapshotTime = Instant.now().minusSeconds(60 * 60);
-    chunk.info().setChunkSnapshotTimeEpochSecs(snapshotTime.getEpochSecond());
+    chunk.info().setChunkSnapshotTimeEpochMs(snapshotTime.toEpochMilli());
 
     // Running an hour before snapshot won't delete it.
     final Instant snapshotTimeMinus1h = snapshotTime.minusSeconds(60 * 60);
@@ -127,7 +127,7 @@ public class ChunkCleanerServiceTest {
 
     final ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isFalse();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     for (LogMessage m : messages.subList(9, 11)) {
       chunkManager.addMessage(m, m.toString().length(), 100);
@@ -142,9 +142,9 @@ public class ChunkCleanerServiceTest {
 
     final ReadWriteChunkImpl<LogMessage> chunk2 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isTrue();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     assertThat(chunk2.isReadOnly()).isFalse();
-    assertThat(chunk2.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isZero();
     // Commit the chunk1 and roll it over.
     chunkManager.rollOverActiveChunk();
 
@@ -156,15 +156,15 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
 
     assertThat(chunk1.isReadOnly()).isTrue();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     assertThat(chunk2.isReadOnly()).isTrue();
-    assertThat(chunk2.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isNotZero();
 
     // Set the chunk1 and chunk2 snapshot time to a known value.
     final Instant chunk1SnapshotTime = Instant.now().minusSeconds(60 * 60);
     final Instant chunk2SnapshotTime = Instant.now().minusSeconds(60 * 60 * 2);
-    chunk1.info().setChunkSnapshotTimeEpochSecs(chunk1SnapshotTime.getEpochSecond());
-    chunk2.info().setChunkSnapshotTimeEpochSecs(chunk2SnapshotTime.getEpochSecond());
+    chunk1.info().setChunkSnapshotTimeEpochMs(chunk1SnapshotTime.toEpochMilli());
+    chunk2.info().setChunkSnapshotTimeEpochMs(chunk2SnapshotTime.toEpochMilli());
 
     // Running an hour before snapshot won't delete it.
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.minusSeconds(60 * 60)))
@@ -231,15 +231,15 @@ public class ChunkCleanerServiceTest {
 
     for (Chunk<LogMessage> c : chunkManager.getChunkMap().values()) {
       assertThat(((ReadWriteChunkImpl) c).isReadOnly()).isTrue();
-      assertThat(c.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+      assertThat(c.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     }
 
     final Instant snapshotTime = Instant.now();
     // Modify snapshot time on chunks
     int i = 0;
     for (Chunk<LogMessage> chunk : chunkManager.getChunkMap().values()) {
-      final long chunkSnapshotTimeEpochSecs = snapshotTime.minusSeconds(3600L * i).getEpochSecond();
-      chunk.info().setChunkSnapshotTimeEpochSecs(chunkSnapshotTimeEpochSecs);
+      final long chunkSnapshotTimeEpochMs = snapshotTime.minusSeconds(3600L * i).toEpochMilli();
+      chunk.info().setChunkSnapshotTimeEpochMs(chunkSnapshotTimeEpochMs);
       i++;
     }
 

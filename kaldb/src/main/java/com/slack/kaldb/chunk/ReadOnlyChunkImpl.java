@@ -170,14 +170,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.chunkInfo = new ChunkInfo(chunkId, Instant.now().toEpochMilli());
 
     // todo - this should probably be in ms, not seconds
-    chunkInfo.setDataStartTimeEpochSecs(snapshotMetadata.startTimeUtc / 1000);
-    chunkInfo.setDataEndTimeEpochSecs(snapshotMetadata.endTimeUtc / 1000);
+    chunkInfo.setDataStartTimeEpochMs(snapshotMetadata.startTimeUtc / 1000);
+    chunkInfo.setDataEndTimeEpochMs(snapshotMetadata.endTimeUtc / 1000);
 
     // todo - do we set these values as well?
     chunkInfo.setChunkSize(Files.size(dataDirectory));
     chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    chunkInfo.setChunkLastUpdatedTimeSecsEpochSecs(snapshotMetadata.endTimeUtc / 1000);
-    chunkInfo.setChunkSnapshotTimeEpochSecs(snapshotMetadata.endTimeUtc / 1000);
+    chunkInfo.setChunkLastUpdatedTimeEpochMs(snapshotMetadata.endTimeUtc);
+    chunkInfo.setChunkSnapshotTimeEpochMs(snapshotMetadata.endTimeUtc);
 
     setChunkMetadataState(Metadata.CacheSlotState.LIVE);
   }

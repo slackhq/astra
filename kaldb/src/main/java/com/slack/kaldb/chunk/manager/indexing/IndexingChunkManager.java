@@ -187,7 +187,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     liveBytesIndexedGauge.set(0);
     liveMessagesIndexedGauge.set(0);
     // Set the end time of the chunk and start the roll over.
-    currentChunk.info().setChunkLastUpdatedTimeSecsEpochSecs(Instant.now().getEpochSecond());
+    currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
 
     RollOverChunkTask<T> rollOverChunkTask =
         new RollOverChunkTask<T>(

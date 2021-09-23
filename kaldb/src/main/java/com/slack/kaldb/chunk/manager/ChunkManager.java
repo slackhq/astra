@@ -67,7 +67,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
             .filter(
                 chunk ->
                     chunk.containsDataInTimeRange(
-                        query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
+                        query.startTimeEpochMs, query.endTimeEpochMs))
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(
@@ -77,21 +77,20 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
                                       .startScopedSpan("ReadWriteChunkImpl.query");
                               span.tag("chunkId", chunk.info().chunkId);
                               span.tag(
-                                  "chunkCreationTimeSecsSinceEpoch",
-                                  String.valueOf(chunk.info().getChunkCreationTimeEpochSecs()));
+                                  "chunkCreationTimeEpochMs",
+                                  String.valueOf(chunk.info().getChunkCreationTimeEpochMs()));
                               span.tag(
-                                  "chunkLastUpdatedTimeSecsEpochSecs",
-                                  String.valueOf(
-                                      chunk.info().getChunkLastUpdatedTimeSecsEpochSecs()));
+                                  "chunkLastUpdatedTimeEpochMs",
+                                  String.valueOf(chunk.info().getChunkLastUpdatedTimeEpochMs()));
                               span.tag(
-                                  "dataStartTimeEpochSecs",
-                                  String.valueOf(chunk.info().getDataStartTimeEpochSecs()));
+                                  "dataStartTimeEpochMs",
+                                  String.valueOf(chunk.info().getDataStartTimeEpochMs()));
                               span.tag(
-                                  "dataEndTimeEpochSecs",
-                                  String.valueOf(chunk.info().getDataEndTimeEpochSecs()));
+                                  "dataEndTimeEpochMs",
+                                  String.valueOf(chunk.info().getDataEndTimeEpochMs()));
                               span.tag(
-                                  "chunkSnapshotTimeEpochSecs",
-                                  String.valueOf(chunk.info().getChunkSnapshotTimeEpochSecs()));
+                                  "chunkSnapshotTimeEpochMs",
+                                  String.valueOf(chunk.info().getChunkSnapshotTimeEpochMs()));
                               span.tag("numDocs", String.valueOf(chunk.info().getNumDocs()));
                               span.tag("chunkSize", String.valueOf(chunk.info().getChunkSize()));
 
