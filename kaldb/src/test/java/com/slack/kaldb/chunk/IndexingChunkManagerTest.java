@@ -58,6 +58,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -153,6 +154,10 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
+  @Disabled
+  // Todo: this test needs to be refactored as it currently does not reliably replicate the race
+  //   condition Additionally, this test as currently written is extremely slow, and accounts
+  //   for over 10% of our test runtime
   public void closeDuringCleanerTask()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -161,7 +166,7 @@ public class IndexingChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 10);
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, 100);
@@ -170,7 +175,7 @@ public class IndexingChunkManagerTest {
       // force creation of a unique chunk for every message
       chunkManager.rollOverActiveChunk();
     }
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(100);
+    assertThat(chunkManager.getChunkMap().size()).isEqualTo(10);
 
     // attempt to clean all chunks while shutting the service down
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want

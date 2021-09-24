@@ -374,7 +374,11 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       LOG.warn("Encountered error shutting down roll over executor.", e);
     }
     for (Chunk<T> chunk : chunkMap.values()) {
-      chunk.close();
+      try {
+        chunk.close();
+      } catch (IOException e) {
+        LOG.error("Failed to close chunk.", e);
+      }
     }
     searchMetadataStore.close();
     snapshotMetadataStore.close();
