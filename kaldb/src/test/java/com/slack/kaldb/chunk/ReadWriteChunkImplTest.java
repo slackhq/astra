@@ -278,7 +278,7 @@ public class ReadWriteChunkImplTest {
     }
 
     @Test
-    public void testCleanupOnOpenChunk() {
+    public void testCleanupOnOpenChunk() throws IOException {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       for (LogMessage m : messages) {
         chunk.addMessage(m);
@@ -291,7 +291,7 @@ public class ReadWriteChunkImplTest {
               new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(results.hits.size()).isEqualTo(1);
 
-      chunk.cleanup();
+      chunk.close();
     }
 
     @Test
@@ -419,7 +419,6 @@ public class ReadWriteChunkImplTest {
       // Post snapshot cleanup.
       chunk.postSnapshot();
       chunk.close();
-      chunk.cleanup();
 
       // TODO: Download data from S3, create a new chunk and query the data in that chunk.
       // Download files from S3 to local FS.

@@ -102,7 +102,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
-    cleanup();
+    logStore.cleanup();
+    LOG.info("Cleaned up chunk {}", chunkInfo);
   }
 
   public void setReadOnly(boolean readOnly) {
@@ -155,21 +156,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   public void postSnapshot() {
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
-  }
-
-  /** Deletes the log store data from local disk. */
-  public void cleanup() {
-    if (logStore.isOpen()) {
-      // since this is called from close() this method must also be reentrant
-      return;
-    }
-    try {
-      logStore.cleanup();
-      LOG.info("Cleaned up chunk {}", chunkInfo);
-    } catch (IOException e) {
-      String msg = String.format("Error cleaning up chunk %s", chunkInfo);
-      LOG.error(msg, e);
-    }
   }
 
   @VisibleForTesting

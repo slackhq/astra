@@ -175,13 +175,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cacheSlotMetadataStore.close();
 
     LOG.info("Closed chunk {}", chunkId);
-    cleanup();
+
+    // todo - do final cleanup of directory before exiting
   }
 
-  /** Deletes the log store data from local disk. */
-  public void cleanup() {
-    // TODO: Implement chunk state cleanup
-  }
 
   @Override
   public String id() {
