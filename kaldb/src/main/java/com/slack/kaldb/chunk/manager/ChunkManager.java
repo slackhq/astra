@@ -1,7 +1,5 @@
 package com.slack.kaldb.chunk.manager;
 
-import brave.ScopedSpan;
-import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -71,36 +69,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(
-                            () -> {
-                              ScopedSpan span =
-                                  Tracing.currentTracer()
-                                      .startScopedSpan("ReadWriteChunkImpl.query");
-                              span.tag("chunkId", chunk.info().chunkId);
-                              span.tag(
-                                  "chunkCreationTimeSecsSinceEpoch",
-                                  String.valueOf(chunk.info().getChunkCreationTimeEpochSecs()));
-                              span.tag(
-                                  "chunkLastUpdatedTimeSecsEpochSecs",
-                                  String.valueOf(
-                                      chunk.info().getChunkLastUpdatedTimeSecsEpochSecs()));
-                              span.tag(
-                                  "dataStartTimeEpochSecs",
-                                  String.valueOf(chunk.info().getDataStartTimeEpochSecs()));
-                              span.tag(
-                                  "dataEndTimeEpochSecs",
-                                  String.valueOf(chunk.info().getDataEndTimeEpochSecs()));
-                              span.tag(
-                                  "chunkSnapshotTimeEpochSecs",
-                                  String.valueOf(chunk.info().getChunkSnapshotTimeEpochSecs()));
-                              span.tag("numDocs", String.valueOf(chunk.info().getNumDocs()));
-                              span.tag("chunkSize", String.valueOf(chunk.info().getChunkSize()));
-
-                              try {
-                                return chunk.query(query);
-                              } finally {
-                                span.finish();
-                              }
-                            },
+                            () -> chunk.query(query),
                             RequestContext.makeContextPropagating(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
                         // the future and pass this timeout
