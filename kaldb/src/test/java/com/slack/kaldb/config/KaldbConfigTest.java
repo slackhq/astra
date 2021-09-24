@@ -150,9 +150,11 @@ public class KaldbConfigTest {
 
     assertThat(config).isNotNull();
 
-    assertThat(config.getNodeRolesList().size()).isEqualTo(2);
+    assertThat(config.getNodeRolesList().size()).isEqualTo(4);
     assertThat(config.getNodeRolesList().get(0)).isEqualTo(KaldbConfigs.NodeRole.INDEX);
     assertThat(config.getNodeRolesList().get(1)).isEqualTo(KaldbConfigs.NodeRole.QUERY);
+    assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
+    assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
@@ -199,6 +201,11 @@ public class KaldbConfigTest {
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
+
+    final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
+    assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test
@@ -211,9 +218,11 @@ public class KaldbConfigTest {
 
     assertThat(config).isNotNull();
 
-    assertThat(config.getNodeRolesList().size()).isEqualTo(2);
+    assertThat(config.getNodeRolesList().size()).isEqualTo(4);
     assertThat(config.getNodeRolesList().get(0)).isEqualTo(KaldbConfigs.NodeRole.INDEX);
     assertThat(config.getNodeRolesList().get(1)).isEqualTo(KaldbConfigs.NodeRole.QUERY);
+    assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
+    assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
 
@@ -266,6 +275,11 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
+
+    final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
+    assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test(expected = RuntimeException.class)
@@ -329,6 +343,11 @@ public class KaldbConfigTest {
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
+
+    final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
+    assertThat(managerServerConfig.getServerPort()).isZero();
+    assertThat(managerServerConfig.getServerAddress()).isEmpty();
   }
 
   @Test
@@ -382,6 +401,11 @@ public class KaldbConfigTest {
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
+
+    final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
+    assertThat(managerServerConfig.getServerPort()).isZero();
+    assertThat(managerServerConfig.getServerAddress()).isEmpty();
   }
 
   @Test

@@ -1,5 +1,5 @@
 {
-  "nodeRoles": ["INDEX", "QUERY"],
+  "nodeRoles": ["INDEX", "QUERY", "CACHE", "MANAGER"],
 
   "kafkaConfig": {
     "kafkaTopic": "testTopic",
@@ -50,6 +50,12 @@
     "dataDirectory": "/tmp",
     "serverConfig": {
       "serverPort": 8082,
+      "serverAddress": "localhost"
+    }
+  },
+  "managerConfig": {
+    "serverConfig": {
+      "serverPort": 8083,
       "serverAddress": "localhost"
     }
   }
