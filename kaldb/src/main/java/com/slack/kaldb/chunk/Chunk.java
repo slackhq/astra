@@ -25,7 +25,4 @@ public interface Chunk<T> extends Closeable {
 
   /** Return true if the chunk contains data within that time range (epoch ms). */
   boolean containsDataInTimeRange(long startTs, long endTs);
-
-  /** Close the chunk. */
-  void close() throws IOException;
 }
