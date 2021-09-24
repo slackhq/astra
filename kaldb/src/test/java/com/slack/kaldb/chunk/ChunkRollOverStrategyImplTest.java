@@ -3,8 +3,8 @@ package com.slack.kaldb.chunk;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategy;
-import com.slack.kaldb.chunk.manager.indexing.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.chunk.manager.ChunkRollOverStrategy;
+import com.slack.kaldb.chunk.manager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import org.junit.Test;

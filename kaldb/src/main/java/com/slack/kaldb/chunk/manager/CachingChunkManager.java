@@ -1,9 +1,8 @@
-package com.slack.kaldb.chunk.manager.caching;
+package com.slack.kaldb.chunk.manager;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
-import com.slack.kaldb.chunk.manager.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;

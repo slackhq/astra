@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk.manager.indexing;
+package com.slack.kaldb.chunk.manager;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -13,7 +13,6 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadWriteChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.chunk.manager.ChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;

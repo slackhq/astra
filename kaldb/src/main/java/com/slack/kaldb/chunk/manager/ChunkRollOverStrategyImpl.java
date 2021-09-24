@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk.manager.indexing;
+package com.slack.kaldb.chunk.manager;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 

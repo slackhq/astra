@@ -6,7 +6,7 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
+import com.slack.kaldb.chunk.manager.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.writer.LogMessageTransformer;

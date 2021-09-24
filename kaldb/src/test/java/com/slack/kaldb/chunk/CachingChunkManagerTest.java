@@ -3,7 +3,7 @@ package com.slack.kaldb.chunk;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.slack.kaldb.chunk.manager.caching.CachingChunkManager;
+import com.slack.kaldb.chunk.manager.CachingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;

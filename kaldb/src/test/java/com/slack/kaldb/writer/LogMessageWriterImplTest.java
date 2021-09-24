@@ -15,7 +15,7 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
-import com.slack.kaldb.chunk.manager.indexing.IndexingChunkManager;
+import com.slack.kaldb.chunk.manager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
