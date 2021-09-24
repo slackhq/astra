@@ -154,7 +154,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
       LOG.warn("Stopping ingestion due to a chunk roll over exception.");
-      throw new IllegalStateException("Stopping ingestion due to chunk roll over exception.");
+      throw new ChunkRollOverException("Stopping ingestion due to chunk roll over exception.");
     }
 
     // find the active chunk and add a message to it
@@ -211,7 +211,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           },
           MoreExecutors.directExecutor());
     } else {
-      throw new IllegalStateException(
+      throw new ChunkRollOverInProgressException(
           String.format(
               "The chunk roll over %s is already in progress."
                   + "It is not recommended to index faster than we can roll over, since we may not be able to keep up.",

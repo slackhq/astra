@@ -23,6 +23,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.manager.ChunkCleanerService;
 import com.slack.kaldb.chunk.manager.ChunkManager;
+import com.slack.kaldb.chunk.manager.ChunkRollOverException;
+import com.slack.kaldb.chunk.manager.ChunkRollOverInProgressException;
 import com.slack.kaldb.chunk.manager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunk.manager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunk.manager.IndexingChunkManager;
@@ -687,7 +689,7 @@ public class IndexingChunkManagerTest {
     // TODO: Test the entire search response in all queries and not just hits.
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = ChunkRollOverInProgressException.class)
   public void testChunkRollOverInProgressExceptionIsThrown()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
@@ -778,7 +780,7 @@ public class IndexingChunkManagerTest {
     assertThat(rollOverFuture.isDone()).isTrue();
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = ChunkRollOverException.class)
   public void testRollOverFailure()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
@@ -814,7 +816,7 @@ public class IndexingChunkManagerTest {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = ChunkRollOverException.class)
   public void testRollOverFailureWithDirectExecutor()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
