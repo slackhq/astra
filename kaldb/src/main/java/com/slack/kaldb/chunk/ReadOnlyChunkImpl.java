@@ -16,6 +16,7 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.server.MetadataStoreService;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -42,8 +43,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
 
-  private ChunkInfo chunkInfo;
-  private LogIndexSearcher<T> logSearcher;
+  private Optional<ChunkInfo> chunkInfo = Optional.empty();
+  private Optional<LogIndexSearcher<T>> logSearcher = Optional.empty();
 
   private final String chunkId;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
@@ -126,8 +127,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private void handleChunkEviction() throws Exception {
     setChunkMetadataState(Metadata.CacheSlotState.EVICTING);
 
-    chunkInfo = null;
-    logSearcher = null;
+    chunkInfo = Optional.empty();
+    logSearcher = Optional.empty();
 
     setChunkMetadataState(Metadata.CacheSlotState.FREE);
   }
@@ -154,21 +155,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public ChunkInfo info() {
-    return chunkInfo;
+    return chunkInfo.orElse(null);
   }
 
   @Override
   public boolean containsDataInTimeRange(long startTs, long endTs) {
-    if (chunkInfo != null) {
-      return chunkInfo.containsDataInTimeRange(startTs, endTs);
-    }
-    return false;
+    return chunkInfo.map(info -> info.containsDataInTimeRange(startTs, endTs)).orElse(false);
   }
 
   @Override
   public void close() throws IOException {
-    if (logSearcher != null) {
-      logSearcher.close();
+    if (logSearcher.isPresent()) {
+      logSearcher.get().close();
     }
 
     executorService.shutdown();
@@ -186,14 +184,16 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public SearchResult<T> query(SearchQuery query) {
-    if (logSearcher != null) {
-      return logSearcher.search(
-          query.indexName,
-          query.queryStr,
-          query.startTimeEpochMs,
-          query.endTimeEpochMs,
-          query.howMany,
-          query.bucketCount);
+    if (logSearcher.isPresent()) {
+      return logSearcher
+          .get()
+          .search(
+              query.indexName,
+              query.queryStr,
+              query.startTimeEpochMs,
+              query.endTimeEpochMs,
+              query.howMany,
+              query.bucketCount);
     } else {
       return SearchResult.empty();
     }
