@@ -179,7 +179,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     // todo - do final cleanup of directory before exiting
   }
 
-
   @Override
   public String id() {
     return chunkId;

@@ -3,7 +3,6 @@ package com.slack.kaldb.chunk;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import java.io.Closeable;
-import java.io.IOException;
 
 /**
  * A chunk stores messages for a specific time range. It can concurrently store messages and respond

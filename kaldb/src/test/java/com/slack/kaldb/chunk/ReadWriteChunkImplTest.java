@@ -420,25 +420,6 @@ public class ReadWriteChunkImplTest {
       chunk.postSnapshot();
       chunk.close();
 
-      // TODO: Download data from S3, create a new chunk and query the data in that chunk.
-      // Download files from S3 to local FS.
-      //      File newLocalFolderPath = localDownloadFolder.newFolder();
-      //      String[] s3Files =
-      //          copyFromS3(bucket, "", s3BlobFs, Paths.get(newLocalFolderPath.getAbsolutePath()));
-      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-      //          .isEqualTo(s3Files.length);
-      //
-      //      ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-      //          new ReadOnlyChunkImpl<>(
-      //              newLocalFolderPath.getAbsoluteFile().toPath(),
-      //              new ChunkInfo("testDataSet2", 0),
-      //              registry);
-      //      SearchResult<LogMessage> newChunkResults = readOnlyChunk.query(searchQuery);
-      //      assertThat(newChunkResults.hits.size()).isEqualTo(1);
-      //      readOnlyChunk.close();
-      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-      //          .isEqualTo(s3Files.length);
-
       // TODO: Test search via read write chunk.query API. Also, add a few more messages to search.
       //      LuceneIndexStoreImpl rwLogStore =
       //          ReadWriteChunkImpl.makeLogStore(
