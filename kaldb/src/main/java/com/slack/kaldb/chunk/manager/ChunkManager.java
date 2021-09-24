@@ -25,6 +25,10 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Base class shared for chunk managers used by both caching and indexing nodes. This contains the
+ * common functionality for interacting with chunks that can be read only or appendable.
+ */
 public abstract class ChunkManager<T> extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkManager.class);
 

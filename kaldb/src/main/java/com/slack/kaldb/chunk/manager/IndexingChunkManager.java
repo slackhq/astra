@@ -35,6 +35,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Chunk manager implementation that supports appending messages to open chunks. This also is
+ * responsible for cleanly transitioning from a full chunk to a new chunk, and uploading that
+ * contents to S3, and notifying ZK of state changes.
+ */
 public class IndexingChunkManager<T> extends ChunkManager<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);
   public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
