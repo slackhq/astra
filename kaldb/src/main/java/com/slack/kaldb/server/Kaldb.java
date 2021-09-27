@@ -3,8 +3,9 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
-import com.slack.kaldb.chunk.ChunkCleanerTask;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.CachingChunkManager;
+import com.slack.kaldb.chunk.manager.ChunkCleanerService;
+import com.slack.kaldb.chunk.manager.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -82,18 +83,18 @@ public class Kaldb {
     services.add(metadataStoreService);
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      ChunkManager<LogMessage> chunkManager =
-          ChunkManager.fromConfig(
+      IndexingChunkManager<LogMessage> chunkManager =
+          IndexingChunkManager.fromConfig(
               prometheusMeterRegistry,
               metadataStoreService,
               KaldbConfig.get().getIndexerConfig().getServerConfig());
       services.add(chunkManager);
 
-      ChunkCleanerTask<LogMessage> chunkCleanerTask =
-          new ChunkCleanerTask<>(
+      ChunkCleanerService<LogMessage> chunkCleanerService =
+          new ChunkCleanerService<>(
               chunkManager,
               Duration.ofSeconds(KaldbConfig.get().getIndexerConfig().getStaleDurationSecs()));
-      services.add(chunkCleanerTask);
+      services.add(chunkCleanerService);
 
       LogMessageTransformer messageTransformer = KaldbIndexer.getLogMessageTransformer();
       LogMessageWriterImpl logMessageWriterImpl =
@@ -123,11 +124,9 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
-      ChunkManager<LogMessage> chunkManager =
-          ChunkManager.fromConfig(
-              prometheusMeterRegistry,
-              metadataStoreService,
-              KaldbConfig.get().getCacheConfig().getServerConfig());
+      CachingChunkManager<LogMessage> chunkManager =
+          new CachingChunkManager<>(
+              prometheusMeterRegistry, metadataStoreService, KaldbConfig.get().getCacheConfig());
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);

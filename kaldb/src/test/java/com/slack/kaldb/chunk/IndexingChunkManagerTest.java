@@ -1,10 +1,10 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ChunkManager.LIVE_BYTES_INDEXED;
-import static com.slack.kaldb.chunk.ChunkManager.LIVE_MESSAGES_INDEXED;
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_COMPLETED;
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunk.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.chunk.manager.IndexingChunkManager.LIVE_BYTES_INDEXED;
+import static com.slack.kaldb.chunk.manager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
+import static com.slack.kaldb.chunk.manager.RollOverChunkTask.ROLLOVERS_COMPLETED;
+import static com.slack.kaldb.chunk.manager.RollOverChunkTask.ROLLOVERS_FAILED;
+import static com.slack.kaldb.chunk.manager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -13,6 +13,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -20,18 +21,29 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.chunk.manager.ChunkCleanerService;
+import com.slack.kaldb.chunk.manager.ChunkManager;
+import com.slack.kaldb.chunk.manager.ChunkRollOverException;
+import com.slack.kaldb.chunk.manager.ChunkRollOverInProgressException;
+import com.slack.kaldb.chunk.manager.ChunkRollOverStrategy;
+import com.slack.kaldb.chunk.manager.ChunkRollOverStrategyImpl;
+import com.slack.kaldb.chunk.manager.IndexingChunkManager;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.AlreadyClosedLogIndexSearcherImpl;
 import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.time.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -41,17 +53,22 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-public class ChunkManagerTest {
+public class IndexingChunkManagerTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   public static final String HOSTNAME = "localhost";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ChunkManager<LogMessage> chunkManager = null;
+  private IndexingChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
   private S3Client s3Client;
@@ -112,7 +129,7 @@ public class ChunkManagerTest {
     final int port = 10000;
     SearchContext searchContext = new SearchContext(HOSTNAME, port);
     chunkManager =
-        new ChunkManager<>(
+        new IndexingChunkManager<>(
             "testData",
             temporaryFolder.newFolder().getAbsolutePath(),
             chunkRollOverStrategy,
@@ -128,15 +145,19 @@ public class ChunkManagerTest {
 
     // TODO: This is temporary, move this registration closer to logic.
     // Test search end point registration.
-    // await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
-    // SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
-    // assertThat(searchMetadata.name).isEqualTo("localhost");
-    // assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
-    // assertThat(searchMetadata.url).contains(HOSTNAME);
-    // assertThat(searchMetadata.url).contains(String.valueOf(port));
+    await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
+    SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
+    assertThat(searchMetadata.name).isEqualTo("localhost");
+    assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
+    assertThat(searchMetadata.url).contains(HOSTNAME);
+    assertThat(searchMetadata.url).contains(String.valueOf(port));
   }
 
   @Test
+  @Disabled
+  // Todo: this test needs to be refactored as it currently does not reliably replicate the race
+  //   condition Additionally, this test as currently written is extremely slow, and accounts
+  //   for over 10% of our test runtime
   public void closeDuringCleanerTask()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -145,7 +166,7 @@ public class ChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 10);
     for (LogMessage m : messages) {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, 100);
@@ -154,15 +175,15 @@ public class ChunkManagerTest {
       // force creation of a unique chunk for every message
       chunkManager.rollOverActiveChunk();
     }
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(100);
+    assertThat(chunkManager.getChunkMap().size()).isEqualTo(10);
 
     // attempt to clean all chunks while shutting the service down
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
     // these to run immediately
-    ChunkCleanerTask<LogMessage> chunkCleanerTask =
-        new ChunkCleanerTask<>(chunkManager, Duration.ZERO);
+    ChunkCleanerService<LogMessage> chunkCleanerService =
+        new ChunkCleanerService<>(chunkManager, Duration.ZERO);
     ExecutorService executorService = Executors.newSingleThreadExecutor();
-    Future<?> cleanerTask = executorService.submit(chunkCleanerTask::runOneIteration);
+    Future<?> cleanerTask = executorService.submit(() -> chunkCleanerService.runAt(Instant.now()));
 
     chunkManager.stopAsync();
     // wait for both to be complete
@@ -275,7 +296,7 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
+    ListeningExecutorService rollOverExecutor = IndexingChunkManager.makeDefaultRollOverExecutor();
     initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
 
     // Add a message
@@ -297,7 +318,7 @@ public class ChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
   }
 
-  @Test(expected = ReadOnlyChunkInsertionException.class)
+  @Test(expected = IllegalStateException.class)
   public void testMessagesAddedToActiveChunks()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -311,7 +332,7 @@ public class ChunkManagerTest {
     LogMessage msg2 = MessageUtil.makeMessage(2);
 
     chunkManager.addMessage(msg1, msg1.toString().length(), 100);
-    Chunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
@@ -347,7 +368,7 @@ public class ChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    ListeningExecutorService rollOverExecutor = ChunkManager.makeDefaultRollOverExecutor();
+    ListeningExecutorService rollOverExecutor = IndexingChunkManager.makeDefaultRollOverExecutor();
     initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, rollOverExecutor, 3000);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 25);
@@ -435,7 +456,8 @@ public class ChunkManagerTest {
   }
 
   public void testOneFailedChunk(ChunkInfo secondChunk) {
-    Chunk<LogMessage> chunk = chunkManager.getChunkMap().get(secondChunk.chunkId);
+    ReadWriteChunkImpl<LogMessage> chunk =
+        (ReadWriteChunkImpl<LogMessage>) chunkManager.getChunkMap().get(secondChunk.chunkId);
 
     testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3, 0, MAX_TIME);
     // chunk 2 which has docs 12-21 is corrupted
@@ -493,7 +515,10 @@ public class ChunkManagerTest {
     chunkManager
         .getChunkMap()
         .values()
-        .forEach(chunk -> chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
+        .forEach(
+            chunk ->
+                ((ReadWriteChunkImpl) chunk)
+                    .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
     testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0, 0, MAX_TIME);
@@ -502,7 +527,10 @@ public class ChunkManagerTest {
     chunkManager
         .getChunkMap()
         .values()
-        .forEach(chunk -> chunk.setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
+        .forEach(
+            chunk ->
+                ((ReadWriteChunkImpl) chunk)
+                    .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
@@ -677,7 +705,10 @@ public class ChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
+        10000);
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -697,7 +728,10 @@ public class ChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
     initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 10000);
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
+        10000);
 
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
@@ -730,7 +764,7 @@ public class ChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy,
         S3_TEST_BUCKET + "Fail",
-        ChunkManager.makeDefaultRollOverExecutor(),
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
         10000);
 
     // Adding a message and close the chunkManager right away should still finish the failed
@@ -764,7 +798,7 @@ public class ChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy,
         S3_TEST_BUCKET + "Fail",
-        ChunkManager.makeDefaultRollOverExecutor(),
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
         10000);
 
     for (LogMessage m : messages) {
@@ -838,7 +872,10 @@ public class ChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, msgsPerChunk);
     initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
+        5000);
 
     List<LogMessage> messages1 = messages.subList(0, 3);
     List<LogMessage> messages2 = messages.subList(3, 6);
@@ -886,7 +923,10 @@ public class ChunkManagerTest {
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, msgsPerChunk);
     initChunkManager(
-        chunkRollOverStrategy, S3_TEST_BUCKET, ChunkManager.makeDefaultRollOverExecutor(), 5000);
+        chunkRollOverStrategy,
+        S3_TEST_BUCKET,
+        IndexingChunkManager.makeDefaultRollOverExecutor(),
+        5000);
 
     List<LogMessage> messages1 = messages.subList(0, 10);
     List<LogMessage> messages2 = messages.subList(10, 20);
@@ -923,7 +963,7 @@ public class ChunkManagerTest {
   }
 
   private void insertMessages(
-      ChunkManager<LogMessage> chunkManager, List<LogMessage> messages, long msgsPerChunk)
+      IndexingChunkManager<LogMessage> chunkManager, List<LogMessage> messages, long msgsPerChunk)
       throws IOException {
     int actualMessagesGauge = 0;
     int actualBytesGauge = 0;

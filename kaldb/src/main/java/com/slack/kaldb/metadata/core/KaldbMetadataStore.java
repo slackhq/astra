@@ -52,8 +52,13 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     // a path at the same time, ignore the exception if node already exists.
     try {
       metadataStore.create(storeFolder, "", true).get();
-    } catch (NodeExistsException e) {
-      // ignore exception, since node creation is idemponent.
+    } catch (ExecutionException exception) {
+      //noinspection StatementWithEmptyBody
+      if (exception.getCause() instanceof NodeExistsException) {
+        // ignore exception, since node creation is idemponent.
+      } else {
+        throw exception;
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.chunk.ChunkManager;
+import com.slack.kaldb.chunk.manager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
@@ -78,11 +78,11 @@ public class LogMessageWriterImpl implements MessageWriter {
         return msg.map(List::of).orElse(Collections.emptyList());
       };
 
-  private final ChunkManager<LogMessage> chunkManager;
+  private final IndexingChunkManager<LogMessage> chunkManager;
   private final LogMessageTransformer dataTransformer;
 
   public LogMessageWriterImpl(
-      ChunkManager<LogMessage> chunkManager, LogMessageTransformer dataTransformer) {
+      IndexingChunkManager<LogMessage> chunkManager, LogMessageTransformer dataTransformer) {
     this.chunkManager = chunkManager;
     this.dataTransformer = dataTransformer;
   }

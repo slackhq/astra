@@ -73,7 +73,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    *
    * @param message a LogMessage object.
    */
-  @Override
   public void addMessage(T message) {
     if (!readOnly) {
       logStore.addMessage(message);
@@ -84,7 +83,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
         chunkInfo.updateDataTimeRange(((LogMessage) message).timeSinceEpochMilli);
       }
     } else {
-      throw new ReadOnlyChunkInsertionException(String.format("Chunk %s is read only", chunkInfo));
+      throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));
     }
   }
 
@@ -103,20 +102,19 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
+    logStore.cleanup();
+    LOG.info("Cleaned up chunk {}", chunkInfo);
   }
 
-  @Override
   public void setReadOnly(boolean readOnly) {
     this.readOnly = readOnly;
   }
 
-  @Override
   public void commit() {
     logStore.commit();
     logStore.refresh();
   }
 
-  @Override
   public void preSnapshot() {
     LOG.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
@@ -129,7 +127,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    *
    * @return true on success, false on failure.
    */
-  @Override
   public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
     LOG.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
@@ -157,40 +154,15 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  @Override
   public void postSnapshot() {
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
-  /** Deletes the log store data from local disk. Should be called after close(). */
-  @Override
-  public void cleanup() {
-    if (logStore.isOpen()) {
-      throw new IllegalStateException("Clean up can only be called on a closed logstore.");
-    }
-    try {
-      logStore.cleanup();
-      LOG.info("Cleaned up chunk {}", chunkInfo);
-    } catch (IOException e) {
-      String msg = String.format("Error cleaning up chunk %s", chunkInfo);
-      LOG.error(msg, e);
-      throw new ChunkStateException(msg);
-    }
-  }
-
-  @Override
-  @VisibleForTesting
-  public LogIndexSearcher<T> getLogSearcher() {
-    return logSearcher;
-  }
-
-  @Override
   @VisibleForTesting
   public void setLogSearcher(LogIndexSearcher<T> logSearcher) {
     this.logSearcher = logSearcher;
   }
 
-  @Override
   public boolean isReadOnly() {
     return readOnly;
   }

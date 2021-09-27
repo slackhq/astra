@@ -284,7 +284,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       timer.cancel();
       try {
         indexWriter.get().close();
-      } catch (IOException | NoSuchElementException e) {
+      } catch (IllegalStateException | IOException | NoSuchElementException e) {
         LOG.error("Error closing index " + id, e);
       }
       indexWriter = Optional.empty();
