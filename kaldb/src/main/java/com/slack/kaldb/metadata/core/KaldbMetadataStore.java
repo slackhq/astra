@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,8 +52,13 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     // a path at the same time, ignore the exception if node already exists.
     try {
       metadataStore.create(storeFolder, "", true).get();
-    } catch (ExecutionException ignored) {
-      // ignore exception, since node creation is idemponent.
+    } catch (ExecutionException exception) {
+      //noinspection StatementWithEmptyBody
+      if (exception.getCause() instanceof NodeExistsException) {
+        // ignore exception, since node creation is idemponent.
+      } else {
+        throw exception;
+      }
     }
   }
 
