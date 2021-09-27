@@ -39,6 +39,11 @@ import org.slf4j.LoggerFactory;
  * Chunk manager implementation that supports appending messages to open chunks. This also is
  * responsible for cleanly transitioning from a full chunk to a new chunk, and uploading that
  * contents to S3, and notifying ZK of state changes.
+ *
+ * <p>All chunks except one is considered active. The chunk manager writes the message to the
+ * currently active chunk. Once a chunk reaches a roll over point(defined by a roll over strategy),
+ * the current chunk is marked as read only. At that point a new chunk is created which becomes the
+ * active chunk.
  */
 public class IndexingChunkManager<T> extends ChunkManager<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);

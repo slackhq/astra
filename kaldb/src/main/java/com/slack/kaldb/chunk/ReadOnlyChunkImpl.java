@@ -1,6 +1,5 @@
 package com.slack.kaldb.chunk;
 
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.SearchQuery;
