@@ -1,4 +1,4 @@
-nodeRoles: [INDEX,QUERY]
+nodeRoles: [INDEX,QUERY,CACHE,MANAGER]
 
 indexerConfig:
   maxMessagesPerChunk: 100
@@ -45,4 +45,9 @@ cacheConfig:
   slotsPerInstance: 10
   serverConfig:
     serverPort: 8082
+    serverAddress: localhost
+
+managerConfig:
+  serverConfig:
+    serverPort: 8083
     serverAddress: localhost

@@ -6,6 +6,7 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunk.manager.CachingChunkManager;
 import com.slack.kaldb.chunk.manager.ChunkCleanerService;
 import com.slack.kaldb.chunk.manager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.ReplicaCreatorService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -134,6 +135,17 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbCache");
       services.add(armeriaService);
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
+      final int serverPort = KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbManager");
+      services.add(armeriaService);
+
+      ReplicaCreatorService replicaCreatorService =
+          new ReplicaCreatorService(metadataStoreService, prometheusMeterRegistry);
+      services.add(replicaCreatorService);
     }
 
     return services;

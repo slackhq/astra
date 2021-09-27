@@ -8,6 +8,7 @@ enum NodeRole {
     INDEX = 0;
     QUERY = 1;
     CACHE = 2;
+    MANAGER = 3;
 };
 
 message KaldbConfig {
@@ -19,6 +20,7 @@ message KaldbConfig {
     repeated NodeRole nodeRoles = 6;
     TracingConfig tracingConfig = 7;
     CacheConfig cacheConfig = 8;
+    ManagerConfig managerConfig = 9;
 }
 
 message KafkaConfig {
@@ -79,4 +81,8 @@ message ServerConfig {
 message CacheConfig {
     int32 slotsPerInstance = 1;
     ServerConfig serverConfig = 2;
+}
+
+message ManagerConfig {
+    ServerConfig serverConfig = 1;
 }
