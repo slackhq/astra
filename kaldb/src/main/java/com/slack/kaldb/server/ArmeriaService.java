@@ -41,16 +41,22 @@ public class ArmeriaService extends AbstractIdleService {
   private static final int WORKER_EVENT_LOOP_THREADS = 16;
 
   private final PrometheusMeterRegistry prometheusMeterRegistry;
-  private final KaldbServiceGrpc.KaldbServiceImplBase searcher;
   private final String serviceName;
   private final Server server;
   private final int serverPort;
 
   public ArmeriaService(
-      int serverPort,
-      PrometheusMeterRegistry prometheusMeterRegistry,
-      KaldbServiceGrpc.KaldbServiceImplBase searcher) {
-    this(serverPort, prometheusMeterRegistry, searcher, null);
+      int serverPort, PrometheusMeterRegistry prometheusMeterRegistry, String serviceName) {
+    this.serverPort = serverPort;
+    this.prometheusMeterRegistry = prometheusMeterRegistry;
+    this.serviceName = serviceName;
+
+    ServerBuilder sb = Server.builder();
+    initializeEventLoop(sb);
+    addCompression(sb);
+    addManagementEndpoints(sb);
+    addTracing(sb);
+    this.server = sb.build();
   }
 
   public ArmeriaService(
@@ -60,28 +66,25 @@ public class ArmeriaService extends AbstractIdleService {
       String serviceName) {
     this.serverPort = serverPort;
     this.prometheusMeterRegistry = prometheusMeterRegistry;
-    this.searcher = searcher;
     this.serviceName = serviceName;
-    this.server = getServer();
+
+    ServerBuilder sb = Server.builder();
+    addSearchServices(sb, searcher);
+    initializeEventLoop(sb);
+    addCompression(sb);
+    addManagementEndpoints(sb);
+    addTracing(sb);
+    this.server = sb.build();
   }
 
-  public Server getServer() {
-    ServerBuilder sb = Server.builder();
+  private void addSearchServices(ServerBuilder sb, KaldbServiceGrpc.KaldbServiceImplBase searcher) {
     GrpcServiceBuilder searchBuilder =
         GrpcService.builder()
             .addService(searcher)
             .enableUnframedRequests(true)
             .useBlockingTaskExecutor(true);
     sb.service(searchBuilder.build());
-
     sb.annotatedService(new ElasticsearchApiService(searcher));
-
-    initializeEventLoop(sb);
-    addCompression(sb);
-    addManagementEndpoints(sb);
-    addTracing(sb);
-
-    return sb.build();
   }
 
   private void initializeEventLoop(ServerBuilder sb) {

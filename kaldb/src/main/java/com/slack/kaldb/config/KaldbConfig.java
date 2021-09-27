@@ -27,10 +27,10 @@ public class KaldbConfig {
   // Zookeeper paths for meta data stores.
   public static String SEARCH_METADATA_STORE_ZK_PATH = "/search";
   public static String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
+  public static final String CACHE_SLOT_STORE_ZK_PATH = "/cacheSlot";
+  public static final String REPLICA_STORE_ZK_PATH = "/replica";
 
   private static KaldbConfig _instance = null;
-
-  public static final String CACHE_SLOT_STORE_ZK_PATH = "/cacheSlot";
 
   // Parse a json string as a KaldbConfig proto struct.
   @VisibleForTesting
