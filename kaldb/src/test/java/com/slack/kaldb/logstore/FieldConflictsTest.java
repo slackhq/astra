@@ -51,7 +51,7 @@ public class FieldConflictsTest {
         new LogMessage(
             MessageUtil.TEST_INDEX_NAME,
             "INFO",
-            "1",
+            "2",
             Map.of(
                 LogMessage.ReservedField.TIMESTAMP.fieldName,
                 MessageUtil.getCurrentLogDate(),
@@ -100,6 +100,24 @@ public class FieldConflictsTest {
   public void testFieldConflictingFieldTypeWithDifferentValue() throws InterruptedException {
     final String conflictingFieldName = "conflictingField";
 
+    LogMessage msg0 =
+        new LogMessage(
+            MessageUtil.TEST_INDEX_NAME,
+            "INFO",
+            "0",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                conflictingFieldName,
+                "1"));
+    strictLogStore.logStore.addMessage(msg0);
+
     LogMessage msg1 =
         new LogMessage(
             MessageUtil.TEST_INDEX_NAME,
@@ -115,14 +133,14 @@ public class FieldConflictsTest {
                 LogMessage.ReservedField.HOSTNAME.fieldName,
                 "host1-dc2.abc.com",
                 conflictingFieldName,
-                "1"));
+                "one"));
     strictLogStore.logStore.addMessage(msg1);
 
     LogMessage msg2 =
         new LogMessage(
             MessageUtil.TEST_INDEX_NAME,
             "INFO",
-            "1",
+            "2",
             Map.of(
                 LogMessage.ReservedField.TIMESTAMP.fieldName,
                 MessageUtil.getCurrentLogDate(),
@@ -144,7 +162,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> resultsByHost =
         findAllMessages(
             strictLogStore.logSearcher, MessageUtil.TEST_INDEX_NAME, queryByHost, 1000, 1);
-    assertThat(resultsByHost.size()).isEqualTo(2);
+    assertThat(resultsByHost.size()).isEqualTo(3);
 
     final String conflictingTypeByString = conflictingFieldName + ":1";
     Collection<LogMessage> searchByString =
@@ -165,6 +183,26 @@ public class FieldConflictsTest {
             1000,
             1);
     assertThat(searchByExactString.size()).isEqualTo(1);
+
+    final String conflictingTypeByString1 = conflictingFieldName + ":one";
+    Collection<LogMessage> searchByString1 =
+        findAllMessages(
+            strictLogStore.logSearcher,
+            MessageUtil.TEST_INDEX_NAME,
+            conflictingTypeByString1,
+            1000,
+            1);
+    assertThat(searchByString1.size()).isEqualTo(1);
+
+    final String conflictingTypeByExactString1 = conflictingFieldName + ":\"one\"";
+    Collection<LogMessage> searchByExactString1 =
+        findAllMessages(
+            strictLogStore.logSearcher,
+            MessageUtil.TEST_INDEX_NAME,
+            conflictingTypeByExactString1,
+            1000,
+            1);
+    assertThat(searchByExactString1.size()).isEqualTo(1);
 
     final String conflictingTypeByNumber = conflictingFieldName + ":200";
     Collection<LogMessage> searchByNumber =
