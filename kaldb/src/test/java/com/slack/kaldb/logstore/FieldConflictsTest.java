@@ -156,6 +156,16 @@ public class FieldConflictsTest {
             1);
     assertThat(searchByString.size()).isEqualTo(1);
 
+    final String conflictingTypeByExactString = conflictingFieldName + ":\"1\"";
+    Collection<LogMessage> searchByExactString =
+        findAllMessages(
+            strictLogStore.logSearcher,
+            MessageUtil.TEST_INDEX_NAME,
+            conflictingTypeByExactString,
+            1000,
+            1);
+    assertThat(searchByExactString.size()).isEqualTo(1);
+
     final String conflictingTypeByNumber = conflictingFieldName + ":200";
     Collection<LogMessage> searchByNumber =
         findAllMessages(
