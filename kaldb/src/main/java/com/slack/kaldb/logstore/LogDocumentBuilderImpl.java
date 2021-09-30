@@ -202,7 +202,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     // Match int
     if (value instanceof Integer) {
       int intValue = (Integer) value;
-      if (desc.propertyType.equals(PropertyType.INTEGER)) {
+      if (!desc.propertyType.equals(PropertyType.INTEGER)) {
         // TODO: Add a test to ensure IntPoint works as well as IntField.
         // TODO: GetStoreEnum field is missing as a param.
         if (desc.isIndexed) {

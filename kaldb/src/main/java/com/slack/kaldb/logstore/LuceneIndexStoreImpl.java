@@ -15,6 +15,7 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -185,7 +186,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     try {
       messagesReceivedCounter.increment();
       if (indexWriter.isPresent()) {
-        indexWriter.get().addDocument(documentBuilder.fromMessage(message));
+        final Document doc = documentBuilder.fromMessage(message);
+        LOG.info(doc.toString());
+        indexWriter.get().addDocument(doc);
       } else {
         LOG.warn("IndexWriter should never be null when adding a message");
         throw new IllegalStateException("Index writer should never be null when adding a message");

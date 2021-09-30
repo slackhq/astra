@@ -83,7 +83,7 @@ public class FieldConflictsTest {
             conflictingTypeByNumber,
             1000,
             1);
-    assertThat(searchByInt.size()).isEqualTo(2);
+    assertThat(searchByInt.size()).isEqualTo(1); // only text field can be retrieved.
 
     final String conflictingTypeExactMatch = conflictingFieldName + ":\"1\"";
     Collection<LogMessage> searchByNumber =
@@ -93,7 +93,7 @@ public class FieldConflictsTest {
             conflictingTypeExactMatch,
             1000,
             1);
-    assertThat(searchByNumber.size()).isEqualTo(2);
+    assertThat(searchByNumber.size()).isEqualTo(1); // only text field can be retrieved.
   }
 
   @Test
@@ -212,7 +212,7 @@ public class FieldConflictsTest {
             conflictingTypeByNumber,
             1000,
             1);
-    assertThat(searchByNumber.size()).isEqualTo(1);
+    assertThat(searchByNumber.size()).isEqualTo(0); // Can't retrieve int field.
 
     final String conflictingTypeByNumberString = conflictingFieldName + ":\"200\"";
     Collection<LogMessage> searchByNumberString =
@@ -222,6 +222,6 @@ public class FieldConflictsTest {
             conflictingTypeByNumberString,
             1000,
             1);
-    assertThat(searchByNumberString.size()).isEqualTo(1);
+    assertThat(searchByNumberString.size()).isEqualTo(0); // Can't retrieve int field.
   }
 }
