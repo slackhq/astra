@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore;
 
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -67,13 +68,20 @@ public class FieldConflictsTest {
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
-    Thread.sleep(1000);
 
     final String queryByHost = "hostname:host1-dc2.abc.com";
-    Collection<LogMessage> resultsByHost =
-        findAllMessages(
-            strictLogStore.logSearcher, MessageUtil.TEST_INDEX_NAME, queryByHost, 1000, 1);
-    assertThat(resultsByHost.size()).isEqualTo(2);
+    await()
+        .untilAsserted(
+            () ->
+                assertThat(
+                        findAllMessages(
+                                strictLogStore.logSearcher,
+                                MessageUtil.TEST_INDEX_NAME,
+                                queryByHost,
+                                1000,
+                                1)
+                            .size())
+                    .isEqualTo(2));
 
     final String conflictingTypeByNumber = conflictingFieldName + ":1";
     Collection<LogMessage> searchByInt =
@@ -156,13 +164,20 @@ public class FieldConflictsTest {
 
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
-    Thread.sleep(1000);
 
     final String queryByHost = "hostname:host1-dc2.abc.com";
-    Collection<LogMessage> resultsByHost =
-        findAllMessages(
-            strictLogStore.logSearcher, MessageUtil.TEST_INDEX_NAME, queryByHost, 1000, 1);
-    assertThat(resultsByHost.size()).isEqualTo(3);
+    await()
+        .untilAsserted(
+            () ->
+                assertThat(
+                        findAllMessages(
+                                strictLogStore.logSearcher,
+                                MessageUtil.TEST_INDEX_NAME,
+                                queryByHost,
+                                1000,
+                                1)
+                            .size())
+                    .isEqualTo(3));
 
     final String conflictingTypeByString = conflictingFieldName + ":1";
     Collection<LogMessage> searchByString =
