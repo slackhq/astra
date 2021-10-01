@@ -102,8 +102,14 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
-    logStore.cleanup();
-    LOG.info("Cleaned up chunk {}", chunkInfo);
+
+    try {
+      logStore.cleanup();
+      LOG.info("Cleaned up chunk {}", chunkInfo);
+    } catch (Exception e) {
+      // this will allow the service to still close successfully when failing to cleanup the file
+      LOG.error("Failed to cleanup logstore for chunk {}", chunkInfo, e);
+    }
   }
 
   public void setReadOnly(boolean readOnly) {
