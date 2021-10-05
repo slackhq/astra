@@ -70,8 +70,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
             .stream()
             .filter(
                 chunk ->
-                    chunk.containsDataInTimeRange(
-                        query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
+                    chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(

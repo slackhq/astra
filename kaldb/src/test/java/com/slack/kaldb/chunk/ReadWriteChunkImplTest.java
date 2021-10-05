@@ -130,43 +130,36 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
 
-      final long expectedStartTimeEpochSecs = messageStartTime / 1000;
-      final long expectedEndTimeEpochSecs = expectedStartTimeEpochSecs + 99;
+      final long expectedEndTimeEpochMs = messageStartTime + (99 * 1000);
       // Ensure chunk info is correct.
-      assertThat(chunk.info().getDataStartTimeEpochSecs()).isEqualTo(expectedStartTimeEpochSecs);
-      assertThat(chunk.info().getDataEndTimeEpochSecs()).isEqualTo(expectedEndTimeEpochSecs);
+      assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTime);
+      assertThat(chunk.info().getDataEndTimeEpochMs()).isEqualTo(expectedEndTimeEpochMs);
       assertThat(chunk.info().chunkId).contains(chunkDataPrefix);
-      assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isZero();
-      assertThat(chunk.info().getChunkCreationTimeEpochSecs()).isPositive();
+      assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
+      assertThat(chunk.info().getChunkCreationTimeEpochMs()).isPositive();
 
       // Search for message in expected time range.
-      searchChunk(
-          "Message1", expectedStartTimeEpochSecs * 1000, expectedEndTimeEpochSecs * 1000, 1);
+      searchChunk("Message1", messageStartTime, expectedEndTimeEpochMs, 1);
 
       // Search for message before and after the time range.
-      searchChunk("Message1", 0, (expectedStartTimeEpochSecs - 1) * 1000, 0);
-      searchChunk("Message1", (expectedEndTimeEpochSecs + 1) * 1000, MAX_TIME, 0);
+      searchChunk("Message1", 0, messageStartTime - 1000, 0);
+      searchChunk("Message1", expectedEndTimeEpochMs + 1000, MAX_TIME, 0);
 
       // Search for Message1 in time range.
-      searchChunk("Message1", 0, expectedStartTimeEpochSecs * 1000, 1);
-      searchChunk("Message100", 0, expectedStartTimeEpochSecs * 1000, 0);
+      searchChunk("Message1", 0, messageStartTime, 1);
+      searchChunk("Message100", 0, messageStartTime, 0);
 
       // Search for Message100 in time range.
-      searchChunk(
-          "Message100", expectedStartTimeEpochSecs * 1000, expectedEndTimeEpochSecs * 1000, 1);
+      searchChunk("Message100", messageStartTime, expectedEndTimeEpochMs, 1);
 
       // Message100 is in chunk but not in time range.
-      searchChunk(
-          "Message100",
-          expectedStartTimeEpochSecs * 1000,
-          (expectedStartTimeEpochSecs + 1) * 1000,
-          0);
+      searchChunk("Message100", messageStartTime, messageStartTime + 1000, 0);
 
       // Add more messages in other time range and search again with new time ranges.
       final List<LogMessage> newMessages =
           MessageUtil.makeMessagesWithTimeDifference(
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
-      final long newMessageStartTimeEpochSecs = newMessages.get(0).timeSinceEpochMilli / 1000;
+      final long newMessageStartTimeEpochSecs = newMessages.get(0).timeSinceEpochMilli;
       for (LogMessage m : newMessages) {
         chunk.addMessage(m);
       }
@@ -177,49 +170,35 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(2);
       assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(2);
 
-      assertThat(chunk.info().getDataStartTimeEpochSecs()).isEqualTo(expectedStartTimeEpochSecs);
-      assertThat(chunk.info().getDataEndTimeEpochSecs())
-          .isEqualTo(newMessageStartTimeEpochSecs + 99);
+      assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTime);
+      assertThat(chunk.info().getDataEndTimeEpochMs())
+          .isEqualTo(newMessageStartTimeEpochSecs + (99 * 1000));
 
       // Search for message in expected time range.
-      searchChunk(
-          "Message1", expectedStartTimeEpochSecs * 1000, expectedEndTimeEpochSecs * 1000, 1);
+      searchChunk("Message1", messageStartTime, expectedEndTimeEpochMs, 1);
 
       // Search for message before and after the time range.
-      searchChunk("Message1", 0, (expectedStartTimeEpochSecs - 1) * 1000, 0);
+      searchChunk("Message1", 0, messageStartTime - 1000, 0);
 
       // Search for Message1 in time range.
-      searchChunk("Message1", 0, expectedStartTimeEpochSecs * 1000, 1);
+      searchChunk("Message1", 0, messageStartTime, 1);
 
       // Search for Message100 in time range.
-      searchChunk(
-          "Message100", expectedStartTimeEpochSecs * 1000, expectedEndTimeEpochSecs * 1000, 1);
+      searchChunk("Message100", messageStartTime, expectedEndTimeEpochMs, 1);
 
       // Message100 is in chunk but not in time range.
-      searchChunk(
-          "Message100",
-          expectedStartTimeEpochSecs * 1000,
-          (expectedStartTimeEpochSecs + 1) * 1000,
-          0);
+      searchChunk("Message100", messageStartTime, messageStartTime + 1000, 0);
 
       // Search for new and old messages
-      searchChunk("Message1", (expectedStartTimeEpochSecs + 1) * 1000, MAX_TIME, 1);
-      searchChunk(
-          "Message1",
-          expectedStartTimeEpochSecs * 1000,
-          (newMessageStartTimeEpochSecs + 100) * 1000,
-          2);
-      searchChunk("Message1", expectedStartTimeEpochSecs * 1000, MAX_TIME, 2);
+      searchChunk("Message1", messageStartTime + 1000, MAX_TIME, 1);
+      searchChunk("Message1", messageStartTime, newMessageStartTimeEpochSecs + (100 * 1000), 2);
+      searchChunk("Message1", messageStartTime, MAX_TIME, 2);
 
       // Search for Message100 in time range.
-      searchChunk(
-          "Message100",
-          expectedStartTimeEpochSecs * 1000,
-          (newMessageStartTimeEpochSecs + 100) * 1000,
-          2);
+      searchChunk("Message100", messageStartTime, newMessageStartTimeEpochSecs + (100 * 1000), 2);
 
       // Message100 is in chunk but not in time range.
-      searchChunk("Message100", (newMessageStartTimeEpochSecs + 100) * 1000, MAX_TIME, 0);
+      searchChunk("Message100", newMessageStartTimeEpochSecs + (100 * 1000), MAX_TIME, 0);
     }
 
     private void searchChunk(
