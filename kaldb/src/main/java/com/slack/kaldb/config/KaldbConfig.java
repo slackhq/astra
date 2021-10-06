@@ -25,8 +25,8 @@ public class KaldbConfig {
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
 
   // Zookeeper paths for meta data stores.
-  public static String SEARCH_METADATA_STORE_ZK_PATH = "/search";
-  public static String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
+  public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
+  public static final String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
   public static final String CACHE_SLOT_STORE_ZK_PATH = "/cacheSlot";
   public static final String REPLICA_STORE_ZK_PATH = "/replica";
 

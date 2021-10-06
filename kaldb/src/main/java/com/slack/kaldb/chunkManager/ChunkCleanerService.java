@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk.manager;
+package com.slack.kaldb.chunkManager;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;

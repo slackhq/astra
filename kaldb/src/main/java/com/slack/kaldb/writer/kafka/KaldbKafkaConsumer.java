@@ -3,7 +3,7 @@ package com.slack.kaldb.writer.kafka;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
-import com.slack.kaldb.chunk.manager.ChunkRollOverException;
+import com.slack.kaldb.chunkManager.ChunkRollOverException;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import java.io.IOException;
 import java.time.Duration;
