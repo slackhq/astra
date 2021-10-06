@@ -52,7 +52,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       // Post snapshot management.
       chunk.postSnapshot();
       rolloversCompletedCounter.increment();
-      chunk.info().setChunkSnapshotTimeEpochSecs(Instant.now().getEpochSecond());
+      chunk.info().setChunkSnapshotTimeEpochMs(Instant.now().toEpochMilli());
       LOG.info("Finished chunk roll over {}", chunk.info());
       return true;
     } else {

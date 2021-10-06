@@ -225,9 +225,9 @@ public class IndexingChunkManagerTest {
 
     // Test chunk metadata.
     ChunkInfo chunkInfo = chunkManager.getActiveChunk().info();
-    assertThat(chunkInfo.getChunkSnapshotTimeEpochSecs()).isZero();
-    assertThat(chunkInfo.getDataStartTimeEpochSecs()).isGreaterThan(0);
-    assertThat(chunkInfo.getDataEndTimeEpochSecs()).isGreaterThan(0);
+    assertThat(chunkInfo.getChunkSnapshotTimeEpochMs()).isZero();
+    assertThat(chunkInfo.getDataStartTimeEpochMs()).isGreaterThan(0);
+    assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     // TODO: Update data ranges based on message.
     // TODO: Test chunk roll over and deletion (life cycle) of a single chunk in this test.
@@ -434,11 +434,11 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
 
-    assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochMs()).isZero();
     chunkManager.rollOverActiveChunk();
     for (Chunk<LogMessage> c : chunkManager.getChunkMap().values()) {
-      assertThat(c.info().getChunkSnapshotTimeEpochSecs()).isGreaterThan(0);
-      assertThat(c.info().getDataEndTimeEpochSecs()).isGreaterThan(0);
+      assertThat(c.info().getChunkSnapshotTimeEpochMs()).isGreaterThan(0);
+      assertThat(c.info().getDataEndTimeEpochMs()).isGreaterThan(0);
     }
 
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
