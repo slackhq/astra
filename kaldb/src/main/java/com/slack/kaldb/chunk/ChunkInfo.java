@@ -153,15 +153,15 @@ public class ChunkInfo {
         + "chunkId='"
         + chunkId
         + '\''
-        + ", chunkCreationTimeSecsSinceEpoch="
+        + ", chunkCreationTimeEpochMs="
         + chunkCreationTimeEpochMs
-        + ", chunkLastUpdatedTimeSecsSinceEpoch="
+        + ", chunkLastUpdatedTimeEpochMs="
         + chunkLastUpdatedTimeEpochMs
-        + ", dataStartTimeSecsSinceEpoch="
+        + ", dataStartTimeEpochMs="
         + dataStartTimeEpochMs
-        + ", dataEndTimeSecsSinceEpoch="
+        + ", dataEndTimeEpochMs="
         + dataEndTimeEpochMs
-        + ", chunkSnapshotTime="
+        + ", chunkSnapshotTimeEpochMs="
         + chunkSnapshotTimeEpochMs
         + ", numDocs="
         + numDocs
