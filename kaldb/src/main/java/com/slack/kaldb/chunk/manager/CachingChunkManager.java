@@ -39,7 +39,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
     for (int i = 0; i < cacheConfig.getSlotsPerInstance(); i++) {
       String chunkId = UUID.randomUUID().toString();
-      chunkMap.put(chunkId, new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, cacheConfig));
+      chunkList.add(new ReadOnlyChunkImpl<>(chunkId, metadataStoreService, cacheConfig));
     }
   }
 
@@ -50,14 +50,16 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
-    chunkMap.forEach(
-        (chunkId, readonlyChunk) -> {
-          try {
-            readonlyChunk.close();
-          } catch (IOException e) {
-            LOG.error("Error closing readonly chunk", e);
-          }
-        });
+    synchronized (chunkList) {
+      chunkList.forEach(
+          (readonlyChunk) -> {
+            try {
+              readonlyChunk.close();
+            } catch (IOException e) {
+              LOG.error("Error closing readonly chunk", e);
+            }
+          });
+    }
 
     LOG.info("Closed caching chunk manager.");
   }

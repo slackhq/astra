@@ -505,7 +505,7 @@ public class LogMessageWriterImplTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, localMetricsRegistry)).isEqualTo(15);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, localMetricsRegistry)).isEqualTo(0);
     localChunkManagerUtil.chunkManager.getActiveChunk().commit();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
 
     assertThat(
             chunkManager
