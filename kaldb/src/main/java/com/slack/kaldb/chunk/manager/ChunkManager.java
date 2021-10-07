@@ -14,9 +14,9 @@ import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +33,9 @@ import org.slf4j.LoggerFactory;
 public abstract class ChunkManager<T> extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkManager.class);
 
-  protected final List<Chunk<T>> chunkList = Collections.synchronizedList(new ArrayList<>());
+  // we use a CopyOnWriteArrayList as we expect to have very few edits to this list compared
+  // to the amount of reads, and it must be a threadsafe implementation
+  protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
   // TODO: We want to move this to the config eventually
   // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
@@ -63,50 +65,47 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
-    synchronized (chunkList) {
-      List<CompletableFuture<SearchResult<T>>> queries =
-          chunkList
-              .stream()
-              .filter(
-                  chunk ->
-                      chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
-              .map(
-                  (chunk) ->
-                      CompletableFuture.supplyAsync(
-                              () -> chunk.query(query),
-                              RequestContext.makeContextPropagating(queryExecutorService))
-                          // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
-                          // the future and pass this timeout
-                          .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-              .map(
-                  chunkFuture ->
-                      chunkFuture.exceptionally(
-                          err -> {
-                            LOG.warn("Chunk Query Exception " + err);
-                            // We catch IllegalArgumentException ( and any other exception that
-                            // represents a parse failure ) and instead of returning an empty result
-                            // we throw back an error to the user
-                            if (err.getCause() instanceof IllegalArgumentException) {
-                              throw (IllegalArgumentException) err.getCause();
-                            }
-                            return errorResult;
-                          }))
-              .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
+    List<CompletableFuture<SearchResult<T>>> queries =
+        chunkList
+            .stream()
+            .filter(
+                chunk ->
+                    chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
+            .map(
+                (chunk) ->
+                    CompletableFuture.supplyAsync(
+                            () -> chunk.query(query),
+                            RequestContext.makeContextPropagating(queryExecutorService))
+                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
+                        // the future and pass this timeout
+                        .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            .map(
+                chunkFuture ->
+                    chunkFuture.exceptionally(
+                        err -> {
+                          LOG.warn("Chunk Query Exception " + err);
+                          // We catch IllegalArgumentException ( and any other exception that
+                          // represents a parse failure ) and instead of returning an empty result
+                          // we throw back an error to the user
+                          if (err.getCause() instanceof IllegalArgumentException) {
+                            throw (IllegalArgumentException) err.getCause();
+                          }
+                          return errorResult;
+                        }))
+            .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
 
-      // TODO: if all fails return error instead of empty and add test
+    // TODO: if all fails return error instead of empty and add test
 
-      // Using the spotify library ( this method is much easier to operate then using
-      // CompletableFuture.allOf and converting the CompletableFuture<Void> to
-      // CompletableFuture<List<SearchResult>>
-      CompletableFuture<List<SearchResult<T>>> searchResults =
-          CompletableFutures.allAsList(queries);
+    // Using the spotify library ( this method is much easier to operate then using
+    // CompletableFuture.allOf and converting the CompletableFuture<Void> to
+    // CompletableFuture<List<SearchResult>>
+    CompletableFuture<List<SearchResult<T>>> searchResults = CompletableFutures.allAsList(queries);
 
-      // Increment the node count right at the end so that we increment it only once
-      //noinspection unchecked
-      return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-          .aggregate(searchResults)
-          .thenApply(this::incrementNodeCount);
-    }
+    // Increment the node count right at the end so that we increment it only once
+    //noinspection unchecked
+    return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
+        .aggregate(searchResults)
+        .thenApply(this::incrementNodeCount);
   }
 
   private SearchResult<T> incrementNodeCount(SearchResult<T> searchResult) {

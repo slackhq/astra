@@ -26,7 +26,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -273,35 +272,33 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
 
-    synchronized (chunkList) {
-      if (chunkList.isEmpty()) {
-        LOG.warn("Possible race condition, there are no chunks in chunkList");
-      }
-
-      staleChunks.forEach(
-          chunk -> {
-            try {
-              if (chunkList.contains(chunk)) {
-                String chunkInfo = chunk.info().toString();
-                LOG.info("Deleting chunk {}.", chunkInfo);
-
-                // Remove the chunk first from the map so we don't search it anymore.
-                // Note that any pending queries may still hold references to these chunks
-                chunkList.remove(chunk);
-
-                chunk.close();
-                LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
-              } else {
-                LOG.warn(
-                    "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
-                    chunk,
-                    chunkList);
-              }
-            } catch (Exception e) {
-              LOG.warn("Exception when deleting chunk", e);
-            }
-          });
+    if (chunkList.isEmpty()) {
+      LOG.warn("Possible race condition, there are no chunks in chunkList");
     }
+
+    staleChunks.forEach(
+        chunk -> {
+          try {
+            if (chunkList.contains(chunk)) {
+              String chunkInfo = chunk.info().toString();
+              LOG.info("Deleting chunk {}.", chunkInfo);
+
+              // Remove the chunk first from the map so we don't search it anymore.
+              // Note that any pending queries may still hold references to these chunks
+              chunkList.remove(chunk);
+
+              chunk.close();
+              LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
+            } else {
+              LOG.warn(
+                  "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
+                  chunk,
+                  chunkList);
+            }
+          } catch (Exception e) {
+            LOG.warn("Exception when deleting chunk", e);
+          }
+        });
   }
 
   @VisibleForTesting
@@ -381,14 +378,11 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       LOG.warn("Encountered error shutting down roll over executor.", e);
     }
 
-    synchronized (chunkList) {
-      Iterator<Chunk<T>> i = chunkList.iterator();
-      while (i.hasNext()) {
-        try {
-          i.next().close();
-        } catch (IOException e) {
-          LOG.error("Failed to close chunk.", e);
-        }
+    for (Chunk<T> chunk : chunkList) {
+      try {
+        chunk.close();
+      } catch (IOException e) {
+        LOG.error("Failed to close chunk.", e);
       }
     }
 

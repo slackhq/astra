@@ -50,16 +50,14 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
-    synchronized (chunkList) {
-      chunkList.forEach(
-          (readonlyChunk) -> {
-            try {
-              readonlyChunk.close();
-            } catch (IOException e) {
-              LOG.error("Error closing readonly chunk", e);
-            }
-          });
-    }
+    chunkList.forEach(
+        (readonlyChunk) -> {
+          try {
+            readonlyChunk.close();
+          } catch (IOException e) {
+            LOG.error("Error closing readonly chunk", e);
+          }
+        });
 
     LOG.info("Closed caching chunk manager.");
   }
