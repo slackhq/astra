@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.chunk.manager.IndexingChunkManager;
+import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;

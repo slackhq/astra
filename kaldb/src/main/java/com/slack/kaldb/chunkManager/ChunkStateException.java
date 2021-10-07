@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk.manager;
+package com.slack.kaldb.chunkManager;
 
 public class ChunkStateException extends RuntimeException {
   public ChunkStateException(String msg) {
