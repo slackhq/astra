@@ -68,7 +68,7 @@ public class KaldbLocalQueryServiceTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     // No need to commit the active chunk since the last chunk is already closed.
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
