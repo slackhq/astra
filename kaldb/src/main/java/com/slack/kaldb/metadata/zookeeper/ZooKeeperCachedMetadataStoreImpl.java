@@ -50,12 +50,11 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  *
- * <p>TODO: Prefix this class name with ZK.
- *
  * <p>TODO: Fix WARN: CuratorCache does not support custom ExecutorService
  */
-public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
+public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
+    implements ZooKeeperCachedMetadataStore<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperCachedMetadataStoreImpl.class);
 
   public static final String CACHE_ERROR_COUNTER = "cache.error";
 
@@ -83,7 +82,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return Executors.newSingleThreadExecutor(threadFactory);
   }
 
-  CachedMetadataStoreImpl(
+  ZooKeeperCachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
@@ -92,7 +91,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     this(path, metadataSerde, curator, convertThreadFactory(threadFactory), meterRegistry);
   }
 
-  CachedMetadataStoreImpl(
+  ZooKeeperCachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,

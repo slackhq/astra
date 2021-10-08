@@ -4,8 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-// TODO: Prefix this class with ZK to clarify this is a ZK cache.
-public interface CachedMetadataStore<T> {
+public interface ZooKeeperCachedMetadataStore<T> {
   List<T> getInstances();
 
   Optional<T> get(String relativePathName);

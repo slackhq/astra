@@ -530,7 +530,8 @@ public class ZookeeperMetadataStoreImplTest {
     assertThat(metadataStore.create(root, "", true).get()).isNull();
 
     SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
-    CachedMetadataStore<SnapshotMetadata> cache = metadataStore.cacheNodeAndChildren(root, serDe);
+    ZooKeeperCachedMetadataStore<SnapshotMetadata> cache =
+        metadataStore.cacheNodeAndChildren(root, serDe);
     cache.start();
 
     final String ephemeralNode = "/root/enode";
