@@ -1,5 +1,7 @@
 package com.slack.kaldb.metadata.core;
 
+import static com.slack.kaldb.metadata.zookeeper.ZooKeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -95,6 +97,8 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
+
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -571,6 +575,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -663,6 +668,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -768,6 +774,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1245,6 +1252,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1337,6 +1345,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1434,6 +1443,7 @@ public class KaldbMetadataStoreTest {
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
