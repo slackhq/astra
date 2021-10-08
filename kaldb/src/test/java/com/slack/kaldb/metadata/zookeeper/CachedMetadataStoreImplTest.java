@@ -32,8 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class CachedMetadataStoreImplTest {
-
   private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImplTest.class);
+  private static final SnapshotMetadata testRootData = makeSnapshot("testRootData");
 
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl metadataStore;
@@ -335,6 +335,7 @@ public class CachedMetadataStoreImplTest {
   @Test
   public void testThrowingListenerOnCache() throws Exception {
     final String root = "/root";
+    assertThat(metadataStore.create(root, serDe.toJsonStr(testRootData), true).get()).isNull();
     CachedMetadataStoreListener listener =
         new CachedMetadataStoreListener() {
           @Override
@@ -356,7 +357,7 @@ public class CachedMetadataStoreImplTest {
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
     assertThat(metadataStore.create(node, serDe.toJsonStr(snapshot1), true).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.get("node1").get()).isEqualTo(snapshot1));
-    assertThat(cache.getInstances()).containsOnly(snapshot1);
+    assertThat(cache.getInstances()).containsOnly(snapshot1, testRootData);
     assertThat(metadataStore.exists(node).get()).isTrue();
     assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
     assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
@@ -368,7 +369,7 @@ public class CachedMetadataStoreImplTest {
     SnapshotMetadata snapshot2 = makeSnapshot("test2");
     assertThat(metadataStore.create(node2, serDe.toJsonStr(snapshot2), true).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.get("node2").get()).isEqualTo(snapshot2));
-    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2);
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot2, testRootData);
     assertThat(metadataStore.exists(node2).get()).isTrue();
     assertThat(metadataStore.get(node2).get()).isEqualTo(serDe.toJsonStr(snapshot2));
     assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
@@ -401,6 +402,8 @@ public class CachedMetadataStoreImplTest {
     assertThat(cache.getInstances()).isEmpty();
 
     cache.close();
+    // TODO: Add error counter check in all the tests.
+    // assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -501,7 +504,8 @@ public class CachedMetadataStoreImplTest {
   @Test
   public void testEphermeralNodeOnZkShutdown() throws Exception {
     final String root = "/root";
-    assertThat(metadataStore.create(root, "", true).get()).isNull();
+    SnapshotMetadata snapshot0 = makeSnapshot("root");
+    assertThat(metadataStore.create(root, serDe.toJsonStr(snapshot0), true).get()).isNull();
 
     final String node = "/root/enode";
     SnapshotMetadata snapshot1 = makeSnapshot("test1");
@@ -509,8 +513,10 @@ public class CachedMetadataStoreImplTest {
 
     CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
     CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
-    await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot1));
-    assertThat(cache.getInstances()).containsOnly(snapshot1);
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(cache.get("enode").get()).isEqualTo(snapshot1);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot0);
+    assertThat(cache.getInstances()).containsOnly(snapshot1, snapshot0);
     assertThat(metadataStore.exists(node).get()).isTrue();
     assertThat(metadataStore.get(node).get()).isEqualTo(serDe.toJsonStr(snapshot1));
     // No listener invocations on initial cache load.
@@ -520,14 +526,14 @@ public class CachedMetadataStoreImplTest {
     SnapshotMetadata snapshot11 = makeSnapshot("test11");
     assertThat(metadataStore.put(node, serDe.toJsonStr(snapshot11)).get()).isNull();
     await().untilAsserted(() -> assertThat(cache.get("enode").get()).isEqualTo(snapshot11));
-    assertThat(cache.getInstances()).containsOnly(snapshot11);
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot0);
     assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
     assertThat(listener.getStateChangedCounter()).isEqualTo(0);
 
     // Closing the zk server doesn't close the cache since cache would be refreshed once the
     // connection is back up.
     testingServer.stop();
-    assertThat(cache.getInstances()).containsOnly(snapshot11);
+    assertThat(cache.getInstances()).containsOnly(snapshot11, snapshot0);
     assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
     // NOTE: No listener on state change is fired on server stop. A stale cache should be flagged
     // in this case.
@@ -621,5 +627,105 @@ public class CachedMetadataStoreImplTest {
 
     assertThat(metadataStore.get("/root/3/enode").get()).isEqualTo(serDe.toJsonStr(esnapshot));
     assertThat(cache.get("3/enode").get()).isEqualTo(esnapshot);
+  }
+
+  @Test
+  public void testCachingOnPersistentSingleNode() throws Exception {
+    String root = "/root";
+
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(root, serDe.toJsonStr(snapshot1), false).get()).isNull();
+
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
+
+    // No notifications on create.
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(1));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot1);
+
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.put(root, serDe.toJsonStr(snapshot2)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get(root).get()).isEqualTo(snapshot2));
+
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    // Notification fires on node deletion.
+    assertThat(metadataStore.delete(root).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(0));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(metadataStore.exists(root).get()).isFalse();
+
+    cache.close();
+  }
+
+  @Test
+  public void testCachingOnEphemeralSingleNode() throws Exception {
+    String root = "/eroot";
+
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.createEphemeralNode(root, serDe.toJsonStr(snapshot1)).get()).isNull();
+
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
+
+    // No notifications on create.
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(1));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot1);
+
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.put(root, serDe.toJsonStr(snapshot2)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get(root).get()).isEqualTo(snapshot2));
+
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    // Notification fires on node deletion.
+    assertThat(metadataStore.delete(root).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(0));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(metadataStore.exists(root).get()).isFalse();
+    cache.close();
+  }
+
+  // TODO: Add a unit test for initialization.
+  @Test
+  public void notificationFiresOnlyAfterCacheInitialization() throws Exception {
+    String root = "/root";
+    String child = "child";
+    String childPath = root + "/" + child;
+
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(root, serDe.toJsonStr(snapshot1), false).get()).isNull();
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.create(childPath, serDe.toJsonStr(snapshot2), false).get()).isNull();
+
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    CachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    assertThat(((CachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
+
+    // No notifications are fired until all the nodes are loaded.
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot1);
+    assertThat(cache.get(child).get()).isEqualTo(snapshot2);
+
+    assertThat(metadataStore.put(root, serDe.toJsonStr(snapshot2)).get()).isNull();
+    assertThat(metadataStore.put(childPath, serDe.toJsonStr(snapshot1)).get()).isNull();
+    // No notifications are fired until all the nodes are loaded.
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(2));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot2);
+    assertThat(cache.get(child).get()).isEqualTo(snapshot1);
   }
 }

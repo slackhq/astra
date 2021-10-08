@@ -25,7 +25,6 @@ import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheBridge;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
 import org.slf4j.Logger;
@@ -44,6 +43,9 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
+ *
+ * <p>Order of listeners during initialization: - nodeCreated is called first for root. - Child
+ * nodes added - initialized method is called.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  *
@@ -112,12 +114,32 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
             .build();
     CuratorCacheListener listener =
         CuratorCacheListener.builder()
-            .forPathChildrenCache(path, curator, this)
-            .forInitialized(this::initialized)
+            .forCreates(this::nodeCreated)
+            .forChanges(this::nodeChanged)
+            .forDeletes(this::nodeDeleted)
+            .forInitialized(this::cachedNodeAndChildren)
             .build();
     cache.listenable().addListener(listener);
     ensureContainers = new EnsureContainers(curator, path);
     errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
+  }
+
+  private void nodeCreated(ChildData newData) {
+    LOG.info("node created " + newData);
+    addInstance(newData);
+    mayBeNotify();
+  }
+
+  private void nodeDeleted(ChildData childData) {
+    LOG.info("node deleted " + childData);
+    instances.remove(instanceIdFromData(childData));
+    mayBeNotify();
+  }
+
+  private void nodeChanged(ChildData oldData, ChildData currentData) {
+    LOG.info("node changed " + currentData);
+    addInstance(currentData);
+    mayBeNotify();
   }
 
   @Override
@@ -171,40 +193,30 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     listenerContainer.removeListener(listener);
   }
 
-  @Override
-  public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) {
-    boolean notifyListeners = false;
-    switch (event.getType()) {
-      case CHILD_ADDED:
-      case CHILD_UPDATED:
-        {
-          addInstance(event.getData());
-          notifyListeners = true;
-          break;
-        }
-
-      case CHILD_REMOVED:
-        {
-          instances.remove(instanceIdFromData(event.getData()));
-          notifyListeners = true;
-          break;
-        }
-    }
-
-    if (notifyListeners && (initializedLatch.getCount() == 0)) {
-      listenerContainer.forEach(
-          listener -> {
-            try {
-              listener.cacheChanged();
-            } catch (Exception e) {
-              // If a listener throws an exception log it and ignore it.
-              errorCounter.increment();
-              LOG.error("Caught an exception notifying listener " + listener, e);
-            }
-          });
-      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
-    }
-  }
+  //  @Override
+  //  public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) {
+  //    boolean notifyListeners = false;
+  //    switch (event.getType()) {
+  //      case CHILD_ADDED:
+  //      case CHILD_UPDATED:
+  //        {
+  //          LOG.info("child added/updated:"  + event.toString());
+  //          addInstance(event.getData());
+  //          notifyListeners = true;
+  //          break;
+  //        }
+  //
+  //      case CHILD_REMOVED:
+  //        {
+  //          LOG.info("child removed:  " + event.toString());
+  //          instances.remove(instanceIdFromData(event.getData()));
+  //          notifyListeners = true;
+  //          break;
+  //        }
+  //    }
+  //    // if (notifyListeners)
+  //      // mayBeNotify();
+  //  }
 
   private static String removeStart(final String str, final String remove) {
     if (str.isEmpty() || remove.isEmpty()) {
@@ -254,7 +266,32 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return state.get().equals(State.STARTED);
   }
 
-  private void initialized() {
+  private void mayBeNotify() {
+    if (initializedLatch.getCount() == 0) {
+      listenerContainer.forEach(
+          listener -> {
+            try {
+              listener.cacheChanged();
+            } catch (Exception e) {
+              // If a listener throws an exception log it and ignore it.
+              errorCounter.increment();
+              LOG.error("Caught an exception notifying listener " + listener, e);
+            }
+          });
+      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
+    }
+  }
+
+  // TODO: Is this function called twice once for root node and once for children are loaded?
+  // TODO: Should we differentiate between the root init and child warm up init?
+  // TODO: Should the cache have different flags on notif if it has children or not?
+  /**
+   * This function is after both the path and it's children are cached. TODO: Remove this with
+   * afterInitialized?
+   */
+  public void cachedNodeAndChildren() {
+    // TODO: Remove?
+    LOG.info("initialized");
     initializedLatch.countDown();
   }
 }

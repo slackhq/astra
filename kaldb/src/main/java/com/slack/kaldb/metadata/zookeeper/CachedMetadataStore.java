@@ -3,10 +3,9 @@ package com.slack.kaldb.metadata.zookeeper;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 
 // TODO: Prefix this class with ZK to clarify this is a ZK cache.
-public interface CachedMetadataStore<T> extends PathChildrenCacheListener {
+public interface CachedMetadataStore<T> {
   List<T> getInstances();
 
   Optional<T> get(String relativePathName);
