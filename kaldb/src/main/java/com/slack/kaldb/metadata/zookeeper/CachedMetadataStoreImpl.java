@@ -32,8 +32,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A CachedMetadataStoreImpl uses a curator path cache to cache a node and all the nodes under it.
- * If a path to a node is passed in, the cache will only cache that node. In addition, this class also accepts a metadata serializer/de-serializer objects, so we only
- * serialize/de-serialize the objects only once.
+ * If a path to a node is passed in, the cache will only cache that node. In addition, this class
+ * also accepts a metadata serializer/de-serializer objects, so we only serialize/de-serialize the
+ * objects only once.
  *
  * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
  * root and the node value is the serialized metadata object.
@@ -51,7 +52,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Prefix this class name with ZK.
  *
- * TODO: Fix WARN: CuratorCache does not support custom ExecutorService
+ * <p>TODO: Fix WARN: CuratorCache does not support custom ExecutorService
  */
 public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
@@ -262,9 +263,7 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   // TODO: Is this function called twice once for root node and once for children are loaded?
   // TODO: Should we differentiate between the root init and child warm up init?
   // TODO: Should the cache have different flags on notif if it has children or not?
-  /**
-   * This function is called after both the path and it's children are cached.
-   */
+  /** This function is called after both the path and it's children are cached. */
   public void cachedNodeAndChildren() {
     LOG.debug("initialized");
     initializedLatch.countDown();
