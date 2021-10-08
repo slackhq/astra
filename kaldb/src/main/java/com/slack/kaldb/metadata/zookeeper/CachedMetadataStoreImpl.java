@@ -195,31 +195,6 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     listenerContainer.removeListener(listener);
   }
 
-  //  @Override
-  //  public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) {
-  //    boolean notifyListeners = false;
-  //    switch (event.getType()) {
-  //      case CHILD_ADDED:
-  //      case CHILD_UPDATED:
-  //        {
-  //          LOG.info("child added/updated:"  + event.toString());
-  //          addInstance(event.getData());
-  //          notifyListeners = true;
-  //          break;
-  //        }
-  //
-  //      case CHILD_REMOVED:
-  //        {
-  //          LOG.info("child removed:  " + event.toString());
-  //          instances.remove(instanceIdFromData(event.getData()));
-  //          notifyListeners = true;
-  //          break;
-  //        }
-  //    }
-  //    // if (notifyListeners)
-  //      // mayBeNotify();
-  //  }
-
   private static String removeStart(final String str, final String remove) {
     if (str.isEmpty() || remove.isEmpty()) {
       return str;
