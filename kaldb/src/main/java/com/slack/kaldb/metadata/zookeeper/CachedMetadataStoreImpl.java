@@ -260,9 +260,6 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     }
   }
 
-  // TODO: Is this function called twice once for root node and once for children are loaded?
-  // TODO: Should we differentiate between the root init and child warm up init?
-  // TODO: Should the cache have different flags on notif if it has children or not?
   /** This function is called after both the path and it's children are cached. */
   public void cachedNodeAndChildren() {
     LOG.debug("initialized");
