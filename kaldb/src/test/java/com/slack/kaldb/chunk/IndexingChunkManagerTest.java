@@ -46,6 +46,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -175,7 +176,7 @@ public class IndexingChunkManagerTest {
       // force creation of a unique chunk for every message
       chunkManager.rollOverActiveChunk();
     }
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(10);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(10);
 
     // attempt to clean all chunks while shutting the service down
     // we use an executor service since the chunkCleaner is an AbstractScheduledService and we want
@@ -190,7 +191,7 @@ public class IndexingChunkManagerTest {
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     cleanerTask.get(10, TimeUnit.SECONDS);
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(0);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(0);
   }
 
   @Test
@@ -212,7 +213,7 @@ public class IndexingChunkManagerTest {
     }
     chunkManager.getActiveChunk().commit();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(100);
@@ -225,9 +226,9 @@ public class IndexingChunkManagerTest {
 
     // Test chunk metadata.
     ChunkInfo chunkInfo = chunkManager.getActiveChunk().info();
-    assertThat(chunkInfo.getChunkSnapshotTimeEpochSecs()).isZero();
-    assertThat(chunkInfo.getDataStartTimeEpochSecs()).isGreaterThan(0);
-    assertThat(chunkInfo.getDataEndTimeEpochSecs()).isGreaterThan(0);
+    assertThat(chunkInfo.getChunkSnapshotTimeEpochMs()).isZero();
+    assertThat(chunkInfo.getDataStartTimeEpochMs()).isGreaterThan(0);
+    assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     // TODO: Update data ranges based on message.
     // TODO: Test chunk roll over and deletion (life cycle) of a single chunk in this test.
@@ -279,7 +280,7 @@ public class IndexingChunkManagerTest {
     }
     chunkManager.getActiveChunk().commit();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(15);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -311,7 +312,7 @@ public class IndexingChunkManagerTest {
     // Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
     testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1, 0, MAX_TIME);
@@ -338,7 +339,7 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
 
     chunkManager.addMessage(msg2, msg2.toString().length(), 100);
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0); // Roll over.
@@ -348,7 +349,7 @@ public class IndexingChunkManagerTest {
     LogMessage msg4 = MessageUtil.makeMessage(4);
 
     chunkManager.addMessage(msg3, msg3.toString().length(), 100);
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     Chunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -382,7 +383,7 @@ public class IndexingChunkManagerTest {
     // Wait for roll over.
     final boolean awaitTermination = rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -409,7 +410,7 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
     ChunkInfo secondChunk = chunkManager.getActiveChunk().info();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -424,7 +425,7 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     chunkManager.getActiveChunk().commit();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(3);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(25);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
@@ -434,11 +435,11 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
 
-    assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochMs()).isZero();
     chunkManager.rollOverActiveChunk();
-    for (Chunk<LogMessage> c : chunkManager.getChunkMap().values()) {
-      assertThat(c.info().getChunkSnapshotTimeEpochSecs()).isGreaterThan(0);
-      assertThat(c.info().getDataEndTimeEpochSecs()).isGreaterThan(0);
+    for (Chunk<LogMessage> c : chunkManager.getChunkList()) {
+      assertThat(c.info().getChunkSnapshotTimeEpochMs()).isGreaterThan(0);
+      assertThat(c.info().getDataEndTimeEpochMs()).isGreaterThan(0);
     }
 
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
@@ -457,7 +458,13 @@ public class IndexingChunkManagerTest {
 
   public void testOneFailedChunk(ChunkInfo secondChunk) {
     ReadWriteChunkImpl<LogMessage> chunk =
-        (ReadWriteChunkImpl<LogMessage>) chunkManager.getChunkMap().get(secondChunk.chunkId);
+        (ReadWriteChunkImpl<LogMessage>)
+            chunkManager
+                .getChunkList()
+                .stream()
+                .filter(chunkIterator -> Objects.equals(chunkIterator.id(), secondChunk.chunkId))
+                .findFirst()
+                .get();
 
     testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3, 0, MAX_TIME);
     // chunk 2 which has docs 12-21 is corrupted
@@ -487,7 +494,7 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -502,7 +509,7 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
     chunkManager.getActiveChunk().commit();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(3);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(25);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
@@ -513,8 +520,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
 
     chunkManager
-        .getChunkMap()
-        .values()
+        .getChunkList()
         .forEach(
             chunk ->
                 ((ReadWriteChunkImpl) chunk)
@@ -525,8 +531,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message21", 0, 3, 0, 0, MAX_TIME);
 
     chunkManager
-        .getChunkMap()
-        .values()
+        .getChunkList()
         .forEach(
             chunk ->
                 ((ReadWriteChunkImpl) chunk)
@@ -561,7 +566,7 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(3);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(30);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
@@ -602,7 +607,7 @@ public class IndexingChunkManagerTest {
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(4);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(35);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
@@ -901,7 +906,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(6);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
@@ -952,7 +957,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(20);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);

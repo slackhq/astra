@@ -22,27 +22,27 @@ public class ChunkInfo {
   public final String chunkId;
 
   // The time when this chunk is created.
-  private final long chunkCreationTimeEpochSecs;
+  private final long chunkCreationTimeEpochMs;
 
   /*
    * The last time when this chunk is updated. Ideally, we want to set this timestamp continuously,
    * but fetching current timestamp for every message slows down indexing and this value is not that important.
    * So, we only set it once when the chunk is closed.
    */
-  private long chunkLastUpdatedTimeSecsEpochSecs;
+  private long chunkLastUpdatedTimeEpochMs;
 
   /**
    * The dataStartTimeSecsSinceEpoch and dataEndTimeSecsSinceEpoch capture the time range of the
    * data in this chunk. NOTE: Ideally, we should make these fields optional but these are updated
    * in the hot ingestion path. So, keeping primitive types reduces allocation.
    */
-  private long dataStartTimeEpochSecs;
+  private long dataStartTimeEpochMs;
 
-  private long dataEndTimeEpochSecs;
+  private long dataEndTimeEpochMs;
 
   // This field contains the time the chunk is snapshotted. This info is used only during indexing
   // and snapshotting and is not useful afterwards.
-  private long chunkSnapshotTimeEpochSecs;
+  private long chunkSnapshotTimeEpochMs;
 
   public long getNumDocs() {
     return numDocs;
@@ -66,77 +66,84 @@ public class ChunkInfo {
   // Size of the chunk
   private long chunkSize;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochSecs) {
+  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
-        chunkCreationTimeEpochSecs >= 0,
-        "Chunk creation time should be non negative: " + chunkCreationTimeEpochSecs);
+        chunkCreationTimeEpochMs >= 0,
+        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
 
     this.chunkId = chunkId;
-    this.chunkCreationTimeEpochSecs = chunkCreationTimeEpochSecs;
-    dataStartTimeEpochSecs = 0;
-    dataEndTimeEpochSecs = 0;
-    chunkLastUpdatedTimeSecsEpochSecs = chunkCreationTimeEpochSecs;
+    this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
+    dataStartTimeEpochMs = 0;
+    dataEndTimeEpochMs = 0;
+    chunkLastUpdatedTimeEpochMs = chunkCreationTimeEpochMs;
     // TODO: Should we set the snapshot time to creation time also?
-    chunkSnapshotTimeEpochSecs = 0;
+    chunkSnapshotTimeEpochMs = 0;
   }
 
-  public long getChunkSnapshotTimeEpochSecs() {
-    return chunkSnapshotTimeEpochSecs;
+  public long getChunkSnapshotTimeEpochMs() {
+    return chunkSnapshotTimeEpochMs;
   }
 
-  public void setChunkSnapshotTimeEpochSecs(long chunkSnapshotTimeEpochSecs) {
-    this.chunkSnapshotTimeEpochSecs = chunkSnapshotTimeEpochSecs;
+  public void setChunkSnapshotTimeEpochMs(long chunkSnapshotTimeEpochMs) {
+    this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
   }
 
-  public long getDataStartTimeEpochSecs() {
-    return dataStartTimeEpochSecs;
+  public long getDataStartTimeEpochMs() {
+    return dataStartTimeEpochMs;
   }
 
-  public long getDataEndTimeEpochSecs() {
-    return dataEndTimeEpochSecs;
+  public long getDataEndTimeEpochMs() {
+    return dataEndTimeEpochMs;
   }
 
-  public long getChunkCreationTimeEpochSecs() {
-    return chunkCreationTimeEpochSecs;
+  public long getChunkCreationTimeEpochMs() {
+    return chunkCreationTimeEpochMs;
   }
 
-  public long getChunkLastUpdatedTimeSecsEpochSecs() {
-    return chunkLastUpdatedTimeSecsEpochSecs;
+  public long getChunkLastUpdatedTimeEpochMs() {
+    return chunkLastUpdatedTimeEpochMs;
   }
 
-  public void setChunkLastUpdatedTimeSecsEpochSecs(long chunkLastUpdatedTimeSecsEpochSecs) {
-    this.chunkLastUpdatedTimeSecsEpochSecs = chunkLastUpdatedTimeSecsEpochSecs;
+  public void setChunkLastUpdatedTimeEpochMs(long chunkLastUpdatedTimeEpochMs) {
+    this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
+  }
+
+  public void setDataStartTimeEpochMs(long dataStartTimeEpochMs) {
+    this.dataStartTimeEpochMs = dataStartTimeEpochMs;
+  }
+
+  public void setDataEndTimeEpochMs(long dataEndTimeEpochMs) {
+    this.dataEndTimeEpochMs = dataEndTimeEpochMs;
   }
 
   // Return true if chunk contains data in this time range.
-  public boolean containsDataInTimeRange(long startTs, long endTs) {
-    ensureTrue(endTs >= 0, "end timestamp should be greater than zero: " + endTs);
-    ensureTrue(startTs >= 0, "start timestamp should be greater than zero: " + startTs);
+  public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
+    ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
+    ensureTrue(startTimeMs >= 0, "start timestamp should be greater than zero: " + startTimeMs);
     ensureTrue(
-        endTs - startTs >= 0,
+        endTimeMs - startTimeMs >= 0,
         String.format(
-            "end timestamp %d can't be less than the start timestamp %d.", endTs, startTs));
-    if (dataStartTimeEpochSecs == 0 || dataEndTimeEpochSecs == 0) {
+            "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
+    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
       throw new IllegalStateException("Data start or end time should be initialized before query.");
     }
-    return (dataStartTimeEpochSecs <= startTs && dataEndTimeEpochSecs >= startTs)
-        || (dataStartTimeEpochSecs <= endTs && dataEndTimeEpochSecs >= endTs)
-        || (dataStartTimeEpochSecs >= startTs && dataEndTimeEpochSecs <= endTs);
+    return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
+        || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
+        || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
   }
 
   /*
    * Update the max and min data time range of the chunk given a new timestamp.
    */
   public void updateDataTimeRange(long messageTimeStampMs) {
-    long messageTimeStampSecs = messageTimeStampMs / 1000;
-    if (dataStartTimeEpochSecs == 0 || dataEndTimeEpochSecs == 0) {
-      dataStartTimeEpochSecs = messageTimeStampSecs;
-      dataEndTimeEpochSecs = messageTimeStampSecs;
+    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
+      dataStartTimeEpochMs = messageTimeStampMs;
+      dataEndTimeEpochMs = messageTimeStampMs;
     } else {
       // TODO: Would only updating the values if there is a change make this code faster?
-      dataStartTimeEpochSecs = Math.min(dataStartTimeEpochSecs, messageTimeStampSecs);
-      dataEndTimeEpochSecs = Math.max(dataEndTimeEpochSecs, messageTimeStampSecs);
+      dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
+      dataEndTimeEpochMs = Math.max(dataEndTimeEpochMs, messageTimeStampMs);
     }
   }
 
@@ -146,16 +153,16 @@ public class ChunkInfo {
         + "chunkId='"
         + chunkId
         + '\''
-        + ", chunkCreationTimeSecsSinceEpoch="
-        + chunkCreationTimeEpochSecs
-        + ", chunkLastUpdatedTimeSecsSinceEpoch="
-        + chunkLastUpdatedTimeSecsEpochSecs
-        + ", dataStartTimeSecsSinceEpoch="
-        + dataStartTimeEpochSecs
-        + ", dataEndTimeSecsSinceEpoch="
-        + dataEndTimeEpochSecs
-        + ", chunkSnapshotTime="
-        + chunkSnapshotTimeEpochSecs
+        + ", chunkCreationTimeEpochMs="
+        + chunkCreationTimeEpochMs
+        + ", chunkLastUpdatedTimeEpochMs="
+        + chunkLastUpdatedTimeEpochMs
+        + ", dataStartTimeEpochMs="
+        + dataStartTimeEpochMs
+        + ", dataEndTimeEpochMs="
+        + dataEndTimeEpochMs
+        + ", chunkSnapshotTimeEpochMs="
+        + chunkSnapshotTimeEpochMs
         + ", numDocs="
         + numDocs
         + ", chunkSize="
@@ -168,11 +175,11 @@ public class ChunkInfo {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     ChunkInfo chunkInfo = (ChunkInfo) o;
-    return chunkCreationTimeEpochSecs == chunkInfo.chunkCreationTimeEpochSecs
-        && chunkLastUpdatedTimeSecsEpochSecs == chunkInfo.chunkLastUpdatedTimeSecsEpochSecs
-        && dataStartTimeEpochSecs == chunkInfo.dataStartTimeEpochSecs
-        && dataEndTimeEpochSecs == chunkInfo.dataEndTimeEpochSecs
-        && chunkSnapshotTimeEpochSecs == chunkInfo.chunkSnapshotTimeEpochSecs
+    return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
+        && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
+        && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
+        && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
+        && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equals(chunkId, chunkInfo.chunkId)
         && numDocs == chunkInfo.numDocs
         && chunkSize == chunkInfo.chunkSize;
@@ -182,11 +189,11 @@ public class ChunkInfo {
   public int hashCode() {
     return Objects.hash(
         chunkId,
-        chunkCreationTimeEpochSecs,
-        chunkLastUpdatedTimeSecsEpochSecs,
-        dataStartTimeEpochSecs,
-        dataEndTimeEpochSecs,
-        chunkSnapshotTimeEpochSecs,
+        chunkCreationTimeEpochMs,
+        chunkLastUpdatedTimeEpochMs,
+        dataStartTimeEpochMs,
+        dataEndTimeEpochMs,
+        chunkSnapshotTimeEpochMs,
         numDocs,
         chunkSize);
   }

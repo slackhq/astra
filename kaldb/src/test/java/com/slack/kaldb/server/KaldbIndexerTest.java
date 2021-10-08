@@ -161,7 +161,7 @@ public class KaldbIndexerTest {
     produceMessagesToKafka(broker, startTime);
 
     // No need to commit the active chunk since the last chunk is already closed.
-    await().until(() -> chunkManager.getChunkMap().size() == 1);
+    await().until(() -> chunkManager.getChunkList().size() == 1);
     await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry) == 1);

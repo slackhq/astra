@@ -60,7 +60,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     chunkInfo =
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
-            chunkCreationTime.getEpochSecond());
+            chunkCreationTime.toEpochMilli());
     this.readOnly = false;
     this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);

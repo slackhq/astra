@@ -15,9 +15,8 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +33,9 @@ import org.slf4j.LoggerFactory;
 public abstract class ChunkManager<T> extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkManager.class);
 
-  protected final Map<String, Chunk<T>> chunkMap = new ConcurrentHashMap<>();
+  // we use a CopyOnWriteArrayList as we expect to have very few edits to this list compared
+  // to the amount of reads, and it must be a threadsafe implementation
+  protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
   // TODO: We want to move this to the config eventually
   // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
@@ -65,13 +66,11 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
     List<CompletableFuture<SearchResult<T>>> queries =
-        chunkMap
-            .values()
+        chunkList
             .stream()
             .filter(
                 chunk ->
-                    chunk.containsDataInTimeRange(
-                        query.startTimeEpochMs / 1000, query.endTimeEpochMs / 1000))
+                    chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(
@@ -122,8 +121,8 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   }
 
   @VisibleForTesting
-  public Map<String, Chunk<T>> getChunkMap() {
-    return chunkMap;
+  public List<Chunk<T>> getChunkList() {
+    return chunkList;
   }
 
   protected static S3BlobFs getS3BlobFsClient(KaldbConfigs.KaldbConfig kaldbCfg) {

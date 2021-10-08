@@ -55,7 +55,7 @@ public class ChunkCleanerServiceTest {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerService<LogMessage> chunkCleanerService =
         new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
-    assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -65,18 +65,18 @@ public class ChunkCleanerServiceTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     ReadWriteChunkImpl<LogMessage> chunk = chunkManager.getActiveChunk();
     assertThat(chunk.isReadOnly()).isFalse();
-    assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     // Commit the chunk and roll it over.
     chunkManager.rollOverActiveChunk();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -84,11 +84,11 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
     assertThat(chunk.isReadOnly()).isTrue();
-    assertThat(chunk.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isNotZero();
 
     // Set the chunk snapshot time to a known value.
     final Instant snapshotTime = Instant.now().minusSeconds(60 * 60);
-    chunk.info().setChunkSnapshotTimeEpochSecs(snapshotTime.getEpochSecond());
+    chunk.info().setChunkSnapshotTimeEpochMs(snapshotTime.toEpochMilli());
 
     // Running an hour before snapshot won't delete it.
     final Instant snapshotTimeMinus1h = snapshotTime.minusSeconds(60 * 60);
@@ -103,7 +103,7 @@ public class ChunkCleanerServiceTest {
 
     // Delete the chunk once we hit the time threshold.
     assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().size()).isZero();
+    assertThat(chunkManager.getChunkList().size()).isZero();
   }
 
   @Test
@@ -111,7 +111,7 @@ public class ChunkCleanerServiceTest {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerService<LogMessage> chunkCleanerService =
         new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
-    assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -121,19 +121,19 @@ public class ChunkCleanerServiceTest {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     final ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isFalse();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     for (LogMessage m : messages.subList(9, 11)) {
       chunkManager.addMessage(m, m.toString().length(), 100);
     }
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -142,13 +142,13 @@ public class ChunkCleanerServiceTest {
 
     final ReadWriteChunkImpl<LogMessage> chunk2 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isTrue();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     assertThat(chunk2.isReadOnly()).isFalse();
-    assertThat(chunk2.info().getChunkSnapshotTimeEpochSecs()).isZero();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isZero();
     // Commit the chunk1 and roll it over.
     chunkManager.rollOverActiveChunk();
 
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
@@ -156,15 +156,15 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
 
     assertThat(chunk1.isReadOnly()).isTrue();
-    assertThat(chunk1.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     assertThat(chunk2.isReadOnly()).isTrue();
-    assertThat(chunk2.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+    assertThat(chunk2.info().getChunkSnapshotTimeEpochMs()).isNotZero();
 
     // Set the chunk1 and chunk2 snapshot time to a known value.
     final Instant chunk1SnapshotTime = Instant.now().minusSeconds(60 * 60);
     final Instant chunk2SnapshotTime = Instant.now().minusSeconds(60 * 60 * 2);
-    chunk1.info().setChunkSnapshotTimeEpochSecs(chunk1SnapshotTime.getEpochSecond());
-    chunk2.info().setChunkSnapshotTimeEpochSecs(chunk2SnapshotTime.getEpochSecond());
+    chunk1.info().setChunkSnapshotTimeEpochMs(chunk1SnapshotTime.toEpochMilli());
+    chunk2.info().setChunkSnapshotTimeEpochMs(chunk2SnapshotTime.toEpochMilli());
 
     // Running an hour before snapshot won't delete it.
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.minusSeconds(60 * 60)))
@@ -175,19 +175,19 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(99))).isZero();
 
     // Delete the chunk2 once we hit the time threshold.
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(101)))
         .isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().containsValue(chunk1)).isTrue();
-    assertThat(chunkManager.getChunkMap().containsValue(chunk2)).isFalse();
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().contains(chunk1)).isTrue();
+    assertThat(chunkManager.getChunkList().contains(chunk2)).isFalse();
 
     // Delete chunk1.
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(3600))).isZero();
     assertThat(chunkCleanerService.deleteStaleData(chunk1SnapshotTime.plusSeconds(99))).isZero();
     assertThat(chunkCleanerService.deleteStaleData(chunk1SnapshotTime.plusSeconds(100)))
         .isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().size()).isZero();
+    assertThat(chunkManager.getChunkList().size()).isZero();
   }
 
   @Test
@@ -196,7 +196,7 @@ public class ChunkCleanerServiceTest {
     final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
     ChunkCleanerService<LogMessage> chunkCleanerService =
         new ChunkCleanerService<>(chunkManager, Duration.ofSeconds(100));
-    assertThat(chunkManager.getChunkMap().isEmpty()).isTrue();
+    assertThat(chunkManager.getChunkList().isEmpty()).isTrue();
     assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs)).isZero();
     assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 1)).isZero();
     assertThat(chunkCleanerService.deleteStaleChunksPastCutOff(startTimeSecs + 3600 * 2)).isZero();
@@ -222,24 +222,24 @@ public class ChunkCleanerServiceTest {
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.rollOverActiveChunk();
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(4);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(35);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(4);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(4);
 
-    for (Chunk<LogMessage> c : chunkManager.getChunkMap().values()) {
+    for (Chunk<LogMessage> c : chunkManager.getChunkList()) {
       assertThat(((ReadWriteChunkImpl) c).isReadOnly()).isTrue();
-      assertThat(c.info().getChunkSnapshotTimeEpochSecs()).isNotZero();
+      assertThat(c.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     }
 
     final Instant snapshotTime = Instant.now();
     // Modify snapshot time on chunks
     int i = 0;
-    for (Chunk<LogMessage> chunk : chunkManager.getChunkMap().values()) {
-      final long chunkSnapshotTimeEpochSecs = snapshotTime.minusSeconds(3600L * i).getEpochSecond();
-      chunk.info().setChunkSnapshotTimeEpochSecs(chunkSnapshotTimeEpochSecs);
+    for (Chunk<LogMessage> chunk : chunkManager.getChunkList()) {
+      final long chunkSnapshotTimeEpochMs = snapshotTime.minusSeconds(3600L * i).toEpochMilli();
+      chunk.info().setChunkSnapshotTimeEpochMs(chunkSnapshotTimeEpochMs);
       i++;
     }
 
@@ -249,12 +249,12 @@ public class ChunkCleanerServiceTest {
             chunkCleanerService.deleteStaleData(
                 snapshotTime.minusSeconds(3600 * 3).plusSeconds(100)))
         .isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(3);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(
             chunkCleanerService.deleteStaleData(snapshotTime.minusSeconds(3600).plusSeconds(100)))
         .isEqualTo(2);
-    assertThat(chunkManager.getChunkMap().size()).isEqualTo(1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
-    assertThat(chunkManager.getChunkMap().size()).isZero();
+    assertThat(chunkManager.getChunkList().size()).isZero();
   }
 }

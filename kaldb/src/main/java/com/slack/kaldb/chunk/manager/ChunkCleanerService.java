@@ -7,8 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,29 +35,27 @@ public class ChunkCleanerService<T> extends AbstractScheduledService {
 
   @VisibleForTesting
   public int deleteStaleData(Instant startInstant) {
-    final long staleCutOffSecs =
-        startInstant.minusSeconds(staleDelayDuration.toSeconds()).getEpochSecond();
-    return deleteStaleChunksPastCutOff(staleCutOffSecs);
+    final long staleCutOffMs =
+        startInstant.minusSeconds(staleDelayDuration.toSeconds()).toEpochMilli();
+    return deleteStaleChunksPastCutOff(staleCutOffMs);
   }
 
   @VisibleForTesting
-  public int deleteStaleChunksPastCutOff(long staleDataCutOffSecs) {
-    if (staleDataCutOffSecs <= 0) {
-      throw new IllegalArgumentException("staleDataCutoffSecs can't be negative");
+  public int deleteStaleChunksPastCutOff(long staleDataCutOffMs) {
+    if (staleDataCutOffMs <= 0) {
+      throw new IllegalArgumentException("staleDataCutoffMs can't be negative");
     }
 
-    List<Map.Entry<String, Chunk<T>>> staleChunks = new ArrayList<>();
-
-    Set<Map.Entry<String, Chunk<T>>> mapEntries = chunkManager.getChunkMap().entrySet();
-    for (Map.Entry<String, Chunk<T>> chunkEntry : mapEntries) {
-      Chunk<T> chunk = chunkEntry.getValue();
-      if (chunk.info().getChunkSnapshotTimeEpochSecs() <= staleDataCutOffSecs) {
-        staleChunks.add(chunkEntry);
+    List<Chunk<T>> staleChunks = new ArrayList<>();
+    for (Chunk<T> chunk : (Iterable<Chunk<T>>) chunkManager.chunkList) {
+      if (chunk.info().getChunkSnapshotTimeEpochMs() <= staleDataCutOffMs) {
+        staleChunks.add(chunk);
       }
     }
+
     LOG.info(
-        "Number of stale chunks at staleDataCutOffSecs {} is {}",
-        staleDataCutOffSecs,
+        "Number of stale chunks at staleDataCutOffMs {} is {}",
+        staleDataCutOffMs,
         staleChunks.size());
     chunkManager.removeStaleChunks(staleChunks);
     return staleChunks.size();

@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -197,7 +196,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     liveBytesIndexedGauge.set(0);
     liveMessagesIndexedGauge.set(0);
     // Set the end time of the chunk and start the roll over.
-    currentChunk.info().setChunkLastUpdatedTimeSecsEpochSecs(Instant.now().getEpochSecond());
+    currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
 
     RollOverChunkTask<T> rollOverChunkTask =
         new RollOverChunkTask<T>(
@@ -262,40 +261,39 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
       ReadWriteChunkImpl<T> newChunk =
           new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
-      chunkMap.put(newChunk.id(), newChunk);
+      chunkList.add(newChunk);
       activeChunk = newChunk;
     }
     return activeChunk;
   }
 
-  public void removeStaleChunks(List<Map.Entry<String, Chunk<T>>> staleChunks) {
+  public void removeStaleChunks(List<Chunk<T>> staleChunks) {
     if (staleChunks.isEmpty()) return;
 
     LOG.info("Stale chunks to be removed are: {}", staleChunks);
 
-    if (chunkMap.isEmpty()) {
-      LOG.warn("Possible race condition, there are no chunks in chunkMap");
+    if (chunkList.isEmpty()) {
+      LOG.warn("Possible race condition, there are no chunks in chunkList");
     }
 
     staleChunks.forEach(
-        entry -> {
+        chunk -> {
           try {
-            if (chunkMap.containsKey(entry.getKey())) {
-              final Chunk<T> chunk = entry.getValue();
+            if (chunkList.contains(chunk)) {
               String chunkInfo = chunk.info().toString();
               LOG.info("Deleting chunk {}.", chunkInfo);
 
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
-              chunkMap.remove(entry.getKey());
+              chunkList.remove(chunk);
 
               chunk.close();
               LOG.info("Deleted and cleaned up chunk {}.", chunkInfo);
             } else {
               LOG.warn(
-                  "Possible bug or race condition! Chunk {} doesn't exist in chunk map {}.",
-                  entry,
-                  chunkMap);
+                  "Possible bug or race condition! Chunk {} doesn't exist in chunk list {}.",
+                  chunk,
+                  chunkList);
             }
           } catch (Exception e) {
             LOG.warn("Exception when deleting chunk", e);
@@ -379,13 +377,15 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     } catch (InterruptedException e) {
       LOG.warn("Encountered error shutting down roll over executor.", e);
     }
-    for (Chunk<T> chunk : chunkMap.values()) {
+
+    for (Chunk<T> chunk : chunkList) {
       try {
         chunk.close();
       } catch (IOException e) {
         LOG.error("Failed to close chunk.", e);
       }
     }
+
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     LOG.info("Closed indexing chunk manager.");
