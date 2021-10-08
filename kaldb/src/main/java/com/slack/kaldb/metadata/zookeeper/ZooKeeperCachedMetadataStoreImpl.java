@@ -126,20 +126,21 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
   }
 
+  // TODO: Remove logging
   private void nodeCreated(ChildData newData) {
-    LOG.info("node created " + newData);
+    LOG.debug("node created " + newData);
     addInstance(newData);
     mayBeNotify();
   }
 
   private void nodeDeleted(ChildData childData) {
-    LOG.info("node deleted " + childData);
+    LOG.debug("node deleted " + childData);
     instances.remove(instanceIdFromData(childData));
     mayBeNotify();
   }
 
   private void nodeChanged(ChildData oldData, ChildData currentData) {
-    LOG.info("node changed " + currentData);
+    LOG.debug("node changed " + currentData);
     addInstance(currentData);
     mayBeNotify();
   }
@@ -241,6 +242,11 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
   @VisibleForTesting
   public boolean isStarted() {
     return state.get().equals(State.STARTED);
+  }
+
+  @VisibleForTesting
+  public boolean isStopped() {
+    return state.get().equals(State.STOPPED);
   }
 
   private void mayBeNotify() {
