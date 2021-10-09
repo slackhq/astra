@@ -770,4 +770,38 @@ public class ZooKeeperCachedMetadataStoreImplTest {
     assertThat(cache.get(root).get()).isEqualTo(snapshot2);
     assertThat(cache.get(child).get()).isEqualTo(snapshot1);
   }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testCachingOnNestedPersistentSingleNode() throws Exception {
+    String root = "/nested/root/node";
+    SnapshotMetadata snapshot1 = makeSnapshot("test1");
+    assertThat(metadataStore.create(root, serDe.toJsonStr(snapshot1), true).get()).isNull();
+
+    CountingCachedMetadataListener listener = new CountingCachedMetadataListener();
+    ZooKeeperCachedMetadataStore<SnapshotMetadata> cache = makeCachedStore(root, listener, serDe);
+    assertThat(((ZooKeeperCachedMetadataStoreImpl<SnapshotMetadata>) cache).isStarted()).isTrue();
+
+    // No notifications on create.
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(1));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(0);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(cache.get(root).get()).isEqualTo(snapshot1);
+
+    SnapshotMetadata snapshot2 = makeSnapshot("test2");
+    assertThat(metadataStore.put(root, serDe.toJsonStr(snapshot2)).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.get(root).get()).isEqualTo(snapshot2));
+
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(1);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+
+    // Notification fires on node deletion.
+    assertThat(metadataStore.delete(root).get()).isNull();
+    await().untilAsserted(() -> assertThat(cache.getInstances().size()).isEqualTo(0));
+    assertThat(listener.getCacheChangedCounter()).isEqualTo(2);
+    assertThat(listener.getStateChangedCounter()).isEqualTo(0);
+    assertThat(metadataStore.exists(root).get()).isFalse();
+
+    cache.close();
+  }
 }
