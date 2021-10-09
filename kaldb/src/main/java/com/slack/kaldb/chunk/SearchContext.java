@@ -4,6 +4,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
+/**
+ * SearchContext class contains all the information for 2 nodes in Kaldb to talk to each other.
+ * Currently, it contains hostname and port.
+ */
 public class SearchContext {
   public static SearchContext fromConfig(KaldbConfigs.ServerConfig serverConfig) {
     return new SearchContext(serverConfig.getServerAddress(), serverConfig.getServerPort());
