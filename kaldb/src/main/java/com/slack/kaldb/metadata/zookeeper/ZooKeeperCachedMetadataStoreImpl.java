@@ -98,18 +98,22 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
     this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
-    /**
+    /*
      * Create a curator cache but don't store any data in it since CacheStorage only allows storing
      * data as a byte array. Instead use the curator cache implementation for managing persistent
      * watchers and other admin tasks. Instead add a listener which would cache the data locally as
      * a POJO using a serializer. In future, this also allows us to store the data in a custom data
      * structure other than a hash table. Currently, if we lose a ZK connection the cache will grow
-     * stale but this class is oblivious of it. TODO: Add a mechanism to detect a stale cache
-     * indicate that a cache is stale.
+     * stale but this class is oblivious of it.
+     *
+     * NOTE: We need to pass in an executor service to the bridge builder if used with ZooKeeper
+     * versions older than 3.6. So, this code will may not be as performant when used with
+     * Zookeeper 3.5 or less.
+     *
+     * <p>TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
      */
     cache =
         CuratorCache.bridgeBuilder(curator, path)
-            .withExecutorService(executorService)
             .withDataNotCached()
             .build();
     // All changes to child nodes also fire a notification on root node. So, we handle all
