@@ -31,22 +31,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A CachedMetadataStoreImpl uses a curator path cache to cache a node and all the nodes under it.
- * If a path to a node is passed in, the cache will only cache that node. In addition, this class
- * also accepts a metadata serializer/de-serializer objects, so we only serialize/de-serialize the
- * objects only once.
+ * A CachedMetadataStoreImpl uses a curator path cache to cache a node and all the child nodes under
+ * it. In addition, this class also accepts a metadata serializer/de-serializer objects, so we only
+ * serialize/de-serialize the objects only once.
  *
  * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
  * root and the node value is the serialized metadata object.
  *
- * <p>NOTE: Since a directory is also a node in ZK, the directory node should also have a metadata
- * object in it's value even though it's not used. This is a different from a regular file system.
+ * <p>NOTE: Unlike a regular file system, Since a directory is also a node in ZK, the directory node
+ * should also have a metadata object in it's value.
  *
  * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
- *
- * <p>Order of listeners during initialization: - nodeCreated is called first for root. - Child
- * nodes added - initialized method is called.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  *
@@ -102,18 +98,22 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
     this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
-    // Create a curator cache but don't store any data in it since CacheStorage only allows
-    // storing data as a byte array. Instead use the curator cache implementation for
-    // managing persistent watchers and other admin tasks. Instead add a listener which would
-    // cache the data locally as a POJO using a serializer. In future, this also allows us to store
-    // the data in a custom data structure other than a hash table. Currently, if we lose a ZK
-    // connection the cache will grow stale but this class is oblivious of it.
-    // TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
+    /**
+     * Create a curator cache but don't store any data in it since CacheStorage only allows storing
+     * data as a byte array. Instead use the curator cache implementation for managing persistent
+     * watchers and other admin tasks. Instead add a listener which would cache the data locally as
+     * a POJO using a serializer. In future, this also allows us to store the data in a custom data
+     * structure other than a hash table. Currently, if we lose a ZK connection the cache will grow
+     * stale but this class is oblivious of it. TODO: Add a mechanism to detect a stale cache
+     * indicate that a cache is stale.
+     */
     cache =
         CuratorCache.bridgeBuilder(curator, path)
             .withExecutorService(executorService)
             .withDataNotCached()
             .build();
+    // All changes to child nodes also fire a notification on root node. So, we handle all
+    // callbacks on the parent node.
     CuratorCacheListener listener =
         CuratorCacheListener.builder()
             .forCreates(this::nodeCreated)
@@ -126,21 +126,17 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
   }
 
-  // TODO: Remove logging
   private void nodeCreated(ChildData newData) {
-    LOG.debug("node created " + newData);
     addInstance(newData);
     mayBeNotify();
   }
 
   private void nodeDeleted(ChildData childData) {
-    LOG.debug("node deleted " + childData);
     instances.remove(instanceIdFromData(childData));
     mayBeNotify();
   }
 
   private void nodeChanged(ChildData oldData, ChildData currentData) {
-    LOG.debug("node changed " + currentData);
     addInstance(currentData);
     mayBeNotify();
   }

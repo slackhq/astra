@@ -738,7 +738,6 @@ public class ZooKeeperCachedMetadataStoreImplTest {
     cache.close();
   }
 
-  // TODO: Add a unit test for initialization.
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void notificationFiresOnlyAfterCacheInitialization() throws Exception {
