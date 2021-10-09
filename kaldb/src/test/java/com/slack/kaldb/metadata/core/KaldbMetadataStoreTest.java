@@ -35,6 +35,12 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
+
+  private static final String SNAPSHOTS_PATH = "/snapshots";
+  private static final SnapshotMetadata ROOT_SNAPSHOT = makeSnapshot("defaultRootSnapshot");
+  private static final SnapshotMetadataSerializer snapshotMetadataSerializer =
+      new SnapshotMetadataSerializer();
+
   static SnapshotMetadata makeSnapshot(String name) {
     return makeSnapshot(name, 100);
   }
@@ -91,7 +97,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
@@ -568,9 +574,14 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .get())
+          .isNull();
       this.store =
           new DummyPersistentCreatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -594,16 +605,16 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Updates throw an exception.
       SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
@@ -613,8 +624,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
 
       assertThat(store.delete(name1).get()).isNull();
       assertThat(store.list().get().isEmpty()).isTrue();
@@ -663,7 +674,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -768,7 +779,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyEphemeralCreatableUpdatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
@@ -1245,9 +1256,14 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .get())
+          .isNull();
       this.store =
           new DummyEphemeralCreatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -1271,16 +1287,16 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Updates throw an exception.
       SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
@@ -1290,8 +1306,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
 
       assertThat(store.delete(name1).get()).isNull();
       assertThat(store.list().get().isEmpty()).isTrue();
@@ -1338,9 +1354,14 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .get())
+          .isNull();
       this.store =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -1439,6 +1460,11 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .get())
+          .isNull();
     }
 
     @After
@@ -1454,12 +1480,12 @@ public class KaldbMetadataStoreTest {
       // Attempt to instantiate multiple metadata stores at the same path
       DummyEphemeralCreatableMetadataStore metadataStore1 =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       // this is not expected to throw an exception on instantiation
       DummyEphemeralCreatableMetadataStore metadataStore2 =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       SnapshotMetadata snapshotMetadata1 = makeSnapshot("shouldAllowMultipleMetadataStores");
       metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);
