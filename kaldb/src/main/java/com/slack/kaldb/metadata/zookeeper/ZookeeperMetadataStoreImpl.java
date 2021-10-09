@@ -402,8 +402,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     if (!existsImpl(path)) {
       throw new NoNodeException("Node doesn't exist at path: " + path);
     }
-    return new ZooKeeperCachedMetadataStoreImpl<>(
-        path, metadataSerializer, curator, metadataExecutorService, meterRegistry);
+    return new ZooKeeperCachedMetadataStoreImpl<>(path, metadataSerializer, curator, meterRegistry);
   }
 
   @VisibleForTesting

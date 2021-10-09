@@ -108,11 +108,7 @@ public class ZooKeeperCachedMetadataStoreImplTest {
 
     ZooKeeperCachedMetadataStore<SnapshotMetadata> zkCachedMetadataStore =
         new ZooKeeperCachedMetadataStoreImpl<>(
-            path,
-            metadataSerializer,
-            metadataStore.getCurator(),
-            metadataStore.getMetadataExecutorService(),
-            meterRegistry);
+            path, metadataSerializer, metadataStore.getCurator(), meterRegistry);
     if (listener != null) {
       zkCachedMetadataStore.addListener(listener);
     }

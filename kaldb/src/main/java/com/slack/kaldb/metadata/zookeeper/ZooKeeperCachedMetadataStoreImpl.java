@@ -14,9 +14,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.EnsureContainers;
@@ -45,8 +42,6 @@ import org.slf4j.LoggerFactory;
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
- *
- * <p>TODO: Fix WARN: CuratorCache does not support custom ExecutorService
  */
 public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     implements ZooKeeperCachedMetadataStore<T> {
@@ -73,25 +68,10 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     STOPPED
   }
 
-  private static ExecutorService convertThreadFactory(ThreadFactory threadFactory) {
-    Preconditions.checkNotNull(threadFactory, "threadFactory cannot be null");
-    return Executors.newSingleThreadExecutor(threadFactory);
-  }
-
   ZooKeeperCachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ThreadFactory threadFactory,
-      MeterRegistry meterRegistry) {
-    this(path, metadataSerde, curator, convertThreadFactory(threadFactory), meterRegistry);
-  }
-
-  ZooKeeperCachedMetadataStoreImpl(
-      String path,
-      MetadataSerializer<T> metadataSerde,
-      CuratorFramework curator,
-      ExecutorService executorService,
       MeterRegistry meterRegistry) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
@@ -112,10 +92,7 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
      *
      * <p>TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
      */
-    cache =
-        CuratorCache.bridgeBuilder(curator, path)
-            .withDataNotCached()
-            .build();
+    cache = CuratorCache.bridgeBuilder(curator, path).withDataNotCached().build();
     // All changes to child nodes also fire a notification on root node. So, we handle all
     // callbacks on the parent node.
     CuratorCacheListener listener =
