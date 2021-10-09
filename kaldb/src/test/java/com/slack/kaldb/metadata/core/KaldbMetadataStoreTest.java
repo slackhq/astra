@@ -1223,15 +1223,14 @@ public class KaldbMetadataStoreTest {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       // Corrupt the metadata store.
       assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
 
       // Get throws exception but store is fine.
       Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot2);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
       expectedCacheErrorCount = 1;
     }
