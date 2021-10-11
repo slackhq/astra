@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
 import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
@@ -95,7 +96,7 @@ public class ReadOnlyChunkImplTest {
 
     MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
     metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -171,7 +172,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(0);
 
     metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -188,7 +189,7 @@ public class ReadOnlyChunkImplTest {
 
     MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
     metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -224,7 +225,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
     metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -241,7 +242,7 @@ public class ReadOnlyChunkImplTest {
 
     MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
     metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -277,7 +278,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
     metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   private void assignReplicaToChunk(String replicaId, ReadOnlyChunkImpl<LogMessage> readOnlyChunk) {
