@@ -102,6 +102,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
 
+    // we use a single thread executor to allow operations for this chunk to queue,
+    // guaranteeing that they are executed in the order they were received
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setNameFormat("readonly-chunk-%d").build());
@@ -186,6 +188,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
 
+      // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(Metadata.CacheSlotState.LIVE)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
@@ -314,9 +317,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       logSearcher.close();
     }
 
-    executorService.shutdown();
-    cacheSlotMetadataStore.close();
+    // Attempt to forcibly shutdown the executor service
+    // This prevents any further downloading of data from S3 that would be unused
+    executorService.shutdownNow();
+    try {
+      if (!executorService.awaitTermination(20, TimeUnit.SECONDS)) {
+        LOG.error(
+            "Timed out waiting for executor service shutdown, proceeding with remainder of shutdown");
+      }
+    } catch (InterruptedException ignored) {
+    }
 
+    cacheSlotMetadataStore.close();
     cleanDirectory();
 
     LOG.info("Closed chunk");
