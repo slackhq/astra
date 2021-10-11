@@ -4,6 +4,8 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
+import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
@@ -21,18 +23,27 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStoreService metadataStoreService;
-  private final KaldbConfigs.KaldbConfig kaldbConfig;
   private final S3BlobFs s3BlobFs;
+  private final SearchContext searchContext;
+  private final String s3Bucket;
+  private final String dataDirectoryPrefix;
+  private final int slotCountPerInstance;
 
   public CachingChunkManager(
       MeterRegistry registry,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.KaldbConfig kaldbConfig,
-      S3BlobFs s3BlobFs) {
+      S3BlobFs s3BlobFs,
+      SearchContext searchContext,
+      String s3Bucket,
+      String dataDirectoryPrefix,
+      int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.metadataStoreService = metadataStoreService;
-    this.kaldbConfig = kaldbConfig;
     this.s3BlobFs = s3BlobFs;
+    this.searchContext = searchContext;
+    this.s3Bucket = s3Bucket;
+    this.dataDirectoryPrefix = dataDirectoryPrefix;
+    this.slotCountPerInstance = slotCountPerInstance;
   }
 
   @Override
@@ -40,9 +51,15 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     LOG.info("Starting caching chunk manager");
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    for (int i = 0; i < kaldbConfig.getCacheConfig().getSlotsPerInstance(); i++) {
+    for (int i = 0; i < slotCountPerInstance; i++) {
       chunkList.add(
-          new ReadOnlyChunkImpl<>(metadataStoreService, kaldbConfig, meterRegistry, s3BlobFs));
+          new ReadOnlyChunkImpl<>(
+              metadataStoreService,
+              meterRegistry,
+              s3BlobFs,
+              searchContext,
+              s3Bucket,
+              dataDirectoryPrefix));
     }
   }
 
@@ -68,8 +85,14 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.KaldbConfig kaldbConfig) {
+      KaldbConfigs.ServerConfig serverConfig) {
     return new CachingChunkManager<>(
-        meterRegistry, metadataStoreService, kaldbConfig, getS3BlobFsClient(kaldbConfig));
+        meterRegistry,
+        metadataStoreService,
+        getS3BlobFsClient(KaldbConfig.get()),
+        SearchContext.fromConfig(serverConfig),
+        KaldbConfig.get().getS3Config().getS3Bucket(),
+        KaldbConfig.get().getCacheConfig().getDataDirectory(),
+        KaldbConfig.get().getCacheConfig().getSlotsPerInstance());
   }
 }

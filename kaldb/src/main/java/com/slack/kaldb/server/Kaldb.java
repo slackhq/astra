@@ -127,7 +127,9 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
       CachingChunkManager<LogMessage> chunkManager =
           CachingChunkManager.fromConfig(
-              prometheusMeterRegistry, metadataStoreService, KaldbConfig.get());
+              prometheusMeterRegistry,
+              metadataStoreService,
+              KaldbConfig.get().getCacheConfig().getServerConfig());
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);

@@ -24,7 +24,6 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.Counter;
@@ -69,8 +68,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private ChunkInfo chunkInfo;
   private LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
+  private Path dataDirectory;
 
-  private final KaldbConfigs.S3Config s3Config;
+  private final String dataDirectoryPrefix;
+  private final String s3Bucket;
   private final SearchContext searchContext;
   protected final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
@@ -78,7 +79,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private final ExecutorService executorService;
   private final S3BlobFs s3BlobFs;
-  private final Path dataDirectory;
 
   public static final String SUCCESSFUL_CHUNK_ASSIGNMENT = "chunk_assign_success";
   public static final String SUCCESSFUL_CHUNK_EVICTION = "chunk_evict_success";
@@ -91,21 +91,22 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   public ReadOnlyChunkImpl(
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.KaldbConfig kaldbConfig,
       MeterRegistry meterRegistry,
-      S3BlobFs s3BlobFs)
+      S3BlobFs s3BlobFs,
+      SearchContext searchContext,
+      String s3Bucket,
+      String dataDirectoryPrefix)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.s3BlobFs = s3BlobFs;
-    this.s3Config = kaldbConfig.getS3Config();
-    this.dataDirectory =
-        Path.of(String.format("%s/%s", kaldbConfig.getCacheConfig().getDataDirectory(), slotId));
+    this.s3Bucket = s3Bucket;
+    this.dataDirectoryPrefix = dataDirectoryPrefix;
+
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setNameFormat("readonly-chunk-%d").build());
-    this.searchContext = SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig());
-    String serverAddress = kaldbConfig.getCacheConfig().getServerConfig().getServerAddress();
-    String slotName = String.format("%s-%s", serverAddress, slotId);
+    this.searchContext = searchContext;
+    String slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
     replicaMetadataStore =
         new ReplicaMetadataStore(
@@ -117,6 +118,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         new SearchMetadataStore(
             metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
 
+    // todo - remove the unnecessary additional directory
     String cacheSlotPath = String.format("%s/%s", CACHE_SLOT_STORE_ZK_PATH, slotName);
     cacheSlotMetadataStore =
         new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), cacheSlotPath, true);
@@ -133,7 +135,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     failedChunkAssignments = meterRegistry.counter(FAILED_CHUNK_ASSIGNMENT, meterTags);
     failedChunkEvictions = meterRegistry.counter(FAILED_CHUNK_EVICTION, meterTags);
 
-    LOG.info("Created a new read only chunk");
+    LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
   }
 
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
@@ -155,7 +157,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       throws ExecutionException, InterruptedException, TimeoutException {
     this.searchMetadata =
         new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
-    searchMetadataStore.create(searchMetadata).get(5, TimeUnit.SECONDS);
+    searchMetadataStore.create(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
   private void unregisterSearchMetadata()
@@ -171,10 +173,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
+      dataDirectory =
+          Path.of(
+              String.format("%s/kaldb-slot-%s", dataDirectoryPrefix, cacheSlotMetadata.replicaId));
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      if (copyFromS3(s3Config.getS3Bucket(), snapshotMetadata.snapshotId, s3BlobFs, dataDirectory)
-              .length
-          == 0) {
+      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, s3BlobFs, dataDirectory).length == 0) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
@@ -202,7 +205,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private SnapshotMetadata getSnapshotMetadata(String replicaId)
       throws ExecutionException, InterruptedException, TimeoutException {
     ReplicaMetadata replicaMetadata =
-        replicaMetadataStore.getNode(replicaId).get(5, TimeUnit.SECONDS);
+        replicaMetadataStore.getNode(replicaId).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     return snapshotMetadataStore
         .getNode(replicaMetadata.snapshotId)
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -257,10 +260,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   }
 
   private void cleanDirectory() {
-    try {
-      FileUtils.cleanDirectory(dataDirectory.toFile());
-    } catch (Exception e) {
-      LOG.info("Error removing files {}", dataDirectory.toString(), e);
+    if (dataDirectory != null) {
+      try {
+        FileUtils.cleanDirectory(dataDirectory.toFile());
+      } catch (Exception e) {
+        LOG.info("Error removing files {}", dataDirectory.toString(), e);
+      }
     }
   }
 

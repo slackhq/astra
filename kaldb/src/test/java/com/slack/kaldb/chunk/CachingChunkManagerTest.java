@@ -94,7 +94,14 @@ public class CachingChunkManagerTest {
     metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
 
     CachingChunkManager<LogMessage> cachingChunkManager =
-        new CachingChunkManager<>(meterRegistry, metadataStoreService, kaldbConfig, s3BlobFs);
+        new CachingChunkManager<>(
+            meterRegistry,
+            metadataStoreService,
+            s3BlobFs,
+            SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
+            kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getSlotsPerInstance());
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);

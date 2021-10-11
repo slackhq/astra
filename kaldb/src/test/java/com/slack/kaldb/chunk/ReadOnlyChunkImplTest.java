@@ -106,7 +106,13 @@ public class ReadOnlyChunkImplTest {
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(metadataStoreService, kaldbConfig, meterRegistry, s3BlobFs);
+        new ReadOnlyChunkImpl(
+            metadataStoreService,
+            meterRegistry,
+            s3BlobFs,
+            SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
+            kaldbConfig.getCacheConfig().getDataDirectory());
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -192,7 +198,13 @@ public class ReadOnlyChunkImplTest {
     initializeZkSnapshot(metadataStoreService, snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(metadataStoreService, kaldbConfig, meterRegistry, s3BlobFs);
+        new ReadOnlyChunkImpl(
+            metadataStoreService,
+            meterRegistry,
+            s3BlobFs,
+            SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
+            kaldbConfig.getCacheConfig().getDataDirectory());
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -239,7 +251,13 @@ public class ReadOnlyChunkImplTest {
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(metadataStoreService, kaldbConfig, meterRegistry, s3BlobFs);
+        new ReadOnlyChunkImpl(
+            metadataStoreService,
+            meterRegistry,
+            s3BlobFs,
+            SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
+            kaldbConfig.getCacheConfig().getDataDirectory());
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
