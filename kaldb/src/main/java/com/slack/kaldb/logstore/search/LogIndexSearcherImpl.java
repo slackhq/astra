@@ -62,6 +62,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return new SearcherManager(directory, null);
   }
 
+  // todo - this is not needed once this data is on the snapshot
   public static int getNumDocs(Path path) throws IOException {
     NIOFSDirectory directory = new NIOFSDirectory(path);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
