@@ -2,13 +2,13 @@ package com.slack.kaldb.metadata.core;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
@@ -97,6 +97,11 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
+  public T getNodeSync(String path)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  }
+
   /**
    * Fetches all the nodes under a given path. This function can be very expensive on nodes with a
    * large number of children so use it very sparingly in the code. If working with slightly stale
@@ -139,7 +144,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
   }
 
   public List<T> listSync() throws ExecutionException, InterruptedException, TimeoutException {
-    return list().get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 
   public ListenableFuture<?> delete(String path) {
@@ -148,6 +153,6 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
 
   public Object deleteSync(String path)
       throws ExecutionException, InterruptedException, TimeoutException {
-    return delete(path).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    return delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 }
