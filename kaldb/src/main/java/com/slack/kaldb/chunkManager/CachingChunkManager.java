@@ -1,12 +1,18 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -23,6 +29,9 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStoreService metadataStoreService;
+  private final ReplicaMetadataStore replicaMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
+  private final SearchMetadataStore searchMetadataStore;
   private final S3BlobFs s3BlobFs;
   private final SearchContext searchContext;
   private final String s3Bucket;
@@ -36,7 +45,8 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      int slotCountPerInstance) {
+      int slotCountPerInstance)
+      throws Exception {
     this.meterRegistry = registry;
     this.metadataStoreService = metadataStoreService;
     this.s3BlobFs = s3BlobFs;
@@ -44,6 +54,16 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.slotCountPerInstance = slotCountPerInstance;
+
+    this.replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    this.snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    this.searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, false);
   }
 
   @Override
@@ -59,7 +79,10 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
               s3BlobFs,
               searchContext,
               s3Bucket,
-              dataDirectoryPrefix));
+              dataDirectoryPrefix,
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              searchMetadataStore));
     }
   }
 
@@ -85,7 +108,8 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStoreService metadataStoreService,
-      KaldbConfigs.ServerConfig serverConfig) {
+      KaldbConfigs.ServerConfig serverConfig)
+      throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
         metadataStoreService,

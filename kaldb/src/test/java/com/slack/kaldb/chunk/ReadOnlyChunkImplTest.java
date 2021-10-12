@@ -98,6 +98,16 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.startAsync();
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
     String replicaId = "foo";
     String snapshotId = "bar";
 
@@ -113,7 +123,11 @@ public class ReadOnlyChunkImplTest {
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
-            kaldbConfig.getCacheConfig().getDataDirectory());
+            kaldbConfig.getCacheConfig().getDataDirectory(),
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore
+            );
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -136,9 +150,6 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
 
     // ensure we registered a search node for this cache slot
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
     await().until(() -> searchMetadataStore.getCached().size() == 1);
     assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
     assertThat(searchMetadataStore.getCached().get(0).url).isEqualTo("localhost:8080");
@@ -191,6 +202,16 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.startAsync();
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
     String replicaId = "foo";
     String snapshotId = "bar";
 
@@ -205,7 +226,10 @@ public class ReadOnlyChunkImplTest {
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
-            kaldbConfig.getCacheConfig().getDataDirectory());
+            kaldbConfig.getCacheConfig().getDataDirectory(),
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -216,9 +240,6 @@ public class ReadOnlyChunkImplTest {
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
 
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
@@ -244,6 +265,16 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.startAsync();
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
     String replicaId = "foo";
     String snapshotId = "bar";
 
@@ -258,7 +289,10 @@ public class ReadOnlyChunkImplTest {
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
-            kaldbConfig.getCacheConfig().getDataDirectory());
+            kaldbConfig.getCacheConfig().getDataDirectory(),
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -269,9 +303,6 @@ public class ReadOnlyChunkImplTest {
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
 
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);

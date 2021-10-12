@@ -1,9 +1,6 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.config.KaldbConfig.CACHE_SLOT_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
 
@@ -95,7 +92,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       S3BlobFs s3BlobFs,
       SearchContext searchContext,
       String s3Bucket,
-      String dataDirectoryPrefix)
+      String dataDirectoryPrefix,
+      ReplicaMetadataStore replicaMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.s3BlobFs = s3BlobFs;
@@ -110,15 +110,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.searchContext = searchContext;
     String slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
-    replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
-    searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+    this.replicaMetadataStore = replicaMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
+    this.searchMetadataStore = searchMetadataStore;
 
     // todo - remove the unnecessary additional directory
     String cacheSlotPath = String.format("%s/%s", CACHE_SLOT_STORE_ZK_PATH, slotName);

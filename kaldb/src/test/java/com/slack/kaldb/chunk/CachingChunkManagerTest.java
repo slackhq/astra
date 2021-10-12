@@ -15,7 +15,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -54,7 +53,7 @@ public class CachingChunkManagerTest {
   }
 
   @Test
-  public void shouldHandleLifecycle() throws TimeoutException {
+  public void shouldHandleLifecycle() throws Exception {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
