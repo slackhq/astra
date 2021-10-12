@@ -163,7 +163,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  private void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
+  // We synchronize access when manipulating the chunk, as the close() can
+  // run concurrently with an assignment
+  private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     try {
       if (!setChunkMetadataState(Metadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
@@ -172,7 +174,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       dataDirectory =
           Path.of(
               String.format("%s/kaldb-slot-%s", dataDirectoryPrefix, cacheSlotMetadata.replicaId));
-      if (Files.list(dataDirectory).findFirst().isPresent()) {
+      if (Files.isDirectory(dataDirectory) && Files.list(dataDirectory).findFirst().isPresent()) {
         LOG.warn("Existing files found in slot directory, clearing directory");
         cleanDirectory();
       }
@@ -213,7 +215,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
-  private void handleChunkEviction() {
+  // We synchronize access when manipulating the chunk, as the close()
+  // can run concurrently with an eviction
+  private synchronized void handleChunkEviction() {
     try {
       if (!setChunkMetadataState(Metadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
@@ -279,6 +283,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return cacheSlotMetadataStore.getCached().get(0).cacheSlotState;
   }
 
+  @VisibleForTesting
+  public Path getDataDirectory() {
+    return dataDirectory;
+  }
+
   @Override
   public ChunkInfo info() {
     return chunkInfo;
@@ -294,24 +303,15 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    if (logSearcher != null) {
-      logSearcher.close();
-    }
-
-    // Attempt to forcibly shutdown the executor service
-    // This prevents any further downloading of data from S3 that would be unused
+    // Attempt to forcibly shutdown the executor service. This prevents any further downloading of
+    // data from S3 that would be unused. We cannot wait for the result of this as there may be
+    // many ReadOnlyChunks that all need to be shutdown.
     executorService.shutdownNow();
-    try {
-      if (!executorService.awaitTermination(20, TimeUnit.SECONDS)) {
-        LOG.error(
-            "Timed out waiting for executor service shutdown, proceeding with remainder of shutdown");
-      }
-    } catch (InterruptedException ignored) {
-    }
+
+    // Attempt to evict the chunk
+    handleChunkEviction();
 
     cacheSlotMetadataStore.close();
-    cleanDirectory();
-
     LOG.info("Closed chunk");
   }
 

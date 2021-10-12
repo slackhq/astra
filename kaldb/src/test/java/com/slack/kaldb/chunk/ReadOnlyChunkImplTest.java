@@ -311,6 +311,98 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
+  @Test
+  public void closeShouldCleanupLiveChunkCorrectly() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("shouldHandleChunkLivecycle")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
+    String replicaId = "foo";
+    String snapshotId = "bar";
+
+    // setup Zk, BlobFs so data can be loaded
+    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStoreService, snapshotId);
+    initializeBlobStorageWithIndex(snapshotId);
+
+    ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
+        new ReadOnlyChunkImpl(
+            metadataStoreService,
+            meterRegistry,
+            s3BlobFs,
+            SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
+            kaldbConfig.getCacheConfig().getDataDirectory(),
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            searchMetadataStore);
+
+    // wait for chunk to register
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+
+    assignReplicaToChunk(replicaId, readOnlyChunk);
+
+    // ensure that the chunk was marked LIVE
+    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
+
+    SearchQuery query =
+        new SearchQuery(
+            MessageUtil.TEST_INDEX_NAME,
+            "*:*",
+            Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+            Instant.now().toEpochMilli(),
+            500,
+            0);
+    SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
+    assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
+    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
+
+    // ensure we registered a search node for this cache slot
+    await().until(() -> searchMetadataStore.getCached().size() == 1);
+    assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.getCached().get(0).url).isEqualTo("localhost:8080");
+    assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo("localhost");
+
+    // verify we have files on disk
+    assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
+        .isTrue();
+
+    // attempt to close the readOnlyChunk
+    readOnlyChunk.close();
+
+    // verify no results are returned for the exact same query we did above
+    SearchResult<LogMessage> logMessageSearchResultEmpty = readOnlyChunk.query(query);
+    assertThat(logMessageSearchResultEmpty).isEqualTo(SearchResult.empty());
+    assertThat(readOnlyChunk.info()).isNull();
+
+    // verify that the directory has been cleaned up
+    assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
+        .isFalse();
+
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+  }
+
   private void assignReplicaToChunk(String replicaId, ReadOnlyChunkImpl<LogMessage> readOnlyChunk) {
     CacheSlotMetadataStore cacheSlotMetadataStore = readOnlyChunk.cacheSlotMetadataStore;
     CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
