@@ -27,6 +27,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
@@ -55,6 +56,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
   private Path dataDirectory;
+  private Metadata.CacheSlotState previousSlotState;
 
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
@@ -113,6 +115,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         new CacheSlotMetadata(
             METADATA_SLOT_NAME, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotMetadata);
+    previousSlotState = Metadata.CacheSlotState.FREE;
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotName", slotName));
     successfulChunkAssignments = meterRegistry.counter(SUCCESSFUL_CHUNK_ASSIGNMENT, meterTags);
@@ -126,15 +129,23 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
     return () -> {
       CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
-      LOG.debug("Change on chunk - {}", cacheSlotMetadata.toString());
+      Metadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
 
-      if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
+      if (newSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
         LOG.info("Chunk - ASSIGNED received");
+        if (!previousSlotState.equals(Metadata.CacheSlotState.FREE)) {
+          LOG.warn("Unexpected state transition from {} to {}", previousSlotState, newSlotState);
+        }
         executorService.submit(() -> handleChunkAssignment(cacheSlotMetadata));
-      } else if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotState.EVICT)) {
+      } else if (newSlotState.equals(Metadata.CacheSlotState.EVICT)) {
         LOG.info("Chunk - EVICT received");
+        if (!previousSlotState.equals(Metadata.CacheSlotState.LIVE)) {
+          LOG.warn("Unexpected state transition from {} to {}", previousSlotState, newSlotState);
+        }
         executorService.submit(this::handleChunkEviction);
       }
+
+      previousSlotState = newSlotState;
     };
   }
 
@@ -161,6 +172,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       dataDirectory =
           Path.of(
               String.format("%s/kaldb-slot-%s", dataDirectoryPrefix, cacheSlotMetadata.replicaId));
+      if (Files.list(dataDirectory).findFirst().isPresent()) {
+        LOG.warn("Existing files found in slot directory, clearing directory");
+        cleanDirectory();
+      }
+
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
       if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, s3BlobFs, dataDirectory).length == 0) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
