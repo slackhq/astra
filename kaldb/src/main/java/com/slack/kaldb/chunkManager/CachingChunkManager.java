@@ -29,9 +29,6 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStoreService metadataStoreService;
-  private final ReplicaMetadataStore replicaMetadataStore;
-  private final SnapshotMetadataStore snapshotMetadataStore;
-  private final SearchMetadataStore searchMetadataStore;
   private final S3BlobFs s3BlobFs;
   private final SearchContext searchContext;
   private final String s3Bucket;
@@ -45,8 +42,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      int slotCountPerInstance)
-      throws Exception {
+      int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.metadataStoreService = metadataStoreService;
     this.s3BlobFs = s3BlobFs;
@@ -54,22 +50,22 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.slotCountPerInstance = slotCountPerInstance;
-
-    this.replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
-    this.snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
-    this.searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, false);
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(
+            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(
+            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(
+            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, false);
 
     for (int i = 0; i < slotCountPerInstance; i++) {
       chunkList.add(
