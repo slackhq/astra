@@ -126,8 +126,7 @@ public class ReadOnlyChunkImplTest {
             kaldbConfig.getCacheConfig().getDataDirectory(),
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore
-            );
+            searchMetadataStore);
 
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);

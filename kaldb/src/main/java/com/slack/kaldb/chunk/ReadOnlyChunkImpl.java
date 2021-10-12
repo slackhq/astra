@@ -27,7 +27,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
@@ -43,19 +42,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A ReadOnlyChunkImpl provides a concrete implementation for a shard to which we can support reads
- * but not writes.
- *
- * <p>This would be a wrapper around the log searcher interface without creating a heavier logStore
- * object. This implementation is also safer since we don't open the files for writing.
- *
- * <p>This class will be read only by default.
- *
- * <p>It is unclear now if the snapshot functions should be in this class or not. So, for now, we
- * leave them as no-ops.
- *
- * <p>TODO: In future, make chunkInfo read only for more safety.
- *
- * <p>TODO: Is chunk responsible for maintaining it's own metadata?
+ * and hydration from the BlobFs, but does not support appending new messages. As events are
+ * received from ZK each ReadOnlyChunkImpl will appropriately hydrate or evict a chunk from the
+ * BlobFs.
  */
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
@@ -177,7 +166,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
-      this.chunkInfo = getChunkInfo(snapshotMetadata, dataDirectory);
+      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata, dataDirectory);
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
@@ -206,24 +195,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     return snapshotMetadataStore
         .getNode(replicaMetadata.snapshotId)
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-  }
-
-  private ChunkInfo getChunkInfo(SnapshotMetadata snapshotMetadata, Path dataDirectory) {
-    ChunkInfo chunkInfo = new ChunkInfo(snapshotMetadata.snapshotId, Instant.now().toEpochMilli());
-
-    chunkInfo.setDataStartTimeEpochMs(snapshotMetadata.startTimeUtc);
-    chunkInfo.setDataEndTimeEpochMs(snapshotMetadata.endTimeUtc);
-
-    // todo - do we need to set these values? we may want to publish this to the snapshot metadata
-    //   on creation
-    chunkInfo.setChunkLastUpdatedTimeEpochMs(snapshotMetadata.endTimeUtc);
-    chunkInfo.setChunkSnapshotTimeEpochMs(snapshotMetadata.endTimeUtc);
-    try {
-      chunkInfo.setChunkSize(Files.size(dataDirectory));
-      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    } catch (IOException ignored) {
-    }
-    return chunkInfo;
   }
 
   private void handleChunkEviction() {
