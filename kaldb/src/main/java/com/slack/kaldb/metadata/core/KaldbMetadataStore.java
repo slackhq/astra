@@ -8,12 +8,15 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 import org.apache.curator.utils.ZKPaths;
 import org.slf4j.Logger;
@@ -135,7 +138,16 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     return Futures.transform(children, transformFunc, MoreExecutors.directExecutor());
   }
 
+  public List<T> listSync() throws ExecutionException, InterruptedException, TimeoutException {
+    return list().get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  }
+
   public ListenableFuture<?> delete(String path) {
     return metadataStore.delete(getPath(path));
+  }
+
+  public Object deleteSync(String path)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    return delete(path).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 }

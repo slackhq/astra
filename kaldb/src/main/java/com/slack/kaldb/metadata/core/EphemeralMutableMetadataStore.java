@@ -3,7 +3,11 @@ package com.slack.kaldb.metadata.core;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 
 public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
@@ -33,6 +37,11 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
       logger.error(msg, e);
       return Futures.immediateFailedFuture(e);
     }
+  }
+
+  public Object createSync(T metadataNode)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    return create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 
   public ListenableFuture<?> update(T metadataNode) {
