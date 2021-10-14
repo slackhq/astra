@@ -11,6 +11,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+
 public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     extends UpdatableCacheableMetadataStore<T> {
 
@@ -42,7 +44,7 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
 
   public void createSync(T metadataNode) {
     try {
-      create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      create(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException(
           "Failed to create metadata node " + metadataNode.toString(), e);
@@ -59,7 +61,7 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
 
   public void updateSync(T metadataNode) {
     try {
-      update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      update(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | TimeoutException | InterruptedException e) {
       throw new InternalMetadataStoreException(
           "Failed to update node " + metadataNode.toString(), e);
