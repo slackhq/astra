@@ -97,9 +97,12 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
-  public T getNodeSync(String path)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public T getNodeSync(String path) {
+    try {
+      return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new RuntimeException("Error fetching node at path " + path, e);
+    }
   }
 
   /**
@@ -143,16 +146,23 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     return Futures.transform(children, transformFunc, MoreExecutors.directExecutor());
   }
 
-  public List<T> listSync() throws ExecutionException, InterruptedException, TimeoutException {
-    return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public List<T> listSync() {
+    try {
+      return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new RuntimeException("Error listing node under path", e);
+    }
   }
 
   public ListenableFuture<?> delete(String path) {
     return metadataStore.delete(getPath(path));
   }
 
-  public Object deleteSync(String path)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public Object deleteSync(String path) {
+    try {
+      return delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new RuntimeException("Error deleting node under at path: " + path, e);
+    }
   }
 }
