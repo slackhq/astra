@@ -39,9 +39,13 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     }
   }
 
-  public Object createSync(T metadataNode)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public void createSync(T metadataNode) {
+    try {
+      create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new MetadataStoreException(
+          "Failed to create metadata node " + metadataNode.toString(), e);
+    }
   }
 
   public ListenableFuture<?> update(T metadataNode) {
