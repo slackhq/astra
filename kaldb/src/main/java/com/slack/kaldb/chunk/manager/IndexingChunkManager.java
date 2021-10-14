@@ -233,6 +233,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * When the ChunkManager is being closed, roll over active chunk so we can be sure that it's data is persisted in
    * a remote store.
    */
+  @VisibleForTesting
   public void rollOverActiveChunk() {
     LOG.info("Rolling over active chunk");
     doRollover(getActiveChunk());
@@ -262,6 +263,9 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       ReadWriteChunkImpl<T> newChunk =
           new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
       chunkList.add(newChunk);
+
+      // TODO: Register live snapshot, register a search metadata node.
+
       activeChunk = newChunk;
     }
     return activeChunk;
@@ -326,7 +330,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     // TODO: Move this registration closer to chunk metadata
     SearchMetadata searchMetadata =
         toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
-    searchMetadataStore.create(searchMetadata).get();
+    searchMetadataStore.createSync(searchMetadata);
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -398,7 +402,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
     // TODO: Read the config values for chunk manager from config file.
-
     return new IndexingChunkManager<>(
         CHUNK_DATA_PREFIX,
         KaldbConfig.get().getIndexerConfig().getDataDirectory(),
