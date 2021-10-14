@@ -158,9 +158,9 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     return metadataStore.delete(getPath(path));
   }
 
-  public Object deleteSync(String path) {
+  public void deleteSync(String path) {
     try {
-      return delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new MetadataStoreException("Error deleting node under at path: " + path, e);
     }
