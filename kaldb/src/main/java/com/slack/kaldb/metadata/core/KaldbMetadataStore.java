@@ -101,7 +101,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new RuntimeException("Error fetching node at path " + path, e);
+      throw new MetadataStoreException("Error fetching node at path " + path, e);
     }
   }
 
@@ -150,7 +150,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new RuntimeException("Error listing node under path", e);
+      throw new MetadataStoreException("Error listing node under path", e);
     }
   }
 
@@ -162,7 +162,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       return delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new RuntimeException("Error deleting node under at path: " + path, e);
+      throw new MetadataStoreException("Error deleting node under at path: " + path, e);
     }
   }
 }
