@@ -398,20 +398,18 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
     // TODO: Read the config values for chunk manager from config file.
-    IndexingChunkManager<LogMessage> chunkManager =
-        new IndexingChunkManager<>(
-            CHUNK_DATA_PREFIX,
-            KaldbConfig.get().getIndexerConfig().getDataDirectory(),
-            chunkRollOverStrategy,
-            meterRegistry,
-            getS3BlobFsClient(KaldbConfig.get()),
-            KaldbConfig.get().getS3Config().getS3Bucket(),
-            makeDefaultRollOverExecutor(),
-            DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
-            metadataStoreService,
-            SearchContext.fromConfig(serverConfig));
 
-    return chunkManager;
+    return new IndexingChunkManager<>(
+        CHUNK_DATA_PREFIX,
+        KaldbConfig.get().getIndexerConfig().getDataDirectory(),
+        chunkRollOverStrategy,
+        meterRegistry,
+        getS3BlobFsClient(KaldbConfig.get()),
+        KaldbConfig.get().getS3Config().getS3Bucket(),
+        makeDefaultRollOverExecutor(),
+        DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
+        metadataStoreService,
+        SearchContext.fromConfig(serverConfig));
   }
 
   @VisibleForTesting
