@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +44,7 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     try {
       create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new MetadataStoreException(
+      throw new InternalMetadataStoreException(
           "Failed to create metadata node " + metadataNode.toString(), e);
     }
   }
@@ -54,5 +55,14 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     }
 
     return super.update(metadataNode);
+  }
+
+  public void updateSync(T metadataNode) {
+    try {
+      update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      throw new InternalMetadataStoreException(
+          "Failed to update node " + metadataNode.toString(), e);
+    }
   }
 }

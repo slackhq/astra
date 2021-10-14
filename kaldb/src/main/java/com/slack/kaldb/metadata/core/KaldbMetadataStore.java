@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new MetadataStoreException("Error fetching node at path " + path, e);
+      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
   }
 
@@ -150,7 +151,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new MetadataStoreException("Error listing node under path", e);
+      throw new InternalMetadataStoreException("Error listing node under path", e);
     }
   }
 
@@ -162,7 +163,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     try {
       delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new MetadataStoreException("Error deleting node under at path: " + path, e);
+      throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
     }
   }
 }

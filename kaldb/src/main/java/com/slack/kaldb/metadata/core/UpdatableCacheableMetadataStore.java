@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +40,7 @@ public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
     try {
       update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new MetadataStoreException("Error updating node: " + metadataNode, e);
+      throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
 }
