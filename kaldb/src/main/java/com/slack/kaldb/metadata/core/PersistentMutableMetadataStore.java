@@ -39,9 +39,12 @@ public abstract class PersistentMutableMetadataStore<T extends KaldbMetadata>
     }
   }
 
-  public Object createSync(T metadataNode)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public void createSync(T metadataNode) {
+    try {
+      create(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      throw new MetadataStoreException("Error creating node " + metadataNode, e);
+    }
   }
 
   public ListenableFuture<?> update(T metadataNode) {
@@ -52,8 +55,11 @@ public abstract class PersistentMutableMetadataStore<T extends KaldbMetadata>
     return super.update(metadataNode);
   }
 
-  public Object updateSync(T metadataNode)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public void updateSync(T metadataNode) {
+    try {
+      update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new MetadataStoreException("Error updating metadataNode " + metadataNode.toString(), e);
+    }
   }
 }

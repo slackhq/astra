@@ -35,8 +35,11 @@ public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
     }
   }
 
-  public Object updateSync(T metadataNode)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    return update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public void updateSync(T metadataNode) {
+    try {
+      update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new MetadataStoreException("Error updating node: " + metadataNode, e);
+    }
   }
 }
