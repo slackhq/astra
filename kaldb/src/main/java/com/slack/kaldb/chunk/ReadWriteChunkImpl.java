@@ -66,6 +66,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     this.meterRegistry = meterRegistry;
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
+
+    // Register chunkImpl
   }
 
   /**
@@ -99,6 +101,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
+    // TODO: Remove the search node.
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
@@ -161,6 +164,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   public void postSnapshot() {
+    // TODO: Register non-live snapshot, add new search node for snapshot, Remove live
+    //  snapshot,  remove search node for live.
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
