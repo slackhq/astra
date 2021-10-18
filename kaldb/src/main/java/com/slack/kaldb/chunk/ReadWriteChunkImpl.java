@@ -10,6 +10,9 @@ import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -39,6 +42,9 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
+  private final SnapshotMetadataStore snapshotMetadataStore;
+  private final SearchMetadataStore searchMetadataStore;
+  private final SearchContext searchContext;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
@@ -50,7 +56,12 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   private boolean readOnly;
 
   public ReadWriteChunkImpl(
-      LogStore<T> logStore, String chunkDataPrefix, MeterRegistry meterRegistry) {
+      LogStore<T> logStore,
+      String chunkDataPrefix,
+      MeterRegistry meterRegistry,
+      SearchMetadataStore searchMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchContext searchContext) {
     this.logStore = logStore;
     this.logSearcher =
         (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
@@ -65,9 +76,21 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     this.meterRegistry = meterRegistry;
+    this.searchMetadataStore = searchMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
+    this.searchContext = searchContext;
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
+  }
 
-    // Register chunkImpl
+  public void register() {
+    SearchMetadata searchMetadata =
+        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
+    searchMetadataStore.createSync(searchMetadata);
+    // TODO: Register snapshot
+  }
+
+  private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
+    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /**

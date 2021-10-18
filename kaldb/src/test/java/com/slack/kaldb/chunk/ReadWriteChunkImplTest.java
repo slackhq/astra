@@ -60,7 +60,7 @@ public class ReadWriteChunkImplTest {
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry);
+      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry, null, null, null);
     }
 
     @After
@@ -315,7 +315,7 @@ public class ReadWriteChunkImplTest {
       LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
+      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry, null, null, null);
     }
 
     @After

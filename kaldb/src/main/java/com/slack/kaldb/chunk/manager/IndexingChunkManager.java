@@ -17,7 +17,6 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -264,9 +263,15 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
 
       ReadWriteChunkImpl<T> newChunk =
-          new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
+          new ReadWriteChunkImpl<>(
+              logStore,
+              chunkDataPrefix,
+              meterRegistry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              searchContext);
       chunkList.add(newChunk);
-
+      newChunk.register();
       // TODO: Register live snapshot, register a search metadata node.
 
       activeChunk = newChunk;
@@ -332,19 +337,10 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
             KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
             false);
 
-    // TODO: Move this registration closer to chunk metadata
-    SearchMetadata searchMetadata =
-        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
-    searchMetadataStore.createSync(searchMetadata);
-
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
     // prevents use of chunk manager until the service has started
     stopIngestion = false;
-  }
-
-  private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /**
