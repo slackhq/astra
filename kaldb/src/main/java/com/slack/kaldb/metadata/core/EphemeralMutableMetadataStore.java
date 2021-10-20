@@ -42,4 +42,9 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
 
     return super.update(metadataNode);
   }
+
+  public ListenableFuture<?> delete(T metadataNode) {
+    String path = getPath(metadataNode.name);
+    return metadataStore.delete(path);
+  }
 }

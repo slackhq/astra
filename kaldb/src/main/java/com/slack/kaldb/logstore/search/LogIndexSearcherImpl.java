@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -59,6 +60,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     NIOFSDirectory directory = new NIOFSDirectory(path);
     return new SearcherManager(directory, null);
+  }
+
+  // todo - this is not needed once this data is on the snapshot
+  public static int getNumDocs(Path path) throws IOException {
+    NIOFSDirectory directory = new NIOFSDirectory(path);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
+    int numDocs = directoryReader.numDocs();
+    directoryReader.close();
+    return numDocs;
   }
 
   public LogIndexSearcherImpl(SearcherManager searcherManager) {

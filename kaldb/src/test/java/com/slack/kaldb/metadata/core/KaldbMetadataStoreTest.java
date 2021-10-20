@@ -823,7 +823,7 @@ public class KaldbMetadataStoreTest {
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
       assertThat(newMetadata.partitionId).isEqualTo(partitionId);
 
-      assertThat(store.delete(name).get()).isNull();
+      assertThat(store.delete(newMetadata).get()).isNull();
       assertThat(store.list().get()).isEmpty();
     }
 

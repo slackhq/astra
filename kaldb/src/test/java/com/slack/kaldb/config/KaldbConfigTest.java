@@ -198,6 +198,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
+    assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
@@ -272,6 +273,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
+    assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
@@ -338,6 +340,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
+    assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
@@ -395,6 +398,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
+    assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
