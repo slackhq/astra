@@ -28,6 +28,10 @@ import org.slf4j.Logger;
  * <p>This abstraction is needed so that we can limit the ZK access to the application to a specific
  * set of paths and also to limit the operations that can be performed on those nodes. For example,
  * we only want the SnapshotMetadata to ever be created or deleted but never updated.
+ *
+ * <p>Every method provides an async(returns a future) and a sync API. In general, use the async API
+ * you are performing batch operations and a sync if you are performing a synchronous operation on a
+ * node.
  */
 abstract class KaldbMetadataStore<T extends KaldbMetadata> {
   protected final MetadataStore metadataStore;

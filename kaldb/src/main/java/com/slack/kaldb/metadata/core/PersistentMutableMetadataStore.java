@@ -65,4 +65,18 @@ public abstract class PersistentMutableMetadataStore<T extends KaldbMetadata>
           "Error updating metadataNode " + metadataNode.toString(), e);
     }
   }
+
+  public ListenableFuture<?> delete(T metadataNode) {
+    String path = getPath(metadataNode.name);
+    return metadataStore.delete(path);
+  }
+
+  public void deleteSync(T metadataNode) {
+    try {
+      delete(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      throw new InternalMetadataStoreException(
+          "Failed to delete node: " + metadataNode.toString(), e);
+    }
+  }
 }
