@@ -425,7 +425,6 @@ public class ZooKeeperCachedMetadataStoreImplTest {
             () ->
                 assertThat(((ZookeeperCachedMetadataStoreImpl<SnapshotMetadata>) cache).isStopped())
                     .isTrue());
-    // TODO: Get instances after cache close works?
     assertThat(cache.getInstances()).containsOnly(defaultRoot);
   }
 
