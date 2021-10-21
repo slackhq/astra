@@ -227,6 +227,8 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
   }
 
   private void maybeNotify() {
+    // TODO: getCount when used this way could return a stale value and we may have a race
+    //  condition here. Update this code to not use getCount.
     if (initializedLatch.getCount() == 0) {
       listenerContainer.forEach(
           listener -> {
