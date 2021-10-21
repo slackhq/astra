@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.core;
 
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
@@ -36,7 +37,6 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
 
-  private static final String SNAPSHOTS_PATH = "/snapshots";
   private static final SnapshotMetadata ROOT_SNAPSHOT = makeSnapshot("defaultRootSnapshot");
   private static final SnapshotMetadataSerializer snapshotMetadataSerializer =
       new SnapshotMetadataSerializer();
@@ -99,12 +99,15 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
       this.store =
           new DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
@@ -585,12 +588,15 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
       this.store =
           new DummyPersistentCreatableCacheableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -683,7 +689,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentCreatableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -789,12 +795,15 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
       this.store =
           new DummyEphemeralCreatableUpdatableCacheableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
@@ -1275,12 +1284,15 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
       this.store =
           new DummyEphemeralCreatableCacheableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -1373,12 +1385,15 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
       this.store =
           new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -1478,7 +1493,10 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       assertThat(
               zkMetadataStore
-                  .create(SNAPSHOTS_PATH, snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT), true)
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
                   .get())
           .isNull();
     }
@@ -1496,12 +1514,12 @@ public class KaldbMetadataStoreTest {
       // Attempt to instantiate multiple metadata stores at the same path
       DummyEphemeralCreatableMetadataStore metadataStore1 =
           new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       // this is not expected to throw an exception on instantiation
       DummyEphemeralCreatableMetadataStore metadataStore2 =
           new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOTS_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       SnapshotMetadata snapshotMetadata1 = makeSnapshot("shouldAllowMultipleMetadataStores");
       metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);
