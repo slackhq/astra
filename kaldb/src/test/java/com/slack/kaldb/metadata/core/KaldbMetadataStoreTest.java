@@ -246,8 +246,11 @@ public class KaldbMetadataStoreTest {
       assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
       assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
 
-      store.deleteSync(name2);
+      store.deleteSync(snapshot21);
       assertThat(store.listSync()).containsOnly(snapshot1);
+
+      store.deleteSync(name1);
+      assertThat(store.listSync()).isEmpty();
 
       // Stop the ZK server
       testingServer.stop();
@@ -259,8 +262,11 @@ public class KaldbMetadataStoreTest {
       Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
       assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
 
-      Throwable deleteEx = catchThrowable(() -> store.deleteSync(name1));
+      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot21));
       assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
+      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
 
       Throwable listEx = catchThrowable(() -> store.listSync());
       assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
@@ -965,8 +971,11 @@ public class KaldbMetadataStoreTest {
       assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
       assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
 
-      store.deleteSync(name2);
+      store.deleteSync(snapshot2);
       assertThat(store.listSync()).containsOnly(snapshot1);
+
+      store.deleteSync(name1);
+      assertThat(store.listSync()).isEmpty();
 
       // Stop the ZK server
       testingServer.stop();
@@ -978,8 +987,11 @@ public class KaldbMetadataStoreTest {
       Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
       assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
 
-      Throwable deleteEx = catchThrowable(() -> store.deleteSync(name1));
+      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot1));
       assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
+      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
 
       Throwable listEx = catchThrowable(() -> store.listSync());
       assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
