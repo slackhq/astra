@@ -6,9 +6,9 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.slack.kaldb.chunk.manager.ChunkCleanerService;
-import com.slack.kaldb.chunk.manager.IndexingChunkManager;
-import com.slack.kaldb.chunk.manager.RollOverChunkTask;
+import com.slack.kaldb.chunkManager.ChunkCleanerService;
+import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.ChunkManagerUtil;

@@ -10,3 +10,10 @@ benchmarks/jmh-output/
 
 # Mac
 .DS_STORE
+
+# Log files
+*.log
+*log*.txt
+*logs*.txt
+*logs*.tar.gz
+*log*.tar.gz
