@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.slack.kaldb.metadata.zookeeper.ZooKeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;

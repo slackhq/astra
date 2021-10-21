@@ -28,9 +28,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A CachedMetadataStoreImpl uses a curator path cache to cache a node and all the child nodes under
- * it. In addition, this class also accepts a metadata serializer/de-serializer objects, so we only
- * serialize/de-serialize the objects only once.
+ * A ZookeeperCachedMetadataStoreImpl uses a curator path cache to cache a node and all the child
+ * nodes under it. In addition, this class also accepts a metadata serializer/de-serializer objects,
+ * so we only serialize/de-serialize the objects only once.
  *
  * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
  * root and the node value is the serialized metadata object.
@@ -43,9 +43,9 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  */
-public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
+public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     implements ZooKeeperCachedMetadataStore<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperCachedMetadataStoreImpl.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperCachedMetadataStoreImpl.class);
 
   public static final String CACHE_ERROR_COUNTER = "cache.error";
 
@@ -68,7 +68,7 @@ public class ZooKeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     STOPPED
   }
 
-  ZooKeeperCachedMetadataStoreImpl(
+  ZookeeperCachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
