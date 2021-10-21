@@ -38,6 +38,7 @@ public class BlobFsUtils {
   }
 
   // TODO: Can we copy files without list files and a prefix only?
+  // TODO: Take a complete URI as this is the format stored in snapshot data
   public static String[] copyFromS3(
       String bucket, String prefix, S3BlobFs s3BlobFs, Path localDirPath) throws Exception {
     String[] s3Files = s3BlobFs.listFiles(createURI(bucket, prefix, ""), true);

@@ -2,6 +2,12 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -81,6 +87,25 @@ public class ChunkInfo {
     chunkSnapshotTimeEpochMs = 0;
   }
 
+  public ChunkInfo(
+      String chunkId,
+      long chunkCreationTimeEpochMs,
+      long chunkLastUpdatedTimeEpochMs,
+      long dataStartTimeEpochMs,
+      long dataEndTimeEpochMs,
+      long chunkSnapshotTimeEpochMs,
+      long numDocs,
+      long chunkSize) {
+    this.chunkId = chunkId;
+    this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
+    this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
+    this.dataStartTimeEpochMs = dataStartTimeEpochMs;
+    this.dataEndTimeEpochMs = dataEndTimeEpochMs;
+    this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
+    this.numDocs = numDocs;
+    this.chunkSize = chunkSize;
+  }
+
   public long getChunkSnapshotTimeEpochMs() {
     return chunkSnapshotTimeEpochMs;
   }
@@ -145,6 +170,29 @@ public class ChunkInfo {
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
       dataEndTimeEpochMs = Math.max(dataEndTimeEpochMs, messageTimeStampMs);
     }
+  }
+
+  // todo - remove data directory argument once all the data is in the snapshot
+  public static ChunkInfo fromSnapshotMetadata(
+      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+    ChunkInfo chunkInfo =
+        new ChunkInfo(
+            snapshotMetadata.snapshotId,
+            Instant.now().toEpochMilli(),
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.startTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            -1,
+            -1);
+
+    try {
+      chunkInfo.setChunkSize(Files.size(dataDirectory));
+      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
+    } catch (IOException ignored) {
+    }
+
+    return chunkInfo;
   }
 
   @Override
