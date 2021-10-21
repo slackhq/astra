@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.core;
 
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZooKeeperCachedMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreListener;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 public abstract class CacheableMetadataStore<T extends KaldbMetadata>
     extends KaldbMetadataStore<T> {
 
-  private final Optional<ZooKeeperCachedMetadataStore<T>> cache;
+  private final Optional<ZookeeperCachedMetadataStore<T>> cache;
 
   private final List<KaldbMetadataStoreChangeListener> watchers;
 
@@ -36,7 +36,7 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
     super(metadataStore, snapshotStoreFolder, metadataSerializer, logger);
     watchers = new ArrayList<>();
     if (shouldCache) {
-      ZooKeeperCachedMetadataStore<T> localCache =
+      ZookeeperCachedMetadataStore<T> localCache =
           metadataStore.cacheNodeAndChildren(snapshotStoreFolder, metadataSerializer);
 
       // Notify listeners on cache change.
@@ -77,7 +77,7 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
 
   // Close is idempotent and also works when cache is disabled.
   public void close() {
-    cache.ifPresent(ZooKeeperCachedMetadataStore::close);
+    cache.ifPresent(ZookeeperCachedMetadataStore::close);
     watchers.clear();
   }
 

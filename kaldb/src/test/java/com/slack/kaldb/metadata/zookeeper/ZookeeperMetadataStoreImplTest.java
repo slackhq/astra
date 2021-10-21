@@ -530,7 +530,7 @@ public class ZookeeperMetadataStoreImplTest {
     assertThat(metadataStore.create(root, "", true).get()).isNull();
 
     SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
-    ZooKeeperCachedMetadataStore<SnapshotMetadata> cache =
+    ZookeeperCachedMetadataStore<SnapshotMetadata> cache =
         metadataStore.cacheNodeAndChildren(root, serDe);
     cache.start();
 

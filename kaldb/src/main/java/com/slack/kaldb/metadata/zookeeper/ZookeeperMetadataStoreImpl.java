@@ -397,7 +397,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
    * nodes under a given path.
    */
   @Override
-  public <T extends KaldbMetadata> ZooKeeperCachedMetadataStore<T> cacheNodeAndChildren(
+  public <T extends KaldbMetadata> ZookeeperCachedMetadataStore<T> cacheNodeAndChildren(
       String path, MetadataSerializer<T> metadataSerializer) {
     if (!existsImpl(path)) {
       throw new NoNodeException("Node doesn't exist at path: " + path);

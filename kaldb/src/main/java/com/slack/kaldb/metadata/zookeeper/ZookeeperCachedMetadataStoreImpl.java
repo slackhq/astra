@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
  */
 public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
-    implements ZooKeeperCachedMetadataStore<T> {
+    implements ZookeeperCachedMetadataStore<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ZookeeperCachedMetadataStoreImpl.class);
 
   public static final String CACHE_ERROR_COUNTER = "cache.error";
@@ -86,7 +86,7 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
      * structure other than a hash table. Currently, if we lose a ZK connection the cache will grow
      * stale but this class is oblivious of it.
      *
-     * NOTE: We need to pass in an executor service to the bridge builder if used with ZooKeeper
+     * NOTE: We need to pass in an executor service to the bridge builder if used with Zookeeper
      * versions older than 3.6. So, this code will may not be as performant when used with
      * Zookeeper 3.5 or less.
      *
@@ -109,17 +109,17 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
 
   private void nodeCreated(ChildData newData) {
     addInstance(newData);
-    mayBeNotify();
+    maybeNotify();
   }
 
   private void nodeDeleted(ChildData childData) {
     instances.remove(instanceIdFromData(childData));
-    mayBeNotify();
+    maybeNotify();
   }
 
   private void nodeChanged(ChildData oldData, ChildData currentData) {
     addInstance(currentData);
-    mayBeNotify();
+    maybeNotify();
   }
 
   @Override
@@ -226,7 +226,7 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     return state.get().equals(State.STOPPED);
   }
 
-  private void mayBeNotify() {
+  private void maybeNotify() {
     if (initializedLatch.getCount() == 0) {
       listenerContainer.forEach(
           listener -> {

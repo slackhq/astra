@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-public interface ZooKeeperCachedMetadataStore<T> {
+public interface ZookeeperCachedMetadataStore<T> {
   List<T> getInstances();
 
   Optional<T> get(String relativePathName);
