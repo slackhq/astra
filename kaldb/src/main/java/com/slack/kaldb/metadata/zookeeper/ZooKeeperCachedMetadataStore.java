@@ -13,9 +13,9 @@ public interface ZooKeeperCachedMetadataStore<T> {
 
   void close();
 
-  void addListener(CachedMetadataStoreListener listener);
+  void addListener(ZookeeperCachedMetadataStoreListener listener);
 
-  void addListener(CachedMetadataStoreListener listener, Executor executor);
+  void addListener(ZookeeperCachedMetadataStoreListener listener, Executor executor);
 
-  void removeListener(CachedMetadataStoreListener listener);
+  void removeListener(ZookeeperCachedMetadataStoreListener listener);
 }

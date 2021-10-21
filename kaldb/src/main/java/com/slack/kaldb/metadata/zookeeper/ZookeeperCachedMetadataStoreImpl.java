@@ -49,7 +49,7 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
 
   public static final String CACHE_ERROR_COUNTER = "cache.error";
 
-  private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
+  private final StandardListenerManager<ZookeeperCachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
   private final CuratorCacheBridge cache;
@@ -159,17 +159,17 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
   }
 
   @Override
-  public void addListener(CachedMetadataStoreListener listener) {
+  public void addListener(ZookeeperCachedMetadataStoreListener listener) {
     listenerContainer.addListener(listener);
   }
 
   @Override
-  public void addListener(CachedMetadataStoreListener listener, Executor executor) {
+  public void addListener(ZookeeperCachedMetadataStoreListener listener, Executor executor) {
     listenerContainer.addListener(listener, executor);
   }
 
   @Override
-  public void removeListener(CachedMetadataStoreListener listener) {
+  public void removeListener(ZookeeperCachedMetadataStoreListener listener) {
     listenerContainer.removeListener(listener);
   }
 

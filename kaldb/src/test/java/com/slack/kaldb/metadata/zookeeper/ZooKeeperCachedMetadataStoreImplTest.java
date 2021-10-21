@@ -49,9 +49,8 @@ public class ZooKeeperCachedMetadataStoreImplTest {
     defaultRootStr = serDe.toJsonStr(defaultRoot);
   }
 
-  static class CountingCachedMetadataListener implements CachedMetadataStoreListener {
+  static class CountingCachedMetadataListener implements ZookeeperCachedMetadataStoreListener {
     private int cacheChangedCounter = 0;
-    // TODO: Add a test with state changed counter.
     private int stateChangedCounter = 0;
 
     @Override
@@ -102,7 +101,7 @@ public class ZooKeeperCachedMetadataStoreImplTest {
 
   private ZooKeeperCachedMetadataStore<SnapshotMetadata> makeCachedStore(
       String path,
-      CachedMetadataStoreListener listener,
+      ZookeeperCachedMetadataStoreListener listener,
       MetadataSerializer<SnapshotMetadata> metadataSerializer)
       throws Exception {
 
@@ -127,7 +126,7 @@ public class ZooKeeperCachedMetadataStoreImplTest {
     ZooKeeperCachedMetadataStore<SnapshotMetadata> cache =
         makeCachedStore(
             "/race",
-            new CachedMetadataStoreListener() {
+            new ZookeeperCachedMetadataStoreListener() {
               @Override
               public void cacheChanged() {
                 LOG.info("Cache change started execution");
@@ -349,8 +348,8 @@ public class ZooKeeperCachedMetadataStoreImplTest {
   public void testThrowingListenerOnCache() throws Exception {
     final String root = "/root";
     assertThat(metadataStore.create(root, defaultRootStr, true).get()).isNull();
-    CachedMetadataStoreListener listener =
-        new CachedMetadataStoreListener() {
+    ZookeeperCachedMetadataStoreListener listener =
+        new ZookeeperCachedMetadataStoreListener() {
           @Override
           public void cacheChanged() {
             throw new RuntimeException("fail");

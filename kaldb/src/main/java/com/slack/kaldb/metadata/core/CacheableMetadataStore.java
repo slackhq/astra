@@ -1,8 +1,8 @@
 package com.slack.kaldb.metadata.core;
 
-import com.slack.kaldb.metadata.zookeeper.CachedMetadataStoreListener;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZooKeeperCachedMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +41,7 @@ public abstract class CacheableMetadataStore<T extends KaldbMetadata>
 
       // Notify listeners on cache change.
       localCache.addListener(
-          new CachedMetadataStoreListener() {
+          new ZookeeperCachedMetadataStoreListener() {
             @Override
             public void cacheChanged() {
               notifyListeners();
