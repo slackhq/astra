@@ -65,9 +65,19 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
       throw new InternalMetadataStoreException(
           "Failed to update node " + metadataNode.toString(), e);
     }
+  }
 
   public ListenableFuture<?> delete(T metadataNode) {
     String path = getPath(metadataNode.name);
     return metadataStore.delete(path);
+  }
+
+  public void deleteSync(T metadataNode) {
+    try {
+      delete(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      throw new InternalMetadataStoreException(
+          "Failed to delete node: " + metadataNode.toString(), e);
+    }
   }
 }
