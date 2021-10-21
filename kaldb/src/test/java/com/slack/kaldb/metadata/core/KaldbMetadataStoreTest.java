@@ -1,5 +1,8 @@
 package com.slack.kaldb.metadata.core;
 
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -33,6 +36,11 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
+
+  private static final SnapshotMetadata ROOT_SNAPSHOT = makeSnapshot("defaultRootSnapshot");
+  private static final SnapshotMetadataSerializer snapshotMetadataSerializer =
+      new SnapshotMetadataSerializer();
+
   static SnapshotMetadata makeSnapshot(String name) {
     return makeSnapshot(name, 100);
   }
@@ -70,9 +78,11 @@ public class KaldbMetadataStoreTest {
     private ZookeeperMetadataStoreImpl zkMetadataStore;
     private MeterRegistry meterRegistry;
     private DummyPersistentCreatableUpdatableCacheableMetadataStore store;
+    private int expectedCacheErrorCounter = 0;
 
     @Before
     public void setUp() throws Exception {
+      expectedCacheErrorCounter = 0;
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
       // flaky.
@@ -87,14 +97,24 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
       this.store =
           new DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
+
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -320,8 +340,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
     }
@@ -334,8 +354,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -354,7 +374,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot1).get()).isNull();
       notificationCountDownLatch.await();
       await().until(() -> store.getCached().contains(newSnapshot1));
-      assertThat(store.getCached()).containsOnly(newSnapshot1);
+      assertThat(store.getCached()).containsOnly(newSnapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(newSnapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
     }
@@ -366,8 +386,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -383,8 +403,8 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name1).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 0);
-      assertThat(store.getCached().isEmpty()).isTrue();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(ROOT_SNAPSHOT);
       assertThat(store.list().get().isEmpty()).isTrue();
       assertThat(notificationCounter.get()).isEqualTo(1);
     }
@@ -397,8 +417,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -423,8 +443,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
       notificationCountDownLatch2.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
@@ -438,8 +458,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
@@ -471,8 +491,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(3);
@@ -486,8 +506,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
@@ -511,8 +531,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       await().until(() -> store.getCached().contains(snapshot2));
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
@@ -521,8 +541,8 @@ public class KaldbMetadataStoreTest {
       store.removeListener(regularListener2);
       assertThat(store.delete(name2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(3);
@@ -547,29 +567,31 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final String name2 = "snapshot2";
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
 
       // Corrupt the metadata store.
       assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
 
       // Get throws exception but store is fine.
       Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot2);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
+      expectedCacheErrorCounter = 1;
     }
   }
 
@@ -610,13 +632,22 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
       this.store =
           new DummyPersistentCreatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -635,16 +666,16 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Updates throw an exception.
       SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
@@ -654,8 +685,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
 
       assertThat(store.delete(name1).get()).isNull();
       assertThat(store.list().get().isEmpty()).isTrue();
@@ -704,7 +735,7 @@ public class KaldbMetadataStoreTest {
               meterRegistry);
       this.store =
           new DummyPersistentCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -789,9 +820,11 @@ public class KaldbMetadataStoreTest {
     private ZookeeperMetadataStoreImpl zkMetadataStore;
     private MeterRegistry meterRegistry;
     private DummyEphemeralCreatableUpdatableCacheableMetadataStore store;
+    private int expectedCacheErrorCount = 0;
 
     @Before
     public void setUp() throws Exception {
+      expectedCacheErrorCount = 0;
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
       // flaky.
@@ -806,14 +839,23 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
       this.store =
           new DummyEphemeralCreatableUpdatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCount);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1039,8 +1081,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
     }
@@ -1053,8 +1095,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -1073,8 +1115,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.update(newSnapshot1).get()).isNull();
       notificationCountDownLatch.await();
       await().until(() -> store.getCached().contains(newSnapshot1));
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(newSnapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(newSnapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(newSnapshot1);
       assertThat(notificationCounter.get()).isEqualTo(1);
     }
@@ -1086,8 +1128,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -1103,8 +1145,8 @@ public class KaldbMetadataStoreTest {
 
       assertThat(store.delete(name1).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 0);
-      assertThat(store.getCached().isEmpty()).isTrue();
+      await().until(() -> store.getCached().size() == 1);
+      assertThat(store.getCached()).containsOnly(ROOT_SNAPSHOT);
       assertThat(store.list().get().isEmpty()).isTrue();
       await().until(() -> notificationCounter.get() == 1);
     }
@@ -1117,8 +1159,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
@@ -1143,8 +1185,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
       notificationCountDownLatch2.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
@@ -1158,8 +1200,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
@@ -1191,8 +1233,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(3);
@@ -1206,8 +1248,8 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
@@ -1231,8 +1273,8 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       await().until(() -> store.getCached().contains(snapshot2));
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
       assertThat(notificationCounter.get()).isEqualTo(2);
@@ -1241,8 +1283,8 @@ public class KaldbMetadataStoreTest {
       store.removeListener(regularListener2);
       assertThat(store.delete(name2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
       assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
       assertThat(notificationCounter.get()).isEqualTo(3);
@@ -1267,18 +1309,19 @@ public class KaldbMetadataStoreTest {
       final String name1 = "snapshot1";
       SnapshotMetadata snapshot1 = makeSnapshot(name1);
       assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1);
 
       final String name2 = "snapshot2";
       SnapshotMetadata snapshot2 = makeSnapshot(name2);
       assertThat(store.create(snapshot2).get()).isNull();
       notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
 
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       // Corrupt the metadata store.
       assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
 
@@ -1287,9 +1330,10 @@ public class KaldbMetadataStoreTest {
       assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
       assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
 
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot2);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot2, ROOT_SNAPSHOT);
       assertThat(store.list().get()).containsOnly(null, snapshot2);
+      expectedCacheErrorCount = 1;
     }
   }
 
@@ -1330,13 +1374,22 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
       this.store =
           new DummyEphemeralCreatableCacheableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1355,16 +1408,16 @@ public class KaldbMetadataStoreTest {
       assertThat(store.create(snapshot2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(2);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Updates throw an exception.
       SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
       Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
       assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2);
+      await().until(() -> store.getCached().size() == 3);
+      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
 
       // Adding a snapshot with the same name but different values throws exception.
       SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
@@ -1374,8 +1427,8 @@ public class KaldbMetadataStoreTest {
       assertThat(store.delete(name2).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(snapshot1);
+      await().until(() -> store.getCached().size() == 2);
+      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
 
       assertThat(store.delete(name1).get()).isNull();
       assertThat(store.list().get().isEmpty()).isTrue();
@@ -1422,9 +1475,17 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
       this.store =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
     @After
@@ -1522,10 +1583,19 @@ public class KaldbMetadataStoreTest {
               new RetryNTimes(1, 500),
               countingFatalErrorHandler,
               meterRegistry);
+      assertThat(
+              zkMetadataStore
+                  .create(
+                      SNAPSHOT_METADATA_STORE_ZK_PATH,
+                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
+                      true)
+                  .get())
+          .isNull();
     }
 
     @After
     public void tearDown() throws IOException {
+      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
       testingServer.close();
       meterRegistry.close();
@@ -1536,12 +1606,12 @@ public class KaldbMetadataStoreTest {
       // Attempt to instantiate multiple metadata stores at the same path
       DummyEphemeralCreatableMetadataStore metadataStore1 =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       // this is not expected to throw an exception on instantiation
       DummyEphemeralCreatableMetadataStore metadataStore2 =
           new DummyEphemeralCreatableMetadataStore(
-              "/snapshots", zkMetadataStore, new SnapshotMetadataSerializer(), LOG);
+              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
       SnapshotMetadata snapshotMetadata1 = makeSnapshot("shouldAllowMultipleMetadataStores");
       metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);

@@ -119,6 +119,9 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
    *
    * <p>TODO: In future, cap the number of parallel calls to ZK to a fixed number. While slow, this
    * call will not overwhelm ZK.
+   *
+   * <p>TODO: Should list return root node also or just children? Does this function work for single
+   * node?
    */
   @SuppressWarnings("UnstableApiUsage")
   public ListenableFuture<List<T>> list() {
