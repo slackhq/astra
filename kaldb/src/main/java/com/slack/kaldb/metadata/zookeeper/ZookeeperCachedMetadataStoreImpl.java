@@ -14,9 +14,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.EnsureContainers;
@@ -25,36 +22,34 @@ import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheBridge;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ZKPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A CachedMetadataStoreImpl uses a curator path cache to cache all the nodes under a given node. In
- * addition, this class also accepts a metadata serializer/de-serializer objects, so we only
- * serialize/de-serialize the objects only once.
+ * A ZookeeperCachedMetadataStoreImpl uses a curator path cache to cache a node and all the child
+ * nodes under it. In addition, this class also accepts a metadata serializer/de-serializer objects,
+ * so we only serialize/de-serialize the objects only once.
  *
  * <p>This class also caches nested nodes. The key is the path of the node relative to the cache
  * root and the node value is the serialized metadata object.
  *
- * <p>NOTE: Since a directory is also a node in ZK, the directory node should also have a metadata
- * object in it's value even though it's not used. This is a different from a regular file system.
+ * <p>NOTE: Unlike a regular file system, Since a directory is also a node in ZK, the directory node
+ * should also have a metadata object in it's value.
  *
  * <p>Currently, the cache is not cleared when a ZK server starts and stops which could be a bug.
  * But it's fine for now, since we may terminate and restart the process when ZK is unavailable.
  *
  * <p>TODO: Cache is refreshed when a ZK server stops/restarts.
- *
- * <p>TODO: Prefix this class name with ZK.
  */
-public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedMetadataStore<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(CachedMetadataStoreImpl.class);
+public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
+    implements ZookeeperCachedMetadataStore<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(ZookeeperCachedMetadataStoreImpl.class);
 
   public static final String CACHE_ERROR_COUNTER = "cache.error";
 
-  private final StandardListenerManager<CachedMetadataStoreListener> listenerContainer =
+  private final StandardListenerManager<ZookeeperCachedMetadataStoreListener> listenerContainer =
       StandardListenerManager.standard();
   private final AtomicReference<State> state = new AtomicReference<>(State.LATENT);
   private final CuratorCacheBridge cache;
@@ -73,51 +68,58 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     STOPPED
   }
 
-  private static ExecutorService convertThreadFactory(ThreadFactory threadFactory) {
-    Preconditions.checkNotNull(threadFactory, "threadFactory cannot be null");
-    return Executors.newSingleThreadExecutor(threadFactory);
-  }
-
-  CachedMetadataStoreImpl(
+  ZookeeperCachedMetadataStoreImpl(
       String path,
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
-      ThreadFactory threadFactory,
-      MeterRegistry meterRegistry) {
-    this(path, metadataSerde, curator, convertThreadFactory(threadFactory), meterRegistry);
-  }
-
-  CachedMetadataStoreImpl(
-      String path,
-      MetadataSerializer<T> metadataSerde,
-      CuratorFramework curator,
-      ExecutorService executorService,
       MeterRegistry meterRegistry) {
     Preconditions.checkNotNull(path, "name cannot be null");
     Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
     Preconditions.checkNotNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
     this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
-    // Create a curator cache but don't store any data in it since CacheStorage only allows
-    // storing data as a byte array. Instead use the curator cache implementation for
-    // managing persistent watchers and other admin tasks. Instead add a listener which would
-    // cache the data locally as a POJO using a serializer. In future, this also allows us to store
-    // the data in a custom data structure other than a hash table. Currently, if we lose a ZK
-    // connection the cache will grow stale but this class is oblivious of it.
-    // TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
-    cache =
-        CuratorCache.bridgeBuilder(curator, path)
-            .withExecutorService(executorService)
-            .withDataNotCached()
-            .build();
+    /*
+     * Create a curator cache but don't store any data in it since CacheStorage only allows storing
+     * data as a byte array. Instead use the curator cache implementation for managing persistent
+     * watchers and other admin tasks. Instead add a listener which would cache the data locally as
+     * a POJO using a serializer. In future, this also allows us to store the data in a custom data
+     * structure other than a hash table. Currently, if we lose a ZK connection the cache will grow
+     * stale but this class is oblivious of it.
+     *
+     * NOTE: We need to pass in an executor service to the bridge builder if used with Zookeeper
+     * versions older than 3.6. So, this code will may not be as performant when used with
+     * Zookeeper 3.5 or less.
+     *
+     * <p>TODO: Add a mechanism to detect a stale cache indicate that a cache is stale.
+     */
+    cache = CuratorCache.bridgeBuilder(curator, path).withDataNotCached().build();
+    // All changes to child nodes also fire a notification on root node. So, we handle all
+    // callbacks on the parent node.
     CuratorCacheListener listener =
         CuratorCacheListener.builder()
-            .forPathChildrenCache(path, curator, this)
-            .forInitialized(this::initialized)
+            .forCreates(this::nodeCreated)
+            .forChanges(this::nodeChanged)
+            .forDeletes(this::nodeDeleted)
+            .forInitialized(this::cachedNodeAndChildren)
             .build();
     cache.listenable().addListener(listener);
     ensureContainers = new EnsureContainers(curator, path);
     errorCounter = meterRegistry.counter(CACHE_ERROR_COUNTER);
+  }
+
+  private void nodeCreated(ChildData newData) {
+    addInstance(newData);
+    maybeNotify();
+  }
+
+  private void nodeDeleted(ChildData childData) {
+    instances.remove(instanceIdFromData(childData));
+    maybeNotify();
+  }
+
+  private void nodeChanged(ChildData oldData, ChildData currentData) {
+    addInstance(currentData);
+    maybeNotify();
   }
 
   @Override
@@ -157,53 +159,18 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
   }
 
   @Override
-  public void addListener(CachedMetadataStoreListener listener) {
+  public void addListener(ZookeeperCachedMetadataStoreListener listener) {
     listenerContainer.addListener(listener);
   }
 
   @Override
-  public void addListener(CachedMetadataStoreListener listener, Executor executor) {
+  public void addListener(ZookeeperCachedMetadataStoreListener listener, Executor executor) {
     listenerContainer.addListener(listener, executor);
   }
 
   @Override
-  public void removeListener(CachedMetadataStoreListener listener) {
+  public void removeListener(ZookeeperCachedMetadataStoreListener listener) {
     listenerContainer.removeListener(listener);
-  }
-
-  @Override
-  public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) {
-    boolean notifyListeners = false;
-    switch (event.getType()) {
-      case CHILD_ADDED:
-      case CHILD_UPDATED:
-        {
-          addInstance(event.getData());
-          notifyListeners = true;
-          break;
-        }
-
-      case CHILD_REMOVED:
-        {
-          instances.remove(instanceIdFromData(event.getData()));
-          notifyListeners = true;
-          break;
-        }
-    }
-
-    if (notifyListeners && (initializedLatch.getCount() == 0)) {
-      listenerContainer.forEach(
-          listener -> {
-            try {
-              listener.cacheChanged();
-            } catch (Exception e) {
-              // If a listener throws an exception log it and ignore it.
-              errorCounter.increment();
-              LOG.error("Caught an exception notifying listener " + listener, e);
-            }
-          });
-      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
-    }
   }
 
   private static String removeStart(final String str, final String remove) {
@@ -254,7 +221,32 @@ public class CachedMetadataStoreImpl<T extends KaldbMetadata> implements CachedM
     return state.get().equals(State.STARTED);
   }
 
-  private void initialized() {
+  @VisibleForTesting
+  public boolean isStopped() {
+    return state.get().equals(State.STOPPED);
+  }
+
+  private void maybeNotify() {
+    // TODO: getCount when used this way could return a stale value and we may have a race
+    //  condition here. Update this code to not use getCount.
+    if (initializedLatch.getCount() == 0) {
+      listenerContainer.forEach(
+          listener -> {
+            try {
+              listener.cacheChanged();
+            } catch (Exception e) {
+              // If a listener throws an exception log it and ignore it.
+              errorCounter.increment();
+              LOG.error("Caught an exception notifying listener " + listener, e);
+            }
+          });
+      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
+    }
+  }
+
+  /** This function is called after both the path and it's children are cached. */
+  public void cachedNodeAndChildren() {
+    LOG.debug("initialized");
     initializedLatch.countDown();
   }
 }

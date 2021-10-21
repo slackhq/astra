@@ -27,6 +27,6 @@ public interface MetadataStore {
 
   ListenableFuture<List<String>> getChildren(String path);
 
-  <T extends KaldbMetadata> CachedMetadataStore<T> cacheNodeAndChildren(
+  <T extends KaldbMetadata> ZookeeperCachedMetadataStore<T> cacheNodeAndChildren(
       String path, MetadataSerializer<T> metadataSerializer) throws Exception;
 }
