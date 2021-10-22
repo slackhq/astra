@@ -271,9 +271,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
               snapshotMetadataStore,
               searchContext);
       chunkList.add(newChunk);
+      // Register the chunk, so we can search it.
       newChunk.register();
-      // TODO: Register live snapshot, register a search metadata node.
-
       activeChunk = newChunk;
     }
     return activeChunk;
