@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -45,6 +46,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private final SearchContext searchContext;
+  private final SearchMetadata liveSearchMetadata;
+  private final SnapshotMetadata liveSnapshotMetadata;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
@@ -76,6 +79,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     this.meterRegistry = meterRegistry;
+    liveSnapshotMetadata = toSnapshotMetadata(chunkInfo);
+    liveSearchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchContext = searchContext;
@@ -83,14 +88,27 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   public void register() {
-    SearchMetadata searchMetadata =
-        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
-    searchMetadataStore.createSync(searchMetadata);
-    // TODO: Register snapshot
+    snapshotMetadataStore.createSync(liveSnapshotMetadata);
+    searchMetadataStore.createSync(liveSearchMetadata);
   }
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
+  }
+
+  private SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo) {
+    // TODO: Set accurate start and end offset and kafka partition id in chunk info.
+    // TODO: Ensure end time is INF for now.
+    // TODO: Move to chunkInfo class?
+    // TODO: Does chunkInfo have all the fields we need?
+    return new SnapshotMetadata(
+        chunkInfo.chunkId,
+        SearchMetadata.LIVE_SNAPSHOT_NAME,
+        chunkInfo.chunkId,
+        chunkInfo.getDataStartTimeEpochMs(),
+        chunkInfo.getDataEndTimeEpochMs(),
+        0,
+        "");
   }
 
   /**
@@ -187,8 +205,19 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   public void postSnapshot() {
-    // TODO: Register non-live snapshot, add new search node for snapshot, Remove live
-    //  snapshot,  remove search node for live.
+    // Register a non-live snapshot node and a search node. New nodes should be registered before
+    // removing old nodes so there is no availability gap in the data.
+    SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo);
+    snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
+
+    SearchMetadata nonLiveSearchMetadata = toSearchMetadata(chunkInfo.chunkId, searchContext);
+    searchMetadataStore.createSync(nonLiveSearchMetadata);
+
+    // TODO: Delete right away?
+    // TODO: Set the local vars to null after removal?
+    // TODO: Instead of adding new search node, should we update existing node?
+    searchMetadataStore.deleteSync(liveSearchMetadata);
+    snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
