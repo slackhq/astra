@@ -23,6 +23,7 @@ import org.apache.commons.text.StringSubstitutor;
 public class KaldbConfig {
   // Default start/stop duration for guava services.
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
+  public static final int DEFAULT_ZK_TIMEOUT_SECS = 15;
 
   // Zookeeper paths for meta data stores.
   public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";

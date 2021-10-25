@@ -2,18 +2,22 @@ package com.slack.kaldb.metadata.core;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 import org.apache.curator.utils.ZKPaths;
 import org.slf4j.Logger;
@@ -24,6 +28,10 @@ import org.slf4j.Logger;
  * <p>This abstraction is needed so that we can limit the ZK access to the application to a specific
  * set of paths and also to limit the operations that can be performed on those nodes. For example,
  * we only want the SnapshotMetadata to ever be created or deleted but never updated.
+ *
+ * <p>Every method provides an async(returns a future) and a sync API. In general, use the async API
+ * you are performing batch operations and a sync if you are performing a synchronous operation on a
+ * node.
  */
 abstract class KaldbMetadataStore<T extends KaldbMetadata> {
   protected final MetadataStore metadataStore;
@@ -94,6 +102,14 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
         metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
   }
 
+  public T getNodeSync(String path) {
+    try {
+      return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
+    }
+  }
+
   /**
    * Fetches all the nodes under a given path. This function can be very expensive on nodes with a
    * large number of children so use it very sparingly in the code. If working with slightly stale
@@ -138,7 +154,23 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     return Futures.transform(children, transformFunc, MoreExecutors.directExecutor());
   }
 
+  public List<T> listSync() {
+    try {
+      return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error listing node under path", e);
+    }
+  }
+
   public ListenableFuture<?> delete(String path) {
     return metadataStore.delete(getPath(path));
+  }
+
+  public void deleteSync(String path) {
+    try {
+      delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
+    }
   }
 }

@@ -245,6 +245,58 @@ public class KaldbMetadataStoreTest {
     }
 
     @Test
+    public void testSyncStoreOperationsOnStoppedServer()
+        throws IOException, NoSuchFieldException, IllegalAccessException {
+      assertThat(store.listSync().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      store.createSync(snapshot1);
+      assertThat(store.listSync()).containsOnly(snapshot1);
+      assertThat(store.listSync().size()).isEqualTo(1);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      store.createSync(snapshot2);
+      assertThat(store.listSync()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot2);
+
+      SnapshotMetadata snapshot21 = makeSnapshot(name2, 100000);
+      store.updateSync(snapshot21);
+      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
+      assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
+
+      store.deleteSync(snapshot21);
+      assertThat(store.listSync()).containsOnly(snapshot1);
+
+      store.deleteSync(name1);
+      assertThat(store.listSync()).isEmpty();
+
+      // Stop the ZK server
+      testingServer.stop();
+
+      // store.createSync(snapshot1);
+      Throwable createEx = catchThrowable(() -> store.createSync(snapshot1));
+      assertThat(createEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
+      assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot21));
+      assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
+      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable listEx = catchThrowable(() -> store.listSync());
+      assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable getEx = catchThrowable(() -> store.getNodeSync(name1));
+      assertThat(getEx).isInstanceOf(InternalMetadataStoreException.class);
+      closeZookeeperClientConnection(zooKeeper);
+    }
+
+    @Test
     public void testStoreOperationsOnStoppedServer()
         throws ExecutionException, InterruptedException, IOException, NoSuchFieldException,
             IllegalAccessException {
@@ -937,6 +989,58 @@ public class KaldbMetadataStoreTest {
 
       Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
       assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
+    }
+
+    @Test
+    public void testSyncStoreOperationsOnStoppedServer()
+        throws IOException, NoSuchFieldException, IllegalAccessException {
+      assertThat(store.listSync().isEmpty()).isTrue();
+
+      final String name1 = "snapshot1";
+      SnapshotMetadata snapshot1 = makeSnapshot(name1);
+      store.createSync(snapshot1);
+      assertThat(store.listSync()).containsOnly(snapshot1);
+      assertThat(store.listSync().size()).isEqualTo(1);
+
+      final String name2 = "snapshot2";
+      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      store.createSync(snapshot2);
+      assertThat(store.listSync()).containsOnly(snapshot1, snapshot2);
+      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot2);
+
+      SnapshotMetadata snapshot21 = makeSnapshot(name2, 100000);
+      store.updateSync(snapshot21);
+      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
+      assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
+
+      store.deleteSync(snapshot2);
+      assertThat(store.listSync()).containsOnly(snapshot1);
+
+      store.deleteSync(name1);
+      assertThat(store.listSync()).isEmpty();
+
+      // Stop the ZK server
+      testingServer.stop();
+
+      // store.createSync(snapshot1);
+      Throwable createEx = catchThrowable(() -> store.createSync(snapshot1));
+      assertThat(createEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
+      assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot1));
+      assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
+      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable listEx = catchThrowable(() -> store.listSync());
+      assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
+
+      Throwable getEx = catchThrowable(() -> store.getNodeSync(name1));
+      assertThat(getEx).isInstanceOf(InternalMetadataStoreException.class);
+      closeZookeeperClientConnection(zooKeeper);
     }
 
     @Test
