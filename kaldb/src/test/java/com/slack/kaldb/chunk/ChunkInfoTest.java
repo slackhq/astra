@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -16,8 +17,8 @@ public class ChunkInfoTest {
     final ChunkInfo info = new ChunkInfo(testChunkName, 1000);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTime);
-    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
-    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTime);
+    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
   }
 
@@ -28,8 +29,8 @@ public class ChunkInfoTest {
     final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeEpochMilli);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
-    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
-    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
+    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
 
     // Add message with same time range.
@@ -91,17 +92,28 @@ public class ChunkInfoTest {
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(startTimePlus2MinMilli);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testUnInitializedChunkDataInRange() {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeSecs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
     final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeSecs);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
-    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
-    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
+    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
-    assertThat(info.containsDataInTimeRange(1000, 1001)).isTrue();
+    assertThat(info.containsDataInTimeRange(1000, 1001)).isFalse();
+    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs, MAX_FUTURE_TIME)).isTrue();
+    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs, MAX_FUTURE_TIME - 1)).isTrue();
+    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs + 1, MAX_FUTURE_TIME - 1))
+        .isTrue();
+    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs - 1, MAX_FUTURE_TIME - 1))
+        .isTrue();
+    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs - 1, MAX_FUTURE_TIME + 1))
+        .isTrue();
+    assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs - 1)).isFalse();
+    assertThat(info.containsDataInTimeRange(MAX_FUTURE_TIME + 1, MAX_FUTURE_TIME + 100)).isFalse();
+    assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs + 1)).isTrue();
   }
 
   @Test
@@ -111,8 +123,8 @@ public class ChunkInfoTest {
     final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeMs);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
-    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
-    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
+    assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
 
     // Expand the time range for chunk info.

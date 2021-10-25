@@ -23,6 +23,7 @@ import java.util.Objects;
  * TODO: Add a state machine for a chunk?
  */
 public class ChunkInfo {
+  public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
 
   /* A unique identifier for a the chunk. */
   public final String chunkId;
@@ -66,6 +67,7 @@ public class ChunkInfo {
     this.chunkSize = chunkSize;
   }
 
+  // TODO: Why do we need this info?
   // Number of docs in this chunk
   private long numDocs;
 
@@ -80,8 +82,8 @@ public class ChunkInfo {
 
     this.chunkId = chunkId;
     this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
-    dataStartTimeEpochMs = 0;
-    dataEndTimeEpochMs = 0;
+    dataStartTimeEpochMs = chunkCreationTimeEpochMs;
+    dataEndTimeEpochMs = MAX_FUTURE_TIME;
     chunkLastUpdatedTimeEpochMs = chunkCreationTimeEpochMs;
     // TODO: Should we set the snapshot time to creation time also?
     chunkSnapshotTimeEpochMs = 0;
@@ -150,9 +152,6 @@ public class ChunkInfo {
         endTimeMs - startTimeMs >= 0,
         String.format(
             "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
-    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
-      throw new IllegalStateException("Data start or end time should be initialized before query.");
-    }
     return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
         || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
         || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
@@ -162,9 +161,9 @@ public class ChunkInfo {
    * Update the max and min data time range of the chunk given a new timestamp.
    */
   public void updateDataTimeRange(long messageTimeStampMs) {
-    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
-      dataStartTimeEpochMs = messageTimeStampMs;
-      dataEndTimeEpochMs = messageTimeStampMs;
+    if (dataEndTimeEpochMs == MAX_FUTURE_TIME) {
+      dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
+      dataEndTimeEpochMs = Math.min(dataEndTimeEpochMs, messageTimeStampMs);
     } else {
       // TODO: Would only updating the values if there is a change make this code faster?
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
