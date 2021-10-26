@@ -72,6 +72,7 @@ public class ChunkInfo {
   // Size of the chunk
   private long chunkSize;
 
+  // Path to S3 snapshot.
   private String snapshotPath;
 
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
