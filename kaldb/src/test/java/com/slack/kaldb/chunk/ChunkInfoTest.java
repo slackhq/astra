@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ChunkInfo.DEFAULT_MAX_OFFSET;
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -275,5 +276,25 @@ public class ChunkInfoTest {
   @Test(expected = IllegalArgumentException.class)
   public void testEmptyKafkaPartitionId() {
     new ChunkInfo(testChunkName, 100, "");
+  }
+
+  @Test
+  public void testOffset() {
+    ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 100, TEST_KAFKA_PARTITION_ID);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
+    chunkInfo.updateMaxOffset(100);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(100);
+    chunkInfo.updateMaxOffset(101);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(101);
+    chunkInfo.updateMaxOffset(103);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(103);
+
+    // Inserting a lower message offset doesn't decrement the offset.
+    chunkInfo.updateMaxOffset(102);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(103);
+
+    // A higher offset increments the counter.
+    chunkInfo.updateMaxOffset(104);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(104);
   }
 }

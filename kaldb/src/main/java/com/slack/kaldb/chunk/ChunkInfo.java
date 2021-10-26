@@ -181,6 +181,10 @@ public class ChunkInfo {
     return chunkCreationTimeEpochMs;
   }
 
+  public long getMaxOffset() {
+    return maxOffset;
+  }
+
   public long getChunkLastUpdatedTimeEpochMs() {
     return chunkLastUpdatedTimeEpochMs;
   }
