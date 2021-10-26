@@ -72,19 +72,12 @@ public class ChunkInfo {
   // Size of the chunk
   private long chunkSize;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
-    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
-    ensureTrue(
-        chunkCreationTimeEpochMs >= 0,
-        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
+  // Path to S3 snapshot.
+  private String snapshotPath;
 
-    this.chunkId = chunkId;
-    this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
-    dataStartTimeEpochMs = 0;
-    dataEndTimeEpochMs = 0;
-    chunkLastUpdatedTimeEpochMs = chunkCreationTimeEpochMs;
+  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     // TODO: Should we set the snapshot time to creation time also?
-    chunkSnapshotTimeEpochMs = 0;
+    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, 0, 0, "");
   }
 
   public ChunkInfo(
@@ -95,7 +88,12 @@ public class ChunkInfo {
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
       long numDocs,
-      long chunkSize) {
+      long chunkSize,
+      String snapshotPath) {
+    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
+    ensureTrue(
+        chunkCreationTimeEpochMs >= 0,
+        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
     this.chunkId = chunkId;
     this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
@@ -104,6 +102,7 @@ public class ChunkInfo {
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
     this.numDocs = numDocs;
     this.chunkSize = chunkSize;
+    this.snapshotPath = snapshotPath;
   }
 
   public long getChunkSnapshotTimeEpochMs() {
@@ -142,6 +141,18 @@ public class ChunkInfo {
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
   }
 
+  public void setSnapshotPath(String snapshotPath) {
+    if (this.snapshotPath == null || this.snapshotPath.isEmpty()) {
+      this.snapshotPath = snapshotPath;
+    } else {
+      throw new IllegalStateException("Snapshot path is already set.");
+    }
+  }
+
+  public String getSnapshotPath() {
+    return snapshotPath;
+  }
+
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
@@ -173,6 +184,7 @@ public class ChunkInfo {
   }
 
   // todo - remove data directory argument once all the data is in the snapshot
+  // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
   public static ChunkInfo fromSnapshotMetadata(
       SnapshotMetadata snapshotMetadata, Path dataDirectory) {
     ChunkInfo chunkInfo =
@@ -184,7 +196,8 @@ public class ChunkInfo {
             snapshotMetadata.endTimeUtc,
             snapshotMetadata.endTimeUtc,
             -1,
-            -1);
+            -1,
+            snapshotMetadata.snapshotPath);
 
     try {
       chunkInfo.setChunkSize(Files.size(dataDirectory));

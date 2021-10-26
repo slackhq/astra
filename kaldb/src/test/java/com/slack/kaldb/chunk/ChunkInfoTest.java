@@ -19,6 +19,7 @@ public class ChunkInfoTest {
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getSnapshotPath()).isEmpty();
   }
 
   @Test
@@ -31,6 +32,7 @@ public class ChunkInfoTest {
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(0);
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getSnapshotPath()).isEmpty();
 
     // Add message with same time range.
     info.updateDataTimeRange(chunkCreationTimeEpochMilli);
@@ -102,6 +104,7 @@ public class ChunkInfoTest {
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(0);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
     assertThat(info.containsDataInTimeRange(1000, 1001)).isTrue();
+    assertThat(info.getSnapshotPath()).isEmpty();
   }
 
   @Test
@@ -254,5 +257,15 @@ public class ChunkInfoTest {
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeChunkCreationTime() {
     new ChunkInfo(testChunkName, -1);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testSnapshotPath() {
+    ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 10000);
+    assertThat(chunkInfo.getSnapshotPath()).isEmpty();
+    String testPath = "/path";
+    chunkInfo.setSnapshotPath(testPath);
+    assertThat(chunkInfo.getSnapshotPath()).isEqualTo(testPath);
+    chunkInfo.setSnapshotPath("testPath1");
   }
 }

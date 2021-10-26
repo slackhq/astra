@@ -1,6 +1,7 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
+import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -150,6 +151,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       final int success = copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(activeFiles.size() - success);
+      chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
       LOG.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {
