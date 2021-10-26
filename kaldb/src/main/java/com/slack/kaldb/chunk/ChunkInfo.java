@@ -72,17 +72,11 @@ public class ChunkInfo {
   // Size of the chunk
   private long chunkSize;
 
+  private String snapshotPath;
+
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     // TODO: Should we set the snapshot time to creation time also?
-    this(
-        chunkId,
-        chunkCreationTimeEpochMs,
-        chunkCreationTimeEpochMs,
-        0,
-        0,
-        0,
-        0,
-        0);
+    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, 0, 0, "");
   }
 
   public ChunkInfo(
@@ -93,7 +87,8 @@ public class ChunkInfo {
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
       long numDocs,
-      long chunkSize) {
+      long chunkSize,
+      String snapshotPath) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
         chunkCreationTimeEpochMs >= 0,
@@ -106,6 +101,7 @@ public class ChunkInfo {
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
     this.numDocs = numDocs;
     this.chunkSize = chunkSize;
+    this.snapshotPath = snapshotPath;
   }
 
   public long getChunkSnapshotTimeEpochMs() {
@@ -175,18 +171,20 @@ public class ChunkInfo {
   }
 
   // todo - remove data directory argument once all the data is in the snapshot
+  // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
   public static ChunkInfo fromSnapshotMetadata(
-      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+          SnapshotMetadata snapshotMetadata, Path dataDirectory) {
     ChunkInfo chunkInfo =
-        new ChunkInfo(
-            snapshotMetadata.snapshotId,
-            Instant.now().toEpochMilli(),
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.startTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            -1,
-            -1);
+            new ChunkInfo(
+                    snapshotMetadata.snapshotId,
+                    Instant.now().toEpochMilli(),
+                    snapshotMetadata.endTimeUtc,
+                    snapshotMetadata.startTimeUtc,
+                    snapshotMetadata.endTimeUtc,
+                    snapshotMetadata.endTimeUtc,
+                    -1,
+                    -1,
+                    snapshotMetadata.snapshotPath);
 
     try {
       chunkInfo.setChunkSize(Files.size(dataDirectory));
