@@ -73,18 +73,16 @@ public class ChunkInfo {
   private long chunkSize;
 
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
-    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
-    ensureTrue(
-        chunkCreationTimeEpochMs >= 0,
-        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
-
-    this.chunkId = chunkId;
-    this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
-    dataStartTimeEpochMs = 0;
-    dataEndTimeEpochMs = 0;
-    chunkLastUpdatedTimeEpochMs = chunkCreationTimeEpochMs;
     // TODO: Should we set the snapshot time to creation time also?
-    chunkSnapshotTimeEpochMs = 0;
+    this(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        0,
+        0,
+        chunkCreationTimeEpochMs,
+        0,
+        0);
   }
 
   public ChunkInfo(
@@ -96,6 +94,10 @@ public class ChunkInfo {
       long chunkSnapshotTimeEpochMs,
       long numDocs,
       long chunkSize) {
+    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
+    ensureTrue(
+        chunkCreationTimeEpochMs >= 0,
+        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
     this.chunkId = chunkId;
     this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
