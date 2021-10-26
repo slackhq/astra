@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import com.google.common.base.Objects;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.time.Instant;
 
@@ -192,28 +193,25 @@ public class ChunkInfo {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-
     ChunkInfo chunkInfo = (ChunkInfo) o;
-
-    if (chunkCreationTimeEpochMs != chunkInfo.chunkCreationTimeEpochMs) return false;
-    if (chunkLastUpdatedTimeEpochMs != chunkInfo.chunkLastUpdatedTimeEpochMs) return false;
-    if (dataStartTimeEpochMs != chunkInfo.dataStartTimeEpochMs) return false;
-    if (dataEndTimeEpochMs != chunkInfo.dataEndTimeEpochMs) return false;
-    if (chunkSnapshotTimeEpochMs != chunkInfo.chunkSnapshotTimeEpochMs) return false;
-    if (!chunkId.equals(chunkInfo.chunkId)) return false;
-    return snapshotPath.equals(chunkInfo.snapshotPath);
+    return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
+        && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
+        && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
+        && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
+        && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
+        && Objects.equal(chunkId, chunkInfo.chunkId)
+        && Objects.equal(snapshotPath, chunkInfo.snapshotPath);
   }
 
   @Override
   public int hashCode() {
-    int result = chunkId.hashCode();
-    result = 31 * result + (int) (chunkCreationTimeEpochMs ^ (chunkCreationTimeEpochMs >>> 32));
-    result =
-        31 * result + (int) (chunkLastUpdatedTimeEpochMs ^ (chunkLastUpdatedTimeEpochMs >>> 32));
-    result = 31 * result + (int) (dataStartTimeEpochMs ^ (dataStartTimeEpochMs >>> 32));
-    result = 31 * result + (int) (dataEndTimeEpochMs ^ (dataEndTimeEpochMs >>> 32));
-    result = 31 * result + (int) (chunkSnapshotTimeEpochMs ^ (chunkSnapshotTimeEpochMs >>> 32));
-    result = 31 * result + snapshotPath.hashCode();
-    return result;
+    return Objects.hashCode(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        chunkLastUpdatedTimeEpochMs,
+        dataStartTimeEpochMs,
+        dataEndTimeEpochMs,
+        chunkSnapshotTimeEpochMs,
+        snapshotPath);
   }
 }
