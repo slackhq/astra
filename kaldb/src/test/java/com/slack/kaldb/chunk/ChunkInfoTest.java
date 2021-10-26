@@ -279,7 +279,7 @@ public class ChunkInfoTest {
   }
 
   @Test
-  public void testOffset() {
+  public void testMaxOffset() {
     ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 100, TEST_KAFKA_PARTITION_ID);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     chunkInfo.updateMaxOffset(100);
