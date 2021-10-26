@@ -172,7 +172,6 @@ public class ChunkInfo {
     return "ChunkInfo{"
         + "chunkId='"
         + chunkId
-        + '\''
         + ", chunkCreationTimeEpochMs="
         + chunkCreationTimeEpochMs
         + ", chunkLastUpdatedTimeEpochMs="
@@ -185,7 +184,6 @@ public class ChunkInfo {
         + chunkSnapshotTimeEpochMs
         + ", snapshotPath='"
         + snapshotPath
-        + '\''
         + '}';
   }
 
