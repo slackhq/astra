@@ -2,16 +2,11 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Objects;
 
 /**
- * ChunkInfo class holds the metadata about a single Chunk. This metdata is used by components like
+ * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
  * ChunkManager to manage the data in a chunk and to query it during search. We only expect one
  * ChunkInfo object per chunk.
  *
@@ -50,34 +45,12 @@ public class ChunkInfo {
   // and snapshotting and is not useful afterwards.
   private long chunkSnapshotTimeEpochMs;
 
-  public long getNumDocs() {
-    return numDocs;
-  }
-
-  public void setNumDocs(long numDocs) {
-    this.numDocs = numDocs;
-  }
-
-  public long getChunkSize() {
-    return chunkSize;
-  }
-
-  public void setChunkSize(long chunkSize) {
-    this.chunkSize = chunkSize;
-  }
-
-  // Number of docs in this chunk
-  private long numDocs;
-
-  // Size of the chunk
-  private long chunkSize;
-
   // Path to S3 snapshot.
   private String snapshotPath;
 
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     // TODO: Should we set the snapshot time to creation time also?
-    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, 0, 0, "");
+    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, "");
   }
 
   public ChunkInfo(
@@ -87,8 +60,6 @@ public class ChunkInfo {
       long dataStartTimeEpochMs,
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
-      long numDocs,
-      long chunkSize,
       String snapshotPath) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
@@ -100,8 +71,6 @@ public class ChunkInfo {
     this.dataStartTimeEpochMs = dataStartTimeEpochMs;
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
-    this.numDocs = numDocs;
-    this.chunkSize = chunkSize;
     this.snapshotPath = snapshotPath;
   }
 
@@ -183,10 +152,7 @@ public class ChunkInfo {
     }
   }
 
-  // todo - remove data directory argument once all the data is in the snapshot
-  // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
-  public static ChunkInfo fromSnapshotMetadata(
-      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+  public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
     ChunkInfo chunkInfo =
         new ChunkInfo(
             snapshotMetadata.snapshotId,
@@ -195,15 +161,7 @@ public class ChunkInfo {
             snapshotMetadata.startTimeUtc,
             snapshotMetadata.endTimeUtc,
             snapshotMetadata.endTimeUtc,
-            -1,
-            -1,
             snapshotMetadata.snapshotPath);
-
-    try {
-      chunkInfo.setChunkSize(Files.size(dataDirectory));
-      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    } catch (IOException ignored) {
-    }
 
     return chunkInfo;
   }
@@ -224,10 +182,9 @@ public class ChunkInfo {
         + dataEndTimeEpochMs
         + ", chunkSnapshotTimeEpochMs="
         + chunkSnapshotTimeEpochMs
-        + ", numDocs="
-        + numDocs
-        + ", chunkSize="
-        + chunkSize
+        + ", snapshotPath='"
+        + snapshotPath
+        + '\''
         + '}';
   }
 
@@ -235,27 +192,28 @@ public class ChunkInfo {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
+
     ChunkInfo chunkInfo = (ChunkInfo) o;
-    return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
-        && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
-        && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
-        && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
-        && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
-        && Objects.equals(chunkId, chunkInfo.chunkId)
-        && numDocs == chunkInfo.numDocs
-        && chunkSize == chunkInfo.chunkSize;
+
+    if (chunkCreationTimeEpochMs != chunkInfo.chunkCreationTimeEpochMs) return false;
+    if (chunkLastUpdatedTimeEpochMs != chunkInfo.chunkLastUpdatedTimeEpochMs) return false;
+    if (dataStartTimeEpochMs != chunkInfo.dataStartTimeEpochMs) return false;
+    if (dataEndTimeEpochMs != chunkInfo.dataEndTimeEpochMs) return false;
+    if (chunkSnapshotTimeEpochMs != chunkInfo.chunkSnapshotTimeEpochMs) return false;
+    if (!chunkId.equals(chunkInfo.chunkId)) return false;
+    return snapshotPath.equals(chunkInfo.snapshotPath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        chunkId,
-        chunkCreationTimeEpochMs,
-        chunkLastUpdatedTimeEpochMs,
-        dataStartTimeEpochMs,
-        dataEndTimeEpochMs,
-        chunkSnapshotTimeEpochMs,
-        numDocs,
-        chunkSize);
+    int result = chunkId.hashCode();
+    result = 31 * result + (int) (chunkCreationTimeEpochMs ^ (chunkCreationTimeEpochMs >>> 32));
+    result =
+        31 * result + (int) (chunkLastUpdatedTimeEpochMs ^ (chunkLastUpdatedTimeEpochMs >>> 32));
+    result = 31 * result + (int) (dataStartTimeEpochMs ^ (dataStartTimeEpochMs >>> 32));
+    result = 31 * result + (int) (dataEndTimeEpochMs ^ (dataEndTimeEpochMs >>> 32));
+    result = 31 * result + (int) (chunkSnapshotTimeEpochMs ^ (chunkSnapshotTimeEpochMs >>> 32));
+    result = 31 * result + snapshotPath.hashCode();
+    return result;
   }
 }
