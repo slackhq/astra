@@ -48,9 +48,18 @@ public class ChunkInfo {
   // Path to S3 snapshot.
   private String snapshotPath;
 
+<<<<<<< HEAD
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     // TODO: Should we set the snapshot time to creation time also?
     this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, "");
+=======
+  // Path to S3 snapshot.
+  private String snapshotPath;
+
+  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
+    // TODO: Should we set the snapshot time to creation time also?
+    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, 0, 0, "");
+>>>>>>> master
   }
 
   public ChunkInfo(
@@ -60,6 +69,11 @@ public class ChunkInfo {
       long dataStartTimeEpochMs,
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
+<<<<<<< HEAD
+=======
+      long numDocs,
+      long chunkSize,
+>>>>>>> master
       String snapshotPath) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
@@ -71,6 +85,11 @@ public class ChunkInfo {
     this.dataStartTimeEpochMs = dataStartTimeEpochMs;
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
+<<<<<<< HEAD
+=======
+    this.numDocs = numDocs;
+    this.chunkSize = chunkSize;
+>>>>>>> master
     this.snapshotPath = snapshotPath;
   }
 
@@ -152,7 +171,14 @@ public class ChunkInfo {
     }
   }
 
+<<<<<<< HEAD
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
+=======
+  // todo - remove data directory argument once all the data is in the snapshot
+  // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
+  public static ChunkInfo fromSnapshotMetadata(
+      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+>>>>>>> master
     ChunkInfo chunkInfo =
         new ChunkInfo(
             snapshotMetadata.snapshotId,
@@ -161,7 +187,19 @@ public class ChunkInfo {
             snapshotMetadata.startTimeUtc,
             snapshotMetadata.endTimeUtc,
             snapshotMetadata.endTimeUtc,
+<<<<<<< HEAD
             snapshotMetadata.snapshotPath);
+=======
+            -1,
+            -1,
+            snapshotMetadata.snapshotPath);
+
+    try {
+      chunkInfo.setChunkSize(Files.size(dataDirectory));
+      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
+    } catch (IOException ignored) {
+    }
+>>>>>>> master
 
     return chunkInfo;
   }
