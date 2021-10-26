@@ -140,6 +140,18 @@ public class ChunkInfo {
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
   }
 
+  public void setSnapshotPath(String snapshotPath) {
+    if (this.snapshotPath.isEmpty() || this.snapshotPath == null) {
+      this.snapshotPath = snapshotPath;
+    } else {
+      throw new IllegalStateException("Snapshot path is already set.");
+    }
+  }
+
+  public String getSnapshotPath() {
+    return snapshotPath;
+  }
+
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
@@ -173,18 +185,18 @@ public class ChunkInfo {
   // todo - remove data directory argument once all the data is in the snapshot
   // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
   public static ChunkInfo fromSnapshotMetadata(
-          SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
     ChunkInfo chunkInfo =
-            new ChunkInfo(
-                    snapshotMetadata.snapshotId,
-                    Instant.now().toEpochMilli(),
-                    snapshotMetadata.endTimeUtc,
-                    snapshotMetadata.startTimeUtc,
-                    snapshotMetadata.endTimeUtc,
-                    snapshotMetadata.endTimeUtc,
-                    -1,
-                    -1,
-                    snapshotMetadata.snapshotPath);
+        new ChunkInfo(
+            snapshotMetadata.snapshotId,
+            Instant.now().toEpochMilli(),
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.startTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            -1,
+            -1,
+            snapshotMetadata.snapshotPath);
 
     try {
       chunkInfo.setChunkSize(Files.size(dataDirectory));
