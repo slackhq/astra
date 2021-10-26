@@ -25,7 +25,7 @@ import java.util.Objects;
  */
 public class ChunkInfo {
   public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
-  public static final int DEFAULT_MAX_OFFSET = -1;
+  public static final int DEFAULT_MAX_OFFSET = 0;
   private static final String DEFAULT_KAFKA_PARTITION_ID = "";
 
   // todo - remove data directory argument once all the data is in the snapshot

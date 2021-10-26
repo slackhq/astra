@@ -53,19 +53,42 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 @RunWith(Enclosed.class)
 public class ReadWriteChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
+  private static final String TEST_HOST = "localhost";
+  private static final int TEST_PORT = 34567;
+  private static final String CHUNK_DATA_PREFIX = "testDataSet";
+  private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
+  private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
+
+  // TODO: Code may need some changes. If not refactor into test lib. Copied from
+  //  ReadOnlyChunkImplTest
+  private static KaldbConfigs.KaldbConfig getKaldbConfig(String s3Bucket, String dataDir) {
+    KaldbConfigs.CacheConfig cacheConfig =
+        KaldbConfigs.CacheConfig.newBuilder()
+            .setSlotsPerInstance(3)
+            .setDataDirectory(dataDir)
+            .setServerConfig(
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerAddress("localhost")
+                    .setServerPort(8080)
+                    .build())
+            .build();
+
+    KaldbConfigs.S3Config s3Config =
+        KaldbConfigs.S3Config.newBuilder().setS3Bucket(s3Bucket).setS3Region("us-east-1").build();
+
+    return KaldbConfigs.KaldbConfig.newBuilder()
+        .setCacheConfig(cacheConfig)
+        .setS3Config(s3Config)
+        .build();
+  }
+
   // TODO: Add a test with offset and partition id changes.
   public static class BasicTests {
-    private final String TEST_S3_BUCKET =
-        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
-    private final String TEST_HOST = "localhost";
-    private final int TEST_PORT = 34567;
-
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-    private final String chunkDataPrefix = "testDataSet";
 
+    private final String testS3Bucket =
+        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
     private MeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private ReadWriteChunkImpl<LogMessage> chunk;
     private TestingServer testingServer;
     private MetadataStoreService metadataStoreService;
@@ -75,7 +98,11 @@ public class ReadWriteChunkImplTest {
       Tracing.newBuilder().build();
 
       testingServer = new TestingServer();
-      KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+      KaldbConfigs.KaldbConfig kaldbConfig =
+          getKaldbConfig(
+              testS3Bucket,
+              String.format(
+                  "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)));
       KaldbConfigs.ZookeeperConfig zkConfig =
           KaldbConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
@@ -100,11 +127,11 @@ public class ReadWriteChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
           new ReadWriteChunkImpl<>(
               logStore,
-              chunkDataPrefix,
+              CHUNK_DATA_PREFIX,
               registry,
               searchMetadataStore,
               snapshotMetadataStore,
@@ -112,39 +139,12 @@ public class ReadWriteChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
     }
 
-    // TODO: Code may need some changes. If not refactor into test lib. Copied from
-    //  ReadOnlyChunkImplTest
-    private KaldbConfigs.KaldbConfig getKaldbConfig() {
-      KaldbConfigs.CacheConfig cacheConfig =
-          KaldbConfigs.CacheConfig.newBuilder()
-              .setSlotsPerInstance(3)
-              .setDataDirectory(
-                  String.format(
-                      "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
-              .setServerConfig(
-                  KaldbConfigs.ServerConfig.newBuilder()
-                      .setServerAddress("localhost")
-                      .setServerPort(8080)
-                      .build())
-              .build();
-
-      KaldbConfigs.S3Config s3Config =
-          KaldbConfigs.S3Config.newBuilder()
-              .setS3Bucket(TEST_S3_BUCKET)
-              .setS3Region("us-east-1")
-              .build();
-
-      return KaldbConfigs.KaldbConfig.newBuilder()
-          .setCacheConfig(cacheConfig)
-          .setS3Config(s3Config)
-          .build();
-    }
-
     @After
     public void tearDown() throws IOException, TimeoutException {
+      chunk.close();
+      metadataStoreService.stopAsync();
       metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
       testingServer.close();
-      chunk.close();
       registry.close();
     }
 
@@ -217,7 +217,7 @@ public class ReadWriteChunkImplTest {
       // Ensure chunk info is correct.
       assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTimeMs);
       assertThat(chunk.info().getDataEndTimeEpochMs()).isEqualTo(expectedEndTimeEpochMs);
-      assertThat(chunk.info().chunkId).contains(chunkDataPrefix);
+      assertThat(chunk.info().chunkId).contains(CHUNK_DATA_PREFIX);
       assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
       assertThat(chunk.info().getChunkCreationTimeEpochMs()).isPositive();
 
@@ -395,25 +395,64 @@ public class ReadWriteChunkImplTest {
 
     @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
 
+    private final String testS3Bucket =
+        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
     private SimpleMeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private ReadWriteChunkImpl<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStoreService metadataStoreService;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
       Tracing.newBuilder().build();
+      testingServer = new TestingServer();
+      KaldbConfigs.KaldbConfig kaldbConfig =
+          getKaldbConfig(
+              testS3Bucket,
+              String.format(
+                  "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)));
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
       registry = new SimpleMeterRegistry();
-      LuceneIndexStoreImpl logStore =
+
+      metadataStoreService = new MetadataStoreService(registry, zkConfig);
+      metadataStoreService.startAsync();
+      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(
+              metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+      SearchMetadataStore searchMetadataStore =
+          new SearchMetadataStore(
+              metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
+      final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
           new ReadWriteChunkImpl<>(
-              logStore, "testDataSet", registry, null, null, null, TEST_KAFKA_PARTITION_ID);
+              logStore,
+              CHUNK_DATA_PREFIX,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException, TimeoutException {
+      chunk.close();
+      metadataStoreService.stopAsync();
+      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      testingServer.close();
       registry.close();
     }
 
