@@ -142,7 +142,7 @@ public class ChunkInfo {
   }
 
   public void setSnapshotPath(String snapshotPath) {
-    if (this.snapshotPath.isEmpty() || this.snapshotPath == null) {
+    if (this.snapshotPath == null || this.snapshotPath.isEmpty()) {
       this.snapshotPath = snapshotPath;
     } else {
       throw new IllegalStateException("Snapshot path is already set.");
