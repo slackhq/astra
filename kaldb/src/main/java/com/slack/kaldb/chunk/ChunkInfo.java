@@ -80,7 +80,7 @@ public class ChunkInfo {
         chunkCreationTimeEpochMs,
         0,
         0,
-        chunkCreationTimeEpochMs,
+        0,
         0,
         0);
   }
