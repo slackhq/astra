@@ -28,8 +28,10 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+// TODO: Add a unit test for offset and partition update logic.
 public class ChunkCleanerServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String TEST_KAFKA_PARTITION_ID = "10";
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
@@ -61,8 +63,10 @@ public class ChunkCleanerServiceTest {
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 9, 1000, startTime);
 
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
     }
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
@@ -117,8 +121,10 @@ public class ChunkCleanerServiceTest {
     final List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, 11, 1000, startTime);
 
+    int offset = 1;
     for (LogMessage m : messages.subList(0, 9)) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
     }
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
@@ -130,7 +136,8 @@ public class ChunkCleanerServiceTest {
     assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isZero();
 
     for (LogMessage m : messages.subList(9, 11)) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
     }
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
@@ -216,8 +223,10 @@ public class ChunkCleanerServiceTest {
         MessageUtil.makeMessagesWithTimeDifference(
             31, 35, 1000, startTime.plus(6, ChronoUnit.HOURS)));
 
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
     }
 
     // Main chunk is already committed. Commit the new chunk so we can search it.

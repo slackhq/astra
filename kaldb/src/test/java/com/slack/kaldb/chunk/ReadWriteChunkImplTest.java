@@ -3,6 +3,9 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -18,6 +21,10 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -29,6 +36,9 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -42,8 +52,13 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
 public class ReadWriteChunkImplTest {
-
+  private static final String TEST_KAFKA_PARTITION_ID = "10";
+  // TODO: Add a test with offset and partition id changes.
   public static class BasicTests {
+    private final String TEST_S3_BUCKET =
+        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
+    private final String TEST_HOST = "localhost";
+    private final int TEST_PORT = 34567;
 
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
     private final String chunkDataPrefix = "testDataSet";
@@ -52,19 +67,83 @@ public class ReadWriteChunkImplTest {
     private final Duration commitInterval = Duration.ofSeconds(5 * 60);
     private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private ReadWriteChunkImpl<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStoreService metadataStoreService;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
       Tracing.newBuilder().build();
+
+      testingServer = new TestingServer();
+      KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
       registry = new SimpleMeterRegistry();
+
+      metadataStoreService = new MetadataStoreService(registry, zkConfig);
+      metadataStoreService.startAsync();
+      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(
+              metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+      SearchMetadataStore searchMetadataStore =
+          new SearchMetadataStore(
+              metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry, null, null, null);
+      chunk =
+          new ReadWriteChunkImpl<>(
+              logStore,
+              chunkDataPrefix,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
+    }
+
+    // TODO: Code may need some changes. If not refactor into test lib. Copied from
+    //  ReadOnlyChunkImplTest
+    private KaldbConfigs.KaldbConfig getKaldbConfig() {
+      KaldbConfigs.CacheConfig cacheConfig =
+          KaldbConfigs.CacheConfig.newBuilder()
+              .setSlotsPerInstance(3)
+              .setDataDirectory(
+                  String.format(
+                      "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
+              .setServerConfig(
+                  KaldbConfigs.ServerConfig.newBuilder()
+                      .setServerAddress("localhost")
+                      .setServerPort(8080)
+                      .build())
+              .build();
+
+      KaldbConfigs.S3Config s3Config =
+          KaldbConfigs.S3Config.newBuilder()
+              .setS3Bucket(TEST_S3_BUCKET)
+              .setS3Region("us-east-1")
+              .build();
+
+      return KaldbConfigs.KaldbConfig.newBuilder()
+          .setCacheConfig(cacheConfig)
+          .setS3Config(s3Config)
+          .build();
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() throws IOException, TimeoutException {
+      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      testingServer.close();
       chunk.close();
       registry.close();
     }
@@ -72,8 +151,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testAddAndSearchChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -104,7 +185,7 @@ public class ReadWriteChunkImplTest {
       testMessage.addProperty("username", 0);
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage);
+      chunk.addMessage(testMessage, 1);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -120,8 +201,10 @@ public class ReadWriteChunkImplTest {
       final List<LogMessage> messages =
           MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
       final long messageStartTimeMs = messages.get(0).timeSinceEpochMilli;
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -161,7 +244,8 @@ public class ReadWriteChunkImplTest {
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochMs = newMessages.get(0).timeSinceEpochMilli;
       for (LogMessage m : newMessages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -222,8 +306,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSearchInReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -245,22 +331,26 @@ public class ReadWriteChunkImplTest {
     @Test(expected = IllegalStateException.class)
     public void testAddMessageToReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       chunk.commit();
 
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.setReadOnly(true);
       assertThat(chunk.isReadOnly()).isTrue();
-      chunk.addMessage(MessageUtil.makeMessage(101));
+      chunk.addMessage(MessageUtil.makeMessage(101), offset);
     }
 
     @Test
     public void testCleanupOnOpenChunk() throws IOException {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.commit();
@@ -276,8 +366,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testCommitBeforeSnapshot() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
 
@@ -315,7 +407,9 @@ public class ReadWriteChunkImplTest {
       LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry, null, null, null);
+      chunk =
+          new ReadWriteChunkImpl<>(
+              logStore, "testDataSet", registry, null, null, null, TEST_KAFKA_PARTITION_ID);
     }
 
     @After
@@ -326,8 +420,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSnapshotToNonExistentS3BucketFails() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
 
       // Initiate pre-snapshot
@@ -361,8 +457,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, offset);
+        offset++;
       }
 
       // Initiate pre-snapshot

@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -64,7 +65,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchContext searchContext) {
+      SearchContext searchContext,
+      String kafkaPartitionId) {
     this.logStore = logStore;
     this.logSearcher =
         (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
@@ -74,11 +76,12 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     chunkInfo =
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
-            chunkCreationTime.toEpochMilli());
-    this.readOnly = false;
-    this.fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
-    this.fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
+            chunkCreationTime.toEpochMilli(),
+            kafkaPartitionId);
+    readOnly = false;
     this.meterRegistry = meterRegistry;
+    fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
+    fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     liveSnapshotMetadata = toSnapshotMetadata(chunkInfo);
     liveSearchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
     this.searchMetadataStore = searchMetadataStore;
@@ -96,27 +99,13 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
-  private SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo) {
-    // TODO: Set accurate start and end offset and kafka partition id in chunk info.
-    // TODO: Ensure end time is INF for now.
-    // TODO: Move to chunkInfo class?
-    // TODO: Does chunkInfo have all the fields we need?
-    return new SnapshotMetadata(
-        chunkInfo.chunkId,
-        SearchMetadata.LIVE_SNAPSHOT_NAME,
-        chunkInfo.chunkId,
-        chunkInfo.getDataStartTimeEpochMs(),
-        chunkInfo.getDataEndTimeEpochMs(),
-        0,
-        "");
-  }
-
   /**
    * Index the message in the logstore and update the chunk data time range.
    *
    * @param message a LogMessage object.
+   * @param offset
    */
-  public void addMessage(T message) {
+  public void addMessage(T message, long offset) {
     if (!readOnly) {
       logStore.addMessage(message);
       // Update the chunk with the time range of the data in the chunk.
@@ -124,6 +113,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       // message.
       if (message instanceof LogMessage) {
         chunkInfo.updateDataTimeRange(((LogMessage) message).timeSinceEpochMilli);
+        chunkInfo.updateMaxOffset(offset);
       }
     } else {
       throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));

@@ -108,7 +108,8 @@ public class LogMessageWriterImpl implements MessageWriter {
       // error. We decided to throw the exception to a higher level since in a batch ingestion
       // the upper layers of the stack can't take any further action. If this becomes an issue
       // in future, propagate the exception upwards here or return a value.
-      chunkManager.addMessage(logMessage, avgMsgSize, record.offset());
+      chunkManager.addMessage(
+          logMessage, avgMsgSize, String.valueOf(record.partition()), record.offset());
     }
     return true;
   }

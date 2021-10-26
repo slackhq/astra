@@ -8,25 +8,27 @@ import java.time.ZoneOffset;
 import org.junit.Test;
 
 public class ChunkInfoTest {
-
+  private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String testChunkName = "testChunkInfo1";
 
   @Test
   public void testChunkInfoCreation() {
     final long chunkCreationTime = 1000;
-    final ChunkInfo info = new ChunkInfo(testChunkName, 1000);
+    final ChunkInfo info = new ChunkInfo(testChunkName, 1000, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTime);
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
+    // TODO: Add unit tests for kafka info.
   }
 
   @Test
   public void testChunkDataTimeRange() {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeEpochMilli = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
-    final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeEpochMilli);
+    final ChunkInfo info =
+        new ChunkInfo(testChunkName, chunkCreationTimeEpochMilli, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
@@ -96,7 +98,8 @@ public class ChunkInfoTest {
   public void testUnInitializedChunkDataInRange() {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeSecs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
-    final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeSecs);
+    final ChunkInfo info =
+        new ChunkInfo(testChunkName, chunkCreationTimeSecs, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeSecs);
@@ -120,7 +123,8 @@ public class ChunkInfoTest {
   public void testChunkDataInRange() {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
     final long chunkCreationTimeMs = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
-    final ChunkInfo info = new ChunkInfo(testChunkName, chunkCreationTimeMs);
+    final ChunkInfo info =
+        new ChunkInfo(testChunkName, chunkCreationTimeMs, TEST_KAFKA_PARTITION_ID);
     assertThat(info.getChunkCreationTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
     assertThat(info.getChunkLastUpdatedTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeMs);
@@ -228,7 +232,7 @@ public class ChunkInfoTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeStartTimeInDateRange() {
-    final ChunkInfo info = new ChunkInfo(testChunkName, 1000);
+    final ChunkInfo info = new ChunkInfo(testChunkName, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -237,7 +241,7 @@ public class ChunkInfoTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeEndTimeInDateRange() {
-    final ChunkInfo info = new ChunkInfo(testChunkName, 1000);
+    final ChunkInfo info = new ChunkInfo(testChunkName, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -246,7 +250,7 @@ public class ChunkInfoTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeIntervalInDateRange() {
-    final ChunkInfo info = new ChunkInfo(testChunkName, 1000);
+    final ChunkInfo info = new ChunkInfo(testChunkName, 1000, TEST_KAFKA_PARTITION_ID);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
@@ -255,16 +259,21 @@ public class ChunkInfoTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidChunkName() {
-    new ChunkInfo(null, 100);
+    new ChunkInfo(null, 100, TEST_KAFKA_PARTITION_ID);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testEmptyChunkName() {
-    new ChunkInfo("", 100);
+    new ChunkInfo("", 100, TEST_KAFKA_PARTITION_ID);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeChunkCreationTime() {
-    new ChunkInfo(testChunkName, -1);
+    new ChunkInfo(testChunkName, -1, TEST_KAFKA_PARTITION_ID);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testEmptyKafkaPartitionId() {
+    new ChunkInfo(testChunkName, 100, "");
   }
 }

@@ -155,11 +155,12 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    *
    * @param message Message to be ingested
    * @param msgSize Serialized size of raw message in bytes.
+   * @param kafkaPartitionId
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
-   *     <p>TODO: Delete the snapshot from local disk once it is replicated elsewhere after X min.
    */
-  public void addMessage(final T message, long msgSize, long offset) throws IOException {
+  public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
+      throws IOException {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
       LOG.warn("Stopping ingestion due to a chunk roll over exception.");
@@ -167,8 +168,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     }
 
     // find the active chunk and add a message to it
-    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk();
-    currentChunk.addMessage(message);
+    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
+    currentChunk.addMessage(message, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
 
@@ -201,7 +202,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
 
     RollOverChunkTask<T> rollOverChunkTask =
-        new RollOverChunkTask<T>(
+        new RollOverChunkTask<>(
             currentChunk, meterRegistry, s3BlobFs, s3Bucket, currentChunk.info().chunkId);
 
     if ((rolloverFuture == null) || rolloverFuture.isDone()) {
@@ -254,7 +255,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * data in the chunk is set as system time. However, this assumption may not be true always. In
    * future, set the start time of the chunk based on the timestamp from the message.
    */
-  private ReadWriteChunkImpl<T> getOrCreateActiveChunk() throws IOException {
+  private ReadWriteChunkImpl<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
     if (activeChunk == null) {
       // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
       //  complicates unit tests.
@@ -269,7 +270,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
               meterRegistry,
               searchMetadataStore,
               snapshotMetadataStore,
-              searchContext);
+              searchContext,
+              kafkaPartitionId);
       chunkList.add(newChunk);
       // Register the chunk, so we can search it.
       newChunk.register();

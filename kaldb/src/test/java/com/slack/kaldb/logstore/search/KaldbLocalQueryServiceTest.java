@@ -34,8 +34,8 @@ import java.util.concurrent.TimeoutException;
 import org.junit.*;
 
 public class KaldbLocalQueryServiceTest {
+  private static final String TEST_KAFKA_PARITION_ID = "10";
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
-
   @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
@@ -66,8 +66,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
@@ -137,8 +139,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
@@ -188,8 +192,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
@@ -240,8 +246,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
@@ -297,8 +305,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
@@ -329,8 +339,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 
@@ -409,8 +421,10 @@ public class KaldbLocalQueryServiceTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
     }
     // No need to commit the active chunk since the last chunk is already closed.
 

@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,12 +25,54 @@ import java.util.Objects;
  */
 public class ChunkInfo {
   public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
+  public static final int DEFAULT_MAX_OFFSET = -1;
+  private static final String DEFAULT_KAFKA_PARTITION_ID = "";
+
+  // todo - remove data directory argument once all the data is in the snapshot
+  public static ChunkInfo fromSnapshotMetadata(
+      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
+    ChunkInfo chunkInfo =
+        new ChunkInfo(
+            snapshotMetadata.snapshotId,
+            Instant.now().toEpochMilli(),
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.startTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            snapshotMetadata.endTimeUtc,
+            -1,
+            -1,
+            DEFAULT_MAX_OFFSET,
+            DEFAULT_KAFKA_PARTITION_ID);
+
+    try {
+      chunkInfo.setChunkSize(Files.size(dataDirectory));
+      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
+    } catch (IOException ignored) {
+    }
+
+    return chunkInfo;
+  }
+
+  public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo) {
+    // TODO: Set the start offset for the kafka partition.
+    // TODO: Pass in the snapshot path as input?
+    return new SnapshotMetadata(
+        chunkInfo.chunkId,
+        SearchMetadata.LIVE_SNAPSHOT_NAME,
+        chunkInfo.chunkId,
+        chunkInfo.getDataStartTimeEpochMs(),
+        chunkInfo.getDataEndTimeEpochMs(),
+        chunkInfo.maxOffset,
+        chunkInfo.kafkaPartitionId);
+  }
 
   /* A unique identifier for a the chunk. */
   public final String chunkId;
 
   // The time when this chunk is created.
   private final long chunkCreationTimeEpochMs;
+  private final String kafkaPartitionId;
+  private long maxOffset;
 
   /*
    * The last time when this chunk is updated. Ideally, we want to set this timestamp continuously,
@@ -74,19 +117,19 @@ public class ChunkInfo {
   // Size of the chunk
   private long chunkSize;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
-    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
-    ensureTrue(
-        chunkCreationTimeEpochMs >= 0,
-        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
-
-    this.chunkId = chunkId;
-    this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
-    dataStartTimeEpochMs = chunkCreationTimeEpochMs;
-    dataEndTimeEpochMs = MAX_FUTURE_TIME;
-    chunkLastUpdatedTimeEpochMs = chunkCreationTimeEpochMs;
+  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId) {
     // TODO: Should we set the snapshot time to creation time also?
-    chunkSnapshotTimeEpochMs = 0;
+    this(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        MAX_FUTURE_TIME,
+        0,
+        0,
+        0,
+        DEFAULT_MAX_OFFSET,
+        kafkaPartitionId);
   }
 
   public ChunkInfo(
@@ -97,7 +140,15 @@ public class ChunkInfo {
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
       long numDocs,
-      long chunkSize) {
+      long chunkSize,
+      long maxOffset,
+      String kafkaPartitionId) {
+    ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
+    ensureTrue(
+        chunkCreationTimeEpochMs >= 0,
+        "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
+    ensureTrue(kafkaPartitionId != null && !kafkaPartitionId.isEmpty(), "Invalid KafkaPartitionId");
+
     this.chunkId = chunkId;
     this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
@@ -106,6 +157,8 @@ public class ChunkInfo {
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
     this.numDocs = numDocs;
     this.chunkSize = chunkSize;
+    this.maxOffset = maxOffset;
+    this.kafkaPartitionId = kafkaPartitionId;
   }
 
   public long getChunkSnapshotTimeEpochMs() {
@@ -144,6 +197,10 @@ public class ChunkInfo {
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
   }
 
+  public void updateMaxOffset(long newOffset) {
+    maxOffset = Math.max(maxOffset, newOffset);
+  }
+
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
@@ -169,29 +226,6 @@ public class ChunkInfo {
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
       dataEndTimeEpochMs = Math.max(dataEndTimeEpochMs, messageTimeStampMs);
     }
-  }
-
-  // todo - remove data directory argument once all the data is in the snapshot
-  public static ChunkInfo fromSnapshotMetadata(
-      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(
-            snapshotMetadata.snapshotId,
-            Instant.now().toEpochMilli(),
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.startTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            -1,
-            -1);
-
-    try {
-      chunkInfo.setChunkSize(Files.size(dataDirectory));
-      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    } catch (IOException ignored) {
-    }
-
-    return chunkInfo;
   }
 
   @Override
