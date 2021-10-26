@@ -24,7 +24,6 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
-import com.slack.kaldb.chunkManager.ChunkRollOverInProgressException;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -726,7 +725,7 @@ public class IndexingChunkManagerTest {
     // TODO: Test the entire search response in all queries and not just hits.
   }
 
-  @Test(expected = ChunkRollOverInProgressException.class)
+  @Test(expected = ChunkRollOverException.class)
   public void testChunkRollOverInProgressExceptionIsThrown()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =

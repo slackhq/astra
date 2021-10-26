@@ -224,7 +224,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           },
           MoreExecutors.directExecutor());
     } else {
-      throw new ChunkRollOverInProgressException(
+      throw new ChunkRollOverException(
           String.format(
               "The chunk roll over %s is already in progress."
                   + "It is not recommended to index faster than we can roll over, since we may not be able to keep up.",
