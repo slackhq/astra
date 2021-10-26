@@ -42,8 +42,8 @@ public class ChunkInfo {
 
   private long dataEndTimeEpochMs;
 
-  // This field contains the time the chunk is snapshotted. This info is used only during indexing
-  // and snapshotting and is not useful afterwards.
+  // This field contains the time the chunk is snapshotted. This info is used only during
+  // indexing and snapshotting and is not useful afterwards.
   private long chunkSnapshotTimeEpochMs;
 
   // Path to S3 snapshot.
@@ -103,14 +103,6 @@ public class ChunkInfo {
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
   }
 
-  public void setDataStartTimeEpochMs(long dataStartTimeEpochMs) {
-    this.dataStartTimeEpochMs = dataStartTimeEpochMs;
-  }
-
-  public void setDataEndTimeEpochMs(long dataEndTimeEpochMs) {
-    this.dataEndTimeEpochMs = dataEndTimeEpochMs;
-  }
-
   public void setSnapshotPath(String snapshotPath) {
     if (this.snapshotPath == null || this.snapshotPath.isEmpty()) {
       this.snapshotPath = snapshotPath;
@@ -154,17 +146,14 @@ public class ChunkInfo {
   }
 
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(
-            snapshotMetadata.snapshotId,
-            Instant.now().toEpochMilli(),
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.startTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.snapshotPath);
-
-    return chunkInfo;
+    return new ChunkInfo(
+        snapshotMetadata.snapshotId,
+        Instant.now().toEpochMilli(),
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.startTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.snapshotPath);
   }
 
   @Override
