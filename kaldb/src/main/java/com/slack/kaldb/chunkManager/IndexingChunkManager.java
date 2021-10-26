@@ -155,7 +155,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    *
    * @param message Message to be ingested
    * @param msgSize Serialized size of raw message in bytes.
-   * @param kafkaPartitionId
+   * @param kafkaPartitionId Kafka partition the message is read from.
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
    */
