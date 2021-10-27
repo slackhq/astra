@@ -2,9 +2,9 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
@@ -186,13 +186,13 @@ public class ChunkInfo {
         && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
         && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
-        && Objects.equal(chunkId, chunkInfo.chunkId)
-        && Objects.equal(snapshotPath, chunkInfo.snapshotPath);
+        && Objects.equals(chunkId, chunkInfo.chunkId)
+        && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         chunkId,
         chunkCreationTimeEpochMs,
         chunkLastUpdatedTimeEpochMs,
