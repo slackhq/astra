@@ -83,7 +83,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     this.meterRegistry = meterRegistry;
     fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
-    liveSnapshotMetadata = toSnapshotMetadata(chunkInfo);
+    liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, SearchMetadata.LIVE_SNAPSHOT_NAME + "_");
     liveSearchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
@@ -199,7 +199,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   public void postSnapshot() {
     // Register a non-live snapshot node and a search node. New nodes should be registered before
     // removing old nodes so there is no availability gap in the data.
-    SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo);
+    SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
 
     SearchMetadata nonLiveSearchMetadata = toSearchMetadata(chunkInfo.chunkId, searchContext);

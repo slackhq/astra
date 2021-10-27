@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.google.common.base.Objects;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.time.Instant;
 
@@ -24,35 +25,24 @@ public class ChunkInfo {
   private static final String DEFAULT_KAFKA_PARTITION_ID = "";
 
   // todo - remove data directory argument once all the data is in the snapshot
-  public static ChunkInfo fromSnapshotMetadata(
-      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(
-            snapshotMetadata.snapshotId,
-            Instant.now().toEpochMilli(),
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.startTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            -1,
-            -1,
-            DEFAULT_MAX_OFFSET,
-            DEFAULT_KAFKA_PARTITION_ID);
-
-    try {
-      chunkInfo.setChunkSize(Files.size(dataDirectory));
-      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    } catch (IOException ignored) {
-    }
-
-    return chunkInfo;
+  public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
+    return new ChunkInfo(
+        snapshotMetadata.snapshotId,
+        Instant.now().toEpochMilli(),
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.startTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        DEFAULT_MAX_OFFSET,
+        DEFAULT_KAFKA_PARTITION_ID,
+        snapshotMetadata.snapshotPath);
   }
 
-  public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo) {
+  public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo, String chunkPrefix) {
     // TODO: Set the start offset for the kafka partition.
     // TODO: Pass in the snapshot path as input?
     return new SnapshotMetadata(
-        chunkInfo.chunkId,
+        chunkPrefix + chunkInfo.chunkId,
         SearchMetadata.LIVE_SNAPSHOT_NAME,
         chunkInfo.chunkId,
         chunkInfo.getDataStartTimeEpochMs(),
@@ -66,6 +56,8 @@ public class ChunkInfo {
 
   // The time when this chunk is created.
   private final long chunkCreationTimeEpochMs;
+
+  // Partition metadata.
   private final String kafkaPartitionId;
   private long maxOffset;
 
@@ -92,9 +84,18 @@ public class ChunkInfo {
   // Path to S3 snapshot.
   private String snapshotPath;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
+  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId) {
     // TODO: Should we set the snapshot time to creation time also?
-    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, "");
+    this(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        MAX_FUTURE_TIME,
+        0,
+        DEFAULT_MAX_OFFSET,
+        kafkaPartitionId,
+        "");
   }
 
   public ChunkInfo(
@@ -206,6 +207,10 @@ public class ChunkInfo {
         + chunkId
         + ", chunkCreationTimeEpochMs="
         + chunkCreationTimeEpochMs
+        + ", kafkaPartitionId='"
+        + kafkaPartitionId
+        + ", maxOffset="
+        + maxOffset
         + ", chunkLastUpdatedTimeEpochMs="
         + chunkLastUpdatedTimeEpochMs
         + ", dataStartTimeEpochMs="
@@ -225,11 +230,13 @@ public class ChunkInfo {
     if (o == null || getClass() != o.getClass()) return false;
     ChunkInfo chunkInfo = (ChunkInfo) o;
     return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
+        && maxOffset == chunkInfo.maxOffset
         && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
         && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
         && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equal(chunkId, chunkInfo.chunkId)
+        && Objects.equal(kafkaPartitionId, chunkInfo.kafkaPartitionId)
         && Objects.equal(snapshotPath, chunkInfo.snapshotPath);
   }
 
@@ -238,6 +245,8 @@ public class ChunkInfo {
     return Objects.hashCode(
         chunkId,
         chunkCreationTimeEpochMs,
+        kafkaPartitionId,
+        maxOffset,
         chunkLastUpdatedTimeEpochMs,
         dataStartTimeEpochMs,
         dataEndTimeEpochMs,

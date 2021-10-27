@@ -303,7 +303,7 @@ public class ChunkInfoTest {
 
   @Test(expected = IllegalStateException.class)
   public void testSnapshotPath() {
-    ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 10000);
+    ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 10000, TEST_KAFKA_PARTITION_ID);
     assertThat(chunkInfo.getSnapshotPath()).isEmpty();
     String testPath = "/path";
     chunkInfo.setSnapshotPath(testPath);

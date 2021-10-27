@@ -13,7 +13,6 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -32,7 +31,6 @@ import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSe
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
