@@ -117,7 +117,7 @@ public class ReadOnlyChunkImplTest {
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(
+        new ReadOnlyChunkImpl<>(
             metadataStoreService,
             meterRegistry,
             s3BlobFs,
@@ -153,9 +153,6 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
     assertThat(searchMetadataStore.getCached().get(0).url).isEqualTo("localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo("localhost");
-
-    // todo - consider adding additional chunkInfo validations
-    assertThat(readOnlyChunk.info().getNumDocs()).isEqualTo(10);
 
     // mark the chunk for eviction
     readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotState.EVICT);
@@ -219,7 +216,7 @@ public class ReadOnlyChunkImplTest {
     initializeZkSnapshot(metadataStoreService, snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(
+        new ReadOnlyChunkImpl<>(
             metadataStoreService,
             meterRegistry,
             s3BlobFs,
@@ -282,7 +279,7 @@ public class ReadOnlyChunkImplTest {
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(
+        new ReadOnlyChunkImpl<>(
             metadataStoreService,
             meterRegistry,
             s3BlobFs,
@@ -346,7 +343,7 @@ public class ReadOnlyChunkImplTest {
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
-        new ReadOnlyChunkImpl(
+        new ReadOnlyChunkImpl<>(
             metadataStoreService,
             meterRegistry,
             s3BlobFs,

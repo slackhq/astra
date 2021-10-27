@@ -22,6 +22,7 @@ public class ChunkInfoTest {
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
     // TODO: Add unit tests for kafka info.
+    assertThat(info.getSnapshotPath()).isEmpty();
   }
 
   @Test
@@ -35,6 +36,7 @@ public class ChunkInfoTest {
     assertThat(info.getDataStartTimeEpochMs()).isEqualTo(chunkCreationTimeEpochMilli);
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(MAX_FUTURE_TIME);
     assertThat(info.getChunkSnapshotTimeEpochMs()).isEqualTo(0);
+    assertThat(info.getSnapshotPath()).isEmpty();
 
     // Add message with same time range.
     info.updateDataTimeRange(chunkCreationTimeEpochMilli);
@@ -118,6 +120,7 @@ public class ChunkInfoTest {
     assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs - 1)).isFalse();
     assertThat(info.containsDataInTimeRange(MAX_FUTURE_TIME + 1, MAX_FUTURE_TIME + 100)).isFalse();
     assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs + 1)).isTrue();
+    assertThat(info.getSnapshotPath()).isEmpty();
   }
 
   @Test
@@ -296,5 +299,15 @@ public class ChunkInfoTest {
     // A higher offset increments the counter.
     chunkInfo.updateMaxOffset(104);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(104);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testSnapshotPath() {
+    ChunkInfo chunkInfo = new ChunkInfo(testChunkName, 10000);
+    assertThat(chunkInfo.getSnapshotPath()).isEmpty();
+    String testPath = "/path";
+    chunkInfo.setSnapshotPath(testPath);
+    assertThat(chunkInfo.getSnapshotPath()).isEqualTo(testPath);
+    chunkInfo.setSnapshotPath("testPath1");
   }
 }

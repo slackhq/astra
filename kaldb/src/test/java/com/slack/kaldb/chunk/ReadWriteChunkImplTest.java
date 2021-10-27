@@ -489,6 +489,7 @@ public class ReadWriteChunkImplTest {
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
+      assertThat(chunk.info().getSnapshotPath()).isEmpty();
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
@@ -526,7 +527,9 @@ public class ReadWriteChunkImplTest {
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
+      assertThat(chunk.info().getSnapshotPath()).isEmpty();
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
+      assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(15);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
