@@ -60,11 +60,15 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 // TODO: Add a unit test for offset and partition update logic.
 public class IndexingChunkManagerTest {
+  private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManagerTest.class);
+
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   public static final String HOSTNAME = "localhost";
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -111,6 +115,7 @@ public class IndexingChunkManagerTest {
 
   @After
   public void tearDown() throws TimeoutException, IOException {
+    LOG.info("tear down");
     metricsRegistry.close();
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -147,12 +152,12 @@ public class IndexingChunkManagerTest {
 
     // TODO: This is temporary, move this registration closer to logic.
     // Test search end point registration.
-    await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
-    SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
-    assertThat(searchMetadata.name).isEqualTo("localhost");
-    assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
-    assertThat(searchMetadata.url).contains(HOSTNAME);
-    assertThat(searchMetadata.url).contains(String.valueOf(port));
+    // await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
+    // SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
+    // assertThat(searchMetadata.name).isEqualTo("localhost");
+    // assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
+    // assertThat(searchMetadata.url).contains(HOSTNAME);
+    // assertThat(searchMetadata.url).contains(String.valueOf(port));
   }
 
   @Test
@@ -224,6 +229,11 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(100);
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
+    // Check metadata registration.
+    // TODO: Check registered metadata.
+    assertThat(chunkManager.getSnapshotMetadataStore().list().get().size()).isEqualTo(1);
+    assertThat(chunkManager.getSearchMetadataStore().list().get().size()).isEqualTo(1);
+
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery).join();
@@ -235,6 +245,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataStartTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
+    assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
     // TODO: Update data ranges based on message.
     // TODO: Test chunk roll over and deletion (life cycle) of a single chunk in this test.
   }

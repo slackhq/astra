@@ -191,9 +191,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * the roll over logic into ChunkImpl.
    */
   private void doRollover(ReadWriteChunkImpl<T> currentChunk) {
-    // TODO: Register non-live snapshot, add new search node for snapshot, Remove live
-    //  snapshot,  remove search node for live.
-
     // Set activeChunk to null first, so we can initiate the roll over.
     activeChunk = null;
     liveBytesIndexedGauge.set(0);
