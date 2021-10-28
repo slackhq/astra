@@ -154,9 +154,6 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).url).isEqualTo("localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo("localhost");
 
-    // todo - consider adding additional chunkInfo validations
-    assertThat(readOnlyChunk.info().getNumDocs()).isEqualTo(10);
-
     // mark the chunk for eviction
     readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotState.EVICT);
 

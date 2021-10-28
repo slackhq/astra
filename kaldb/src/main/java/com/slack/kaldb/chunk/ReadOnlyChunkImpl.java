@@ -184,7 +184,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
-      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata, dataDirectory);
+      this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));

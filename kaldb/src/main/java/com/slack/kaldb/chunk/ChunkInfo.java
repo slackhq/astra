@@ -2,16 +2,12 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Objects;
 
 /**
- * ChunkInfo class holds the metadata about a single Chunk. This metdata is used by components like
+ * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
  * ChunkManager to manage the data in a chunk and to query it during search. We only expect one
  * ChunkInfo object per chunk.
  *
@@ -46,38 +42,16 @@ public class ChunkInfo {
 
   private long dataEndTimeEpochMs;
 
-  // This field contains the time the chunk is snapshotted. This info is used only during indexing
-  // and snapshotting and is not useful afterwards.
+  // This field contains the time the chunk is snapshotted. This info is used only during
+  // indexing and snapshotting and is not useful afterwards.
   private long chunkSnapshotTimeEpochMs;
-
-  public long getNumDocs() {
-    return numDocs;
-  }
-
-  public void setNumDocs(long numDocs) {
-    this.numDocs = numDocs;
-  }
-
-  public long getChunkSize() {
-    return chunkSize;
-  }
-
-  public void setChunkSize(long chunkSize) {
-    this.chunkSize = chunkSize;
-  }
-
-  // Number of docs in this chunk
-  private long numDocs;
-
-  // Size of the chunk
-  private long chunkSize;
 
   // Path to S3 snapshot.
   private String snapshotPath;
 
   public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
     // TODO: Should we set the snapshot time to creation time also?
-    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, 0, 0, "");
+    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, "");
   }
 
   public ChunkInfo(
@@ -87,8 +61,6 @@ public class ChunkInfo {
       long dataStartTimeEpochMs,
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
-      long numDocs,
-      long chunkSize,
       String snapshotPath) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
@@ -100,8 +72,6 @@ public class ChunkInfo {
     this.dataStartTimeEpochMs = dataStartTimeEpochMs;
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
-    this.numDocs = numDocs;
-    this.chunkSize = chunkSize;
     this.snapshotPath = snapshotPath;
   }
 
@@ -131,14 +101,6 @@ public class ChunkInfo {
 
   public void setChunkLastUpdatedTimeEpochMs(long chunkLastUpdatedTimeEpochMs) {
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
-  }
-
-  public void setDataStartTimeEpochMs(long dataStartTimeEpochMs) {
-    this.dataStartTimeEpochMs = dataStartTimeEpochMs;
-  }
-
-  public void setDataEndTimeEpochMs(long dataEndTimeEpochMs) {
-    this.dataEndTimeEpochMs = dataEndTimeEpochMs;
   }
 
   public void setSnapshotPath(String snapshotPath) {
@@ -183,29 +145,15 @@ public class ChunkInfo {
     }
   }
 
-  // todo - remove data directory argument once all the data is in the snapshot
-  // TODO: Remove references to numDocs and chunkSize from snapshotMetadata.
-  public static ChunkInfo fromSnapshotMetadata(
-      SnapshotMetadata snapshotMetadata, Path dataDirectory) {
-    ChunkInfo chunkInfo =
-        new ChunkInfo(
-            snapshotMetadata.snapshotId,
-            Instant.now().toEpochMilli(),
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.startTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            snapshotMetadata.endTimeUtc,
-            -1,
-            -1,
-            snapshotMetadata.snapshotPath);
-
-    try {
-      chunkInfo.setChunkSize(Files.size(dataDirectory));
-      chunkInfo.setNumDocs(LogIndexSearcherImpl.getNumDocs(dataDirectory));
-    } catch (IOException ignored) {
-    }
-
-    return chunkInfo;
+  public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
+    return new ChunkInfo(
+        snapshotMetadata.snapshotId,
+        Instant.now().toEpochMilli(),
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.startTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.snapshotPath);
   }
 
   @Override
@@ -213,7 +161,6 @@ public class ChunkInfo {
     return "ChunkInfo{"
         + "chunkId='"
         + chunkId
-        + '\''
         + ", chunkCreationTimeEpochMs="
         + chunkCreationTimeEpochMs
         + ", chunkLastUpdatedTimeEpochMs="
@@ -224,10 +171,8 @@ public class ChunkInfo {
         + dataEndTimeEpochMs
         + ", chunkSnapshotTimeEpochMs="
         + chunkSnapshotTimeEpochMs
-        + ", numDocs="
-        + numDocs
-        + ", chunkSize="
-        + chunkSize
+        + ", snapshotPath='"
+        + snapshotPath
         + '}';
   }
 
@@ -242,8 +187,7 @@ public class ChunkInfo {
         && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equals(chunkId, chunkInfo.chunkId)
-        && numDocs == chunkInfo.numDocs
-        && chunkSize == chunkInfo.chunkSize;
+        && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
   }
 
   @Override
@@ -255,7 +199,6 @@ public class ChunkInfo {
         dataStartTimeEpochMs,
         dataEndTimeEpochMs,
         chunkSnapshotTimeEpochMs,
-        numDocs,
-        chunkSize);
+        snapshotPath);
   }
 }
