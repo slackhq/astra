@@ -39,6 +39,7 @@ message SnapshotMetadata {
   // Name of the snapshot
   string name = 1;
   // Permanent id for a blob. This id is used to uniquely identify the blob incase it get's copied around.
+  // If not, should be same as name
   string snapshotId = 2;
 
   // Path of the file stored in blobstore.
