@@ -130,7 +130,7 @@ public class IndexingChunkManagerTest {
       String s3TestBucket,
       ListeningExecutorService listeningExecutorService,
       int rollOverFutureTimeoutMs)
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+      throws IOException, TimeoutException {
     final int port = 10000;
     SearchContext searchContext = new SearchContext(HOSTNAME, port);
     chunkManager =
@@ -280,8 +280,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testAddAndSearchMessageInMultipleSlices()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddAndSearchMessageInMultipleSlices() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -308,8 +307,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -339,8 +337,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMessagesAddedToActiveChunks()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMessagesAddedToActiveChunks() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -372,7 +369,8 @@ public class IndexingChunkManagerTest {
     chunkManager.addMessage(msg3, msg3.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
-    Chunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
+
+    chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
@@ -387,7 +385,7 @@ public class IndexingChunkManagerTest {
 
   @Test
   public void testMultiThreadedChunkRollover()
-      throws IOException, InterruptedException, TimeoutException, ExecutionException {
+      throws IOException, InterruptedException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -405,7 +403,7 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
     // Wait for roll over.
-    final boolean awaitTermination = rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
+    rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
@@ -574,8 +572,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testCommitInvalidChunk() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -613,8 +610,7 @@ public class IndexingChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMultiChunkSearch() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -735,8 +731,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test(expected = ChunkRollOverException.class)
-  public void testChunkRollOverInProgressExceptionIsThrown()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -760,8 +755,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testSuccessfulRollOverFinishesOnClose()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testSuccessfulRollOverFinishesOnClose() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -796,8 +790,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testFailedRollOverFinishesOnClose()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testFailedRollOverFinishesOnClose() throws IOException, TimeoutException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
