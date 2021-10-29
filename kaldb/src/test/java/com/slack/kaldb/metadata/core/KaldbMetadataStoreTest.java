@@ -47,13 +47,12 @@ public class KaldbMetadataStoreTest {
 
   static SnapshotMetadata makeSnapshot(String name, long maxOffset) {
     final String snapshotPath = "s3://snapshots/path";
-    final String snapshotId = name + "Id";
     final long startTimeUtc = 12345;
     final long endTimeUtc = 123456;
     final String partitionId = "1";
 
     return new SnapshotMetadata(
-        name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+        name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
   }
 
   public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
@@ -122,9 +121,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testCreateGetDelete() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshot";
+      final String name = "testSnapshotId";
       final String snapshotPath = "s3://snapshots/path";
-      final String snapshotId = "testSnapshotId";
       final long startTimeUtc = 12345;
       final long endTimeUtc = 123456;
       final long maxOffset = 100;
@@ -132,7 +130,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -142,29 +140,22 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.snapshotId).isEqualTo(name);
       assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
       assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
-      String newSnapshotId = "newSnapshotId";
       final SnapshotMetadata newSnapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              newSnapshotId,
-              startTimeUtc + 1,
-              endTimeUtc + 1,
-              maxOffset + 100,
-              partitionId);
+              name, snapshotPath, startTimeUtc + 1, endTimeUtc + 1, maxOffset + 100, partitionId);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
       SnapshotMetadata newMetadata = store.getNode(name).get();
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(newMetadata.snapshotId).isEqualTo(newSnapshotId);
+      assertThat(newMetadata.snapshotId).isEqualTo(name);
       assertThat(newMetadata.startTimeUtc).isEqualTo(startTimeUtc + 1);
       assertThat(newMetadata.endTimeUtc).isEqualTo(endTimeUtc + 1);
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
@@ -210,9 +201,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshot";
+      final String name = "testSnapshotId";
       final String snapshotPath = "s3://snapshots/path";
-      final String snapshotId = "testSnapshotId";
       final long startTimeUtc = 12345;
       final long endTimeUtc = 123456;
       final long maxOffset = 100;
@@ -220,13 +210,13 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.snapshotId).isEqualTo(name);
       assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
       assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
@@ -869,9 +859,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testCreateGetDelete() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshot";
+      final String name = "testSnapshotId";
       final String snapshotPath = "s3://snapshots/path";
-      final String snapshotId = "testSnapshotId";
       final long startTimeUtc = 12345;
       final long endTimeUtc = 123456;
       final long maxOffset = 100;
@@ -879,7 +868,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -889,29 +878,21 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.snapshotId).isEqualTo(name);
       assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
       assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
-      String newSnapshotId = "newSnapshotId";
       final SnapshotMetadata newSnapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              newSnapshotId,
-              startTimeUtc + 1,
-              endTimeUtc + 1,
-              maxOffset + 100,
-              partitionId);
+              name, snapshotPath, startTimeUtc + 1, endTimeUtc + 1, maxOffset + 100, partitionId);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
       SnapshotMetadata newMetadata = store.getNode(name).get();
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(newMetadata.snapshotId).isEqualTo(newSnapshotId);
       assertThat(newMetadata.startTimeUtc).isEqualTo(startTimeUtc + 1);
       assertThat(newMetadata.endTimeUtc).isEqualTo(endTimeUtc + 1);
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
@@ -957,9 +938,8 @@ public class KaldbMetadataStoreTest {
 
     @Test
     public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshot";
+      final String name = "testSnapshotId";
       final String snapshotPath = "s3://snapshots/path";
-      final String snapshotId = "testSnapshotId";
       final long startTimeUtc = 12345;
       final long endTimeUtc = 123456;
       final long maxOffset = 100;
@@ -967,13 +947,13 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(snapshotId);
+      assertThat(metadata.snapshotId).isEqualTo(name);
       assertThat(metadata.startTimeUtc).isEqualTo(startTimeUtc);
       assertThat(metadata.endTimeUtc).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
