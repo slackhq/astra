@@ -4,6 +4,7 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
@@ -196,5 +197,59 @@ public class ChunkInfo {
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
       dataEndTimeEpochMs = Math.max(dataEndTimeEpochMs, messageTimeStampMs);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "ChunkInfo{"
+        + "chunkId='"
+        + chunkId
+        + ", chunkCreationTimeEpochMs="
+        + chunkCreationTimeEpochMs
+        + ", kafkaPartitionId='"
+        + kafkaPartitionId
+        + ", maxOffset="
+        + maxOffset
+        + ", chunkLastUpdatedTimeEpochMs="
+        + chunkLastUpdatedTimeEpochMs
+        + ", dataStartTimeEpochMs="
+        + dataStartTimeEpochMs
+        + ", dataEndTimeEpochMs="
+        + dataEndTimeEpochMs
+        + ", chunkSnapshotTimeEpochMs="
+        + chunkSnapshotTimeEpochMs
+        + ", snapshotPath='"
+        + snapshotPath
+        + '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ChunkInfo chunkInfo = (ChunkInfo) o;
+    return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
+        && maxOffset == chunkInfo.maxOffset
+        && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
+        && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
+        && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
+        && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
+        && Objects.equals(chunkId, chunkInfo.chunkId)
+        && Objects.equals(kafkaPartitionId, chunkInfo.kafkaPartitionId)
+        && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        kafkaPartitionId,
+        maxOffset,
+        chunkLastUpdatedTimeEpochMs,
+        dataStartTimeEpochMs,
+        dataEndTimeEpochMs,
+        chunkSnapshotTimeEpochMs,
+        snapshotPath);
   }
 }
