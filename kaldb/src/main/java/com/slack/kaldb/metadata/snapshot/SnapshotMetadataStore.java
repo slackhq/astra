@@ -14,11 +14,6 @@ public class SnapshotMetadataStore extends PersistentMutableMetadataStore<Snapsh
   public SnapshotMetadataStore(
       MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
     super(
-        shouldCache,
-        false,
-        snapshotStorePath,
-        metadataStore,
-        new SnapshotMetadataSerializer(),
-        LOG);
+        shouldCache, true, snapshotStorePath, metadataStore, new SnapshotMetadataSerializer(), LOG);
   }
 }
