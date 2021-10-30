@@ -4,6 +4,19 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
+/**
+ * The SnapshotMetadata class contains all the metadata related to a snapshot.
+ *
+ * <p>Currently, we also assume that the name of the node is the same as the snapshotId. We make
+ * this distinction to allow a multiple snapshots to point to same data. However, we don't need that
+ * functionality yet. So, we don't expose this flexibility to the application for now.
+ *
+ * <p>Note: Currently, we assume that we will always index partitions linearly. So, we only store
+ * the endOffset for a Kafka partition. The starting offset would be the continuation from the
+ * previous offset (except in case of a recovery task). Since this info is only used for debugging
+ * for now, this should be fine. If this is inconvenient, consider adding a startOffset field also
+ * here.
+ */
 public class SnapshotMetadata extends KaldbMetadata {
 
   public final String snapshotPath;
@@ -14,6 +27,16 @@ public class SnapshotMetadata extends KaldbMetadata {
   public final String partitionId;
 
   public SnapshotMetadata(
+      String snapshotId,
+      String snapshotPath,
+      long startTimeUtc,
+      long endTimeUtc,
+      long maxOffset,
+      String partitionId) {
+    this(snapshotId, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+  }
+
+  private SnapshotMetadata(
       String name,
       String snapshotPath,
       String snapshotId,
@@ -22,15 +45,14 @@ public class SnapshotMetadata extends KaldbMetadata {
       long maxOffset,
       String partitionId) {
     super(name);
-
-    checkState(
-        snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
     checkState(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
     checkState(startTimeUtc > 0, "start time should be greater than zero.");
     checkState(endTimeUtc > 0, "end time should be greater than zero.");
     checkState(endTimeUtc > startTimeUtc, "start time should be greater than  end time.");
     checkState(maxOffset >= 0, "max offset should be greater than zero.");
     checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
+    checkState(
+        snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
 
     this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;
