@@ -2,7 +2,6 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.time.Instant;
 
@@ -16,34 +15,33 @@ import java.time.Instant;
  * code into multiple, classes.
  *
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
- * TODO: Add a state machine for a chunk?
+ *
+ * <p>TODO: Add a state machine for a chunk?
+ *
+ * <p>TODO: Add a minOffset field to chunk and snapshot metadata.
  */
 public class ChunkInfo {
   public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
   public static final int DEFAULT_MAX_OFFSET = 0;
   private static final String DEFAULT_KAFKA_PARTITION_ID = "";
 
-  // todo - remove data directory argument once all the data is in the snapshot
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
     return new ChunkInfo(
         snapshotMetadata.snapshotId,
-        Instant.now().toEpochMilli(),
+        snapshotMetadata.startTimeUtc,
         snapshotMetadata.endTimeUtc,
         snapshotMetadata.startTimeUtc,
         snapshotMetadata.endTimeUtc,
         snapshotMetadata.endTimeUtc,
-        DEFAULT_MAX_OFFSET,
-        DEFAULT_KAFKA_PARTITION_ID,
+        snapshotMetadata.maxOffset,
+        snapshotMetadata.partitionId,
         snapshotMetadata.snapshotPath);
   }
 
   public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo, String chunkPrefix) {
-    // TODO: Set the start offset for the kafka partition.
-    // TODO: Pass in the snapshot path as input?
     return new SnapshotMetadata(
         chunkPrefix + chunkInfo.chunkId,
-        SearchMetadata.LIVE_SNAPSHOT_NAME,
-        chunkInfo.chunkId,
+        chunkInfo.snapshotPath,
         chunkInfo.getDataStartTimeEpochMs(),
         chunkInfo.getDataEndTimeEpochMs(),
         chunkInfo.maxOffset,
@@ -83,7 +81,8 @@ public class ChunkInfo {
   // Path to S3 snapshot.
   private String snapshotPath;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId) {
+  public ChunkInfo(
+      String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId, String snapshotPath) {
     // TODO: Should we set the snapshot time to creation time also?
     this(
         chunkId,
@@ -94,7 +93,7 @@ public class ChunkInfo {
         0,
         DEFAULT_MAX_OFFSET,
         kafkaPartitionId,
-        "");
+        snapshotPath);
   }
 
   public ChunkInfo(
@@ -148,6 +147,10 @@ public class ChunkInfo {
     return maxOffset;
   }
 
+  public String getKafkaPartitionId() {
+    return kafkaPartitionId;
+  }
+
   public long getChunkLastUpdatedTimeEpochMs() {
     return chunkLastUpdatedTimeEpochMs;
   }
@@ -157,11 +160,7 @@ public class ChunkInfo {
   }
 
   public void setSnapshotPath(String snapshotPath) {
-    if (this.snapshotPath == null || this.snapshotPath.isEmpty()) {
-      this.snapshotPath = snapshotPath;
-    } else {
-      throw new IllegalStateException("Snapshot path is already set.");
-    }
+    this.snapshotPath = snapshotPath;
   }
 
   public String getSnapshotPath() {
