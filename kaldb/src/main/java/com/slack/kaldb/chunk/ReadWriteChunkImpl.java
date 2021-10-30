@@ -32,7 +32,23 @@ import org.slf4j.LoggerFactory;
  * read the messages we wrote. It provides a unified interface of a shard abstracting the details of
  * the underlying storage implementation.
  *
- * <p>TODO: Is chunk responsible for maintaining it's own metadata?
+ * <p>Chunk maintains its metadata in the chunkInfo object. The chunkInfo tracks all the info needed
+ * for constructing a snapshot.
+ *
+ * <p>A ReadWriteChunk goes through the following life cycle.
+ *
+ * <p>When a chunk is created it is open for both reads and writes. Since a ReadWriteChunk is
+ * ingesting live data, a cluster manager doesn't manage it. Instead, when a chunk in created, it
+ * registers a live snapshot and a live search node.
+ *
+ * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
+ * writing anymore. When a chunk is snapshotted, a non-live snapshot is created which is assigned to
+ * a cache node by the cluster manager. The live snapshot is updated with the end time of the chunk
+ * so it only receives the queries for the data within it's time range. As long as the chunk is up,
+ * it will be searched using the live search node.
+ *
+ * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the live snapshot
+ * and the search metadata are deleted as part of the chunk de-registration process.
  */
 public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
@@ -47,9 +63,8 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   private final ChunkInfo chunkInfo;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
-  private final SearchContext searchContext;
   private final SearchMetadata liveSearchMetadata;
-  private final SnapshotMetadata liveSnapshotMetadata;
+  private SnapshotMetadata liveSnapshotMetadata;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
@@ -78,16 +93,16 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
             chunkCreationTime.toEpochMilli(),
-            kafkaPartitionId);
+            kafkaPartitionId,
+            SearchMetadata.LIVE_SNAPSHOT_NAME);
     readOnly = false;
     this.meterRegistry = meterRegistry;
     fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
     liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, SearchMetadata.LIVE_SNAPSHOT_NAME + "_");
-    liveSearchMetadata = toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
+    liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.snapshotId, searchContext);
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.searchContext = searchContext;
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
@@ -96,8 +111,13 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     searchMetadataStore.createSync(liveSearchMetadata);
   }
 
+  public void deRegister() {
+    searchMetadataStore.deleteSync(liveSearchMetadata);
+    snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
+  }
+
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
+    return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
   }
 
   /**
@@ -133,7 +153,9 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    // TODO: Remove the search node.
+    // TODO: Ignore exceptions during de-register?
+    deRegister();
+
     logSearcher.close();
     logStore.close();
     LOG.info("Closed chunk {}", chunkInfo);
@@ -202,14 +224,19 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
 
-    SearchMetadata nonLiveSearchMetadata = toSearchMetadata(chunkInfo.chunkId, searchContext);
-    searchMetadataStore.createSync(nonLiveSearchMetadata);
+    // Update the live snapshot. Keep the same snapshotId and snapshotPath to
+    // ensure it's a live snapshot.
+    SnapshotMetadata updatedSnapshotMetadata =
+        new SnapshotMetadata(
+            liveSnapshotMetadata.snapshotId,
+            liveSnapshotMetadata.snapshotPath,
+            chunkInfo.getDataStartTimeEpochMs(),
+            chunkInfo.getDataEndTimeEpochMs(),
+            chunkInfo.getMaxOffset(),
+            chunkInfo.getKafkaPartitionId());
+    snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
+    liveSnapshotMetadata = updatedSnapshotMetadata;
 
-    // TODO: Delete right away?
-    // TODO: Set the local vars to null after removal?
-    // TODO: Instead of adding new search node, should we update existing node?
-    searchMetadataStore.deleteSync(liveSearchMetadata);
-    snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
