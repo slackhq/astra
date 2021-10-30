@@ -9,7 +9,7 @@ public class SnapshotMetadataStore extends PersistentMutableMetadataStore<Snapsh
 
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotMetadataStore.class);
 
-  // TODO: Add a setup method to initialize the store?
+  // TODO: Consider restricting the update methods to only update live nodes only?
 
   public SnapshotMetadataStore(
       MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
