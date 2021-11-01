@@ -115,12 +115,12 @@ public class IndexingChunkManagerTest {
   public void tearDown() throws TimeoutException, IOException {
     LOG.info("tear down");
     metricsRegistry.close();
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     if (chunkManager != null) {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3Client.close();
     localZkServer.stop();
   }
