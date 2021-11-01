@@ -97,6 +97,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * roll over executor that can only execute one roll over task at a time and throws a
    * RejectedExecutionHandler exception when a second one is called (the default policy).
    */
+  @SuppressWarnings("UnstableApiUsage")
   public static ListeningExecutorService makeDefaultRollOverExecutor() {
     // TODO: Create a named thread pool and pass it in.
     ThreadPoolExecutor rollOverExecutor =
