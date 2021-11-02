@@ -1,8 +1,6 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.config.KaldbConfig.CACHE_SLOT_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
-import static com.slack.kaldb.metadata.cache.CacheSlotMetadata.METADATA_SLOT_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -61,7 +59,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
   private final SearchContext searchContext;
-  protected final CacheSlotMetadataStore cacheSlotMetadataStore;
+  protected final String slotName;
+  private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
@@ -84,6 +83,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
+      CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore)
@@ -99,22 +99,21 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setNameFormat("readonly-chunk-%d").build());
     this.searchContext = searchContext;
-    String slotName = String.format("%s-%s", searchContext.hostname, slotId);
+    this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
+    this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.searchMetadataStore = searchMetadataStore;
 
-    // todo - remove the unnecessary additional directory
-    String cacheSlotPath = String.format("%s/%s", CACHE_SLOT_STORE_ZK_PATH, slotName);
-    cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), cacheSlotPath, true);
-    cacheSlotMetadataStore.addListener(cacheNodeListener());
-
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            METADATA_SLOT_NAME, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+            slotName, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
+    cacheSlotMetadataStore.createSync(cacheSlotMetadata);
+
+    CacheSlotMetadataStore cacheSlotNodeMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), slotName, true);
+    cacheSlotNodeMetadataStore.addListener(cacheNodeListener());
     previousSlotState = Metadata.CacheSlotState.FREE;
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotName", slotName));
@@ -128,7 +127,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
     return () -> {
-      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
+      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getNodeSync(slotName);
       Metadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
 
       if (newSlotState.equals(Metadata.CacheSlotState.ASSIGNED)) {
@@ -259,7 +258,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @VisibleForTesting
   public boolean setChunkMetadataState(Metadata.CacheSlotState newChunkState) {
-    CacheSlotMetadata chunkMetadata = cacheSlotMetadataStore.getCached().get(0);
+    CacheSlotMetadata chunkMetadata = cacheSlotMetadataStore.getNodeSync(slotName);
     CacheSlotMetadata updatedChunkMetadata =
         new CacheSlotMetadata(
             chunkMetadata.name,
@@ -277,10 +276,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @VisibleForTesting
   public Metadata.CacheSlotState getChunkMetadataState() {
-    if (cacheSlotMetadataStore.getCached().isEmpty()) {
-      return null;
-    }
-    return cacheSlotMetadataStore.getCached().get(0).cacheSlotState;
+    return cacheSlotMetadataStore.getNodeSync(slotName).cacheSlotState;
   }
 
   @VisibleForTesting

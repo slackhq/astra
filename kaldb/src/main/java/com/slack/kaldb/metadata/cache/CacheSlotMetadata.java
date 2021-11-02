@@ -4,8 +4,6 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 
 public class CacheSlotMetadata extends KaldbMetadata {
-  public static final String METADATA_SLOT_NAME = "SLOT";
-
   public final Metadata.CacheSlotState cacheSlotState;
   public final String replicaId;
   public final long updatedTimeUtc;
@@ -42,18 +40,16 @@ public class CacheSlotMetadata extends KaldbMetadata {
 
   @Override
   public String toString() {
-    return "CacheNodeMetadata{"
-        + "name='"
-        + name
-        + '\''
-        + ", cacheSlotState='"
+    return "CacheSlotMetadata{"
+        + "cacheSlotState="
         + cacheSlotState
-        + '\''
         + ", replicaId='"
         + replicaId
         + '\''
         + ", updatedTimeUtc='"
         + updatedTimeUtc
+        + ", name='"
+        + name
         + '\''
         + '}';
   }

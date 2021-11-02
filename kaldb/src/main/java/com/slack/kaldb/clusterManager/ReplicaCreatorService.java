@@ -1,7 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
@@ -39,9 +38,7 @@ public class ReplicaCreatorService extends AbstractIdleService {
     LOG.info("Starting replica creator service");
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, true);
+    replicaMetadataStore = new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
     replicaMetadataStore.addListener(replicaNodeListener());
   }
 

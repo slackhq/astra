@@ -1,9 +1,6 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -99,14 +96,13 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -124,6 +120,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore);
@@ -131,7 +128,7 @@ public class ReadOnlyChunkImplTest {
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
-    assignReplicaToChunk(replicaId, readOnlyChunk);
+    assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
@@ -199,14 +196,13 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -223,6 +219,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore);
@@ -230,7 +227,7 @@ public class ReadOnlyChunkImplTest {
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
-    assignReplicaToChunk(replicaId, readOnlyChunk);
+    assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -262,14 +259,13 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -286,6 +282,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore);
@@ -293,7 +290,7 @@ public class ReadOnlyChunkImplTest {
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
-    assignReplicaToChunk(replicaId, readOnlyChunk);
+    assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // assert that the chunk was released back to free
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
@@ -325,14 +322,13 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -350,6 +346,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
             searchMetadataStore);
@@ -357,7 +354,7 @@ public class ReadOnlyChunkImplTest {
     // wait for chunk to register
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
 
-    assignReplicaToChunk(replicaId, readOnlyChunk);
+    assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
     await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
@@ -400,14 +397,14 @@ public class ReadOnlyChunkImplTest {
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
-  private void assignReplicaToChunk(String replicaId, ReadOnlyChunkImpl<LogMessage> readOnlyChunk) {
-    CacheSlotMetadataStore cacheSlotMetadataStore = readOnlyChunk.cacheSlotMetadataStore;
-    CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getCached().get(0);
-
+  private void assignReplicaToChunk(
+      CacheSlotMetadataStore cacheSlotMetadataStore,
+      String replicaId,
+      ReadOnlyChunkImpl<LogMessage> readOnlyChunk) {
     // update chunk to assigned
     CacheSlotMetadata updatedCacheSlotMetadata =
         new CacheSlotMetadata(
-            cacheSlotMetadata.name,
+            readOnlyChunk.slotName,
             Metadata.CacheSlotState.ASSIGNED,
             replicaId,
             Instant.now().toEpochMilli());
@@ -417,8 +414,7 @@ public class ReadOnlyChunkImplTest {
   private void initializeZkSnapshot(MetadataStoreService metadataStoreService, String snapshotId)
       throws Exception {
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     snapshotMetadataStore
         .create(
             new SnapshotMetadata(
@@ -436,8 +432,7 @@ public class ReadOnlyChunkImplTest {
       MetadataStoreService metadataStoreService, String replicaId, String snapshotId)
       throws Exception {
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     replicaMetadataStore
         .create(new ReplicaMetadata(replicaId, snapshotId))
         .get(5, TimeUnit.SECONDS);
