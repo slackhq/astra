@@ -11,20 +11,19 @@ import org.junit.Test;
 public class SnapshotMetadataTest {
   @Test
   public void testSnapshotMetadata() {
-    final String name = "testSnapshot";
+    final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
-    final String id = name + "_id";
     final long startTime = 1;
     final long endTime = 100;
     final long maxOffset = 123;
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
 
     assertThat(snapshotMetadata.name).isEqualTo(name);
     assertThat(snapshotMetadata.snapshotPath).isEqualTo(path);
-    assertThat(snapshotMetadata.snapshotId).isEqualTo(id);
+    assertThat(snapshotMetadata.snapshotId).isEqualTo(name);
     assertThat(snapshotMetadata.startTimeUtc).isEqualTo(startTime);
     assertThat(snapshotMetadata.endTimeUtc).isEqualTo(endTime);
     assertThat(snapshotMetadata.maxOffset).isEqualTo(maxOffset);
@@ -33,18 +32,17 @@ public class SnapshotMetadataTest {
 
   @Test
   public void testEqualsAndHashCode() {
-    final String name = "testSnapshot";
+    final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
-    final String id = name + "_id";
     final long startTime = 1;
     final long endTime = 100;
     final long maxOffset = 123;
     final String partitionId = "1";
 
     SnapshotMetadata snapshot1 =
-        new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
     SnapshotMetadata snapshot2 =
-        new SnapshotMetadata(name + "2", path, id, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(name + "2", path, startTime, endTime, maxOffset, partitionId);
 
     assertThat(snapshot1).isEqualTo(snapshot1);
     // Ensure the name field from super class is included.
@@ -58,9 +56,8 @@ public class SnapshotMetadataTest {
 
   @Test
   public void ensureValidSnapshotData() {
-    final String name = "testSnapshot";
+    final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
-    final String id = name + "_id";
     final long startTime = 1;
     final long endTime = 100;
     final long maxOffset = 123;
@@ -68,33 +65,27 @@ public class SnapshotMetadataTest {
 
     assertThatIllegalStateException()
         .isThrownBy(
-            () -> new SnapshotMetadata("", path, id, startTime, endTime, maxOffset, partitionId));
+            () -> new SnapshotMetadata("", path, startTime, endTime, maxOffset, partitionId));
 
     assertThatIllegalStateException()
         .isThrownBy(
-            () -> new SnapshotMetadata(name, "", id, startTime, endTime, maxOffset, partitionId));
+            () -> new SnapshotMetadata(name, "", startTime, endTime, maxOffset, partitionId));
 
     assertThatIllegalStateException()
-        .isThrownBy(
-            () -> new SnapshotMetadata(name, path, "", startTime, endTime, maxOffset, partitionId));
+        .isThrownBy(() -> new SnapshotMetadata(name, path, 0, endTime, maxOffset, partitionId));
 
     assertThatIllegalStateException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, id, 0, endTime, maxOffset, partitionId));
-
-    assertThatIllegalStateException()
-        .isThrownBy(
-            () -> new SnapshotMetadata(name, path, id, startTime, 0, maxOffset, partitionId));
+        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, 0, maxOffset, partitionId));
 
     // Start time < end time
     assertThatIllegalStateException()
         .isThrownBy(
-            () -> new SnapshotMetadata(name, path, id, endTime, startTime, maxOffset, partitionId));
+            () -> new SnapshotMetadata(name, path, endTime, startTime, maxOffset, partitionId));
 
     assertThatIllegalStateException()
-        .isThrownBy(
-            () -> new SnapshotMetadata(name, path, id, startTime, endTime, -1, partitionId));
+        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, -1, partitionId));
 
     assertThatIllegalStateException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, ""));
+        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, maxOffset, ""));
   }
 }

@@ -10,16 +10,15 @@ public class SnapshotMetadataSerializerTest {
 
   @Test
   public void testSnapshotMetadataSerializer() throws InvalidProtocolBufferException {
-    final String name = "testSnapshot";
+    final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
-    final String id = name + "_id";
     final long startTime = 1;
     final long endTime = 100;
     final long maxOffset = 123;
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(name, path, id, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
 
     String serializedSnapshot = serDe.toJsonStr(snapshotMetadata);
     assertThat(serializedSnapshot).isNotEmpty();
@@ -29,7 +28,7 @@ public class SnapshotMetadataSerializerTest {
 
     assertThat(deserializedSnapshotMetadata.name).isEqualTo(name);
     assertThat(deserializedSnapshotMetadata.snapshotPath).isEqualTo(path);
-    assertThat(deserializedSnapshotMetadata.snapshotId).isEqualTo(id);
+    assertThat(deserializedSnapshotMetadata.snapshotId).isEqualTo(name);
     assertThat(deserializedSnapshotMetadata.startTimeUtc).isEqualTo(startTime);
     assertThat(deserializedSnapshotMetadata.endTimeUtc).isEqualTo(endTime);
     assertThat(deserializedSnapshotMetadata.maxOffset).isEqualTo(maxOffset);

@@ -424,7 +424,6 @@ public class ReadOnlyChunkImplTest {
             new SnapshotMetadata(
                 snapshotId,
                 "path",
-                snapshotId,
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 1,
