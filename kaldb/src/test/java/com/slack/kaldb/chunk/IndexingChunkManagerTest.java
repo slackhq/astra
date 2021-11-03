@@ -60,14 +60,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 // TODO: Add a unit test for offset and partition update logic.
 public class IndexingChunkManagerTest {
-  private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManagerTest.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   public static final String HOSTNAME = "localhost";
@@ -115,7 +112,6 @@ public class IndexingChunkManagerTest {
 
   @After
   public void tearDown() throws TimeoutException, IOException {
-    LOG.info("tear down");
     metricsRegistry.close();
     if (chunkManager != null) {
       chunkManager.stopAsync();

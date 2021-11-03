@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
@@ -27,10 +28,13 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // TODO: Add a unit test for offset and partition update logic.
 // TODO: Add a metadatastore checks for all of the unit tests.
 public class ChunkCleanerServiceTest {
+  private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerServiceTest.class);
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private SimpleMeterRegistry metricsRegistry;
@@ -46,11 +50,12 @@ public class ChunkCleanerServiceTest {
 
   @After
   public void tearDown() throws IOException, TimeoutException {
-    KaldbConfig.reset();
-    metricsRegistry.close();
+    LOG.info("tear down");
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
     }
+    metricsRegistry.close();
+    KaldbConfig.reset();
   }
 
   @Test
@@ -159,7 +164,7 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     // TODO: Potential race condition?
-    // await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
