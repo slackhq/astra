@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;

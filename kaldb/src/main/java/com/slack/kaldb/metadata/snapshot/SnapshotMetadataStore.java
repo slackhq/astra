@@ -6,14 +6,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SnapshotMetadataStore extends PersistentMutableMetadataStore<SnapshotMetadata> {
+  public static final String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
 
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotMetadataStore.class);
 
   // TODO: Consider restricting the update methods to only update live nodes only?
 
-  public SnapshotMetadataStore(
-      MetadataStore metadataStore, String snapshotStorePath, boolean shouldCache) throws Exception {
+  public SnapshotMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
     super(
-        shouldCache, true, snapshotStorePath, metadataStore, new SnapshotMetadataSerializer(), LOG);
+        shouldCache,
+        true,
+        SNAPSHOT_METADATA_STORE_ZK_PATH,
+        metadataStore,
+        new SnapshotMetadataSerializer(),
+        LOG);
   }
 }
