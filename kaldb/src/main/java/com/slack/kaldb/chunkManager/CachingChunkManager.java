@@ -1,15 +1,13 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.REPLICA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -58,14 +56,13 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(
-            metadataStoreService.getMetadataStore(), REPLICA_STORE_ZK_PATH, false);
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
     SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
     SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, false);
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
+    CacheSlotMetadataStore cacheSlotMetadataStore =
+        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     for (int i = 0; i < slotCountPerInstance; i++) {
       chunkList.add(
@@ -76,6 +73,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
               searchContext,
               s3Bucket,
               dataDirectoryPrefix,
+              cacheSlotMetadataStore,
               replicaMetadataStore,
               snapshotMetadataStore,
               searchMetadataStore));
