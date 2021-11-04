@@ -111,9 +111,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             slotName, Metadata.CacheSlotState.FREE, "", Instant.now().toEpochMilli());
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
-    CacheSlotMetadataStore cacheSlotNodeMetadataStore =
+    CacheSlotMetadataStore cacheSlotListenerMetadataStore =
         new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), slotName, true);
-    cacheSlotNodeMetadataStore.addListener(cacheNodeListener());
+    cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     previousSlotState = Metadata.CacheSlotState.FREE;
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotName", slotName));
