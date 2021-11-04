@@ -22,9 +22,8 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
   private static SnapshotMetadata fromSnapshotMetadataProto(
       Metadata.SnapshotMetadata protoSnapshotMetadata) {
     return new SnapshotMetadata(
-        protoSnapshotMetadata.getName(),
-        protoSnapshotMetadata.getSnapshotPath(),
         protoSnapshotMetadata.getSnapshotId(),
+        protoSnapshotMetadata.getSnapshotPath(),
         protoSnapshotMetadata.getStartTimeUtc(),
         protoSnapshotMetadata.getEndTimeUtc(),
         protoSnapshotMetadata.getMaxOffset(),
