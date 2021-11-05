@@ -24,7 +24,6 @@ import java.util.Objects;
 public class ChunkInfo {
   public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
   public static final int DEFAULT_MAX_OFFSET = 0;
-  private static final String DEFAULT_KAFKA_PARTITION_ID = "";
 
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
     return new ChunkInfo(
