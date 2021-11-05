@@ -17,8 +17,6 @@ import java.util.Objects;
  *
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
  *
- * <p>TODO: Add a state machine for a chunk?
- *
  * <p>TODO: Add a minOffset field to chunk and snapshot metadata.
  */
 public class ChunkInfo {
