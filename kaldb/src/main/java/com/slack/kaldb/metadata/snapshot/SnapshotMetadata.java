@@ -49,7 +49,7 @@ public class SnapshotMetadata extends KaldbMetadata {
     checkState(startTimeUtc > 0, "start time should be greater than zero.");
     checkState(endTimeUtc > 0, "end time should be greater than zero.");
     checkState(endTimeUtc > startTimeUtc, "start time should be greater than  end time.");
-    checkState(maxOffset >= 0, "max offset should be greater than zero.");
+    checkState(maxOffset >= 0, "max offset should be greater than or equal to zero.");
     checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
     checkState(
         snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");

@@ -36,7 +36,7 @@ public class SnapshotMetadataTest {
     final String path = "/testPath_" + name;
     final long startTime = 1;
     final long endTime = 100;
-    final long maxOffset = 123;
+    final long maxOffset = 0;
     final String partitionId = "1";
 
     SnapshotMetadata snapshot1 =

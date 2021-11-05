@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
@@ -893,6 +893,7 @@ public class KaldbMetadataStoreTest {
       SnapshotMetadata newMetadata = store.getNode(name).get();
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
+      assertThat(newMetadata.snapshotId).isEqualTo(name);
       assertThat(newMetadata.startTimeUtc).isEqualTo(startTimeUtc + 1);
       assertThat(newMetadata.endTimeUtc).isEqualTo(endTimeUtc + 1);
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);

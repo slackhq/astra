@@ -324,17 +324,10 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     LOG.info("Starting indexing chunk manager");
     metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
 
-    searchMetadataStore =
-        new SearchMetadataStore(
-            metadataStoreService.getMetadataStore(),
-            KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH,
-            false);
+    searchMetadataStore = new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     snapshotMetadataStore =
-        new SnapshotMetadataStore(
-            metadataStoreService.getMetadataStore(),
-            KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH,
-            false);
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
