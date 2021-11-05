@@ -2,6 +2,8 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ChunkInfo.DEFAULT_MAX_OFFSET;
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.chunk.ChunkInfo.fromSnapshotMetadata;
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -327,5 +329,23 @@ public class ChunkInfoTest {
     String testPath = "/path";
     chunkInfo.setSnapshotPath(testPath);
     assertThat(chunkInfo.getSnapshotPath()).isEqualTo(testPath);
+  }
+
+  @Test
+  public void snapshotMetadataConversion() {
+    long dataStart = 101;
+    long dataEnd = 102;
+    ChunkInfo chunkInfo =
+        new ChunkInfo(
+            TEST_CHUNK_NAME,
+            dataStart,
+            dataEnd,
+            dataStart,
+            dataEnd,
+            dataEnd,
+            1000,
+            TEST_KAFKA_PARTITION_ID,
+            TEST_SNAPSHOT_PATH);
+    assertThat(fromSnapshotMetadata(toSnapshotMetadata(chunkInfo, ""))).isEqualTo(chunkInfo);
   }
 }
