@@ -343,8 +343,9 @@ public class IndexingChunkManagerTest {
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService(), 3000);
 
     // Add a message
-    LogMessage msg1 = MessageUtil.makeMessage(1);
-    LogMessage msg2 = MessageUtil.makeMessage(2);
+    List<LogMessage> msgs = MessageUtil.makeMessagesWithTimeDifference(1, 4, 1000);
+    LogMessage msg1 = msgs.get(0);
+    LogMessage msg2 = msgs.get(1);
     int offset = 1;
     chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
@@ -364,9 +365,8 @@ public class IndexingChunkManagerTest {
     // Wait for roll over to complete.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
-    LogMessage msg3 = MessageUtil.makeMessage(3);
-    LogMessage msg4 = MessageUtil.makeMessage(4);
-
+    LogMessage msg3 = msgs.get(2);
+    LogMessage msg4 = msgs.get(3);
     chunkManager.addMessage(msg3, msg3.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
