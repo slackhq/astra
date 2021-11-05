@@ -58,5 +58,11 @@
       "serverPort": 8083,
       "serverAddress": "localhost"
     }
+  },
+  "recoveryConfig": {
+    "serverConfig": {
+      "serverPort": 8084,
+      "serverAddress": "localhost"
+    }
   }
 }

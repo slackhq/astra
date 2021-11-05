@@ -142,12 +142,20 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
       final int serverPort = KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbManager");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, "kalDbManager");
       services.add(armeriaService);
 
       ReplicaCreatorService replicaCreatorService =
           new ReplicaCreatorService(metadataStoreService, prometheusMeterRegistry);
       services.add(replicaCreatorService);
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
+      final int serverPort =
+          KaldbConfig.get().getRecoveryConfig().getServerConfig().getServerPort();
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbRecovery");
+      services.add(armeriaService);
     }
 
     return services;

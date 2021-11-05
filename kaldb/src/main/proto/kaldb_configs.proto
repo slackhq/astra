@@ -9,6 +9,7 @@ enum NodeRole {
     QUERY = 1;
     CACHE = 2;
     MANAGER = 3;
+    RECOVERY = 4;
 };
 
 message KaldbConfig {
@@ -21,6 +22,7 @@ message KaldbConfig {
     TracingConfig tracingConfig = 7;
     CacheConfig cacheConfig = 8;
     ManagerConfig managerConfig = 9;
+    RecoveryConfig recoveryConfig = 10;
 }
 
 message KafkaConfig {
@@ -85,5 +87,9 @@ message CacheConfig {
 }
 
 message ManagerConfig {
+    ServerConfig serverConfig = 1;
+}
+
+message RecoveryConfig {
     ServerConfig serverConfig = 1;
 }
