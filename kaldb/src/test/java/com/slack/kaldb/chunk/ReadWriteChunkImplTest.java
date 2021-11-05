@@ -5,8 +5,6 @@ import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
-import static com.slack.kaldb.config.KaldbConfig.SEARCH_METADATA_STORE_ZK_PATH;
-import static com.slack.kaldb.config.KaldbConfig.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -123,11 +121,9 @@ public class ReadWriteChunkImplTest {
       metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(
-              metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
       SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(
-              metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+          new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -444,11 +440,9 @@ public class ReadWriteChunkImplTest {
       metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(
-              metadataStoreService.getMetadataStore(), SNAPSHOT_METADATA_STORE_ZK_PATH, false);
+          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
       SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(
-              metadataStoreService.getMetadataStore(), SEARCH_METADATA_STORE_ZK_PATH, true);
+          new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
