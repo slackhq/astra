@@ -209,12 +209,14 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
             @Override
             public void onSuccess(Boolean success) {
               if (success == null || !success) {
+                LOG.warn("roll over failed.");
                 stopIngestion = true;
               }
             }
 
             @Override
             public void onFailure(Throwable t) {
+              LOG.warn("roll over failed with an exception", t);
               stopIngestion = true;
             }
           },

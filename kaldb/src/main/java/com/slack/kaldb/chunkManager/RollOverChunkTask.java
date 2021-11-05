@@ -40,25 +40,30 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);
   }
 
+  // TODO: Is the return value needed?.
   @Override
   public Boolean call() {
-    LOG.info("Start chunk roll over {}", chunk.info());
-    rolloversInitiatedCounter.increment();
-    // Take the given chunk.
-    chunk.preSnapshot();
-
-    // Upload it to S3.
-    if (chunk.snapshotToS3(s3Bucket, s3BucketPrefix, s3BlobFs)) {
+    try {
+      LOG.info("Start chunk roll over {}", chunk.info());
+      rolloversInitiatedCounter.increment();
+      // Take the given chunk.
+      chunk.preSnapshot();
+      // Upload it to S3.
+      if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, s3BlobFs)) {
+        LOG.warn("Failed to snapshot the chunk to S3");
+        rolloversFailedCounter.increment();
+        return false;
+      }
       // Post snapshot management.
       chunk.postSnapshot();
       rolloversCompletedCounter.increment();
       chunk.info().setChunkSnapshotTimeEpochMs(Instant.now().toEpochMilli());
       LOG.info("Finished chunk roll over {}", chunk.info());
       return true;
-    } else {
+    } catch (RuntimeException e) {
       rolloversFailedCounter.increment();
-      LOG.info("Failed chunk roll over {}", chunk.info());
-      return false;
+      LOG.warn("Failed chunk roll over {}", chunk.info(), e);
     }
+    return false;
   }
 }
