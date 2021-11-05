@@ -9,12 +9,32 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryNodeMetadataStore.class);
   public static final String RECOVERY_NODE_ZK_PATH = "/recoveryNode";
 
+  /**
+   * Initializes a recovery node metadata store at the RECOVERY_NODE_ZK_PATH. This should be used to
+   * create/update the recovery nodes, and for listening to all recovery node events.
+   */
   public RecoveryNodeMetadataStore(MetadataStore metadataStore, boolean shouldCache)
       throws Exception {
     super(
         shouldCache,
         false,
         RECOVERY_NODE_ZK_PATH,
+        metadataStore,
+        new RecoveryNodeMetadataSerializer(),
+        LOG);
+  }
+
+  /**
+   * Initializes a recovery node metadata store at RECOVERY_NODE_ZK_PATH/{recoveryNodeName}. This
+   * should be used to add listeners to specific recovery nodes, and is not expected to be used for
+   * mutating any nodes.
+   */
+  public RecoveryNodeMetadataStore(
+      MetadataStore metadataStore, String recoveryNodeName, boolean shouldCache) throws Exception {
+    super(
+        shouldCache,
+        false,
+        String.format("%s/%s", RECOVERY_NODE_ZK_PATH, recoveryNodeName),
         metadataStore,
         new RecoveryNodeMetadataSerializer(),
         LOG);
