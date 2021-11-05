@@ -10,7 +10,8 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
       Metadata.CacheSlotMetadata cacheSlotMetadataProto) {
     return new CacheSlotMetadata(
         cacheSlotMetadataProto.getName(),
-        Metadata.CacheSlotState.valueOf(cacheSlotMetadataProto.getCacheSlotState().name()),
+        Metadata.CacheSlotMetadata.CacheSlotState.valueOf(
+            cacheSlotMetadataProto.getCacheSlotState().name()),
         cacheSlotMetadataProto.getReplicaId(),
         cacheSlotMetadataProto.getUpdatedTimeUtc());
   }
