@@ -469,7 +469,7 @@ public class LogMessageWriterImplTest {
                         traceId,
                         String.valueOf(i),
                         "0",
-                        timestampMicros,
+                        timestampMicros + (i * 1000),
                         durationMicros,
                         name,
                         serviceName,
