@@ -4,12 +4,15 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 
 public class CacheSlotMetadata extends KaldbMetadata {
-  public final Metadata.CacheSlotState cacheSlotState;
+  public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
   public final long updatedTimeUtc;
 
   public CacheSlotMetadata(
-      String name, Metadata.CacheSlotState cacheSlotState, String replicaId, long updatedTimeUtc) {
+      String name,
+      Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState,
+      String replicaId,
+      long updatedTimeUtc) {
     super(name);
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;

@@ -113,19 +113,19 @@ public class CachingChunkManagerTest {
             () ->
                 ((ReadOnlyChunkImpl) (readOnlyChunks.get(0)))
                     .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotState.FREE));
+                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
     await()
         .until(
             () ->
                 ((ReadOnlyChunkImpl) (readOnlyChunks.get(1)))
                     .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotState.FREE));
+                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
     await()
         .until(
             () ->
                 ((ReadOnlyChunkImpl) (readOnlyChunks.get(2)))
                     .getChunkMetadataState()
-                    .equals(Metadata.CacheSlotState.FREE));
+                    .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
 
     cachingChunkManager.stopAsync();
     metadataStoreService.stopAsync();
