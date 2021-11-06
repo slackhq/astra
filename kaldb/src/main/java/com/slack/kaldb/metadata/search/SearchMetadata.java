@@ -6,7 +6,7 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 
 /** Search metadata contains the metadata needed to perform a search on a snapshot. */
 public class SearchMetadata extends KaldbMetadata {
-  public static final String LIVE_SNAPSHOT_NAME = "LIVE";
+  public static final String LIVE_SNAPSHOT_PATH = "LIVE";
 
   public final String snapshotName;
   public final String url;

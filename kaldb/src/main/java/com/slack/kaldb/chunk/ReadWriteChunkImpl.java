@@ -53,11 +53,11 @@ import org.slf4j.LoggerFactory;
 public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   // TODO: Add a global UUID to identify each chunk uniquely.
-
   private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
+  public static final String LIVE_SNAPSHOT_PREFIX = SearchMetadata.LIVE_SNAPSHOT_PATH + "_";
 
   private final LogStore<T> logStore;
   private final ChunkInfo chunkInfo;
@@ -94,12 +94,12 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
-            SearchMetadata.LIVE_SNAPSHOT_NAME);
+            SearchMetadata.LIVE_SNAPSHOT_PATH);
     readOnly = false;
     this.meterRegistry = meterRegistry;
     fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
     fileUploadFailures = meterRegistry.counter(INDEX_FILES_UPLOAD_FAILED);
-    liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, SearchMetadata.LIVE_SNAPSHOT_NAME + "_");
+    liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, LIVE_SNAPSHOT_PREFIX);
     liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.snapshotId, searchContext);
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
