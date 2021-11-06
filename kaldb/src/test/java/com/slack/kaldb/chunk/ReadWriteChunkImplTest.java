@@ -483,15 +483,7 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSnapshotToNonExistentS3BucketFails()
         throws ExecutionException, InterruptedException, TimeoutException {
-      assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
-          .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-      final List<SearchMetadata> beforeSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(beforeSearchNodes.size()).isEqualTo(1);
-      assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
-
+      testBeforeSnapshotState();
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -543,8 +535,20 @@ public class ReadWriteChunkImplTest {
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
+    private void testBeforeSnapshotState() throws ExecutionException, InterruptedException, TimeoutException {
+      assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
+              .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
+      final List<SearchMetadata> beforeSearchNodes =
+              searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(beforeSearchNodes.size()).isEqualTo(1);
+      assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
+      assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    }
+
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
+      testBeforeSnapshotState();
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -584,26 +588,29 @@ public class ReadWriteChunkImplTest {
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
       assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
 
-      // TODO: Add metadata checks before and after the post snapshot.
       // Post snapshot cleanup.
       chunk.postSnapshot();
-      // TODO: Add metadata checks.
+
+      // Metadata checks
+      List<SnapshotMetadata> afterSnapshots =
+              snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSnapshots.size()).isEqualTo(2);
+      assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+      SnapshotMetadata liveSnapshot =
+              afterSnapshots.stream().filter(s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH)).findFirst().get();
+      assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+      assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
+      assertThat(liveSnapshot.snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+      List<SearchMetadata> afterSearchNodes =
+              searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSearchNodes.size()).isEqualTo(1);
+      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
+      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
       chunk.close();
       closeChunk = false;
-
-      // TODO: Test search via read write chunk.query API. Also, add a few more messages to search.
-      //      LuceneIndexStoreImpl rwLogStore =
-      //          ReadWriteChunkImpl.makeLogStore(
-      //              newLocalFolderPath, commitInterval, refreshInterval, registry);
-      //      ReadWriteChunkImpl<LogMessage> readWriteChunk =
-      //          new ReadWriteChunkImpl<>(rwLogStore, "testDataSet2");
-      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-      //          .isGreaterThanOrEqualTo(s3Files.length); // More files like lock files may be
-      // present
-      //
-      //      SearchResult<LogMessage> rwChunkResults = readWriteChunk.query(searchQuery);
-      //      // NOTE: The search query returns 0 results even when the data exists. Not sure why.
-      //      assertThat(rwChunkResults.hits.size()).isEqualTo(1);
     }
   }
 }
