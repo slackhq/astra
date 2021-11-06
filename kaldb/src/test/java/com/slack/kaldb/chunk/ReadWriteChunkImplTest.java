@@ -535,11 +535,12 @@ public class ReadWriteChunkImplTest {
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
-    private void testBeforeSnapshotState() throws ExecutionException, InterruptedException, TimeoutException {
+    private void testBeforeSnapshotState()
+        throws ExecutionException, InterruptedException, TimeoutException {
       assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
-              .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
+          .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
       final List<SearchMetadata> beforeSearchNodes =
-              searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(beforeSearchNodes.size()).isEqualTo(1);
       assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -593,17 +594,21 @@ public class ReadWriteChunkImplTest {
 
       // Metadata checks
       List<SnapshotMetadata> afterSnapshots =
-              snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
-              afterSnapshots.stream().filter(s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH)).findFirst().get();
+          afterSnapshots
+              .stream()
+              .filter(s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH))
+              .findFirst()
+              .get();
       assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
       assertThat(liveSnapshot.snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
 
       List<SearchMetadata> afterSearchNodes =
-              searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
