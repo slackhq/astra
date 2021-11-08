@@ -56,9 +56,9 @@ import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -157,7 +157,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  @Disabled
+  @Ignore
   // Todo: this test needs to be refactored as it currently does not reliably replicate the race
   //   condition Additionally, this test as currently written is extremely slow, and accounts
   //   for over 10% of our test runtime
