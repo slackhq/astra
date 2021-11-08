@@ -146,9 +146,9 @@ public class ArmeriaService extends AbstractIdleService {
 
   @Override
   protected void startUp() throws Exception {
+    LOG.info("Starting {} on port {}", serviceName, serverPort);
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.get(15, TimeUnit.SECONDS);
-    LOG.info("Started on port: {}", serverPort);
   }
 
   @Override

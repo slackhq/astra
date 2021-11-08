@@ -10,6 +10,7 @@ import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -29,7 +30,6 @@ public class RecoveryService extends AbstractIdleService {
 
   private final SearchContext searchContext;
   private final MetadataStoreService metadataStoreService;
-  private final MeterRegistry meterRegistry;
 
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
@@ -52,7 +52,6 @@ public class RecoveryService extends AbstractIdleService {
       MetadataStoreService metadataStoreService,
       MeterRegistry meterRegistry) {
     this.metadataStoreService = metadataStoreService;
-    this.meterRegistry = meterRegistry;
     this.searchContext = SearchContext.fromConfig(recoveryConfig.getServerConfig());
 
     // we use a single thread executor to allow operations for this recovery node to queue,
@@ -125,12 +124,19 @@ public class RecoveryService extends AbstractIdleService {
   private void handleRecoveryTaskAssignment(RecoveryNodeMetadata recoveryNodeMetadata) {
     try {
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING);
+      RecoveryTaskMetadata recoveryTaskMetadata =
+          recoveryTaskMetadataStore.getNodeSync(recoveryNodeMetadata.recoveryTaskName);
 
-      // todo - lookup task assignment, do work (once snapshot successful), delete the assignment
+      // todo - index between recoveryTaskMetadata.startOffset and recoveryTaskMetadata.endOffset,
+      //   upload to S3, create the snapshot
+
+      // todo - delete the completed recovery task
+      //   recoveryTaskMetadataStore.delete(recoveryTaskMetadata.name);
 
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
       recoveryNodeCompletedAssignment.increment();
     } catch (Exception e) {
+      setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
       LOG.error("Failed to complete recovery node task assignment", e);
       recoveryNodeFailedAssignment.increment();
     }
