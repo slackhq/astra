@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -62,36 +61,11 @@ public class ReadWriteChunkImplTest {
   private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
   private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
 
-  // TODO: Code may need some changes. If not refactor into test lib. Copied from
-  //  ReadOnlyChunkImplTest
-  private static KaldbConfigs.KaldbConfig getKaldbConfig(String s3Bucket, String dataDir) {
-    KaldbConfigs.CacheConfig cacheConfig =
-        KaldbConfigs.CacheConfig.newBuilder()
-            .setSlotsPerInstance(3)
-            .setDataDirectory(dataDir)
-            .setServerConfig(
-                KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerAddress("localhost")
-                    .setServerPort(8080)
-                    .build())
-            .build();
-
-    KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder().setS3Bucket(s3Bucket).setS3Region("us-east-1").build();
-
-    return KaldbConfigs.KaldbConfig.newBuilder()
-        .setCacheConfig(cacheConfig)
-        .setS3Config(s3Config)
-        .build();
-  }
-
   // TODO: Add a test with offset and partition id changes.
   public static class BasicTests {
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     private boolean closeChunk = true;
-    private final String testS3Bucket =
-        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
     private MeterRegistry registry;
     private ReadWriteChunkImpl<LogMessage> chunk;
     private TestingServer testingServer;
@@ -102,11 +76,6 @@ public class ReadWriteChunkImplTest {
       Tracing.newBuilder().build();
 
       testingServer = new TestingServer();
-      KaldbConfigs.KaldbConfig kaldbConfig =
-          getKaldbConfig(
-              testS3Bucket,
-              String.format(
-                  "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)));
       KaldbConfigs.ZookeeperConfig zkConfig =
           KaldbConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
@@ -409,8 +378,6 @@ public class ReadWriteChunkImplTest {
 
     @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
 
-    private final String testS3Bucket =
-        String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
     private SimpleMeterRegistry registry;
     private ReadWriteChunkImpl<LogMessage> chunk;
     private TestingServer testingServer;
@@ -423,11 +390,6 @@ public class ReadWriteChunkImplTest {
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
-      KaldbConfigs.KaldbConfig kaldbConfig =
-          getKaldbConfig(
-              testS3Bucket,
-              String.format(
-                  "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)));
       KaldbConfigs.ZookeeperConfig zkConfig =
           KaldbConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
