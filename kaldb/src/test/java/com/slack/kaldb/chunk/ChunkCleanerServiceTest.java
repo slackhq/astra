@@ -245,7 +245,7 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(4);
 
     for (Chunk<LogMessage> c : chunkManager.getChunkList()) {
-      assertThat(((ReadWriteChunkImpl) c).isReadOnly()).isTrue();
+      assertThat(((ReadWriteChunkImpl<LogMessage>) c).isReadOnly()).isTrue();
       assertThat(c.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     }
 
