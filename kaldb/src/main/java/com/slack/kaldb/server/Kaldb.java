@@ -152,14 +152,15 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
-      final int serverPort =
-          KaldbConfig.get().getRecoveryConfig().getServerConfig().getServerPort();
+      final KaldbConfigs.RecoveryConfig recoveryConfig = KaldbConfig.get().getRecoveryConfig();
+      final int serverPort = recoveryConfig.getServerConfig().getServerPort();
+
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbRecovery");
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(metadataStoreService, prometheusMeterRegistry);
+          new RecoveryService(recoveryConfig, metadataStoreService, prometheusMeterRegistry);
       services.add(recoveryService);
     }
 
