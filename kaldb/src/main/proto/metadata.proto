@@ -75,8 +75,14 @@ message RecoveryNodeMetadata {
   // Name of recovery node
   string name = 1;
 
+  // Name of the recovery task
+  string recoveryTaskName = 2;
+
   // State of the recovery node
-  RecoveryNodeState recoveryNodeState = 2;
+  RecoveryNodeState recoveryNodeState = 3;
+
+  // Last updated timestamp
+  int64 updatedTimeUtc = 4;
 }
 
 message RecoveryTaskMetadata {

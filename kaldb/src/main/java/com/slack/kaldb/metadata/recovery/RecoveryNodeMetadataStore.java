@@ -17,7 +17,7 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
       throws Exception {
     super(
         shouldCache,
-        false,
+        true,
         RECOVERY_NODE_ZK_PATH,
         metadataStore,
         new RecoveryNodeMetadataSerializer(),
