@@ -8,14 +8,14 @@ import org.slf4j.LoggerFactory;
 public class RecoveryTaskMetadataStore
     extends PersistentMutableMetadataStore<RecoveryTaskMetadata> {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskMetadataStore.class);
-  public static final String RECOVERY_NODE_ZK_PATH = "/recoveryTask";
+  public static final String RECOVERY_TASK_ZK_PATH = "/recoveryTask";
 
   public RecoveryTaskMetadataStore(MetadataStore metadataStore, boolean shouldCache)
       throws Exception {
     super(
         shouldCache,
         false,
-        RECOVERY_NODE_ZK_PATH,
+        RECOVERY_TASK_ZK_PATH,
         metadataStore,
         new RecoveryTaskMetadataSerializer(),
         LOG);

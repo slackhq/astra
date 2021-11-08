@@ -85,7 +85,8 @@ public class RecoveryServiceTest {
             Instant.now().toEpochMilli());
     recoveryNodeMetadataStore.updateSync(recoveryNodeAssignment);
 
-    // todo - verify it actually indexes here before it returns back to free
+    // todo - verify it actually indexes here before it returns back to free.
+    //  Recovery task should not exist at this point if it is complete
 
     await()
         .until(
