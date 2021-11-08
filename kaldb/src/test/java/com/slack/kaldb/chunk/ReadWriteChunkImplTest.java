@@ -126,12 +126,7 @@ public class ReadWriteChunkImplTest {
 
       chunk.register();
       closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(searchNodes.size()).isEqualTo(1);
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
 
     @After
