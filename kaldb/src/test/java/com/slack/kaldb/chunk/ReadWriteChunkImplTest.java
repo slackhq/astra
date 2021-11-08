@@ -61,6 +61,21 @@ public class ReadWriteChunkImplTest {
   private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
   private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
 
+  private static void testBeforeSnapshotState(
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore,
+      ReadWriteChunkImpl<LogMessage> chunk)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
+        .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
+    final List<SearchMetadata> beforeSearchNodes =
+        searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    assertThat(beforeSearchNodes.size()).isEqualTo(1);
+    assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
+    assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+  }
+
   // TODO: Add a test with offset and partition id changes.
   public static class BasicTests {
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -445,7 +460,7 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSnapshotToNonExistentS3BucketFails()
         throws ExecutionException, InterruptedException, TimeoutException {
-      testBeforeSnapshotState();
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -497,21 +512,9 @@ public class ReadWriteChunkImplTest {
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
-    private void testBeforeSnapshotState()
-        throws ExecutionException, InterruptedException, TimeoutException {
-      assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
-          .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-      final List<SearchMetadata> beforeSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(beforeSearchNodes.size()).isEqualTo(1);
-      assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
-    }
-
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
-      testBeforeSnapshotState();
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
