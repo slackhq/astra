@@ -4,11 +4,11 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,12 +26,13 @@ public class RecoveryService extends AbstractIdleService {
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskMetadataStore;
 
-  public RecoveryService(MetadataStoreService metadataStoreService, MeterRegistry meterRegistry) {
+  public RecoveryService(
+      KaldbConfigs.RecoveryConfig recoveryConfig,
+      MetadataStoreService metadataStoreService,
+      MeterRegistry meterRegistry) {
     this.metadataStoreService = metadataStoreService;
     this.meterRegistry = meterRegistry;
-
-    this.searchContext =
-        SearchContext.fromConfig(KaldbConfig.get().getRecoveryConfig().getServerConfig());
+    this.searchContext = SearchContext.fromConfig(recoveryConfig.getServerConfig());
   }
 
   @Override
@@ -44,14 +45,14 @@ public class RecoveryService extends AbstractIdleService {
     recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(metadataStoreService.getMetadataStore(), false);
 
+    recoveryNodeMetadataStore.createSync(
+        new RecoveryNodeMetadata(
+            searchContext.hostname, Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE));
+
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(
             metadataStoreService.getMetadataStore(), searchContext.hostname, true);
     recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener());
-
-    recoveryNodeMetadataStore.createSync(
-        new RecoveryNodeMetadata(
-            searchContext.hostname, Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE));
   }
 
   @Override
