@@ -10,7 +10,10 @@ public class RecoveryNodeMetadataSerializer implements MetadataSerializer<Recove
   private static RecoveryNodeMetadata fromRecoveryNodeMetadataProto(
       Metadata.RecoveryNodeMetadata recoveryNodeMetadataProto) {
     return new RecoveryNodeMetadata(
-        recoveryNodeMetadataProto.getName(), recoveryNodeMetadataProto.getRecoveryNodeState());
+        recoveryNodeMetadataProto.getName(),
+        recoveryNodeMetadataProto.getRecoveryNodeState(),
+        recoveryNodeMetadataProto.getRecoveryTaskName(),
+        recoveryNodeMetadataProto.getUpdatedTimeUtc());
   }
 
   private static Metadata.RecoveryNodeMetadata toRecoveryNodeMetadataProto(
@@ -18,6 +21,8 @@ public class RecoveryNodeMetadataSerializer implements MetadataSerializer<Recove
     return Metadata.RecoveryNodeMetadata.newBuilder()
         .setName(metadata.name)
         .setRecoveryNodeState(metadata.recoveryNodeState)
+        .setRecoveryTaskName(metadata.recoveryTaskName)
+        .setUpdatedTimeUtc(metadata.updatedTimeUtc)
         .build();
   }
 

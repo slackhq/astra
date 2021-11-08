@@ -2,6 +2,7 @@ package com.slack.kaldb.recovery;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.kaldb.chunk.SearchContext;
@@ -13,6 +14,7 @@ import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -37,11 +39,11 @@ public class RecoveryServiceTest {
   }
 
   @Test
-  public void shouldRegisterAvailableRecoveryNode() throws Exception {
+  public void shouldHandleRecoveryNodeLifecycle() throws Exception {
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("shouldRegisterAvailableRecoveryNode")
+            .setZkPathPrefix("shouldHandleRecoveryNodeLifecycle")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -74,6 +76,22 @@ public class RecoveryServiceTest {
         recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
     assertThat(recoveryNodeMetadata.recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    RecoveryNodeMetadata recoveryNodeAssignment =
+        new RecoveryNodeMetadata(
+            recoveryNodeMetadata.name,
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+            "recoveryTaskName",
+            Instant.now().toEpochMilli());
+    recoveryNodeMetadataStore.updateSync(recoveryNodeAssignment);
+
+    // todo - verify it actually indexes here before it returns back to free
+
+    await()
+        .until(
+            () ->
+                recoveryNodeMetadataStore.getNodeSync(searchContext.hostname).recoveryNodeState
+                    == Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
 
     metadataStoreService.stopAsync();
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
