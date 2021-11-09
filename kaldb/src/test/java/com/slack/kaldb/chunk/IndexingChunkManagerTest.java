@@ -61,6 +61,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.assertj.core.data.Offset;
 import org.junit.After;
@@ -306,7 +307,8 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testAddAndSearchMessageInMultipleSlices() throws IOException, TimeoutException {
+  public void testAddAndSearchMessageInMultipleSlices()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -321,15 +323,29 @@ public class IndexingChunkManagerTest {
     }
     chunkManager.getActiveChunk().commit();
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(15);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
+
+    // Check metadata.
+    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    assertThat(snapshots.size()).isEqualTo(3);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isEqualTo(2);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
+    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes1.size()).isEqualTo(2);
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+        .containsExactlyElementsOf(
+            searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+        .isEqualTo(1);
   }
 
   @Test
