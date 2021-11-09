@@ -54,10 +54,10 @@ cacheConfig:
 
 managerConfig:
   serverConfig:
-    serverPort: ${KALDB_MANAGER_SERVER_PORT:-8083}
+    serverPort: ${KALDB_MANAGER_SERVER_PORT:-8084}
     serverAddress: ${KALDB_MANAGER_SERVER_ADDRESS:-localhost}
 
 recoveryConfig:
   serverConfig:
-    serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
+    serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8083}
     serverAddress: ${KALDB_RECOVERY_SERVER_ADDRESS:-localhost}
