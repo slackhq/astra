@@ -1,6 +1,7 @@
 package com.slack.kaldb.testlib;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
@@ -10,12 +11,20 @@ import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.test.TestingServer;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -111,5 +120,38 @@ public class ChunkManagerUtil<T> {
     metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     localZkServer.close();
     FileUtils.deleteDirectory(tempFolder);
+  }
+
+  public static List<SnapshotMetadata> fetchNonLiveSnapshot(List<SnapshotMetadata> snapshots) {
+    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate =
+        s -> !s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    return fetchSnapshotMatching(snapshots, nonLiveSnapshotPredicate);
+  }
+
+  public static List<SnapshotMetadata> fetchLiveSnapshot(List<SnapshotMetadata> snapshots) {
+    Predicate<SnapshotMetadata> liveSnapshotPredicate =
+        s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    return fetchSnapshotMatching(snapshots, liveSnapshotPredicate);
+  }
+
+  public static List<SnapshotMetadata> fetchSnapshotMatching(
+      List<SnapshotMetadata> afterSnapshots, Predicate<SnapshotMetadata> condition) {
+    return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
+  }
+
+  public static List<SearchMetadata> fetchSearchNodes(IndexingChunkManager<LogMessage> chunkManager)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    return chunkManager
+        .getSearchMetadataStore()
+        .list()
+        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  }
+
+  public static List<SnapshotMetadata> fetchSnapshots(IndexingChunkManager<LogMessage> chunkManager)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    return chunkManager
+        .getSnapshotMetadataStore()
+        .list()
+        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 }

@@ -1,11 +1,14 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -30,9 +33,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.assertj.core.data.Offset;
 import org.junit.After;
@@ -176,40 +177,7 @@ public class ChunkCleanerServiceTest {
     assertThat(fetchSearchNodes(chunkManager)).isEmpty();
   }
 
-  private List<SnapshotMetadata> fetchNonLiveSnapshot(List<SnapshotMetadata> afterSnapshots) {
-    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate =
-        s -> !s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
-    return fetchSnapshotMatching(afterSnapshots, nonLiveSnapshotPredicate);
-  }
-
-  private List<SnapshotMetadata> fetchLiveSnapshot(List<SnapshotMetadata> afterSnapshots) {
-    Predicate<SnapshotMetadata> liveSnapshotPredicate =
-        s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
-    return fetchSnapshotMatching(afterSnapshots, liveSnapshotPredicate);
-  }
-
-  private List<SnapshotMetadata> fetchSnapshotMatching(
-      List<SnapshotMetadata> afterSnapshots, Predicate<SnapshotMetadata> condition) {
-    return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
-  }
-
-  private List<SearchMetadata> fetchSearchNodes(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSearchMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-  }
-
-  private List<SnapshotMetadata> fetchSnapshots(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSnapshotMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-  }
-
-  private void testBasicSnapshotMetadata(
+  private static void testBasicSnapshotMetadata(
       IndexingChunkManager<LogMessage> chunkManager, Instant creationTime)
       throws InterruptedException, ExecutionException, TimeoutException {
     final List<SnapshotMetadata> snapshotNodes = fetchSnapshots(chunkManager);

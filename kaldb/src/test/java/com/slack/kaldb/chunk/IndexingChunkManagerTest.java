@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
@@ -8,6 +9,12 @@ import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
@@ -33,6 +40,8 @@ import com.slack.kaldb.com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSe
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -53,6 +62,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
+import org.assertj.core.data.Offset;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -129,8 +139,7 @@ public class IndexingChunkManagerTest {
       ListeningExecutorService listeningExecutorService,
       int rollOverFutureTimeoutMs)
       throws IOException, TimeoutException {
-    final int port = 10000;
-    SearchContext searchContext = new SearchContext(HOSTNAME, port);
+    SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
     chunkManager =
         new IndexingChunkManager<>(
             "testData",
@@ -201,6 +210,7 @@ public class IndexingChunkManagerTest {
   @Test
   public void testAddMessage()
       throws IOException, TimeoutException, ExecutionException, InterruptedException {
+    final Instant creationTime = Instant.now();
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
@@ -226,7 +236,6 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration.
-    // TODO: Check registered metadata.
     assertThat(chunkManager.getSnapshotMetadataStore().list().get().size()).isEqualTo(1);
     assertThat(chunkManager.getSearchMetadataStore().list().get().size()).isEqualTo(1);
 
@@ -242,7 +251,27 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
-    // TODO: Update data ranges based on message.
+    assertThat(chunkInfo.getDataStartTimeEpochMs()).isEqualTo(messages.get(0).timeSinceEpochMilli);
+    assertThat(chunkInfo.getDataEndTimeEpochMs()).isEqualTo(messages.get(99).timeSinceEpochMilli);
+
+    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    assertThat(snapshots.size()).isEqualTo(1);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isEqualTo(1);
+    assertThat(fetchNonLiveSnapshot(snapshots)).isEmpty();
+    assertThat(snapshots.get(0).snapshotPath).startsWith(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get(0).maxOffset).isEqualTo(0);
+    assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(snapshots.get(0).snapshotId).startsWith(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get(0).startTimeUtc)
+        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
+    assertThat(snapshots.get(0).endTimeUtc).isEqualTo(MAX_FUTURE_TIME);
+
+    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.get(0).url).contains(TEST_HOST);
+    assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(searchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   private void testChunkManagerSearch(
