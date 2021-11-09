@@ -28,6 +28,9 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
  */
 public class ChunkManagerUtil<T> {
 
+  public static final String TEST_HOST = "localhost";
+  public static final int TEST_PORT = 34567;
+
   private final File tempFolder;
   public final S3Client s3Client;
   public static final String S3_TEST_BUCKET = "test-kaldb-logs";
@@ -47,7 +50,7 @@ public class ChunkManagerUtil<T> {
         meterRegistry,
         maxBytesPerChunk,
         maxMessagesPerChunk,
-        new SearchContext("localhost", 10009));
+        new SearchContext("localhost", TEST_PORT));
   }
 
   public ChunkManagerUtil(
