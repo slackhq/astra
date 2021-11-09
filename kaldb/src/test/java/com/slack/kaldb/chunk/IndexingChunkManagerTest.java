@@ -243,7 +243,6 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
     // TODO: Update data ranges based on message.
-    // TODO: Test chunk roll over and deletion (life cycle) of a single chunk in this test.
   }
 
   private void testChunkManagerSearch(
