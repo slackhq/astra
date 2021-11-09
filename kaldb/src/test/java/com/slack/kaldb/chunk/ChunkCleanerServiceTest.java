@@ -375,7 +375,7 @@ public class ChunkCleanerServiceTest {
   }
 
   @Test
-  public void testDeleteStaleDataOnMultipleChunks() throws IOException {
+  public void testDeleteStaleDataOnMultipleChunks() throws IOException, ExecutionException, InterruptedException, TimeoutException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
     ChunkCleanerService<LogMessage> chunkCleanerService =
@@ -420,6 +420,18 @@ public class ChunkCleanerServiceTest {
       assertThat(c.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     }
 
+    List<SnapshotMetadata> snapshots1 = fetchSnapshots(chunkManager);
+    assertThat(snapshots1.size()).isEqualTo(8);
+    List<SnapshotMetadata> liveSnapshots1 = fetchLiveSnapshot(snapshots1);
+    assertThat(liveSnapshots1.size()).isEqualTo(4);
+    assertThat(fetchNonLiveSnapshot(snapshots1).size()).isEqualTo(4);
+    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes1.size()).isEqualTo(4);
+    assertThat(liveSnapshots1.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+            .containsAll(searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots1.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            .isZero();
+
     final Instant snapshotTime = Instant.now();
     // Modify snapshot time on chunks
     int i = 0;
@@ -435,12 +447,50 @@ public class ChunkCleanerServiceTest {
             chunkCleanerService.deleteStaleData(
                 snapshotTime.minusSeconds(3600 * 3).plusSeconds(100)))
         .isEqualTo(1);
+
+    List<SnapshotMetadata> snapshots2 = fetchSnapshots(chunkManager);
+    assertThat(snapshots2.size()).isEqualTo(7);
+    List<SnapshotMetadata> liveSnapshots2 = fetchLiveSnapshot(snapshots2);
+    assertThat(liveSnapshots2.size()).isEqualTo(3);
+    assertThat(fetchNonLiveSnapshot(snapshots2).size()).isEqualTo(4);
+    List<SearchMetadata> searchNodes2 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes2.size()).isEqualTo(3);
+    assertThat(liveSnapshots2.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+            .containsAll(
+                    searchNodes2.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots2.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            .isZero();
+
     assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(
             chunkCleanerService.deleteStaleData(snapshotTime.minusSeconds(3600).plusSeconds(100)))
         .isEqualTo(2);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+
+    List<SnapshotMetadata> snapshots3 = fetchSnapshots(chunkManager);
+    assertThat(snapshots3.size()).isEqualTo(5);
+    List<SnapshotMetadata> liveSnapshots3 = fetchLiveSnapshot(snapshots3);
+    assertThat(liveSnapshots3.size()).isEqualTo(1);
+    assertThat(fetchNonLiveSnapshot(snapshots3).size()).isEqualTo(4);
+    List<SearchMetadata> searchNodes3 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes3.size()).isEqualTo(1);
+    assertThat(liveSnapshots3.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+            .containsExactlyElementsOf(
+                    searchNodes3.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots3.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            .isZero();
+
     assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
     assertThat(chunkManager.getChunkList().size()).isZero();
+
+    List<SnapshotMetadata> snapshots4 = fetchSnapshots(chunkManager);
+    assertThat(snapshots4.size()).isEqualTo(4);
+    List<SnapshotMetadata> liveSnapshots4 = fetchLiveSnapshot(snapshots4);
+    assertThat(liveSnapshots4).isEmpty();
+    assertThat(fetchNonLiveSnapshot(snapshots4).size()).isEqualTo(4);
+    List<SearchMetadata> searchNodes4 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes4).isEmpty();
+    assertThat(snapshots4.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            .isZero();
   }
 }
