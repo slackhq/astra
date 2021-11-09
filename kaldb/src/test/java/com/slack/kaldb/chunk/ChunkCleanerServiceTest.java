@@ -366,9 +366,6 @@ public class ChunkCleanerServiceTest {
     assertThat(fetchNonLiveSnapshot(snapshots4).size()).isEqualTo(2);
     List<SearchMetadata> searchNodes4 = fetchSearchNodes(chunkManager);
     assertThat(searchNodes4).isEmpty();
-    assertThat(liveSnapshots4.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
-        .containsExactlyElementsOf(
-            searchNodes4.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots4.stream().map(s -> s.maxOffset).sorted().collect(Collectors.toList()))
         .containsOnly(10L, 11L);
     assertThat(snapshots4.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count()).isZero();
