@@ -294,8 +294,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
               String chunkInfo = chunk.info().toString();
               LOG.info("Deleting chunk {}.", chunkInfo);
 
-              // TODO: Remove search node.
-
               // Remove the chunk first from the map so we don't search it anymore.
               // Note that any pending queries may still hold references to these chunks
               chunkList.remove(chunk);
