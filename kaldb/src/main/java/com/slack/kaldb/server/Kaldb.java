@@ -6,6 +6,7 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreatorService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -149,6 +150,10 @@ public class Kaldb {
       ReplicaCreatorService replicaCreatorService =
           new ReplicaCreatorService(metadataStoreService, prometheusMeterRegistry);
       services.add(replicaCreatorService);
+
+      RecoveryTaskAssignmentService recoveryTaskAssignmentService =
+          new RecoveryTaskAssignmentService(metadataStoreService, prometheusMeterRegistry);
+      services.add(recoveryTaskAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
