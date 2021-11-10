@@ -642,7 +642,8 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk() throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testCommitInvalidChunk()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -681,7 +682,8 @@ public class IndexingChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch() throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMultiChunkSearch()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -803,7 +805,8 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testChunkRollOverInProgressExceptionIsThrown()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -843,10 +846,10 @@ public class IndexingChunkManagerTest {
     List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
     assertThat(searchNodes.size()).isEqualTo(2);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
-            .containsExactlyInAnyOrderElementsOf(
-                    searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+        .containsExactlyInAnyOrderElementsOf(
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
-            .isEqualTo(2);
+        .isEqualTo(2);
   }
 
   @Test
