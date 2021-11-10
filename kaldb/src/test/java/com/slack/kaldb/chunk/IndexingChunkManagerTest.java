@@ -1002,7 +1002,7 @@ public class IndexingChunkManagerTest {
     checkMetadata(1, 1, 0, 1, 1);
   }
 
-  @Test(expected = ChunkRollOverException.class)
+  @Test
   public void testRollOverFailureWithDirectExecutor()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Instant startTime =
@@ -1026,21 +1026,28 @@ public class IndexingChunkManagerTest {
       offset++;
     }
 
+    await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
+    checkMetadata(1, 1, 0, 1, 1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     chunkManager.getRolloverFuture().get(5, TimeUnit.SECONDS);
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
     // Adding a message after a rollover fails throws an exception.
     final List<LogMessage> newMessage =
         MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
-    for (LogMessage m : newMessage) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-      offset++;
+    try {
+      for (LogMessage m : newMessage) {
+        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
+      }
+      fail("Should have throw a chunk roll over exception");
+    } catch (Exception e) {
+      assertThat(e).isInstanceOf(ChunkRollOverException.class);
     }
+    checkMetadata(1, 1, 0, 1, 1);
   }
 
   @Test
