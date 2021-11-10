@@ -334,22 +334,12 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
 
     // Check metadata.
-    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
-    assertThat(snapshots.size()).isEqualTo(3);
-    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
-    assertThat(liveSnapshots.size()).isEqualTo(2);
-    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
-    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
-    assertThat(searchNodes1.size()).isEqualTo(2);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
-        .containsExactlyElementsOf(
-            searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
-        .isEqualTo(1);
+    checkMetadata(3, 2, 1, 2);
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
+  public void testAddMessageWithPropertyTypeErrors()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -376,6 +366,29 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
     testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
+
+    // Check metadata.
+    checkMetadata(1, 1, 0, 1);
+  }
+
+  private void checkMetadata(
+      int expectedSnapshotSize,
+      int expectedLiveSnapshotSize,
+      int expectedNonLiveSnapshotSize,
+      int expectedSearchNodeSize)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
+    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes1.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+        .containsExactlyElementsOf(
+            searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+        .isEqualTo(1);
   }
 
   @Test(expected = IllegalStateException.class)
