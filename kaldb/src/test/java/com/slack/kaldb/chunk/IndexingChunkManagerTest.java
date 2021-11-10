@@ -20,6 +20,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
@@ -382,11 +383,11 @@ public class IndexingChunkManagerTest {
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
-    assertThat(searchNodes1.size()).isEqualTo(expectedSearchNodeSize);
+    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
-        .containsExactlyElementsOf(
-            searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+        .containsExactlyInAnyOrderElementsOf(
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
@@ -589,12 +590,13 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+    checkMetadata(3, 2, 1, 2, 1);
     // TODO: Test commit and refresh count
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
@@ -605,12 +607,13 @@ public class IndexingChunkManagerTest {
       offset++;
     }
     chunkManager.getActiveChunk().commit();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(25);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+    checkMetadata(5, 3, 2, 3, 1);
     testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
@@ -639,7 +642,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk() throws IOException, TimeoutException {
+  public void testCommitInvalidChunk() throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -663,12 +666,13 @@ public class IndexingChunkManagerTest {
       offset++;
     }
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 3);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(30);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(3);
+    checkMetadata(6, 3, 3, 3, 0);
 
     // No new chunk left to commit.
     assertThat(chunkManager.getActiveChunk()).isNull();
@@ -677,7 +681,7 @@ public class IndexingChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch() throws IOException, TimeoutException {
+  public void testMultiChunkSearch() throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -704,13 +708,14 @@ public class IndexingChunkManagerTest {
     }
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 3);
     chunkManager.getActiveChunk().commit();
     assertThat(chunkManager.getChunkList().size()).isEqualTo(4);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(35);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(3);
+    checkMetadata(7, 4, 3, 4, 1);
     // TODO: Test commit and refresh count
 
     final long messagesStartTimeMs = messages.get(0).timeSinceEpochMilli;
@@ -797,8 +802,8 @@ public class IndexingChunkManagerTest {
     // TODO: Test the entire search response in all queries and not just hits.
   }
 
-  @Test(expected = ChunkRollOverException.class)
-  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException {
+  @Test
+  public void testChunkRollOverInProgressExceptionIsThrown() throws IOException, TimeoutException, ExecutionException, InterruptedException {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -812,13 +817,36 @@ public class IndexingChunkManagerTest {
         IndexingChunkManager.makeDefaultRollOverExecutor(),
         10000);
 
+    assertThat(fetchSnapshots(chunkManager)).isEmpty();
+    assertThat(fetchLiveSnapshot(fetchSnapshots(chunkManager))).isEmpty();
+    assertThat(fetchNonLiveSnapshot(fetchSnapshots(chunkManager))).isEmpty();
+    assertThat(fetchSearchNodes(chunkManager)).isEmpty();
+
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
-    int offset = 1;
-    for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-      offset++;
+    try {
+      int offset = 1;
+      for (LogMessage m : messages) {
+        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
+      }
+      fail("Should throw exception");
+    } catch (Exception e) {
+      assertThat(e).isInstanceOf(ChunkRollOverException.class);
     }
+
+    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    assertThat(snapshots.size()).isEqualTo(2);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isGreaterThanOrEqualTo(2);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
+    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+            .containsExactlyInAnyOrderElementsOf(
+                    searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            .isEqualTo(2);
   }
 
   @Test
