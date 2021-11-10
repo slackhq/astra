@@ -1074,6 +1074,8 @@ public class IndexingChunkManagerTest {
     // Add first set of messages, wait for roll over, then add next set of messages.
     insertMessages(chunkManager, messages1, msgsPerChunk);
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    checkMetadata(2, 1, 1, 1, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
@@ -1082,10 +1084,11 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
     insertMessages(chunkManager, messages2, msgsPerChunk);
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+    checkMetadata(4, 2, 2, 2, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(6);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     chunkManager.getRolloverFuture().get(5, TimeUnit.SECONDS);
@@ -1099,7 +1102,6 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
   }
 
   @Test
@@ -1125,6 +1127,8 @@ public class IndexingChunkManagerTest {
     // Add first set of messages, wait for roll over, then add next set of messages.
     insertMessages(chunkManager, messages1, msgsPerChunk);
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    checkMetadata(2, 1, 1, 1, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
@@ -1133,10 +1137,11 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
     insertMessages(chunkManager, messages2, msgsPerChunk);
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+    checkMetadata(4, 2, 2, 2, 0);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(20);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     chunkManager.getRolloverFuture().get(5, TimeUnit.SECONDS);
