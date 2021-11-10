@@ -75,10 +75,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 // TODO: Add a unit test for offset and partition update logic.
+// TODO:Add a test with out of order kafka offsets and check chunk creation.
 public class IndexingChunkManagerTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
-  public static final String HOSTNAME = "localhost";
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -333,8 +333,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
 
-    // Check metadata.
-    checkMetadata(3, 2, 1, 2);
+    checkMetadata(3, 2, 1, 2, 1);
   }
 
   @Test
@@ -368,14 +367,15 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
 
     // Check metadata.
-    checkMetadata(1, 1, 0, 1);
+    checkMetadata(1, 1, 0, 1, 1);
   }
 
   private void checkMetadata(
       int expectedSnapshotSize,
       int expectedLiveSnapshotSize,
       int expectedNonLiveSnapshotSize,
-      int expectedSearchNodeSize)
+      int expectedSearchNodeSize,
+      int expectedInfinitySnapshotsCount)
       throws InterruptedException, ExecutionException, TimeoutException {
     List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
@@ -388,11 +388,12 @@ public class IndexingChunkManagerTest {
         .containsExactlyElementsOf(
             searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
-        .isEqualTo(1);
+        .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMessagesAddedToActiveChunks() throws IOException, TimeoutException {
+  public void testMessagesAddedToActiveChunks()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -422,6 +423,8 @@ public class IndexingChunkManagerTest {
     // Wait for roll over to complete.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
+    checkMetadata(2, 1, 1, 1, 0);
+
     LogMessage msg3 = msgs.get(2);
     LogMessage msg4 = msgs.get(3);
     chunkManager.addMessage(msg3, msg3.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
@@ -437,6 +440,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message3", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
 
+    checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
     chunk1.addMessage(msg4, 1);
   }
