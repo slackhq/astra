@@ -908,7 +908,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testFailedRollOverFinishesOnClose() throws IOException, TimeoutException {
+  public void testFailedRollOverFinishesOnClose() throws Exception {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -929,6 +929,8 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
     }
+    await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
+    checkMetadata(1, 1, 0, 1, 1);
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
@@ -940,6 +942,18 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
     assertThat(rollOverFuture.isDone()).isTrue();
+
+    // The stores are closed so temporarily re-create them so we can query the data in ZK.
+    // All ephemeral data is ZK is deleted and no data or metadata is persisted.
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    assertThat(searchMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    // TODO: Data is lost and the indexer should use a recovery protocol to re-index this data.
   }
 
   @Test(expected = ChunkRollOverException.class)
