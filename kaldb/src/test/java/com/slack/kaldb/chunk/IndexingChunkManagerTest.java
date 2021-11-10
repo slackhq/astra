@@ -497,6 +497,7 @@ public class IndexingChunkManagerTest {
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     checkMetadata(3, 2, 1, 2, 1);
     ChunkInfo secondChunk = chunkManager.getActiveChunk().info();
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
@@ -504,7 +505,6 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
     checkMetadata(3, 2, 1, 2, 1);
     // TODO: Test commit and refresh count
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
@@ -516,12 +516,12 @@ public class IndexingChunkManagerTest {
       offset++;
     }
     chunkManager.getActiveChunk().commit();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(25);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
     testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
@@ -534,9 +534,9 @@ public class IndexingChunkManagerTest {
       assertThat(c.info().getDataEndTimeEpochMs()).isGreaterThan(0);
     }
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 3);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(3);
 
     // Search all messages.
     for (int i = 1; i <= 25; i++) {
@@ -549,7 +549,7 @@ public class IndexingChunkManagerTest {
     testOneFailedChunk(secondChunk);
   }
 
-  public void testOneFailedChunk(ChunkInfo secondChunk) {
+  private void testOneFailedChunk(ChunkInfo secondChunk) {
     ReadWriteChunkImpl<LogMessage> chunk =
         (ReadWriteChunkImpl<LogMessage>)
             chunkManager
