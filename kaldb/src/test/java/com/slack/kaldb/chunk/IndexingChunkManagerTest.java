@@ -447,7 +447,7 @@ public class IndexingChunkManagerTest {
 
   @Test
   public void testMultiThreadedChunkRollover()
-      throws IOException, InterruptedException, TimeoutException {
+      throws IOException, InterruptedException, TimeoutException, ExecutionException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -476,6 +476,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2, 0, MAX_TIME);
+    checkMetadata(3, 2, 1, 2, 1);
   }
 
   @Test
@@ -496,6 +497,7 @@ public class IndexingChunkManagerTest {
 
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
+    checkMetadata(3, 2, 1, 2, 1);
     ChunkInfo secondChunk = chunkManager.getActiveChunk().info();
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);
@@ -503,6 +505,7 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
+    checkMetadata(3, 2, 1, 2, 1);
     // TODO: Test commit and refresh count
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
@@ -522,6 +525,7 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
+    checkMetadata(5, 3, 2, 3, 1);
 
     assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochMs()).isZero();
     chunkManager.rollOverActiveChunk();
@@ -541,6 +545,7 @@ public class IndexingChunkManagerTest {
     // No search results for this query.
     testChunkManagerSearch(chunkManager, "Message261", 0, 3, 3, 0, MAX_TIME);
 
+    checkMetadata(6, 3, 3, 3, 0);
     testOneFailedChunk(secondChunk);
   }
 
