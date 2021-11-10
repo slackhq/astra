@@ -42,7 +42,9 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -853,7 +855,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testSuccessfulRollOverFinishesOnClose() throws IOException, TimeoutException {
+  public void testSuccessfulRollOverFinishesOnClose() throws Exception {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -875,6 +877,9 @@ public class IndexingChunkManagerTest {
       offset++;
     }
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    checkMetadata(2, 1, 1, 1, 0);
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
@@ -883,8 +888,23 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
     assertThat(rollOverFuture.isDone()).isTrue();
+
+    // The stores are closed so temporarily re-create them so we can query the data in ZK.
+    SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    assertThat(searchMetadataStore.listSync()).isEmpty();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
+    assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
+    assertThat(snapshots.get(0).maxOffset).isEqualTo(offset - 1);
+    assertThat(snapshots.get(0).endTimeUtc).isLessThan(MAX_FUTURE_TIME);
+    assertThat(snapshots.get(0).snapshotId).doesNotContain(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
   }
 
   @Test
