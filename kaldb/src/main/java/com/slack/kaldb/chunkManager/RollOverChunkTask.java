@@ -9,6 +9,12 @@ import java.util.concurrent.Callable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This class performs the roll over of a chunk. During a rollover, we run the preSnapshot, snapshot
+ * and postOperations operations in that order on the chunk.
+ *
+ * <p>In case of failures, an error is logged and a failure counter is incremented.
+ */
 public class RollOverChunkTask<T> implements Callable<Boolean> {
   private static final Logger LOG = LoggerFactory.getLogger(RollOverChunkTask.class);
 
@@ -45,9 +51,8 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
     try {
       LOG.info("Start chunk roll over {}", chunk.info());
       rolloversInitiatedCounter.increment();
-      // Take the given chunk.
+      // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
-      // Upload it to S3.
       if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, s3BlobFs)) {
         LOG.warn("Failed to snapshot the chunk to S3");
         rolloversFailedCounter.increment();
