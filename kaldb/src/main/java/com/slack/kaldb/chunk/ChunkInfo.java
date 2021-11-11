@@ -20,7 +20,8 @@ import java.util.Objects;
  * <p>TODO: Add a minOffset field to chunk and snapshot metadata.
  */
 public class ChunkInfo {
-  public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(253402329599L).toEpochMilli();
+  // Use a future time of Dec 31, 3000 instead of INSTANT.MAX since it overflows.
+  public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(32535158400L).toEpochMilli();
   public static final int DEFAULT_MAX_OFFSET = 0;
 
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
