@@ -30,7 +30,6 @@ public class ChunkInfoTest {
     assertThat(info.getSnapshotPath()).isEqualTo(TEST_SNAPSHOT_PATH);
   }
 
-  // TODO: Add unit tests for kafka info.
   @Test
   public void testChunkDataTimeRange() {
     final LocalDateTime startTime = LocalDateTime.of(2020, 10, 1, 10, 10, 0);
