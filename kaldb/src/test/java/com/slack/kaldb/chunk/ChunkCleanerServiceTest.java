@@ -43,8 +43,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// TODO: Add a unit test for offset and partition update logic.
-// TODO: Add a metadatastore checks for all of the unit tests.
 public class ChunkCleanerServiceTest {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkCleanerServiceTest.class);
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
