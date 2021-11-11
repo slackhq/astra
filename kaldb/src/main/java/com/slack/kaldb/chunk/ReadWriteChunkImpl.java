@@ -153,7 +153,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    // TODO: Ignore exceptions during de-register?
     deRegister();
 
     logSearcher.close();
