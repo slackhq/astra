@@ -3,7 +3,6 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -19,7 +18,7 @@ import java.util.Objects;
  */
 public class ChunkInfo {
   // Use a future time of Dec 31, 3000 instead of INSTANT.MAX since it overflows.
-  public static final long MAX_FUTURE_TIME = Instant.ofEpochSecond(32535158400L).toEpochMilli();
+  public static final long MAX_FUTURE_TIME = Long.MAX_VALUE;
   public static final int DEFAULT_MAX_OFFSET = 0;
 
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {

@@ -127,10 +127,7 @@ public class ChunkInfoTest {
         .isTrue();
     assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs - 1, MAX_FUTURE_TIME - 1))
         .isTrue();
-    assertThat(info.containsDataInTimeRange(chunkCreationTimeSecs - 1, MAX_FUTURE_TIME + 1))
-        .isTrue();
     assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs - 1)).isFalse();
-    assertThat(info.containsDataInTimeRange(MAX_FUTURE_TIME + 1, MAX_FUTURE_TIME + 100)).isFalse();
     assertThat(info.containsDataInTimeRange(1000, chunkCreationTimeSecs + 1)).isTrue();
     assertThat(info.getMaxOffset()).isEqualTo(DEFAULT_MAX_OFFSET);
     assertThat(info.getKafkaPartitionId()).isEqualTo(TEST_KAFKA_PARTITION_ID);
