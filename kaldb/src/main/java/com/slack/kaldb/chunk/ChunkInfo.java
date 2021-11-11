@@ -186,7 +186,7 @@ public class ChunkInfo {
   public void updateDataTimeRange(long messageTimeStampMs) {
     if (dataEndTimeEpochMs == MAX_FUTURE_TIME) {
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
-      dataEndTimeEpochMs = Math.min(dataEndTimeEpochMs, messageTimeStampMs);
+      dataEndTimeEpochMs = messageTimeStampMs;
     } else {
       // TODO: Would only updating the values if there is a change make this code faster?
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
