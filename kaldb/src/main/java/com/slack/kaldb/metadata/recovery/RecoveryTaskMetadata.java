@@ -3,6 +3,10 @@ package com.slack.kaldb.metadata.recovery;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Objects;
 
+/**
+ * The recovery task metadata contains all information required to back-fill messages that have been
+ * previously skipped.
+ */
 public class RecoveryTaskMetadata extends KaldbMetadata {
   public final String partitionId;
   public final long startOffset;

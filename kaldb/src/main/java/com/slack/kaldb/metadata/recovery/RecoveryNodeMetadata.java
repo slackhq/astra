@@ -4,6 +4,10 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.Objects;
 
+/**
+ * The recovery node metadata is used to coordinate the availability of recovery node executors and
+ * their recovery task assignments.
+ */
 public class RecoveryNodeMetadata extends KaldbMetadata {
 
   public final Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeState;

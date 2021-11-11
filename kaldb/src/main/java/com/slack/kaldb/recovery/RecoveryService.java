@@ -25,6 +25,15 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The recovery service is intended to be executed on a recovery node, and is responsible for
+ * fulfilling recovery assignments provided from the cluster manager.
+ *
+ * <p>When the recovery service starts it advertises its availability by creating a recovery node,
+ * and then subscribing to any state changes. Upon receiving an assignment from the cluster manager
+ * the recovery service will delegate the recovery task to an executor service. Once the recovery
+ * task has been completed, the recovery node will make itself available again for assignment.
+ */
 public class RecoveryService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryService.class);
 
@@ -95,7 +104,16 @@ public class RecoveryService extends AbstractIdleService {
 
   @Override
   protected void shutDown() throws Exception {
-    LOG.info("Closed recovery service");
+    LOG.info("Closing the recovery service");
+
+    // Immediately shutdown recovery tasks. Any incomplete recovery tasks will be picked up by
+    // another recovery node so we don't need to wait for processing to complete.
+    executorService.shutdownNow();
+
+    recoveryNodeListenerMetadataStore.close();
+    recoveryNodeMetadataStore.close();
+
+    LOG.info("Closed the recovery service");
   }
 
   private KaldbMetadataStoreChangeListener recoveryNodeListener() {
@@ -121,6 +139,11 @@ public class RecoveryService extends AbstractIdleService {
     };
   }
 
+  /**
+   * This method is invoked after the cluster manager has assigned a recovery node a task. As part
+   * of handling a task assignment we should update the recovery node state as we make progress (ie,
+   * Recovering and then Free once completed).
+   */
   private void handleRecoveryTaskAssignment(RecoveryNodeMetadata recoveryNodeMetadata) {
     try {
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING);
