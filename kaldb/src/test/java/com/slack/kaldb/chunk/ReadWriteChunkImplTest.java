@@ -336,27 +336,6 @@ public class ReadWriteChunkImplTest {
     }
 
     @Test
-    public void testCleanupOnOpenChunk() throws IOException {
-      List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
-      int offset = 1;
-      for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
-        offset++;
-      }
-      assertThat(chunk.isReadOnly()).isFalse();
-      chunk.commit();
-
-      SearchResult<LogMessage> results =
-          chunk.query(
-              new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
-      assertThat(results.hits.size()).isEqualTo(1);
-
-      chunk.close();
-      closeChunk = false;
-      // TODO: Missing next steps in test?
-    }
-
-    @Test
     public void testCommitBeforeSnapshot() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;

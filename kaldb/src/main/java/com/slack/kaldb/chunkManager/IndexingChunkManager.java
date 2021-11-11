@@ -209,14 +209,14 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
             @Override
             public void onSuccess(Boolean success) {
               if (success == null || !success) {
-                LOG.warn("roll over failed.");
+                LOG.warn("Roll over failed");
                 stopIngestion = true;
               }
             }
 
             @Override
             public void onFailure(Throwable t) {
-              LOG.warn("roll over failed with an exception", t);
+              LOG.warn("Roll over failed with an exception", t);
               stopIngestion = true;
             }
           },
@@ -225,7 +225,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       throw new ChunkRollOverException(
           String.format(
               "The chunk roll over %s is already in progress."
-                  + "It is not recommended to index faster than we can roll over, since we may not be able to keep up.",
+                  + "It is not recommended to index faster than we can roll over, since we may not be able to keep up",
               currentChunk.info()));
     }
   }

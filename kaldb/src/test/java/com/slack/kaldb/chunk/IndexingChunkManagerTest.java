@@ -158,15 +158,6 @@ public class IndexingChunkManagerTest {
             searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    // TODO: This is temporary, move this registration closer to logic.
-    // Test search end point registration.
-    // await().until(() -> chunkManager.getSearchMetadataStore().list().get().size() == 1);
-    // SearchMetadata searchMetadata = chunkManager.getSearchMetadataStore().list().get().get(0);
-    // assertThat(searchMetadata.name).isEqualTo("localhost");
-    // assertThat(searchMetadata.snapshotName).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_NAME);
-    // assertThat(searchMetadata.url).contains(HOSTNAME);
-    // assertThat(searchMetadata.url).contains(String.valueOf(port));
   }
 
   @Test

@@ -62,7 +62,6 @@ public class ChunkCleanerServiceTest {
 
   @After
   public void tearDown() throws IOException, TimeoutException {
-    LOG.info("tear down");
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
     }

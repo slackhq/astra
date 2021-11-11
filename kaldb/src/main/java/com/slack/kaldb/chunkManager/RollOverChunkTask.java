@@ -40,7 +40,6 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);
   }
 
-  // TODO: Is the return value needed?.
   @Override
   public Boolean call() {
     try {
@@ -62,7 +61,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       return true;
     } catch (RuntimeException e) {
       rolloversFailedCounter.increment();
-      LOG.warn("Failed chunk roll over {}", chunk.info(), e);
+      LOG.error("Failed chunk roll over {}", chunk.info(), e);
     }
     return false;
   }
