@@ -234,7 +234,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * When the ChunkManager is being closed, roll over active chunk so we can be sure that it's data is persisted in
    * a remote store.
    */
-  @VisibleForTesting
   public void rollOverActiveChunk() {
     LOG.info("Rolling over active chunk");
     doRollover(getActiveChunk());
