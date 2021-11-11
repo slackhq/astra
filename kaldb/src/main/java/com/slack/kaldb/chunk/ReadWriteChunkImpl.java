@@ -219,12 +219,10 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   }
 
   public void postSnapshot() {
-    // Register a non-live snapshot node and a search node. New nodes should be registered before
-    // removing old nodes so there is no availability gap in the data.
     LOG.info("Start Post snapshot chunk {}", chunkInfo);
+    // Publish a persistent snapshot for this chunk.
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
-    LOG.info("Created non live snapshot metadata");
 
     // Update the live snapshot. Keep the same snapshotId and snapshotPath to
     // ensure it's a live snapshot.
@@ -238,7 +236,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
             chunkInfo.getKafkaPartitionId());
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
-    LOG.info("updated snapshot metadata.");
 
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
