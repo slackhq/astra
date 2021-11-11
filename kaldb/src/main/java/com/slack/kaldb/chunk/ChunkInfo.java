@@ -16,8 +16,6 @@ import java.util.Objects;
  * code into multiple, classes.
  *
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
- *
- * <p>TODO: Add a minOffset field to chunk and snapshot metadata.
  */
 public class ChunkInfo {
   // Use a future time of Dec 31, 3000 instead of INSTANT.MAX since it overflows.
