@@ -1,12 +1,11 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.google.common.base.Preconditions.checkState;
 
 public abstract class KaldbMetadata {
   public final String name;
 
   public KaldbMetadata(String name) {
-    checkState(name != null && !name.isEmpty(), "name can't be null or empty.");
+    //    checkState(name != null && !name.isEmpty(), "name can't be null or empty.");
     this.name = name;
   }
 

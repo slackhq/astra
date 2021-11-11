@@ -59,7 +59,7 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
     // Create the path to the store in ZK. However, since 2 different processes may create
     // a path at the same time, ignore the exception if node already exists.
     try {
-      metadataStore.create(storeFolder, "", true).get();
+      metadataStore.create(storeFolder, "{}", true).get();
     } catch (ExecutionException exception) {
       //noinspection StatementWithEmptyBody
       if (exception.getCause() instanceof NodeExistsException) {
