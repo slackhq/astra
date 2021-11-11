@@ -95,6 +95,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
             SearchMetadata.LIVE_SNAPSHOT_PATH);
+
     readOnly = false;
     this.meterRegistry = meterRegistry;
     fileUploadAttempts = meterRegistry.counter(INDEX_FILES_UPLOAD);
