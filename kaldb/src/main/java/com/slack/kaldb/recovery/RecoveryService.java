@@ -45,7 +45,7 @@ public class RecoveryService extends AbstractIdleService {
   private RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private final ExecutorService executorService;
 
-  private Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodePreviousState;
+  private Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeLastKnownState;
 
   public static final String RECOVERY_NODE_RECEIVED_ASSIGNMENT =
       "recovery_node_received_assignment";
@@ -94,7 +94,7 @@ public class RecoveryService extends AbstractIdleService {
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
             "",
             Instant.now().toEpochMilli()));
-    recoveryNodePreviousState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
+    recoveryNodeLastKnownState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
 
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(
@@ -126,16 +126,16 @@ public class RecoveryService extends AbstractIdleService {
       if (newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)) {
         LOG.info("Recovery node - ASSIGNED received");
         recoveryNodeReceivedAssignment.increment();
-        if (!recoveryNodePreviousState.equals(
+        if (!recoveryNodeLastKnownState.equals(
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
           LOG.warn(
               "Unexpected state transition from {} to {}",
-              recoveryNodePreviousState,
+              recoveryNodeLastKnownState,
               newRecoveryNodeState);
         }
         executorService.submit(() -> handleRecoveryTaskAssignment(recoveryNodeMetadata));
       }
-      recoveryNodePreviousState = newRecoveryNodeState;
+      recoveryNodeLastKnownState = newRecoveryNodeState;
     };
   }
 

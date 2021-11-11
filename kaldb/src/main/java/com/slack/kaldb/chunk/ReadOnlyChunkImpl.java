@@ -54,7 +54,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
   private Path dataDirectory;
-  private Metadata.CacheSlotMetadata.CacheSlotState previousSlotState;
+  private Metadata.CacheSlotMetadata.CacheSlotState cacheSlotLastKnownState;
 
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
@@ -117,7 +117,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     CacheSlotMetadataStore cacheSlotListenerMetadataStore =
         new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), slotName, true);
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
-    previousSlotState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
+    cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotName", slotName));
     successfulChunkAssignments = meterRegistry.counter(SUCCESSFUL_CHUNK_ASSIGNMENT, meterTags);
@@ -135,19 +135,21 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
         LOG.info("Chunk - ASSIGNED received");
-        if (!previousSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
-          LOG.warn("Unexpected state transition from {} to {}", previousSlotState, newSlotState);
+        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+          LOG.warn(
+              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
         }
         executorService.submit(() -> handleChunkAssignment(cacheSlotMetadata));
       } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
         LOG.info("Chunk - EVICT received");
-        if (!previousSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
-          LOG.warn("Unexpected state transition from {} to {}", previousSlotState, newSlotState);
+        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+          LOG.warn(
+              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
         }
         executorService.submit(this::handleChunkEviction);
       }
 
-      previousSlotState = newSlotState;
+      cacheSlotLastKnownState = newSlotState;
     };
   }
 
