@@ -326,7 +326,7 @@ public class ChunkCleanerServiceTest {
     List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
-        .containsExactlyElementsOf(
+        .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotSize);
