@@ -53,7 +53,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
-public class ReadWriteChunkImplTest {
+public class IndexingReadWriteChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_HOST = "localhost";
   private static final int TEST_PORT = 34567;
