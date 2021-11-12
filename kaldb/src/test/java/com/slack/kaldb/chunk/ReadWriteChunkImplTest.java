@@ -76,7 +76,6 @@ public class ReadWriteChunkImplTest {
     assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
   }
 
-  // TODO: Add a test with offset and partition id changes.
   public static class BasicTests {
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
