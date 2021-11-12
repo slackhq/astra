@@ -81,7 +81,8 @@ public class LogMessageWriterImplTest {
             chunkManagerUtil.chunkManager, LogMessageWriterImpl.jsonLogMessageTransformer);
 
     String jsonLogMessge = MessageUtil.makeLogMessageJSON(1);
-    ConsumerRecord<String, byte[]> jsonRecord = consumerRecordWithValue(jsonLogMessge.getBytes());
+    ConsumerRecord<String, byte[]> jsonRecord =
+        consumerRecordWithValue(jsonLogMessge.getBytes(), 1);
 
     assertThat(messageWriter.insertRecord(jsonRecord)).isTrue();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
@@ -116,7 +117,8 @@ public class LogMessageWriterImplTest {
     fieldMap.put("source", sourceFieldMap);
     String jsonLogMessage = new ObjectMapper().writeValueAsString(fieldMap);
 
-    ConsumerRecord<String, byte[]> jsonRecord = consumerRecordWithValue(jsonLogMessage.getBytes());
+    ConsumerRecord<String, byte[]> jsonRecord =
+        consumerRecordWithValue(jsonLogMessage.getBytes(), 1);
     assertThat(messageWriter.insertRecord(jsonRecord)).isFalse();
   }
 
@@ -127,7 +129,7 @@ public class LogMessageWriterImplTest {
             chunkManagerUtil.chunkManager, LogMessageWriterImpl.jsonLogMessageTransformer);
 
     ConsumerRecord<String, byte[]> jsonRecord =
-        consumerRecordWithValue("malformedJsonMessage".getBytes());
+        consumerRecordWithValue("malformedJsonMessage".getBytes(), 1);
     assertThat(messageWriter.insertRecord(jsonRecord)).isFalse();
   }
 
@@ -146,7 +148,7 @@ public class LogMessageWriterImplTest {
             .setHost(host)
             .setTimestamp(timestamp)
             .build();
-    ConsumerRecord<String, byte[]> apiRecord = consumerRecordWithMurronMessage(testMurronMsg);
+    ConsumerRecord<String, byte[]> apiRecord = consumerRecordWithMurronMessage(testMurronMsg, 1);
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
@@ -172,13 +174,23 @@ public class LogMessageWriterImplTest {
   }
 
   private static ConsumerRecord<String, byte[]> consumerRecordWithMurronMessage(
-      Murron.MurronMessage testMurronMsg) {
-    return consumerRecordWithValue(testMurronMsg.toByteString().toByteArray());
+      Murron.MurronMessage testMurronMsg, int partitionId) {
+    return consumerRecordWithValue(testMurronMsg.toByteString().toByteArray(), partitionId);
   }
 
-  private static ConsumerRecord<String, byte[]> consumerRecordWithValue(byte[] recordValue) {
+  private static ConsumerRecord<String, byte[]> consumerRecordWithValue(
+      byte[] recordValue, int partitionId) {
     return new ConsumerRecord<>(
-        "testTopic", 1, 10, 0L, TimestampType.CREATE_TIME, 0L, 0, 0, "testKey", recordValue);
+        "testTopic",
+        partitionId,
+        10,
+        0L,
+        TimestampType.CREATE_TIME,
+        0L,
+        0,
+        0,
+        "testKey",
+        recordValue);
   }
 
   @Test
@@ -203,7 +215,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     assertThat(messageWriter.insertRecord(apiRecord)).isFalse();
   }
@@ -221,7 +234,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     assertThat(messageWriter.insertRecord(spanRecord)).isFalse();
   }
@@ -248,7 +262,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
@@ -315,7 +330,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
@@ -384,7 +400,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
@@ -433,7 +450,8 @@ public class LogMessageWriterImplTest {
                 .setType("testIndex")
                 .setHost("testHost")
                 .setTimestamp(1612550512340953000L)
-                .build());
+                .build(),
+            1);
 
     List<LogMessage> logMessages = LogMessageWriterImpl.spanTransformer.toLogMessage(spanRecord);
     assertThat(logMessages.size()).isEqualTo(1);
@@ -469,7 +487,7 @@ public class LogMessageWriterImplTest {
                         traceId,
                         String.valueOf(i),
                         "0",
-                        timestampMicros + (i * 1000),
+                        timestampMicros + ((long) i * 1000),
                         durationMicros,
                         name,
                         serviceName,
@@ -546,7 +564,7 @@ public class LogMessageWriterImplTest {
             .setHost("testHost")
             .setTimestamp(timestampMicros)
             .build();
-    ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithMurronMessage(testMurronMsg);
+    ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithMurronMessage(testMurronMsg, 1);
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(

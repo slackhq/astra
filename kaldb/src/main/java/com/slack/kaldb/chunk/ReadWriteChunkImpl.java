@@ -131,9 +131,12 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    * @param offset
    */
   public void addMessage(T message, String kafkaPartitionId, long offset) {
-    if (this.kafkaPartitionId != kafkaPartitionId) {
+    if (!this.kafkaPartitionId.equals(kafkaPartitionId)) {
       throw new IllegalArgumentException(
-          "All messages for this chunk should belong to the " + "partition: " + kafkaPartitionId);
+          "All messages for this chunk should belong to partition: "
+              + this.kafkaPartitionId
+              + " not "
+              + kafkaPartitionId);
     }
     if (!readOnly) {
       logStore.addMessage(message);
