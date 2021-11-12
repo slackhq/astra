@@ -11,7 +11,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
-import com.slack.kaldb.chunk.ReadWriteChunkImpl;
+import com.slack.kaldb.chunk.IndexingReadWriteChunkImpl;
+import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -58,7 +59,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStoreService metadataStoreService;
   private final SearchContext searchContext;
-  private ReadWriteChunkImpl<T> activeChunk;
+  private ReadWriteChunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
   private final AtomicLong liveMessagesIndexedGauge;
@@ -169,7 +170,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     }
 
     // find the active chunk and add a message to it
-    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
+    ReadWriteChunk<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
     currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
@@ -189,7 +190,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * This method initiates a roll over of the active chunk. In future, consider moving the some of
    * the roll over logic into ChunkImpl.
    */
-  private void doRollover(ReadWriteChunkImpl<T> currentChunk) {
+  private void doRollover(ReadWriteChunk<T> currentChunk) {
     // Set activeChunk to null first, so we can initiate the roll over.
     activeChunk = null;
     liveBytesIndexedGauge.set(0);
@@ -240,7 +241,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   }
 
   @VisibleForTesting
-  public ReadWriteChunkImpl<T> getActiveChunk() {
+  public ReadWriteChunk<T> getActiveChunk() {
     return activeChunk;
   }
 
@@ -252,7 +253,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * data in the chunk is set as system time. However, this assumption may not be true always. In
    * future, set the start time of the chunk based on the timestamp from the message.
    */
-  private ReadWriteChunkImpl<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
+  private ReadWriteChunk<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
     if (activeChunk == null) {
       // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
       //  complicates unit tests.
@@ -260,8 +261,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       LogStore<T> logStore =
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
 
-      ReadWriteChunkImpl<T> newChunk =
-          new ReadWriteChunkImpl<>(
+      ReadWriteChunk<T> newChunk =
+          new IndexingReadWriteChunkImpl<>(
               logStore,
               chunkDataPrefix,
               meterRegistry,

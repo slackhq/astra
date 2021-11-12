@@ -50,33 +50,34 @@ import org.slf4j.LoggerFactory;
  * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the live snapshot
  * and the search metadata are deleted as part of the chunk de-registration process.
  */
-public class ReadWriteChunkImpl<T> implements Chunk<T> {
+public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   // TODO: Add a global UUID to identify each chunk uniquely.
-  private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
+  // TODO: Pass in logger from base class.
+  private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunk.class);
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
   public static final String LIVE_SNAPSHOT_PREFIX = SearchMetadata.LIVE_SNAPSHOT_PATH + "_";
 
   private final LogStore<T> logStore;
-  private final ChunkInfo chunkInfo;
-  private final SnapshotMetadataStore snapshotMetadataStore;
-  private final SearchMetadataStore searchMetadataStore;
-  private final SearchMetadata liveSearchMetadata;
   private final String kafkaPartitionId;
-  private SnapshotMetadata liveSnapshotMetadata;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
   private final MeterRegistry meterRegistry;
+  protected final ChunkInfo chunkInfo;
+  protected final SearchMetadata liveSearchMetadata;
+  protected SnapshotMetadata liveSnapshotMetadata;
+  protected final SnapshotMetadataStore snapshotMetadataStore;
+  protected final SearchMetadataStore searchMetadataStore;
   // TODO: Export file size uploaded as a metric.
   // TODO: Add chunk info as tags?.
 
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
 
-  public ReadWriteChunkImpl(
+  public ReadWriteChunk(
       LogStore<T> logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
@@ -109,27 +110,15 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
-  public void register() {
-    snapshotMetadataStore.createSync(liveSnapshotMetadata);
-    searchMetadataStore.createSync(liveSearchMetadata);
-  }
+  public abstract void register();
 
-  public void deRegister() {
-    searchMetadataStore.deleteSync(liveSearchMetadata);
-    snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
-  }
+  public abstract void deRegister();
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
   }
 
-  /**
-   * Index the message in the logstore and update the chunk data time range.
-   *
-   * @param message a LogMessage object.
-   * @param kafkaPartitionId
-   * @param offset
-   */
+  /** Index the message in the logstore and update the chunk data time range. */
   public void addMessage(T message, String kafkaPartitionId, long offset) {
     if (!this.kafkaPartitionId.equals(kafkaPartitionId)) {
       throw new IllegalArgumentException(
@@ -188,12 +177,15 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logStore.refresh();
   }
 
+  // Snapshot methods
   public void preSnapshot() {
     LOG.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     commit();
     LOG.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
+
+  public abstract void postSnapshot();
 
   /**
    * Copy the files from log store to S3 to a given bucket, prefix.
@@ -226,28 +218,6 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     } finally {
       logStore.releaseIndexCommit(indexCommit);
     }
-  }
-
-  public void postSnapshot() {
-    LOG.info("Start Post snapshot chunk {}", chunkInfo);
-    // Publish a persistent snapshot for this chunk.
-    SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
-    snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
-
-    // Update the live snapshot. Keep the same snapshotId and snapshotPath to
-    // ensure it's a live snapshot.
-    SnapshotMetadata updatedSnapshotMetadata =
-        new SnapshotMetadata(
-            liveSnapshotMetadata.snapshotId,
-            liveSnapshotMetadata.snapshotPath,
-            chunkInfo.getDataStartTimeEpochMs(),
-            chunkInfo.getDataEndTimeEpochMs(),
-            chunkInfo.getMaxOffset(),
-            chunkInfo.getKafkaPartitionId());
-    snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
-    liveSnapshotMetadata = updatedSnapshotMetadata;
-
-    LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
   @VisibleForTesting
