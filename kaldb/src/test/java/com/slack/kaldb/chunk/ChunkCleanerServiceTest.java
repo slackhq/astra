@@ -318,17 +318,17 @@ public class ChunkCleanerServiceTest {
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotSize)
       throws InterruptedException, ExecutionException, TimeoutException {
-    List<SnapshotMetadata> snapshots1 = fetchSnapshots(chunkManager);
-    assertThat(snapshots1.size()).isEqualTo(expectedSnapshotSize);
-    List<SnapshotMetadata> liveSnapshots1 = fetchLiveSnapshot(snapshots1);
-    assertThat(liveSnapshots1.size()).isEqualTo(expectedLiveSnapshotSize);
-    assertThat(fetchNonLiveSnapshot(snapshots1).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes1 = fetchSearchNodes(chunkManager);
-    assertThat(searchNodes1.size()).isEqualTo(expectedSearchNodeSize);
-    assertThat(liveSnapshots1.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
+    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyElementsOf(
-            searchNodes1.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots1.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotSize);
   }
 
