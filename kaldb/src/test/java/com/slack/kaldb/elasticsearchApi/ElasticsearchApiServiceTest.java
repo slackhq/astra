@@ -32,6 +32,7 @@ import org.junit.rules.TemporaryFolder;
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String TEST_KAFKA_PARTITION_ID = "10";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private ElasticsearchApiService elasticsearchApiService;
@@ -236,8 +237,10 @@ public class ElasticsearchApiServiceTest {
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    int offset = 1;
     for (LogMessage m : messages) {
-      chunkManager.addMessage(m, m.toString().length(), 100);
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
     }
     chunkManager.getActiveChunk().commit();
   }

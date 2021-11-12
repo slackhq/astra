@@ -3,7 +3,6 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -16,15 +15,43 @@ import java.util.Objects;
  * code into multiple, classes.
  *
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
- * TODO: Add a state machine for a chunk?
  */
 public class ChunkInfo {
+  public static final long MAX_FUTURE_TIME = Long.MAX_VALUE;
+  public static final int DEFAULT_MAX_OFFSET = 0;
+
+  public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
+    return new ChunkInfo(
+        snapshotMetadata.snapshotId,
+        snapshotMetadata.startTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.startTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.maxOffset,
+        snapshotMetadata.partitionId,
+        snapshotMetadata.snapshotPath);
+  }
+
+  public static SnapshotMetadata toSnapshotMetadata(ChunkInfo chunkInfo, String chunkPrefix) {
+    return new SnapshotMetadata(
+        chunkPrefix + chunkInfo.chunkId,
+        chunkInfo.snapshotPath,
+        chunkInfo.getDataStartTimeEpochMs(),
+        chunkInfo.getDataEndTimeEpochMs(),
+        chunkInfo.maxOffset,
+        chunkInfo.kafkaPartitionId);
+  }
 
   /* A unique identifier for a the chunk. */
   public final String chunkId;
 
   // The time when this chunk is created.
   private final long chunkCreationTimeEpochMs;
+
+  // Partition metadata.
+  private final String kafkaPartitionId;
+  private long maxOffset;
 
   /*
    * The last time when this chunk is updated. Ideally, we want to set this timestamp continuously,
@@ -49,9 +76,19 @@ public class ChunkInfo {
   // Path to S3 snapshot.
   private String snapshotPath;
 
-  public ChunkInfo(String chunkId, long chunkCreationTimeEpochMs) {
+  public ChunkInfo(
+      String chunkId, long chunkCreationTimeEpochMs, String kafkaPartitionId, String snapshotPath) {
     // TODO: Should we set the snapshot time to creation time also?
-    this(chunkId, chunkCreationTimeEpochMs, chunkCreationTimeEpochMs, 0, 0, 0, "");
+    this(
+        chunkId,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        chunkCreationTimeEpochMs,
+        MAX_FUTURE_TIME,
+        0,
+        DEFAULT_MAX_OFFSET,
+        kafkaPartitionId,
+        snapshotPath);
   }
 
   public ChunkInfo(
@@ -61,17 +98,23 @@ public class ChunkInfo {
       long dataStartTimeEpochMs,
       long dataEndTimeEpochMs,
       long chunkSnapshotTimeEpochMs,
+      long maxOffset,
+      String kafkaPartitionId,
       String snapshotPath) {
     ensureTrue(chunkId != null && !chunkId.isEmpty(), "Invalid chunk dataset name " + chunkId);
     ensureTrue(
         chunkCreationTimeEpochMs >= 0,
         "Chunk creation time should be non negative: " + chunkCreationTimeEpochMs);
+    ensureTrue(kafkaPartitionId != null && !kafkaPartitionId.isEmpty(), "Invalid KafkaPartitionId");
+
     this.chunkId = chunkId;
     this.chunkCreationTimeEpochMs = chunkCreationTimeEpochMs;
     this.chunkLastUpdatedTimeEpochMs = chunkLastUpdatedTimeEpochMs;
     this.dataStartTimeEpochMs = dataStartTimeEpochMs;
     this.dataEndTimeEpochMs = dataEndTimeEpochMs;
     this.chunkSnapshotTimeEpochMs = chunkSnapshotTimeEpochMs;
+    this.maxOffset = maxOffset;
+    this.kafkaPartitionId = kafkaPartitionId;
     this.snapshotPath = snapshotPath;
   }
 
@@ -95,6 +138,14 @@ public class ChunkInfo {
     return chunkCreationTimeEpochMs;
   }
 
+  public long getMaxOffset() {
+    return maxOffset;
+  }
+
+  public String getKafkaPartitionId() {
+    return kafkaPartitionId;
+  }
+
   public long getChunkLastUpdatedTimeEpochMs() {
     return chunkLastUpdatedTimeEpochMs;
   }
@@ -104,15 +155,15 @@ public class ChunkInfo {
   }
 
   public void setSnapshotPath(String snapshotPath) {
-    if (this.snapshotPath == null || this.snapshotPath.isEmpty()) {
-      this.snapshotPath = snapshotPath;
-    } else {
-      throw new IllegalStateException("Snapshot path is already set.");
-    }
+    this.snapshotPath = snapshotPath;
   }
 
   public String getSnapshotPath() {
     return snapshotPath;
+  }
+
+  public void updateMaxOffset(long newOffset) {
+    maxOffset = Math.max(maxOffset, newOffset);
   }
 
   // Return true if chunk contains data in this time range.
@@ -123,9 +174,6 @@ public class ChunkInfo {
         endTimeMs - startTimeMs >= 0,
         String.format(
             "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
-    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
-      throw new IllegalStateException("Data start or end time should be initialized before query.");
-    }
     return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
         || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
         || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
@@ -135,25 +183,14 @@ public class ChunkInfo {
    * Update the max and min data time range of the chunk given a new timestamp.
    */
   public void updateDataTimeRange(long messageTimeStampMs) {
-    if (dataStartTimeEpochMs == 0 || dataEndTimeEpochMs == 0) {
-      dataStartTimeEpochMs = messageTimeStampMs;
+    if (dataEndTimeEpochMs == MAX_FUTURE_TIME) {
+      dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
       dataEndTimeEpochMs = messageTimeStampMs;
     } else {
       // TODO: Would only updating the values if there is a change make this code faster?
       dataStartTimeEpochMs = Math.min(dataStartTimeEpochMs, messageTimeStampMs);
       dataEndTimeEpochMs = Math.max(dataEndTimeEpochMs, messageTimeStampMs);
     }
-  }
-
-  public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
-    return new ChunkInfo(
-        snapshotMetadata.snapshotId,
-        Instant.now().toEpochMilli(),
-        snapshotMetadata.endTimeUtc,
-        snapshotMetadata.startTimeUtc,
-        snapshotMetadata.endTimeUtc,
-        snapshotMetadata.endTimeUtc,
-        snapshotMetadata.snapshotPath);
   }
 
   @Override
@@ -163,6 +200,10 @@ public class ChunkInfo {
         + chunkId
         + ", chunkCreationTimeEpochMs="
         + chunkCreationTimeEpochMs
+        + ", kafkaPartitionId='"
+        + kafkaPartitionId
+        + ", maxOffset="
+        + maxOffset
         + ", chunkLastUpdatedTimeEpochMs="
         + chunkLastUpdatedTimeEpochMs
         + ", dataStartTimeEpochMs="
@@ -182,11 +223,13 @@ public class ChunkInfo {
     if (o == null || getClass() != o.getClass()) return false;
     ChunkInfo chunkInfo = (ChunkInfo) o;
     return chunkCreationTimeEpochMs == chunkInfo.chunkCreationTimeEpochMs
+        && maxOffset == chunkInfo.maxOffset
         && chunkLastUpdatedTimeEpochMs == chunkInfo.chunkLastUpdatedTimeEpochMs
         && dataStartTimeEpochMs == chunkInfo.dataStartTimeEpochMs
         && dataEndTimeEpochMs == chunkInfo.dataEndTimeEpochMs
         && chunkSnapshotTimeEpochMs == chunkInfo.chunkSnapshotTimeEpochMs
         && Objects.equals(chunkId, chunkInfo.chunkId)
+        && Objects.equals(kafkaPartitionId, chunkInfo.kafkaPartitionId)
         && Objects.equals(snapshotPath, chunkInfo.snapshotPath);
   }
 
@@ -195,6 +238,8 @@ public class ChunkInfo {
     return Objects.hash(
         chunkId,
         chunkCreationTimeEpochMs,
+        kafkaPartitionId,
+        maxOffset,
         chunkLastUpdatedTimeEpochMs,
         dataStartTimeEpochMs,
         dataEndTimeEpochMs,

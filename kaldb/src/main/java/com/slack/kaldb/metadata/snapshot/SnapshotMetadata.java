@@ -45,15 +45,14 @@ public class SnapshotMetadata extends KaldbMetadata {
       long maxOffset,
       String partitionId) {
     super(name);
-
-    checkState(
-        snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
     checkState(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
     checkState(startTimeUtc > 0, "start time should be greater than zero.");
     checkState(endTimeUtc > 0, "end time should be greater than zero.");
-    checkState(endTimeUtc > startTimeUtc, "start time should be greater than  end time.");
+    checkState(endTimeUtc >= startTimeUtc, "start time should be greater than or equal to endtime");
     checkState(maxOffset >= 0, "max offset should be greater than or equal to zero.");
     checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
+    checkState(
+        snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
 
     this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;

@@ -82,6 +82,12 @@ public class SnapshotMetadataTest {
         .isThrownBy(
             () -> new SnapshotMetadata(name, path, endTime, startTime, maxOffset, partitionId));
 
+    // Start time same as end time.
+    assertThat(
+            new SnapshotMetadata(name, path, startTime, startTime, maxOffset, partitionId)
+                .endTimeUtc)
+        .isEqualTo(startTime);
+
     assertThatIllegalStateException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, -1, partitionId));
 

@@ -2,7 +2,10 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
+import static com.slack.kaldb.chunk.ReadWriteChunkImpl.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -18,6 +21,12 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -28,7 +37,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -42,38 +54,97 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
 public class ReadWriteChunkImplTest {
+  private static final String TEST_KAFKA_PARTITION_ID = "10";
+  private static final String TEST_HOST = "localhost";
+  private static final int TEST_PORT = 34567;
+  private static final String CHUNK_DATA_PREFIX = "testDataSet";
+  private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
+  private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
+
+  private static void testBeforeSnapshotState(
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore,
+      ReadWriteChunkImpl<LogMessage> chunk)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
+        .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
+    final List<SearchMetadata> beforeSearchNodes =
+        searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    assertThat(beforeSearchNodes.size()).isEqualTo(1);
+    assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
+    assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+  }
 
   public static class BasicTests {
-
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-    private final String chunkDataPrefix = "testDataSet";
 
+    private boolean closeChunk = true;
     private MeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private ReadWriteChunkImpl<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStoreService metadataStoreService;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
       Tracing.newBuilder().build();
+
+      testingServer = new TestingServer();
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
       registry = new SimpleMeterRegistry();
+
+      metadataStoreService = new MetadataStoreService(registry, zkConfig);
+      metadataStoreService.startAsync();
+      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+      SearchMetadataStore searchMetadataStore =
+          new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+      chunk =
+          new ReadWriteChunkImpl<>(
+              logStore,
+              CHUNK_DATA_PREFIX,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
+
+      chunk.register();
+      closeChunk = true;
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
 
     @After
-    public void tearDown() throws IOException {
-      chunk.close();
+    public void tearDown() throws IOException, TimeoutException {
+      if (closeChunk) chunk.close();
+
+      metadataStoreService.stopAsync();
+      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      testingServer.close();
       registry.close();
     }
 
     @Test
     public void testAddAndSearchChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -104,7 +175,7 @@ public class ReadWriteChunkImplTest {
       testMessage.addProperty("username", 0);
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage);
+      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -120,8 +191,10 @@ public class ReadWriteChunkImplTest {
       final List<LogMessage> messages =
           MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
       final long messageStartTimeMs = messages.get(0).timeSinceEpochMilli;
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -134,7 +207,7 @@ public class ReadWriteChunkImplTest {
       // Ensure chunk info is correct.
       assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTimeMs);
       assertThat(chunk.info().getDataEndTimeEpochMs()).isEqualTo(expectedEndTimeEpochMs);
-      assertThat(chunk.info().chunkId).contains(chunkDataPrefix);
+      assertThat(chunk.info().chunkId).contains(CHUNK_DATA_PREFIX);
       assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
       assertThat(chunk.info().getChunkCreationTimeEpochMs()).isPositive();
 
@@ -161,7 +234,8 @@ public class ReadWriteChunkImplTest {
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochMs = newMessages.get(0).timeSinceEpochMilli;
       for (LogMessage m : newMessages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -222,8 +296,10 @@ public class ReadWriteChunkImplTest {
     @Test
     public void testSearchInReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       chunk.commit();
 
@@ -245,39 +321,42 @@ public class ReadWriteChunkImplTest {
     @Test(expected = IllegalStateException.class)
     public void testAddMessageToReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       chunk.commit();
 
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.setReadOnly(true);
       assertThat(chunk.isReadOnly()).isTrue();
-      chunk.addMessage(MessageUtil.makeMessage(101));
+      chunk.addMessage(MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, offset);
     }
 
-    @Test
-    public void testCleanupOnOpenChunk() throws IOException {
+    @Test(expected = IllegalArgumentException.class)
+    public void testMessageFromDifferentPartitionFails() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
-      assertThat(chunk.isReadOnly()).isFalse();
       chunk.commit();
 
-      SearchResult<LogMessage> results =
-          chunk.query(
-              new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000));
-      assertThat(results.hits.size()).isEqualTo(1);
-
-      chunk.close();
+      assertThat(chunk.isReadOnly()).isFalse();
+      chunk.setReadOnly(true);
+      assertThat(chunk.isReadOnly()).isTrue();
+      chunk.addMessage(MessageUtil.makeMessage(101), "differentKafkaPartition", offset);
     }
 
     @Test
     public void testCommitBeforeSnapshot() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
 
@@ -304,30 +383,78 @@ public class ReadWriteChunkImplTest {
     @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
 
     private SimpleMeterRegistry registry;
-    private final Duration commitInterval = Duration.ofSeconds(5 * 60);
-    private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
     private ReadWriteChunkImpl<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStoreService metadataStoreService;
+    private boolean closeChunk;
+    private SnapshotMetadataStore snapshotMetadataStore;
+    private SearchMetadataStore searchMetadataStore;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
       Tracing.newBuilder().build();
+      testingServer = new TestingServer();
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
       registry = new SimpleMeterRegistry();
-      LuceneIndexStoreImpl logStore =
+
+      metadataStoreService = new MetadataStoreService(registry, zkConfig);
+      metadataStoreService.startAsync();
+      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      snapshotMetadataStore =
+          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+      searchMetadataStore = new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+
+      final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), commitInterval, refreshInterval, registry);
-      chunk = new ReadWriteChunkImpl<>(logStore, "testDataSet", registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+      chunk =
+          new ReadWriteChunkImpl<>(
+              logStore,
+              CHUNK_DATA_PREFIX,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
+      chunk.register();
+      closeChunk = true;
+      List<SnapshotMetadata> snapshotNodes =
+          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(snapshotNodes.size()).isEqualTo(1);
+      List<SearchMetadata> searchNodes =
+          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(searchNodes.size()).isEqualTo(1);
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException, TimeoutException {
+      if (closeChunk) chunk.close();
+      searchMetadataStore.close();
+      snapshotMetadataStore.close();
+      metadataStoreService.stopAsync();
+      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      testingServer.close();
       registry.close();
     }
 
     @Test
-    public void testSnapshotToNonExistentS3BucketFails() {
+    public void testSnapshotToNonExistentS3BucketFails()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
 
       // Initiate pre-snapshot
@@ -354,16 +481,35 @@ public class ReadWriteChunkImplTest {
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
-      assertThat(chunk.info().getSnapshotPath()).isEmpty();
+      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+      // Metadata checks
+      List<SnapshotMetadata> afterSnapshots =
+          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSnapshots.size()).isEqualTo(1);
+      assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+      assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
+      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+      List<SearchMetadata> afterSearchNodes =
+          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSearchNodes.size()).isEqualTo(1);
+      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
+      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
       }
 
       // Initiate pre-snapshot
@@ -390,7 +536,7 @@ public class ReadWriteChunkImplTest {
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
-      assertThat(chunk.info().getSnapshotPath()).isEmpty();
+      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
@@ -400,21 +546,31 @@ public class ReadWriteChunkImplTest {
 
       // Post snapshot cleanup.
       chunk.postSnapshot();
-      chunk.close();
 
-      // TODO: Test search via read write chunk.query API. Also, add a few more messages to search.
-      //      LuceneIndexStoreImpl rwLogStore =
-      //          ReadWriteChunkImpl.makeLogStore(
-      //              newLocalFolderPath, commitInterval, refreshInterval, registry);
-      //      ReadWriteChunkImpl<LogMessage> readWriteChunk =
-      //          new ReadWriteChunkImpl<>(rwLogStore, "testDataSet2");
-      //      assertThat(FileUtils.listFiles(newLocalFolderPath, null, true).size())
-      //          .isGreaterThanOrEqualTo(s3Files.length); // More files like lock files may be
-      // present
-      //
-      //      SearchResult<LogMessage> rwChunkResults = readWriteChunk.query(searchQuery);
-      //      // NOTE: The search query returns 0 results even when the data exists. Not sure why.
-      //      assertThat(rwChunkResults.hits.size()).isEqualTo(1);
+      // Metadata checks
+      List<SnapshotMetadata> afterSnapshots =
+          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSnapshots.size()).isEqualTo(2);
+      assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+      SnapshotMetadata liveSnapshot =
+          afterSnapshots
+              .stream()
+              .filter(s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH))
+              .findFirst()
+              .get();
+      assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+      assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
+      assertThat(liveSnapshot.snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+      List<SearchMetadata> afterSearchNodes =
+          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      assertThat(afterSearchNodes.size()).isEqualTo(1);
+      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
+      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+      chunk.close();
+      closeChunk = false;
     }
   }
 }

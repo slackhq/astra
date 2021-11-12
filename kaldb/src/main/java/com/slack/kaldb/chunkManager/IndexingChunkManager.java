@@ -17,7 +17,6 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -98,6 +97,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * roll over executor that can only execute one roll over task at a time and throws a
    * RejectedExecutionHandler exception when a second one is called (the default policy).
    */
+  @SuppressWarnings("UnstableApiUsage")
   public static ListeningExecutorService makeDefaultRollOverExecutor() {
     // TODO: Create a named thread pool and pass it in.
     ThreadPoolExecutor rollOverExecutor =
@@ -156,11 +156,12 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    *
    * @param message Message to be ingested
    * @param msgSize Serialized size of raw message in bytes.
+   * @param kafkaPartitionId Kafka partition the message is read from.
    * @param offset Kafka offset of the message.
    *     <p>TODO: Indexer should stop cleanly if the roll over fails or an exception.
-   *     <p>TODO: Delete the snapshot from local disk once it is replicated elsewhere after X min.
    */
-  public void addMessage(final T message, long msgSize, long offset) throws IOException {
+  public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
+      throws IOException {
     if (stopIngestion) {
       // Currently, this flag is set on only a chunkRollOverException.
       LOG.warn("Stopping ingestion due to a chunk roll over exception.");
@@ -168,8 +169,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     }
 
     // find the active chunk and add a message to it
-    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk();
-    currentChunk.addMessage(message);
+    ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
+    currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
 
@@ -208,12 +209,14 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
             @Override
             public void onSuccess(Boolean success) {
               if (success == null || !success) {
+                LOG.warn("Roll over failed");
                 stopIngestion = true;
               }
             }
 
             @Override
             public void onFailure(Throwable t) {
+              LOG.warn("Roll over failed with an exception", t);
               stopIngestion = true;
             }
           },
@@ -222,7 +225,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       throw new ChunkRollOverException(
           String.format(
               "The chunk roll over %s is already in progress."
-                  + "It is not recommended to index faster than we can roll over, since we may not be able to keep up.",
+                  + "It is not recommended to index faster than we can roll over, since we may not be able to keep up",
               currentChunk.info()));
     }
   }
@@ -249,7 +252,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * data in the chunk is set as system time. However, this assumption may not be true always. In
    * future, set the start time of the chunk based on the timestamp from the message.
    */
-  private ReadWriteChunkImpl<T> getOrCreateActiveChunk() throws IOException {
+  private ReadWriteChunkImpl<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
     if (activeChunk == null) {
       // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
       //  complicates unit tests.
@@ -258,8 +261,17 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
 
       ReadWriteChunkImpl<T> newChunk =
-          new ReadWriteChunkImpl<>(logStore, chunkDataPrefix, meterRegistry);
+          new ReadWriteChunkImpl<>(
+              logStore,
+              chunkDataPrefix,
+              meterRegistry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              searchContext,
+              kafkaPartitionId);
       chunkList.add(newChunk);
+      // Register the chunk, so we can search it.
+      newChunk.register();
       activeChunk = newChunk;
     }
     return activeChunk;
@@ -314,19 +326,10 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     snapshotMetadataStore =
         new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
 
-    // TODO: Move this registration closer to chunk metadata
-    SearchMetadata searchMetadata =
-        toSearchMetadata(SearchMetadata.LIVE_SNAPSHOT_NAME, searchContext);
-    searchMetadataStore.create(searchMetadata).get();
-
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
     // prevents use of chunk manager until the service has started
     stopIngestion = false;
-  }
-
-  private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /**
