@@ -88,6 +88,7 @@ message CacheConfig {
 
 message ManagerConfig {
     ServerConfig serverConfig = 1;
+    int32 replicasPerSnapshot = 2;
 }
 
 message RecoveryConfig {

@@ -203,6 +203,7 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getReplicasPerSnapshot()).isEqualTo(1);
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -282,6 +283,7 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getReplicasPerSnapshot()).isEqualTo(1);
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -355,6 +357,7 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getReplicasPerSnapshot()).isZero();
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
@@ -418,6 +421,7 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getReplicasPerSnapshot()).isZero();
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();

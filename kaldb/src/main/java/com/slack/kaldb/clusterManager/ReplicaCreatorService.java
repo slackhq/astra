@@ -3,12 +3,13 @@ package com.slack.kaldb.clusterManager;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.server.MetadataStoreService;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,15 +23,23 @@ import org.slf4j.LoggerFactory;
 public class ReplicaCreatorService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ReplicaCreatorService.class);
 
+  private final int replicasPerSnapshot;
   private final MetadataStoreService metadataStoreService;
-  private final MeterRegistry meterRegistry;
 
   private ReplicaMetadataStore replicaMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+
+  public static final String REPLICAS_CREATED = "replicas_created";
+  private final Counter replicasCreated;
 
   public ReplicaCreatorService(
-      MetadataStoreService metadataStoreService, MeterRegistry meterRegistry) {
+      MetadataStoreService metadataStoreService,
+      int replicasPerSnapshot,
+      MeterRegistry meterRegistry) {
     this.metadataStoreService = metadataStoreService;
-    this.meterRegistry = meterRegistry;
+    this.replicasPerSnapshot = replicasPerSnapshot;
+
+    replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
   }
 
   @Override
@@ -39,7 +48,14 @@ public class ReplicaCreatorService extends AbstractIdleService {
     metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     replicaMetadataStore = new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
-    replicaMetadataStore.addListener(replicaNodeListener());
+
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+    snapshotMetadataStore.addListener(this::createReplicasForUnassignedSnapshots);
+
+    // we need to fire this at startup, so any snapshots that were created while we were offline are
+    // handled
+    createReplicasForUnassignedSnapshots();
   }
 
   @Override
@@ -47,15 +63,31 @@ public class ReplicaCreatorService extends AbstractIdleService {
     LOG.info("Closing replica create service");
 
     replicaMetadataStore.close();
+    snapshotMetadataStore.close();
 
     LOG.info("Closed replica create service");
   }
 
-  private KaldbMetadataStoreChangeListener replicaNodeListener() {
-    return () -> {
-      List<ReplicaMetadata> replicaMetadataList = replicaMetadataStore.getCached();
-      LOG.debug(
-          "Change on replica metadata, new replica metadata count {}", replicaMetadataList.size());
-    };
+  private void createReplicasForUnassignedSnapshots() {
+    snapshotMetadataStore
+        .getCached()
+        .stream()
+        .filter(
+            snapshotMetadata ->
+                replicaMetadataStore
+                    .getCached()
+                    .stream()
+                    .noneMatch(
+                        replicaMetadata ->
+                            replicaMetadata.snapshotId.equals(snapshotMetadata.snapshotId)))
+        .forEach(
+            unassignedSnapshot -> {
+              for (int i = 0; i < replicasPerSnapshot; i++) {
+                replicaMetadataStore.createSync(
+                    new ReplicaMetadata(
+                        UUID.randomUUID().toString(), unassignedSnapshot.snapshotId));
+                replicasCreated.increment();
+              }
+            });
   }
 }

@@ -49,6 +49,7 @@ cacheConfig:
     serverAddress: localhost
 
 managerConfig:
+  replicasPerSnapshot: 1
   serverConfig:
     serverPort: 8083
     serverAddress: localhost
