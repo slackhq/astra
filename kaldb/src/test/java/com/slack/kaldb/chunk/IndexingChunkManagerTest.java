@@ -273,7 +273,10 @@ public class IndexingChunkManagerTest {
     assertThat(veryHighOffset - offset).isGreaterThan(100);
     LogMessage messageWithHighOffset = MessageUtil.makeMessage(101);
     chunkManager.addMessage(
-        messageWithHighOffset, messageWithHighOffset.toString().length(), TEST_KAFKA_PARTITION_ID, veryHighOffset);
+        messageWithHighOffset,
+        messageWithHighOffset.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        veryHighOffset);
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     chunkManager.getActiveChunk().commit();
     assertThat(
@@ -293,19 +296,21 @@ public class IndexingChunkManagerTest {
     assertThat(veryHighOffset - lowerOffset).isGreaterThan(100);
     LogMessage messageWithLowerOffset = MessageUtil.makeMessage(102);
     chunkManager.addMessage(
-            messageWithLowerOffset, messageWithLowerOffset.toString().length(), TEST_KAFKA_PARTITION_ID, lowerOffset);
+        messageWithLowerOffset,
+        messageWithLowerOffset.toString().length(),
+        TEST_KAFKA_PARTITION_ID,
+        lowerOffset);
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     chunkManager.getActiveChunk().commit();
     assertThat(
             chunkManager
-                    .query(
-                            new SearchQuery(
-                                    MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
-                    .join()
-                    .hits
-                    .size())
-            .isEqualTo(1);
-
+                .query(
+                    new SearchQuery(
+                        MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                .join()
+                .hits
+                .size())
+        .isEqualTo(1);
   }
 
   private void testChunkManagerSearch(
