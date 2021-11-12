@@ -17,7 +17,6 @@ import java.util.Objects;
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
  */
 public class ChunkInfo {
-  // Use a future time of Dec 31, 3000 instead of INSTANT.MAX since it overflows.
   public static final long MAX_FUTURE_TIME = Long.MAX_VALUE;
   public static final int DEFAULT_MAX_OFFSET = 0;
 
