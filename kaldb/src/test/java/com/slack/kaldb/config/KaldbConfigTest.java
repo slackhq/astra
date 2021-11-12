@@ -206,6 +206,11 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
+
+    final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
+    final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
+    assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test
@@ -280,6 +285,11 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
+
+    final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
+    final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
+    assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getServerAddress()).isEqualTo("localhost");
   }
 
   @Test(expected = RuntimeException.class)
@@ -348,6 +358,11 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
+
+    final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
+    final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
+    assertThat(recoveryServerConfig.getServerPort()).isZero();
+    assertThat(recoveryServerConfig.getServerAddress()).isEmpty();
   }
 
   @Test

@@ -2,6 +2,11 @@ package com.slack.kaldb.metadata.replica;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
+/**
+ * The replica metadata is used to allow associating multiple cache nodes to a single snapshot. The
+ * cluster manager will create one (or more) replicas per snapshot, depending on configuration and
+ * expected/observed query load.
+ */
 public class ReplicaMetadata extends KaldbMetadata {
 
   public final String snapshotId;

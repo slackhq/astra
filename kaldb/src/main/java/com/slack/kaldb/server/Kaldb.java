@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
@@ -142,12 +143,25 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
       final int serverPort = KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbManager");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, "kalDbManager");
       services.add(armeriaService);
 
       ReplicaCreatorService replicaCreatorService =
           new ReplicaCreatorService(metadataStoreService, prometheusMeterRegistry);
       services.add(replicaCreatorService);
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
+      final KaldbConfigs.RecoveryConfig recoveryConfig = KaldbConfig.get().getRecoveryConfig();
+      final int serverPort = recoveryConfig.getServerConfig().getServerPort();
+
+      ArmeriaService armeriaService =
+          new ArmeriaService(serverPort, prometheusMeterRegistry, "kaldbRecovery");
+      services.add(armeriaService);
+
+      RecoveryService recoveryService =
+          new RecoveryService(recoveryConfig, metadataStoreService, prometheusMeterRegistry);
+      services.add(recoveryService);
     }
 
     return services;

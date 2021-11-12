@@ -33,7 +33,7 @@ public class KalDbIntegrationTest {
   private final ObjectMapper om = new ObjectMapper();
 
   @Before
-  public void start() throws IOException, Exception {
+  public void start() throws Exception {
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);
@@ -88,6 +88,45 @@ public class KalDbIntegrationTest {
             String.format(
                 "http://localhost:%s/health",
                 KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort()));
+    HashMap<String, Object> map = om.readValue(response, HashMap.class);
+
+    LOG.info(String.format("Response from healthcheck - '%s'", response));
+    assertThat(map.get("healthy")).isEqualTo(true);
+  }
+
+  @Test
+  public void testCacheStartupHealthcheck() throws JsonProcessingException {
+    String response =
+        getResponse(
+            String.format(
+                "http://localhost:%s/health",
+                KaldbConfig.get().getCacheConfig().getServerConfig().getServerPort()));
+    HashMap<String, Object> map = om.readValue(response, HashMap.class);
+
+    LOG.info(String.format("Response from healthcheck - '%s'", response));
+    assertThat(map.get("healthy")).isEqualTo(true);
+  }
+
+  @Test
+  public void testRecoveryStartupHealthcheck() throws JsonProcessingException {
+    String response =
+        getResponse(
+            String.format(
+                "http://localhost:%s/health",
+                KaldbConfig.get().getRecoveryConfig().getServerConfig().getServerPort()));
+    HashMap<String, Object> map = om.readValue(response, HashMap.class);
+
+    LOG.info(String.format("Response from healthcheck - '%s'", response));
+    assertThat(map.get("healthy")).isEqualTo(true);
+  }
+
+  @Test
+  public void testManagerStartupHealthcheck() throws JsonProcessingException {
+    String response =
+        getResponse(
+            String.format(
+                "http://localhost:%s/health",
+                KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));

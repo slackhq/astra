@@ -4,16 +4,16 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
-enum CacheSlotState {
-  FREE = 0;
-  ASSIGNED = 1;
-  LOADING = 2;
-  LIVE = 3;
-  EVICT = 4;
-  EVICTING = 5;
-};
-
 message CacheSlotMetadata {
+  enum CacheSlotState {
+    FREE = 0;
+    ASSIGNED = 1;
+    LOADING = 2;
+    LIVE = 3;
+    EVICT = 4;
+    EVICTING = 5;
+  };
+
   // Name of the cache slot
   string name = 1;
 
@@ -64,4 +64,38 @@ message SearchMetadata {
 
   // url
   string url = 3;
+}
+
+message RecoveryNodeMetadata {
+  enum RecoveryNodeState {
+    FREE = 0;
+    ASSIGNED = 1;
+    RECOVERING = 2;
+  }
+
+  // Name of recovery node
+  string name = 1;
+
+  // Name of the recovery task
+  string recoveryTaskName = 2;
+
+  // State of the recovery node
+  RecoveryNodeState recoveryNodeState = 3;
+
+  // Last updated timestamp
+  int64 updatedTimeUtc = 4;
+}
+
+message RecoveryTaskMetadata {
+  // Name of recovery node
+  string name = 1;
+
+  // Kafka partitionId.
+  string partitionId = 2;
+
+  // Kafka offset (inclusive) to start at
+  int64 startOffset = 3;
+
+  // Kafka offset (inclusive) to end at
+  int64 endOffset = 4;
 }

@@ -126,12 +126,20 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore);
 
     // wait for chunk to register
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
@@ -152,10 +160,14 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo("localhost");
 
     // mark the chunk for eviction
-    readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotState.EVICT);
+    readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
 
     // ensure that the evicted chunk was released
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure the search metadata node was unregistered
     await().until(() -> searchMetadataStore.getCached().size() == 0);
@@ -225,12 +237,20 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore);
 
     // wait for chunk to register
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // assert that the chunk was released back to free
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
@@ -288,12 +308,20 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore);
 
     // wait for chunk to register
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // assert that the chunk was released back to free
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
@@ -352,12 +380,20 @@ public class ReadOnlyChunkImplTest {
             searchMetadataStore);
 
     // wait for chunk to register
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.FREE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await().until(() -> readOnlyChunk.getChunkMetadataState() == Metadata.CacheSlotState.LIVE);
+    await()
+        .until(
+            () ->
+                readOnlyChunk.getChunkMetadataState()
+                    == Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
     SearchQuery query =
         new SearchQuery(
@@ -405,7 +441,7 @@ public class ReadOnlyChunkImplTest {
     CacheSlotMetadata updatedCacheSlotMetadata =
         new CacheSlotMetadata(
             readOnlyChunk.slotName,
-            Metadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaId,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.update(updatedCacheSlotMetadata);
