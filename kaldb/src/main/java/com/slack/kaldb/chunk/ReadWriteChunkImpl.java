@@ -64,6 +64,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private final SearchMetadata liveSearchMetadata;
+  private final String kafkaPartitionId;
   private SnapshotMetadata liveSnapshotMetadata;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
@@ -89,6 +90,7 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();
+    this.kafkaPartitionId = kafkaPartitionId;
     chunkInfo =
         new ChunkInfo(
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
@@ -125,9 +127,14 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    * Index the message in the logstore and update the chunk data time range.
    *
    * @param message a LogMessage object.
+   * @param kafkaPartitionId
    * @param offset
    */
-  public void addMessage(T message, long offset) {
+  public void addMessage(T message, String kafkaPartitionId, long offset) {
+    if (this.kafkaPartitionId != kafkaPartitionId) {
+      throw new IllegalArgumentException(
+          "All messages for this chunk should belong to the " + "partition: " + kafkaPartitionId);
+    }
     if (!readOnly) {
       logStore.addMessage(message);
       // Update the chunk with the time range of the data in the chunk.

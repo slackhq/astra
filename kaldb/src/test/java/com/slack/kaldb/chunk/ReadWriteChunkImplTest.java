@@ -143,7 +143,7 @@ public class ReadWriteChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -175,7 +175,7 @@ public class ReadWriteChunkImplTest {
       testMessage.addProperty("username", 0);
 
       // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage, 1);
+      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
       chunk.commit();
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
@@ -193,7 +193,7 @@ public class ReadWriteChunkImplTest {
       final long messageStartTimeMs = messages.get(0).timeSinceEpochMilli;
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -234,7 +234,7 @@ public class ReadWriteChunkImplTest {
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
       final long newMessageStartTimeEpochMs = newMessages.get(0).timeSinceEpochMilli;
       for (LogMessage m : newMessages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -298,7 +298,7 @@ public class ReadWriteChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -323,7 +323,7 @@ public class ReadWriteChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       chunk.commit();
@@ -331,7 +331,23 @@ public class ReadWriteChunkImplTest {
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.setReadOnly(true);
       assertThat(chunk.isReadOnly()).isTrue();
-      chunk.addMessage(MessageUtil.makeMessage(101), offset);
+      chunk.addMessage(MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, offset);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testMessageFromDifferentPartitionFails() {
+      List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+      int offset = 1;
+      for (LogMessage m : messages) {
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
+        offset++;
+      }
+      chunk.commit();
+
+      assertThat(chunk.isReadOnly()).isFalse();
+      chunk.setReadOnly(true);
+      assertThat(chunk.isReadOnly()).isTrue();
+      chunk.addMessage(MessageUtil.makeMessage(101), "differentKafkaPartition", offset);
     }
 
     @Test
@@ -339,7 +355,7 @@ public class ReadWriteChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
       assertThat(chunk.isReadOnly()).isFalse();
@@ -437,7 +453,7 @@ public class ReadWriteChunkImplTest {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 
@@ -485,13 +501,14 @@ public class ReadWriteChunkImplTest {
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
-        chunk.addMessage(m, offset);
+        chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
       }
 

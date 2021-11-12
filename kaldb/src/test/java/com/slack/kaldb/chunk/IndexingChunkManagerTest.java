@@ -19,6 +19,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
@@ -289,7 +290,7 @@ public class IndexingChunkManagerTest {
                 .size())
         .isEqualTo(1);
 
-    // Add a mesage with a lower offset.
+    // Add a message with a lower offset.
     final int lowerOffset = 500;
     assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
     assertThat(lowerOffset - offset).isGreaterThan(100);
@@ -311,6 +312,17 @@ public class IndexingChunkManagerTest {
                 .hits
                 .size())
         .isEqualTo(1);
+
+    // Inserting a message from a different kafka partition fails
+    LogMessage messageWithInvalidTopic = MessageUtil.makeMessage(103);
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    messageWithInvalidTopic,
+                    messageWithInvalidTopic.toString().length(),
+                    "differentKafkaTopic",
+                    lowerOffset + 1));
   }
 
   private void testChunkManagerSearch(
@@ -480,7 +492,7 @@ public class IndexingChunkManagerTest {
 
     checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
-    chunk1.addMessage(msg4, 1);
+    chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1);
   }
 
   @Test

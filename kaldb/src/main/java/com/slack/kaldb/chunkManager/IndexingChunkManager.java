@@ -170,7 +170,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
     // find the active chunk and add a message to it
     ReadWriteChunkImpl<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
-    currentChunk.addMessage(message, offset);
+    currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
 
