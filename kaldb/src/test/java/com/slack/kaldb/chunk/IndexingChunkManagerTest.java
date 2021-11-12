@@ -77,8 +77,7 @@ import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-// TODO: Add a unit test for offset and partition update logic.
-// TODO:Add a test with out of order kafka offsets and check chunk creation.
+// TODO: Add a unit test for data from mixed partitions.
 public class IndexingChunkManagerTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
@@ -267,6 +266,46 @@ public class IndexingChunkManagerTest {
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
     assertThat(searchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+
+    // Add a message with a very high offset.
+    final int veryHighOffset = 1000;
+    assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(offset - 1);
+    assertThat(veryHighOffset - offset).isGreaterThan(100);
+    LogMessage messageWithHighOffset = MessageUtil.makeMessage(101);
+    chunkManager.addMessage(
+        messageWithHighOffset, messageWithHighOffset.toString().length(), TEST_KAFKA_PARTITION_ID, veryHighOffset);
+    assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
+    chunkManager.getActiveChunk().commit();
+    assertThat(
+            chunkManager
+                .query(
+                    new SearchQuery(
+                        MessageUtil.TEST_INDEX_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                .join()
+                .hits
+                .size())
+        .isEqualTo(1);
+
+    // Add a mesage with a lower offset.
+    final int lowerOffset = 500;
+    assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
+    assertThat(lowerOffset - offset).isGreaterThan(100);
+    assertThat(veryHighOffset - lowerOffset).isGreaterThan(100);
+    LogMessage messageWithLowerOffset = MessageUtil.makeMessage(102);
+    chunkManager.addMessage(
+            messageWithLowerOffset, messageWithLowerOffset.toString().length(), TEST_KAFKA_PARTITION_ID, lowerOffset);
+    assertThat(chunkManager.getActiveChunk().info().getMaxOffset()).isEqualTo(veryHighOffset);
+    chunkManager.getActiveChunk().commit();
+    assertThat(
+            chunkManager
+                    .query(
+                            new SearchQuery(
+                                    MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                    .join()
+                    .hits
+                    .size())
+            .isEqualTo(1);
+
   }
 
   private void testChunkManagerSearch(
