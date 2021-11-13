@@ -77,7 +77,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
 
-  public ReadWriteChunk(
+  protected ReadWriteChunk(
       LogStore<T> logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
