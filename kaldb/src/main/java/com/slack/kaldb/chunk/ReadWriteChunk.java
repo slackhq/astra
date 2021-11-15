@@ -46,7 +46,7 @@ import org.slf4j.Logger;
  * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
  * writing anymore. The snapshotting process consists of 3 steps implemented by the following
  * methods: preSnapshot, snapshotToS3 and postSnapshot. Currently, only the postSnapshot is
- * implemented as an abstract method since we don't forsee any customization for the other two
+ * implemented as an abstract method since we don't foresee any customization for the other two
  * steps.
  *
  * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the deRegister
