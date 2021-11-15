@@ -30,9 +30,11 @@ public class ReplicaCreatorService extends AbstractIdleService {
   private final MeterRegistry meterRegistry;
 
   public static final String REPLICAS_CREATED = "replicas_created";
+  public static final String REPLICAS_FAILED = "replicas_failed";
   public static final String REPLICA_ASSIGNMENT_TIMER = "replica_assignment_timer";
 
   private final Counter replicasCreated;
+  private final Counter replicasFailed;
   private final Timer replicaAssignmentTimer;
 
   public ReplicaCreatorService(
@@ -47,6 +49,7 @@ public class ReplicaCreatorService extends AbstractIdleService {
 
     this.meterRegistry = meterRegistry;
     this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
+    this.replicasFailed = meterRegistry.counter(REPLICAS_FAILED);
     this.replicaAssignmentTimer = meterRegistry.timer(REPLICA_ASSIGNMENT_TIMER);
   }
 
@@ -90,9 +93,15 @@ public class ReplicaCreatorService extends AbstractIdleService {
         .forEach(
             unassignedSnapshot -> {
               for (int i = 0; i < replicasPerSnapshot; i++) {
-                replicaMetadataStore.createSync(
-                    replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId));
-                replicasCreated.increment();
+                try {
+                  replicaMetadataStore.createSync(
+                      replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId));
+                  replicasCreated.increment();
+                } catch (Exception e) {
+                  LOG.error(
+                      "Error creating replica for snapshot {}", unassignedSnapshot.snapshotId);
+                  replicasFailed.increment();
+                }
               }
             });
 
