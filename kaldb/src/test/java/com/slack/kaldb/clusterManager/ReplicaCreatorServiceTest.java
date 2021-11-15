@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
-import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -17,7 +16,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -90,11 +88,11 @@ public class ReplicaCreatorServiceTest {
 
     // create one replica for A, two for B
     replicaMetadataStore.createSync(
-        new ReplicaMetadata(UUID.randomUUID().toString(), snapshotA.snapshotId));
+        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotA.snapshotId));
     replicaMetadataStore.createSync(
-        new ReplicaMetadata(UUID.randomUUID().toString(), snapshotB.snapshotId));
+        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
     replicaMetadataStore.createSync(
-        new ReplicaMetadata(UUID.randomUUID().toString(), snapshotB.snapshotId));
+        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
 
     ReplicaCreatorService replicaCreatorService =
         new ReplicaCreatorService(

@@ -91,13 +91,16 @@ public class ReplicaCreatorService extends AbstractIdleService {
             unassignedSnapshot -> {
               for (int i = 0; i < replicasPerSnapshot; i++) {
                 replicaMetadataStore.createSync(
-                    new ReplicaMetadata(
-                        UUID.randomUUID().toString(), unassignedSnapshot.snapshotId));
+                    replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId));
                 replicasCreated.increment();
               }
             });
 
     assignmentTimer.stop(replicaAssignmentTimer);
     LOG.info("Completed replica creation for unassigned snapshots");
+  }
+
+  public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
+    return new ReplicaMetadata(UUID.randomUUID().toString(), snapshotId);
   }
 }
