@@ -82,7 +82,8 @@ public class ReplicaCreatorServiceTest {
         new ReplicaMetadata(UUID.randomUUID().toString(), snapshotB.snapshotId));
 
     ReplicaCreatorService replicaCreatorService =
-        new ReplicaCreatorService(metadataStoreService, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
+        new ReplicaCreatorService(
+            replicaMetadataStore, snapshotMetadataStore, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
     replicaCreatorService.startAsync();
     replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -113,6 +114,8 @@ public class ReplicaCreatorServiceTest {
 
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore =
+        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
 
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
@@ -125,7 +128,8 @@ public class ReplicaCreatorServiceTest {
     snapshotMetadataStore.createSync(snapshotB);
 
     ReplicaCreatorService replicaCreatorService =
-        new ReplicaCreatorService(metadataStoreService, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
+        new ReplicaCreatorService(
+            replicaMetadataStore, snapshotMetadataStore, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
     replicaCreatorService.startAsync();
     replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -135,9 +139,8 @@ public class ReplicaCreatorServiceTest {
                 MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry)
                     == REPLICAS_PER_SNAPSHOT_TEST * 2);
 
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
-    assertThat(replicaMetadataStore.getCached().size()).isEqualTo(4);
+    assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
+    await().until(() -> replicaMetadataStore.getCached().size() == 4);
     assertThat(
             (int)
                 replicaMetadataStore

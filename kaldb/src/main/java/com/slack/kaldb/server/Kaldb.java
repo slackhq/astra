@@ -1,5 +1,7 @@
 package com.slack.kaldb.server;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
@@ -11,6 +13,8 @@ import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
@@ -147,9 +151,17 @@ public class Kaldb {
           new ArmeriaService(serverPort, prometheusMeterRegistry, "kalDbManager");
       services.add(armeriaService);
 
+      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      ReplicaMetadataStore replicaMetadataStore =
+          new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+
       ReplicaCreatorService replicaCreatorService =
           new ReplicaCreatorService(
-              metadataStoreService,
+              replicaMetadataStore,
+              snapshotMetadataStore,
               managerConfig.getReplicasPerSnapshot(),
               prometheusMeterRegistry);
       services.add(replicaCreatorService);
