@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the live snapshot
  * and the search metadata are deleted as part of the chunk de-registration process in the
- * deReisgter method.
+ * deRegister method.
  */
 public class IndexingReadWriteChunkImpl<T> extends ReadWriteChunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingReadWriteChunkImpl.class);
