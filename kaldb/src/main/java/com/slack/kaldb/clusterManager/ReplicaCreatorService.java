@@ -6,6 +6,7 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.util.HashSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,9 +27,13 @@ public class ReplicaCreatorService extends AbstractIdleService {
 
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
+  private final MeterRegistry meterRegistry;
 
   public static final String REPLICAS_CREATED = "replicas_created";
+  public static final String REPLICA_ASSIGNMENT_TIMER = "replica_assignment_timer";
+
   private final Counter replicasCreated;
+  private final Timer replicaAssignmentTimer;
 
   public ReplicaCreatorService(
       ReplicaMetadataStore replicaMetadataStore,
@@ -39,7 +44,10 @@ public class ReplicaCreatorService extends AbstractIdleService {
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.replicasPerSnapshot = replicasPerSnapshot;
+
+    this.meterRegistry = meterRegistry;
     this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
+    this.replicaAssignmentTimer = meterRegistry.timer(REPLICA_ASSIGNMENT_TIMER);
   }
 
   @Override
@@ -64,6 +72,7 @@ public class ReplicaCreatorService extends AbstractIdleService {
 
   private void createReplicasForUnassignedSnapshots() {
     LOG.info("Starting replica creation for unassigned snapshots");
+    Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     // calculate a set of all snapshot IDs that have replicas already created
     // we use a HashSet so that the contains() is a constant time operation
@@ -88,6 +97,7 @@ public class ReplicaCreatorService extends AbstractIdleService {
               }
             });
 
+    assignmentTimer.stop(replicaAssignmentTimer);
     LOG.info("Completed replica creation for unassigned snapshots");
   }
 }
