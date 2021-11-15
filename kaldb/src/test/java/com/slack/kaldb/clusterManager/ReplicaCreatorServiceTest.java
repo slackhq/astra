@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -30,34 +31,48 @@ public class ReplicaCreatorServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
+  private MetadataStoreService metadataStoreService;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private ReplicaMetadataStore replicaMetadataStore;
+
   @Before
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("ReplicaCreatorServiceTest")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
+    metadataStoreService.startAsync();
+    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    snapshotMetadataStore =
+        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+    replicaMetadataStore = new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
   }
 
   @After
-  public void shutdown() throws IOException {
+  public void shutdown() throws IOException, TimeoutException {
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
+
+    metadataStoreService.stopAsync();
+    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+
     testingServer.close();
     meterRegistry.close();
   }
 
   @Test
   public void shouldDoNothingIfReplicasAlreadyExist() throws Exception {
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("shouldDoNothingIfReplicasAlreadyExist")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .build();
-
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
     ReplicaMetadataStore replicaMetadataStore =
         new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
     SnapshotMetadataStore snapshotMetadataStore =
@@ -89,34 +104,10 @@ public class ReplicaCreatorServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
-
-    snapshotMetadataStore.close();
-    replicaMetadataStore.close();
-
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
   public void shouldCreateReplicasIfNoneExist() throws Exception {
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("shouldCreateReplicasIfNoneExist")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .build();
-
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
-
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
@@ -157,11 +148,5 @@ public class ReplicaCreatorServiceTest {
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "b"))
                     .count())
         .isEqualTo(REPLICAS_PER_SNAPSHOT_TEST);
-
-    replicaMetadataStore.close();
-    snapshotMetadataStore.close();
-
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 }
