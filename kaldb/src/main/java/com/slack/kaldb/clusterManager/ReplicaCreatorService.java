@@ -6,7 +6,9 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.HashSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,17 +64,20 @@ public class ReplicaCreatorService extends AbstractIdleService {
 
   private void createReplicasForUnassignedSnapshots() {
     LOG.info("Starting replica creation for unassigned snapshots");
+
+    // calculate a set of all snapshot IDs that have replicas already created
+    // we use a HashSet so that the contains() is a constant time operation
+    HashSet<String> snapshotsWithReplicas =
+        replicaMetadataStore
+            .getCached()
+            .stream()
+            .map(replicaMetadata -> replicaMetadata.snapshotId)
+            .collect(Collectors.toCollection(HashSet::new));
+
     snapshotMetadataStore
         .getCached()
         .stream()
-        .filter(
-            snapshotMetadata ->
-                replicaMetadataStore
-                    .getCached()
-                    .stream()
-                    .noneMatch(
-                        replicaMetadata ->
-                            replicaMetadata.snapshotId.equals(snapshotMetadata.snapshotId)))
+        .filter((snapshotMetadata) -> !snapshotsWithReplicas.contains(snapshotMetadata.snapshotId))
         .forEach(
             unassignedSnapshot -> {
               for (int i = 0; i < replicasPerSnapshot; i++) {
