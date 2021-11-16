@@ -9,12 +9,15 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,7 +108,13 @@ public class ReplicaCreatorService extends AbstractScheduledService {
         TimeUnit.MINUTES);
   }
 
-  private void createReplicasForUnassignedSnapshots() {
+  /**
+   * Creates N replicas per the KalDb configuration for each snapshot that does not have at least one
+   * replica.
+   *
+   * @return The list of successfully created replicas
+   */
+  private List<ReplicaMetadata> createReplicasForUnassignedSnapshots() {
     LOG.info("Starting replica creation for unassigned snapshots");
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
@@ -118,27 +127,47 @@ public class ReplicaCreatorService extends AbstractScheduledService {
             .map(replicaMetadata -> replicaMetadata.snapshotId)
             .collect(Collectors.toCollection(HashSet::new));
 
-    snapshotMetadataStore
-        .getCached()
-        .stream()
-        .filter((snapshotMetadata) -> !snapshotsWithReplicas.contains(snapshotMetadata.snapshotId))
-        .forEach(
-            unassignedSnapshot -> {
-              for (int i = 0; i < replicaServiceConfig.getReplicasPerSnapshot(); i++) {
-                try {
-                  replicaMetadataStore.createSync(
-                      replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId));
-                  replicasCreated.increment();
-                } catch (Exception e) {
-                  LOG.error(
-                      "Error creating replica for snapshot {}", unassignedSnapshot.snapshotId);
-                  replicasFailed.increment();
-                }
-              }
-            });
+    List<ReplicaMetadata> createdReplicaMetadataList =
+        snapshotMetadataStore
+            .getCached()
+            .stream()
+            .filter(
+                // remove snapshots that have replicas
+                (snapshotMetadata) -> !snapshotsWithReplicas.contains(snapshotMetadata.snapshotId))
+            .map(
+                unassignedSnapshot ->
+                    // for each snapshot that has no assignments, create N number of replicas,
+                    // returning the list of created replicas
+                    IntStream.range(0, replicaServiceConfig.getReplicasPerSnapshot())
+                        .mapToObj(
+                            (i) -> {
+                              try {
+                                ReplicaMetadata replicaMetadata =
+                                    replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId);
+                                replicaMetadataStore.createSync(replicaMetadata);
+                                replicasCreated.increment();
+                                return replicaMetadata;
+                              } catch (Exception e) {
+                                LOG.error(
+                                    "Error creating replica for snapshot {}",
+                                    unassignedSnapshot.snapshotId);
+                                replicasFailed.increment();
+                                return null;
+                              }
+                            })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList()))
+            // we want a single list on replicas, not a list of lists so flatten before returning
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
 
-    assignmentTimer.stop(replicaAssignmentTimer);
-    LOG.info("Completed replica creation for unassigned snapshots");
+    long assignmentDuration = assignmentTimer.stop(replicaAssignmentTimer);
+    LOG.info(
+        "Completed replica creation for unassigned snapshots - created {} replicas in {} ms",
+        createdReplicaMetadataList.size(),
+        TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
+
+    return createdReplicaMetadataList;
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
