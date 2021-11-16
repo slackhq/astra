@@ -162,7 +162,7 @@ public class Kaldb {
           new ReplicaCreatorService(
               replicaMetadataStore,
               snapshotMetadataStore,
-              managerConfig.getReplicasPerSnapshot(),
+              managerConfig.getReplicaServiceConfig(),
               prometheusMeterRegistry);
       services.add(replicaCreatorService);
     }

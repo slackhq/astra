@@ -203,7 +203,14 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
-    assertThat(managerConfig.getReplicasPerSnapshot()).isEqualTo(1);
+
+    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        managerConfig.getReplicaServiceConfig();
+    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -283,7 +290,14 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
-    assertThat(managerConfig.getReplicasPerSnapshot()).isEqualTo(1);
+
+    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        managerConfig.getReplicaServiceConfig();
+    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -357,7 +371,14 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
-    assertThat(managerConfig.getReplicasPerSnapshot()).isZero();
+
+    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        managerConfig.getReplicaServiceConfig();
+    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isZero();
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
@@ -421,7 +442,14 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
-    assertThat(managerConfig.getReplicasPerSnapshot()).isZero();
+
+    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        managerConfig.getReplicaServiceConfig();
+    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isZero();
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();

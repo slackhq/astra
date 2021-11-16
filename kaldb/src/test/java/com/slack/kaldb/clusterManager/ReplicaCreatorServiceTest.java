@@ -14,6 +14,7 @@ import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.TimeoutException;
@@ -23,9 +24,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class ReplicaCreatorServiceTest {
-
-  private static final int REPLICAS_PER_SNAPSHOT_TEST = 2;
-
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -94,9 +92,17 @@ public class ReplicaCreatorServiceTest {
     replicaMetadataStore.createSync(
         ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
 
+    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setReplicasPerSnapshot(2)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
     ReplicaCreatorService replicaCreatorService =
         new ReplicaCreatorService(
-            replicaMetadataStore, snapshotMetadataStore, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
     replicaCreatorService.startAsync();
     replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -116,9 +122,17 @@ public class ReplicaCreatorServiceTest {
     snapshotMetadataStore.createSync(snapshotA);
     snapshotMetadataStore.createSync(snapshotB);
 
+    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setReplicasPerSnapshot(2)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
     ReplicaCreatorService replicaCreatorService =
         new ReplicaCreatorService(
-            replicaMetadataStore, snapshotMetadataStore, REPLICAS_PER_SNAPSHOT_TEST, meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
     replicaCreatorService.startAsync();
     replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -126,7 +140,7 @@ public class ReplicaCreatorServiceTest {
         .until(
             () ->
                 MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry)
-                    == REPLICAS_PER_SNAPSHOT_TEST * 2);
+                    == replicaServiceConfig.getReplicasPerSnapshot() * 2);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
@@ -137,7 +151,7 @@ public class ReplicaCreatorServiceTest {
                     .stream()
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "a"))
                     .count())
-        .isEqualTo(REPLICAS_PER_SNAPSHOT_TEST);
+        .isEqualTo(replicaServiceConfig.getReplicasPerSnapshot());
     assertThat(
             (int)
                 replicaMetadataStore
@@ -145,6 +159,6 @@ public class ReplicaCreatorServiceTest {
                     .stream()
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "b"))
                     .count())
-        .isEqualTo(REPLICAS_PER_SNAPSHOT_TEST);
+        .isEqualTo(replicaServiceConfig.getReplicasPerSnapshot());
   }
 }

@@ -53,10 +53,14 @@ cacheConfig:
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
 
 managerConfig:
-  replicasPerSnapshot: ${KALDB_MANAGER_REPLICAS_PER_SNAPSHOT:-1}
   serverConfig:
     serverPort: ${KALDB_MANAGER_SERVER_PORT:-8083}
     serverAddress: ${KALDB_MANAGER_SERVER_ADDRESS:-localhost}
+  replicaServiceConfig:
+    replicasPerSnapshot: ${KALDB_MANAGER_REPLICAS_PER_SNAPSHOT:-1}
+    eventAggregationSecs: ${KALDB_MANAGER_REPLICAS_AGGREGATION_SECS:-10}
+    scheduleInitialDelayMins: ${KALDB_MANAGER_REPLICAS_INITIAL_DELAY_MINS:-0}
+    schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
 
 recoveryConfig:
   serverConfig:

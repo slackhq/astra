@@ -49,10 +49,14 @@ cacheConfig:
     serverAddress: localhost
 
 managerConfig:
-  replicasPerSnapshot: 1
   serverConfig:
     serverPort: 8083
     serverAddress: localhost
+  replicaServiceConfig:
+    replicasPerSnapshot: 2
+    eventAggregationSecs: 10
+    scheduleInitialDelayMins: 1
+    schedulePeriodMins: 15
 
 recoveryConfig:
   serverConfig:
