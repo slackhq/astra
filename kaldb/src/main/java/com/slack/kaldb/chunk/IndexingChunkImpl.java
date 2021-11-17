@@ -11,19 +11,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An IndexingReadWriteChunkImpl provides a concrete implementation for a chunk used in the indexer
- * process. One can write and read the messages we wrote to this chunk. It provides a unified
- * interface of a shard abstracting the details of the underlying storage implementation.
+ * An IndexingChunkImpl provides a concrete implementation for a chunk used in the indexer process.
+ * One can write and read the messages we wrote to this chunk. It provides a unified interface of a
+ * shard abstracting the details of the underlying storage implementation.
  *
  * <p>This class relies on ReadWriteChunk base class for a majority of it's functionality.
  *
  * <p>Chunk maintains its metadata in the chunkInfo object. The chunkInfo tracks all the info needed
  * for constructing a snapshot.
  *
- * <p>A IndexingReadWriteChunk goes through the following life cycle. When a chunk is created it is
- * open for both reads and writes. Since a IndexingReadWriteChunk is ingesting live data, a cluster
- * manager doesn't manage it. Instead, when a chunk in created, it registers a live snapshot and a
- * live search node in the register method.
+ * <p>A indexing chunk goes through the following life cycle. When a chunk is created it is open for
+ * both reads and writes. Since a indexing chunk is ingesting live data, a cluster manager doesn't
+ * manage it. Instead, when a chunk in created, it registers a live snapshot and a live search node
+ * in the postCreation method.
  *
  * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
  * writing anymore. When a chunk is snapshotted, a non-live snapshot is created which is assigned to
@@ -33,13 +33,13 @@ import org.slf4j.LoggerFactory;
  * postSnapshot method in this class.
  *
  * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the live snapshot
- * and the search metadata are deleted as part of the chunk de-registration process in the
- * deRegister method.
+ * and the search metadata are deleted as part of the chunk de-registration process in the preClose
+ * method.
  */
-public class IndexingReadWriteChunkImpl<T> extends ReadWriteChunk<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(IndexingReadWriteChunkImpl.class);
+public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkImpl.class);
 
-  public IndexingReadWriteChunkImpl(
+  public IndexingChunkImpl(
       LogStore<T> logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
@@ -81,12 +81,14 @@ public class IndexingReadWriteChunkImpl<T> extends ReadWriteChunk<T> {
     LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
-  public void register() {
+  @Override
+  public void postCreate() {
     snapshotMetadataStore.createSync(liveSnapshotMetadata);
     searchMetadataStore.createSync(liveSearchMetadata);
   }
 
-  public void deRegister() {
+  @Override
+  public void preClose() {
     searchMetadataStore.deleteSync(liveSearchMetadata);
     snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
   }

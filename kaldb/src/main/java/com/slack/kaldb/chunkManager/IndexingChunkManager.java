@@ -11,7 +11,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
-import com.slack.kaldb.chunk.IndexingReadWriteChunkImpl;
+import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.config.KaldbConfig;
@@ -262,7 +262,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
           (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
 
       ReadWriteChunk<T> newChunk =
-          new IndexingReadWriteChunkImpl<>(
+          new IndexingChunkImpl<>(
               logStore,
               chunkDataPrefix,
               meterRegistry,
@@ -272,7 +272,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
               kafkaPartitionId);
       chunkList.add(newChunk);
       // Register the chunk, so we can search it.
-      newChunk.register();
+      newChunk.postCreate();
       activeChunk = newChunk;
     }
     return activeChunk;

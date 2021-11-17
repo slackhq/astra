@@ -36,12 +36,14 @@ import org.slf4j.Logger;
  * <p>A ReadWriteChunk maintains its metadata in the chunkInfo object. For example, the data in the
  * chunkInfo object can be used when publishing a snapshot from the chunk.
  *
- * <p>A ReadWriteChunk goes through the following life cycle. The hooks into the life cycle are
- * implemented as abstract base methods so derived classes can take custom action on those stages.
+ * <p>A ReadWriteChunk provides methods that let its users hook into various life cycle events of
+ * the chunk. The hooks into the life cycle are implemented as abstract base methods so derived
+ * classes can take custom action on those stages.
  *
  * <p>When a chunk is created it is open for both reads and writes. Since a ReadWriteChunk is
- * ingesting live data, a cluster manager doesn't manage it. The register method is called after the
- * chunk is created and deRegister method is called just before chunk close.
+ * ingesting live data, a cluster manager doesn't manage it. The postCreate and preClose methods
+ * provide hooks to handle the metadata registration in those cases. The postCreate method is called
+ * after the chunk is created and preClose method is called just before chunk close.
  *
  * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
  * writing anymore. The snapshotting process consists of 3 steps implemented by the following
@@ -49,7 +51,7 @@ import org.slf4j.Logger;
  * implemented as an abstract method since we don't foresee any customization for the other two
  * steps.
  *
- * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the deRegister
+ * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the preClose
  * method is called to manage any metadata.
  */
 public abstract class ReadWriteChunk<T> implements Chunk<T> {
@@ -112,9 +114,11 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     logger.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
-  public abstract void register();
+  /** postCreate is called by ChunkManager after a chunk is created. */
+  public abstract void postCreate();
 
-  public abstract void deRegister();
+  /** preClose method is called before the chunk is closed. */
+  public abstract void preClose();
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
@@ -155,7 +159,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    deRegister();
+    preClose();
 
     logSearcher.close();
     logStore.close();
@@ -187,6 +191,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
 
+  /** postSnapshot method is called after a snapshot is persisted in a blobstore. */
   public abstract void postSnapshot();
 
   /**

@@ -53,7 +53,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
-public class IndexingReadWriteChunkImplTest {
+public class IndexingChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_HOST = "localhost";
   private static final int TEST_PORT = 34567;
@@ -110,7 +110,7 @@ public class IndexingReadWriteChunkImplTest {
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new IndexingReadWriteChunkImpl<>(
+          new IndexingChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -119,7 +119,7 @@ public class IndexingReadWriteChunkImplTest {
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
 
-      chunk.register();
+      chunk.postCreate();
       closeChunk = true;
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
@@ -409,7 +409,7 @@ public class IndexingReadWriteChunkImplTest {
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new IndexingReadWriteChunkImpl<>(
+          new IndexingChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -417,7 +417,7 @@ public class IndexingReadWriteChunkImplTest {
               snapshotMetadataStore,
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
-      chunk.register();
+      chunk.postCreate();
       closeChunk = true;
       List<SnapshotMetadata> snapshotNodes =
           snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
