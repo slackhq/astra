@@ -16,7 +16,10 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -107,6 +110,53 @@ public class ReplicaCreatorServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
+
+    replicaCreatorService.stopAsync();
+    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+  }
+
+  @Test
+  public void shouldCreateManyReplicas() throws Exception {
+    int snapshotsToCreate = 100;
+    IntStream.range(0, snapshotsToCreate)
+        .parallel()
+        .forEach(
+            (i) -> {
+              String snapshotId = UUID.randomUUID().toString();
+              SnapshotMetadata snapshot =
+                  new SnapshotMetadata(
+                      snapshotId,
+                      snapshotId,
+                      Instant.now().toEpochMilli() - 1,
+                      Instant.now().toEpochMilli(),
+                      0,
+                      snapshotId);
+              snapshotMetadataStore.createSync(snapshot);
+            });
+
+    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+            .setEventAggregationSecs(10)
+            .setReplicasPerSnapshot(4)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    ReplicaCreatorService replicaCreatorService =
+        new ReplicaCreatorService(
+            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
+    replicaCreatorService.startAsync();
+    replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .until(
+            () ->
+                MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry)
+                    == replicaServiceConfig.getReplicasPerSnapshot() * snapshotsToCreate);
+
+    replicaCreatorService.stopAsync();
+    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -159,5 +209,8 @@ public class ReplicaCreatorServiceTest {
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "b"))
                     .count())
         .isEqualTo(replicaServiceConfig.getReplicasPerSnapshot());
+
+    replicaCreatorService.stopAsync();
+    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 }

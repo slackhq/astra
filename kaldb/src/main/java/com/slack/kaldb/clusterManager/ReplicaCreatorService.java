@@ -1,6 +1,10 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+
 import com.google.common.util.concurrent.AbstractScheduledService;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -8,16 +12,17 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,19 +78,18 @@ public class ReplicaCreatorService extends AbstractScheduledService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Closing replica create service");
-
     executorService.shutdownNow();
-
-    replicaMetadataStore.close();
-    snapshotMetadataStore.close();
-
     LOG.info("Closed replica create service");
   }
 
+  /**
+   * Queues a task to be run in the future per a configurable value (getEventAggregationSecs). If a
+   * task is pending but not yet started this is a no-op, and functions as a simple debounce to the
+   * underlying createReplicasForUnassignedSnapshots method call. This method is synchronized as
+   * this is invoked via the ZK event pool, in addition to directly via this service.
+   */
   @Override
-  protected void runOneIteration() {
-    // we want to execute at most once task every N seconds, regardless of how many events happen
-    // if there is no pending task, or the pending task has already started make a new one
+  protected synchronized void runOneIteration() {
     if (pendingTask == null || pendingTask.getDelay(TimeUnit.SECONDS) <= 0) {
       pendingTask =
           executorService.schedule(
@@ -101,7 +105,8 @@ public class ReplicaCreatorService extends AbstractScheduledService {
 
   @Override
   protected Scheduler scheduler() {
-    // run one iteration at startup, and then every 15 mins after that
+    // run one iteration getScheduleInitialDelayMins after startup, and then every
+    // getSchedulePeriodMins mins after that
     return Scheduler.newFixedRateSchedule(
         replicaServiceConfig.getScheduleInitialDelayMins(),
         replicaServiceConfig.getSchedulePeriodMins(),
@@ -109,65 +114,68 @@ public class ReplicaCreatorService extends AbstractScheduledService {
   }
 
   /**
-   * Creates N replicas per the KalDb configuration for each snapshot that does not have at least one
-   * replica.
+   * Creates N replicas per the KalDb configuration for each snapshot. If a snapshot does not contain the amount of replicas configured this will attempt to create the missing replicas to bring it into compliance.
    *
-   * @return The list of successfully created replicas
+   * @return The count of successful created replicas
    */
-  private List<ReplicaMetadata> createReplicasForUnassignedSnapshots() {
+  private int createReplicasForUnassignedSnapshots() {
     LOG.info("Starting replica creation for unassigned snapshots");
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
-    // calculate a set of all snapshot IDs that have replicas already created
-    // we use a HashSet so that the contains() is a constant time operation
-    HashSet<String> snapshotsWithReplicas =
+    // build a map of snapshot ID to how many replicas currently exist for that snapshot ID
+    Map<String, Long> snapshotToReplicas =
         replicaMetadataStore
             .getCached()
             .stream()
-            .map(replicaMetadata -> replicaMetadata.snapshotId)
-            .collect(Collectors.toCollection(HashSet::new));
+            .collect(
+                Collectors.groupingBy(
+                    (replicaMetadata) -> replicaMetadata.snapshotId, Collectors.counting()));
 
-    List<ReplicaMetadata> createdReplicaMetadataList =
+    List<ListenableFuture<?>> createdReplicaMetadataList =
         snapshotMetadataStore
             .getCached()
             .stream()
-            .filter(
-                // remove snapshots that have replicas
-                (snapshotMetadata) -> !snapshotsWithReplicas.contains(snapshotMetadata.snapshotId))
             .map(
-                unassignedSnapshot ->
-                    // for each snapshot that has no assignments, create N number of replicas,
-                    // returning the list of created replicas
-                    IntStream.range(0, replicaServiceConfig.getReplicasPerSnapshot())
+                (snapshotMetadata) ->
+                    LongStream.range(
+                            snapshotToReplicas.getOrDefault(snapshotMetadata.snapshotId, 0L),
+                            replicaServiceConfig.getReplicasPerSnapshot())
                         .mapToObj(
-                            (i) -> {
-                              try {
-                                ReplicaMetadata replicaMetadata =
-                                    replicaMetadataFromSnapshotId(unassignedSnapshot.snapshotId);
-                                replicaMetadataStore.createSync(replicaMetadata);
-                                replicasCreated.increment();
-                                return replicaMetadata;
-                              } catch (Exception e) {
-                                LOG.error(
-                                    "Error creating replica for snapshot {}",
-                                    unassignedSnapshot.snapshotId);
-                                replicasFailed.increment();
-                                return null;
-                              }
-                            })
-                        .filter(Objects::nonNull)
+                            (i) ->
+                                replicaMetadataStore.create(
+                                    replicaMetadataFromSnapshotId(snapshotMetadata.snapshotId)))
                         .collect(Collectors.toList()))
-            // we want a single list on replicas, not a list of lists so flatten before returning
             .flatMap(List::stream)
             .collect(Collectors.toList());
 
+    ListenableFuture<List<Object>> futureList = Futures.allAsList(createdReplicaMetadataList);
+    int completeFutures = 0;
+    int incompleteFutures = 0;
+
+    try {
+      completeFutures = futureList.get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS).size();
+    } catch (TimeoutException | InterruptedException | ExecutionException e) {
+      for (ListenableFuture<?> future : createdReplicaMetadataList) {
+        if (future.isDone()) {
+          completeFutures++;
+        } else {
+          future.cancel(true);
+          incompleteFutures++;
+        }
+      }
+    }
+
+    replicasCreated.increment(completeFutures);
+    replicasFailed.increment(incompleteFutures);
+
     long assignmentDuration = assignmentTimer.stop(replicaAssignmentTimer);
     LOG.info(
-        "Completed replica creation for unassigned snapshots - created {} replicas in {} ms",
-        createdReplicaMetadataList.size(),
+        "Completed replica creation for unassigned snapshots - successfully created {} replicas, failed {} replicas in {} ms",
+        completeFutures,
+        incompleteFutures,
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
 
-    return createdReplicaMetadataList;
+    return completeFutures;
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
