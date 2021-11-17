@@ -7,9 +7,10 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -88,14 +89,12 @@ public class CachingChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(15, TimeUnit.SECONDS);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     CachingChunkManager<LogMessage> cachingChunkManager =
         new CachingChunkManager<>(
             meterRegistry,
-            metadataStoreService,
+            metadataStore,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
@@ -128,9 +127,8 @@ public class CachingChunkManagerTest {
                     .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
 
     cachingChunkManager.stopAsync();
-    metadataStoreService.stopAsync();
-
     cachingChunkManager.awaitTerminated(15, TimeUnit.SECONDS);
-    metadataStoreService.awaitTerminated(15, TimeUnit.SECONDS);
+
+    metadataStore.close();
   }
 }
