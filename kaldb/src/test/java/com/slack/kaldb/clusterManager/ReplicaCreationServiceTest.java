@@ -8,8 +8,9 @@ import brave.Tracing;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -29,7 +30,7 @@ public class ReplicaCreationServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
-  private MetadataStoreService metadataStoreService;
+  private MetadataStore metadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
 
@@ -48,22 +49,16 @@ public class ReplicaCreationServiceTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
-    replicaMetadataStore = new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+    replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
   }
 
   @After
   public void shutdown() throws IOException, TimeoutException {
     snapshotMetadataStore.close();
     replicaMetadataStore.close();
-
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
 
     testingServer.close();
     meterRegistry.close();
@@ -71,10 +66,8 @@ public class ReplicaCreationServiceTest {
 
   @Test
   public void shouldDoNothingIfReplicasAlreadyExist() throws Exception {
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
 
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(

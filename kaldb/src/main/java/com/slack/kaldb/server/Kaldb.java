@@ -1,7 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
@@ -15,6 +13,8 @@ import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
@@ -53,6 +53,7 @@ public class Kaldb {
   private static final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
   protected ServiceManager serviceManager;
+  protected MetadataStore metadataStore;
 
   public Kaldb(Path configFilePath) throws IOException {
     Metrics.addRegistry(prometheusMeterRegistry);
@@ -72,7 +73,12 @@ public class Kaldb {
   public void start() throws Exception {
     setupSystemMetrics();
 
-    Set<Service> services = getServices();
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            prometheusMeterRegistry,
+            KaldbConfig.get().getMetadataStoreConfig().getZookeeperConfig());
+
+    Set<Service> services = getServices(metadataStore);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -80,19 +86,16 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices() throws Exception {
+  public static Set<Service> getServices(MetadataStore metadataStore) throws Exception {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
-
-    MetadataStoreService metadataStoreService = new MetadataStoreService(prometheusMeterRegistry);
-    services.add(metadataStoreService);
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
           IndexingChunkManager.fromConfig(
               prometheusMeterRegistry,
-              metadataStoreService,
+              metadataStore,
               KaldbConfig.get().getIndexerConfig().getServerConfig());
       services.add(chunkManager);
 
@@ -133,7 +136,7 @@ public class Kaldb {
       CachingChunkManager<LogMessage> chunkManager =
           CachingChunkManager.fromConfig(
               prometheusMeterRegistry,
-              metadataStoreService,
+              metadataStore,
               KaldbConfig.get().getCacheConfig().getServerConfig());
       services.add(chunkManager);
 
@@ -151,12 +154,8 @@ public class Kaldb {
           new ArmeriaService(serverPort, prometheusMeterRegistry, "kalDbManager");
       services.add(armeriaService);
 
-      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-      ReplicaMetadataStore replicaMetadataStore =
-          new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
-      SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
+      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
@@ -177,7 +176,7 @@ public class Kaldb {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(recoveryConfig, metadataStoreService, prometheusMeterRegistry);
+          new RecoveryService(recoveryConfig, metadataStore, prometheusMeterRegistry);
       services.add(recoveryService);
     }
 
@@ -203,6 +202,7 @@ public class Kaldb {
   public void shutdown() {
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
+      metadataStore.close();
 
       // Ensure that log4j is the final thing to shut down, so that it available
       // throughout the service manager shutdown lifecycle

@@ -1,7 +1,5 @@
 package com.slack.kaldb.recovery;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -12,9 +10,9 @@ import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -38,7 +36,7 @@ public class RecoveryService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryService.class);
 
   private final SearchContext searchContext;
-  private final MetadataStoreService metadataStoreService;
+  private final MetadataStore metadataStore;
 
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
@@ -58,9 +56,9 @@ public class RecoveryService extends AbstractIdleService {
 
   public RecoveryService(
       KaldbConfigs.RecoveryConfig recoveryConfig,
-      MetadataStoreService metadataStoreService,
+      MetadataStore metadataStore,
       MeterRegistry meterRegistry) {
-    this.metadataStoreService = metadataStoreService;
+    this.metadataStore = metadataStore;
     this.searchContext = SearchContext.fromConfig(recoveryConfig.getServerConfig());
 
     // we use a single thread executor to allow operations for this recovery node to queue,
@@ -81,12 +79,9 @@ public class RecoveryService extends AbstractIdleService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting recovery service");
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStoreService.getMetadataStore(), false);
-    recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(metadataStoreService.getMetadataStore(), false);
+    recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(metadataStore, false);
+    recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(metadataStore, false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -97,8 +92,7 @@ public class RecoveryService extends AbstractIdleService {
     recoveryNodeLastKnownState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
 
     recoveryNodeListenerMetadataStore =
-        new RecoveryNodeMetadataStore(
-            metadataStoreService.getMetadataStore(), searchContext.hostname, true);
+        new RecoveryNodeMetadataStore(metadataStore, searchContext.hostname, true);
     recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener());
   }
 
