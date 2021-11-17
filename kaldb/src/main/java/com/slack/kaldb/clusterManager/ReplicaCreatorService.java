@@ -1,12 +1,10 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
-import com.slack.kaldb.server.MetadataStoreService;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.slf4j.Logger;
@@ -22,23 +20,21 @@ import org.slf4j.LoggerFactory;
 public class ReplicaCreatorService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ReplicaCreatorService.class);
 
-  private final MetadataStoreService metadataStoreService;
+  private final MetadataStore metadataStore;
   private final MeterRegistry meterRegistry;
 
   private ReplicaMetadataStore replicaMetadataStore;
 
-  public ReplicaCreatorService(
-      MetadataStoreService metadataStoreService, MeterRegistry meterRegistry) {
-    this.metadataStoreService = metadataStoreService;
+  public ReplicaCreatorService(MetadataStore metadataStore, MeterRegistry meterRegistry) {
+    this.metadataStore = metadataStore;
     this.meterRegistry = meterRegistry;
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting replica creator service");
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    replicaMetadataStore = new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), true);
+    replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
     replicaMetadataStore.addListener(replicaNodeListener());
   }
 

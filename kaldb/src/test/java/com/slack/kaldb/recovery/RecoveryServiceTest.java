@@ -8,9 +8,10 @@ import brave.Tracing;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -59,18 +60,15 @@ public class RecoveryServiceTest {
         KaldbConfigs.RecoveryConfig.newBuilder().setServerConfig(serverConfig).build();
 
     SearchContext searchContext = SearchContext.fromConfig(serverConfig);
-
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     RecoveryService recoveryService =
-        new RecoveryService(recoveryConfig, metadataStoreService, meterRegistry);
+        new RecoveryService(recoveryConfig, metadataStore, meterRegistry);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStoreService.getMetadataStore(), false);
+        new RecoveryNodeMetadataStore(metadataStore, false);
 
     RecoveryNodeMetadata recoveryNodeMetadata =
         recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
@@ -94,7 +92,6 @@ public class RecoveryServiceTest {
                 recoveryNodeMetadataStore.getNodeSync(searchContext.hostname).recoveryNodeState
                     == Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
 
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
   }
 }

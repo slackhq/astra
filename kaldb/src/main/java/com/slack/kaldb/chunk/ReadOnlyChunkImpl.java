@@ -19,8 +19,8 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -77,7 +77,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   protected final Counter failedChunkEvictions;
 
   public ReadOnlyChunkImpl(
-      MetadataStoreService metadataStoreService,
+      MetadataStore metadataStore,
       MeterRegistry meterRegistry,
       S3BlobFs s3BlobFs,
       SearchContext searchContext,
@@ -115,7 +115,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
     CacheSlotMetadataStore cacheSlotListenerMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), slotName, true);
+        new CacheSlotMetadataStore(metadataStore, slotName, true);
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 

@@ -25,8 +25,9 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -83,7 +84,7 @@ public class IndexingReadWriteChunkImplTest {
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStoreService metadataStoreService;
+    private MetadataStore metadataStore;
 
     @Before
     public void setUp() throws Exception {
@@ -101,14 +102,10 @@ public class IndexingReadWriteChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStoreService = new MetadataStoreService(registry, zkConfig);
-      metadataStoreService.startAsync();
-      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-      SearchMetadataStore searchMetadataStore =
-          new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -132,8 +129,7 @@ public class IndexingReadWriteChunkImplTest {
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
-      metadataStoreService.stopAsync();
-      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      metadataStore.close();
       testingServer.close();
       registry.close();
     }
@@ -385,7 +381,7 @@ public class IndexingReadWriteChunkImplTest {
     private SimpleMeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStoreService metadataStoreService;
+    private MetadataStore metadataStore;
     private boolean closeChunk;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
@@ -405,13 +401,10 @@ public class IndexingReadWriteChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStoreService = new MetadataStoreService(registry, zkConfig);
-      metadataStoreService.startAsync();
-      metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
 
-      snapshotMetadataStore =
-          new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-      searchMetadataStore = new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+      searchMetadataStore = new SearchMetadataStore(metadataStore, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -440,8 +433,7 @@ public class IndexingReadWriteChunkImplTest {
       if (closeChunk) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
-      metadataStoreService.stopAsync();
-      metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      metadataStore.close();
       testingServer.close();
       registry.close();
     }
