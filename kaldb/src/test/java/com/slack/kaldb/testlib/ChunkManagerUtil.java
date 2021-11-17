@@ -14,8 +14,9 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +47,7 @@ public class ChunkManagerUtil<T> {
   public static final String ZK_PATH_PREFIX = "testZK";
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer localZkServer;
-  private final MetadataStoreService metadataStoreService;
+  private final MetadataStore metadataStore;
 
   public ChunkManagerUtil(
       S3MockRule s3MockRule,
@@ -93,8 +94,7 @@ public class ChunkManagerUtil<T> {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     chunkManager =
         new IndexingChunkManager<>(
@@ -106,7 +106,7 @@ public class ChunkManagerUtil<T> {
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
             10000,
-            metadataStoreService,
+            metadataStore,
             searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -116,8 +116,7 @@ public class ChunkManagerUtil<T> {
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3Client.close();
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
     localZkServer.close();
     FileUtils.deleteDirectory(tempFolder);
   }

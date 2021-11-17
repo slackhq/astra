@@ -46,8 +46,9 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -93,7 +94,7 @@ public class IndexingChunkManagerTest {
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
-  private MetadataStoreService metadataStoreService;
+  private MetadataStore metadataStore;
 
   @Before
   public void setUp() throws Exception {
@@ -118,9 +119,8 @@ public class IndexingChunkManagerTest {
             .setZkConnectionTimeoutMs(1500)
             .setSleepBetweenRetriesMs(1000)
             .build();
-    metadataStoreService = new MetadataStoreService(metricsRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
   }
 
   @After
@@ -130,8 +130,7 @@ public class IndexingChunkManagerTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
     s3Client.close();
     localZkServer.stop();
   }
@@ -153,7 +152,7 @@ public class IndexingChunkManagerTest {
             s3TestBucket,
             listeningExecutorService,
             rollOverFutureTimeoutMs,
-            metadataStoreService,
+            metadataStore,
             searchContext);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -937,10 +936,8 @@ public class IndexingChunkManagerTest {
     assertThat(rollOverFuture.isDone()).isTrue();
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     assertThat(searchMetadataStore.listSync()).isEmpty();
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
@@ -991,10 +988,8 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     assertThat(searchMetadataStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     searchMetadataStore.close();

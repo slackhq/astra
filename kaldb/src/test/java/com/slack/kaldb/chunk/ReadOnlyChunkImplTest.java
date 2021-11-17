@@ -1,6 +1,5 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -26,9 +25,10 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.server.MetadataStoreService;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -91,30 +91,25 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
+        new CacheSlotMetadataStore(metadataStore, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStoreService, snapshotId);
+    initializeZkReplica(metadataStore, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStore, snapshotId);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStoreService,
+            metadataStore,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -187,8 +182,7 @@ public class ReadOnlyChunkImplTest {
 
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(0);
 
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
   }
 
   @Test
@@ -203,29 +197,24 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
+        new CacheSlotMetadataStore(metadataStore, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStoreService, snapshotId);
+    initializeZkReplica(metadataStore, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStore, snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStoreService,
+            metadataStore,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -258,8 +247,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
   }
 
   @Test
@@ -274,29 +262,24 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
+        new CacheSlotMetadataStore(metadataStore, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
+    initializeZkReplica(metadataStore, replicaId, snapshotId);
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStoreService,
+            metadataStore,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -329,8 +312,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
     assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
 
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
   }
 
   @Test
@@ -345,30 +327,25 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStoreService metadataStoreService = new MetadataStoreService(meterRegistry, zkConfig);
-    metadataStoreService.startAsync();
-    metadataStoreService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
-    SearchMetadataStore searchMetadataStore =
-        new SearchMetadataStore(metadataStoreService.getMetadataStore(), true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStoreService.getMetadataStore(), false);
+        new CacheSlotMetadataStore(metadataStore, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStoreService, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStoreService, snapshotId);
+    initializeZkReplica(metadataStore, replicaId, snapshotId);
+    initializeZkSnapshot(metadataStore, snapshotId);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStoreService,
+            metadataStore,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -429,8 +406,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
         .isFalse();
 
-    metadataStoreService.stopAsync();
-    metadataStoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    metadataStore.close();
   }
 
   private void assignReplicaToChunk(
@@ -447,10 +423,9 @@ public class ReadOnlyChunkImplTest {
     cacheSlotMetadataStore.update(updatedCacheSlotMetadata);
   }
 
-  private void initializeZkSnapshot(MetadataStoreService metadataStoreService, String snapshotId)
+  private void initializeZkSnapshot(MetadataStore metadataStore, String snapshotId)
       throws Exception {
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     snapshotMetadataStore
         .create(
             new SnapshotMetadata(
@@ -463,11 +438,9 @@ public class ReadOnlyChunkImplTest {
         .get(5, TimeUnit.SECONDS);
   }
 
-  private void initializeZkReplica(
-      MetadataStoreService metadataStoreService, String replicaId, String snapshotId)
+  private void initializeZkReplica(MetadataStore metadataStore, String replicaId, String snapshotId)
       throws Exception {
-    ReplicaMetadataStore replicaMetadataStore =
-        new ReplicaMetadataStore(metadataStoreService.getMetadataStore(), false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
     replicaMetadataStore
         .create(new ReplicaMetadata(replicaId, snapshotId))
         .get(5, TimeUnit.SECONDS);

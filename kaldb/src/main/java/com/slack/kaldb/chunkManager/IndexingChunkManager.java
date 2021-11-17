@@ -19,8 +19,8 @@ import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.server.MetadataStoreService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -56,7 +56,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final S3BlobFs s3BlobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
-  private final MetadataStoreService metadataStoreService;
+  private final MetadataStore metadataStore;
   private final SearchContext searchContext;
   private ReadWriteChunkImpl<T> activeChunk;
 
@@ -116,7 +116,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
       long rollOverFutureTimeoutMs,
-      MetadataStoreService metadataStoreService,
+      MetadataStore metadataStore,
       SearchContext searchContext) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
@@ -134,7 +134,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
-    this.metadataStoreService = metadataStoreService;
+    this.metadataStore = metadataStore;
     this.searchContext = searchContext;
     stopIngestion = true;
     activeChunk = null;
@@ -319,12 +319,9 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting indexing chunk manager");
-    metadataStoreService.awaitRunning(KaldbConfig.DEFAULT_START_STOP_DURATION);
 
-    searchMetadataStore = new SearchMetadataStore(metadataStoreService.getMetadataStore(), false);
-
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), false);
+    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
 
     // todo - we should reconsider what it means to be initialized, vs running
     // todo - potentially defer threadpool creation until the startup has been called?
@@ -387,7 +384,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
   public static IndexingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
-      MetadataStoreService metadataStoreService,
+      MetadataStore metadataStore,
       KaldbConfigs.ServerConfig serverConfig) {
     ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
 
@@ -401,7 +398,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         KaldbConfig.get().getS3Config().getS3Bucket(),
         makeDefaultRollOverExecutor(),
         DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
-        metadataStoreService,
+        metadataStore,
         SearchContext.fromConfig(serverConfig));
   }
 
