@@ -204,12 +204,16 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
 
-    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        managerConfig.getReplicaServiceConfig();
-    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
-    assertThat(replicaServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
-    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        managerConfig.getReplicaCreationServiceConfig();
+    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+
+    final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        managerConfig.getReplicaEvictionServiceConfig();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isEqualTo(1);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
@@ -291,12 +295,16 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
 
-    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        managerConfig.getReplicaServiceConfig();
-    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
-    assertThat(replicaServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
-    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        managerConfig.getReplicaCreationServiceConfig();
+    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+
+    final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        managerConfig.getReplicaEvictionServiceConfig();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isEqualTo(1);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
@@ -372,12 +380,16 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
 
-    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        managerConfig.getReplicaServiceConfig();
-    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isZero();
-    assertThat(replicaServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isZero();
-    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isZero();
+    final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        managerConfig.getReplicaCreationServiceConfig();
+    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
+
+    final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        managerConfig.getReplicaEvictionServiceConfig();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
@@ -443,12 +455,16 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
 
-    final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        managerConfig.getReplicaServiceConfig();
-    assertThat(replicaServiceConfig.getReplicasPerSnapshot()).isZero();
-    assertThat(replicaServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(replicaServiceConfig.getScheduleInitialDelayMins()).isZero();
-    assertThat(replicaServiceConfig.getSchedulePeriodMins()).isZero();
+    final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        managerConfig.getReplicaCreationServiceConfig();
+    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
+
+    final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        managerConfig.getReplicaEvictionServiceConfig();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();

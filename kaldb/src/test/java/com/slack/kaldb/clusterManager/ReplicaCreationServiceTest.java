@@ -25,7 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class ReplicaCreatorServiceTest {
+public class ReplicaCreationServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -88,31 +88,40 @@ public class ReplicaCreatorServiceTest {
 
     // create one replica for A, two for B
     replicaMetadataStore.createSync(
-        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotA.snapshotId));
+        ReplicaCreationService.replicaMetadataFromSnapshotId(snapshotA.snapshotId));
     replicaMetadataStore.createSync(
-        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
+        ReplicaCreationService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
     replicaMetadataStore.createSync(
-        ReplicaCreatorService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
+        ReplicaCreationService.replicaMetadataFromSnapshotId(snapshotB.snapshotId));
 
-    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
             .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
-    ReplicaCreatorService replicaCreatorService =
-        new ReplicaCreatorService(
-            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
-    replicaCreatorService.startAsync();
-    replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanHours(1)
+            .build();
 
-    assertThat(MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry))
+    ReplicaCreationService replicaCreationService =
+        new ReplicaCreationService(
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            replicaCreationServiceConfig,
+            replicaEvictionServiceConfig,
+            meterRegistry);
+    replicaCreationService.startAsync();
+    replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
 
-    replicaCreatorService.stopAsync();
-    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    replicaCreationService.stopAsync();
+    replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -134,29 +143,38 @@ public class ReplicaCreatorServiceTest {
               snapshotMetadataStore.createSync(snapshot);
             });
 
-    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setReplicasPerSnapshot(4)
             .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
-    ReplicaCreatorService replicaCreatorService =
-        new ReplicaCreatorService(
-            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
-    replicaCreatorService.startAsync();
-    replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanHours(1)
+            .build();
+
+    ReplicaCreationService replicaCreationService =
+        new ReplicaCreationService(
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            replicaCreationServiceConfig,
+            replicaEvictionServiceConfig,
+            meterRegistry);
+    replicaCreationService.startAsync();
+    replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await()
         .atMost(30, TimeUnit.SECONDS)
         .until(
             () ->
-                MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry)
-                    == replicaServiceConfig.getReplicasPerSnapshot() * snapshotsToCreate);
+                MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry)
+                    == replicaCreationServiceConfig.getReplicasPerSnapshot() * snapshotsToCreate);
 
-    replicaCreatorService.stopAsync();
-    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    replicaCreationService.stopAsync();
+    replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -171,25 +189,34 @@ public class ReplicaCreatorServiceTest {
     snapshotMetadataStore.createSync(snapshotA);
     snapshotMetadataStore.createSync(snapshotB);
 
-    KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
             .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
-    ReplicaCreatorService replicaCreatorService =
-        new ReplicaCreatorService(
-            replicaMetadataStore, snapshotMetadataStore, replicaServiceConfig, meterRegistry);
-    replicaCreatorService.startAsync();
-    replicaCreatorService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanHours(1)
+            .build();
+
+    ReplicaCreationService replicaCreationService =
+        new ReplicaCreationService(
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            replicaCreationServiceConfig,
+            replicaEvictionServiceConfig,
+            meterRegistry);
+    replicaCreationService.startAsync();
+    replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await()
         .until(
             () ->
-                MetricsUtil.getCount(ReplicaCreatorService.REPLICAS_CREATED, meterRegistry)
-                    == replicaServiceConfig.getReplicasPerSnapshot() * 2);
+                MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry)
+                    == replicaCreationServiceConfig.getReplicasPerSnapshot() * 2);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
@@ -200,7 +227,7 @@ public class ReplicaCreatorServiceTest {
                     .stream()
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "a"))
                     .count())
-        .isEqualTo(replicaServiceConfig.getReplicasPerSnapshot());
+        .isEqualTo(replicaCreationServiceConfig.getReplicasPerSnapshot());
     assertThat(
             (int)
                 replicaMetadataStore
@@ -208,9 +235,9 @@ public class ReplicaCreatorServiceTest {
                     .stream()
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "b"))
                     .count())
-        .isEqualTo(replicaServiceConfig.getReplicasPerSnapshot());
+        .isEqualTo(replicaCreationServiceConfig.getReplicasPerSnapshot());
 
-    replicaCreatorService.stopAsync();
-    replicaCreatorService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    replicaCreationService.stopAsync();
+    replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 }

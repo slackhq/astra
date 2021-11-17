@@ -8,7 +8,7 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.ReplicaCreatorService;
+import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -158,13 +158,14 @@ public class Kaldb {
       SnapshotMetadataStore snapshotMetadataStore =
           new SnapshotMetadataStore(metadataStoreService.getMetadataStore(), true);
 
-      ReplicaCreatorService replicaCreatorService =
-          new ReplicaCreatorService(
+      ReplicaCreationService replicaCreationService =
+          new ReplicaCreationService(
               replicaMetadataStore,
               snapshotMetadataStore,
-              managerConfig.getReplicaServiceConfig(),
+              managerConfig.getReplicaCreationServiceConfig(),
+              managerConfig.getReplicaEvictionServiceConfig(),
               prometheusMeterRegistry);
-      services.add(replicaCreatorService);
+      services.add(replicaCreationService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {

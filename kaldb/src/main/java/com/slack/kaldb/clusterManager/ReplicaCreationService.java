@@ -12,6 +12,8 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,9 +35,12 @@ import org.slf4j.LoggerFactory;
  * <p>Each Replica is then expected to be assigned to a Cache node, depending on availability, by
  * the cache assignment service in the cluster manager
  */
-public class ReplicaCreatorService extends AbstractScheduledService {
-  private static final Logger LOG = LoggerFactory.getLogger(ReplicaCreatorService.class);
-  private final KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig;
+public class ReplicaCreationService extends AbstractScheduledService {
+  private static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
+  private final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig
+      replicaCreationServiceConfig;
+  private final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig
+      replicaEvictionServiceConfig;
 
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -53,15 +58,17 @@ public class ReplicaCreatorService extends AbstractScheduledService {
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
-  public ReplicaCreatorService(
+  public ReplicaCreationService(
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      KaldbConfigs.ManagerConfig.ReplicaServiceConfig replicaServiceConfig,
+      KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig,
+      KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig,
       MeterRegistry meterRegistry) {
 
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.replicaServiceConfig = replicaServiceConfig;
+    this.replicaCreationServiceConfig = replicaCreationServiceConfig;
+    this.replicaEvictionServiceConfig = replicaEvictionServiceConfig;
 
     this.meterRegistry = meterRegistry;
     this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
@@ -94,7 +101,7 @@ public class ReplicaCreatorService extends AbstractScheduledService {
       pendingTask =
           executorService.schedule(
               this::createReplicasForUnassignedSnapshots,
-              replicaServiceConfig.getEventAggregationSecs(),
+              replicaCreationServiceConfig.getEventAggregationSecs(),
               TimeUnit.SECONDS);
     } else {
       LOG.debug(
@@ -108,13 +115,15 @@ public class ReplicaCreatorService extends AbstractScheduledService {
     // run one iteration getScheduleInitialDelayMins after startup, and then every
     // getSchedulePeriodMins mins after that
     return Scheduler.newFixedRateSchedule(
-        replicaServiceConfig.getScheduleInitialDelayMins(),
-        replicaServiceConfig.getSchedulePeriodMins(),
+        replicaCreationServiceConfig.getScheduleInitialDelayMins(),
+        replicaCreationServiceConfig.getSchedulePeriodMins(),
         TimeUnit.MINUTES);
   }
 
   /**
-   * Creates N replicas per the KalDb configuration for each snapshot. If a snapshot does not contain the amount of replicas configured this will attempt to create the missing replicas to bring it into compliance.
+   * Creates N replicas per the KalDb configuration for each snapshot. If a snapshot does not
+   * contain the amount of replicas configured this will attempt to create the missing replicas to
+   * bring it into compliance.
    *
    * @return The count of successful created replicas
    */
@@ -131,15 +140,21 @@ public class ReplicaCreatorService extends AbstractScheduledService {
                 Collectors.groupingBy(
                     (replicaMetadata) -> replicaMetadata.snapshotId, Collectors.counting()));
 
+    long snapshotExpiration =
+        Instant.now()
+            .minus(replicaEvictionServiceConfig.getReplicaLifespanHours(), ChronoUnit.HOURS)
+            .toEpochMilli();
     List<ListenableFuture<?>> createdReplicaMetadataList =
         snapshotMetadataStore
             .getCached()
             .stream()
+            // only attempt to create replicas for snapshots that have not expired
+            .filter((snapshotMetadata -> snapshotMetadata.endTimeUtc > snapshotExpiration))
             .map(
                 (snapshotMetadata) ->
                     LongStream.range(
                             snapshotToReplicas.getOrDefault(snapshotMetadata.snapshotId, 0L),
-                            replicaServiceConfig.getReplicasPerSnapshot())
+                            replicaCreationServiceConfig.getReplicasPerSnapshot())
                         .mapToObj(
                             (i) ->
                                 replicaMetadataStore.create(
