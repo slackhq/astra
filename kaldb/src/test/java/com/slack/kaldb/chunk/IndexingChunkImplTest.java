@@ -1,9 +1,9 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD;
-import static com.slack.kaldb.chunk.ReadWriteChunkImpl.INDEX_FILES_UPLOAD_FAILED;
-import static com.slack.kaldb.chunk.ReadWriteChunkImpl.LIVE_SNAPSHOT_PREFIX;
-import static com.slack.kaldb.chunk.ReadWriteChunkImpl.SNAPSHOT_TIMER;
+import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD;
+import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD_FAILED;
+import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
+import static com.slack.kaldb.chunk.ReadWriteChunk.SNAPSHOT_TIMER;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -53,7 +53,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
-public class ReadWriteChunkImplTest {
+public class IndexingChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_HOST = "localhost";
   private static final int TEST_PORT = 34567;
@@ -64,7 +64,7 @@ public class ReadWriteChunkImplTest {
   private static void testBeforeSnapshotState(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      ReadWriteChunkImpl<LogMessage> chunk)
+      ReadWriteChunk<LogMessage> chunk)
       throws ExecutionException, InterruptedException, TimeoutException {
     assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
         .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
@@ -81,7 +81,7 @@ public class ReadWriteChunkImplTest {
 
     private boolean closeChunk = true;
     private MeterRegistry registry;
-    private ReadWriteChunkImpl<LogMessage> chunk;
+    private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private MetadataStore metadataStore;
 
@@ -110,7 +110,7 @@ public class ReadWriteChunkImplTest {
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new ReadWriteChunkImpl<>(
+          new IndexingChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -119,7 +119,7 @@ public class ReadWriteChunkImplTest {
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
 
-      chunk.register();
+      chunk.postCreate();
       closeChunk = true;
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
@@ -378,7 +378,7 @@ public class ReadWriteChunkImplTest {
     @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
 
     private SimpleMeterRegistry registry;
-    private ReadWriteChunkImpl<LogMessage> chunk;
+    private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private MetadataStore metadataStore;
     private boolean closeChunk;
@@ -409,7 +409,7 @@ public class ReadWriteChunkImplTest {
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new ReadWriteChunkImpl<>(
+          new IndexingChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -417,7 +417,7 @@ public class ReadWriteChunkImplTest {
               snapshotMetadataStore,
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
-      chunk.register();
+      chunk.postCreate();
       closeChunk = true;
       List<SnapshotMetadata> snapshotNodes =
           snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);

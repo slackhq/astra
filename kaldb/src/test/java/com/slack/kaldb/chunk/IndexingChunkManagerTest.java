@@ -455,7 +455,7 @@ public class IndexingChunkManagerTest {
     int offset = 1;
     chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
-    ReadWriteChunkImpl<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
@@ -598,8 +598,8 @@ public class IndexingChunkManagerTest {
   }
 
   private void testOneFailedChunk(ChunkInfo secondChunk) {
-    ReadWriteChunkImpl<LogMessage> chunk =
-        (ReadWriteChunkImpl<LogMessage>)
+    ReadWriteChunk<LogMessage> chunk =
+        (ReadWriteChunk<LogMessage>)
             chunkManager
                 .getChunkList()
                 .stream()
@@ -669,8 +669,7 @@ public class IndexingChunkManagerTest {
         .getChunkList()
         .forEach(
             chunk ->
-                ((ReadWriteChunkImpl) chunk)
-                    .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
+                ((ReadWriteChunk) chunk).setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
     testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0, 0, MAX_TIME);
@@ -680,8 +679,7 @@ public class IndexingChunkManagerTest {
         .getChunkList()
         .forEach(
             chunk ->
-                ((ReadWriteChunkImpl) chunk)
-                    .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
+                ((ReadWriteChunk) chunk).setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
