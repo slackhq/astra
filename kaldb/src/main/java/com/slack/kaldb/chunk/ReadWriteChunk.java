@@ -25,65 +25,69 @@ import java.time.Instant;
 import java.util.Collection;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * A ReadWriteChunkImpl provides a concrete implementation for a shard to which we can write and
- * read the messages we wrote. It provides a unified interface of a shard abstracting the details of
- * the underlying storage implementation.
+ * An ReadWriteChunk provides a base implementation for a shard to which we can write and read the
+ * messages we wrote. It provides a unified interface of a shard abstracting the details of the
+ * underlying storage implementation. There will be 2 implementation for this class, one in the
+ * indexer and one in recovery process. The code that's common for both of these classes will reside
+ * in the base class.
  *
- * <p>Chunk maintains its metadata in the chunkInfo object. The chunkInfo tracks all the info needed
- * for constructing a snapshot.
+ * <p>A ReadWriteChunk maintains its metadata in the chunkInfo object. For example, the data in the
+ * chunkInfo object can be used when publishing a snapshot from the chunk.
  *
- * <p>A ReadWriteChunk goes through the following life cycle.
+ * <p>A ReadWriteChunk provides methods that let its users hook into various life cycle events of
+ * the chunk. The hooks into the life cycle are implemented as abstract base methods so derived
+ * classes can take custom action on those stages.
  *
  * <p>When a chunk is created it is open for both reads and writes. Since a ReadWriteChunk is
- * ingesting live data, a cluster manager doesn't manage it. Instead, when a chunk in created, it
- * registers a live snapshot and a live search node.
+ * ingesting live data, a cluster manager doesn't manage it. The postCreate and preClose methods
+ * provide hooks to handle the metadata registration in those cases. The postCreate method is called
+ * after the chunk is created and preClose method is called just before chunk close.
  *
  * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
- * writing anymore. When a chunk is snapshotted, a non-live snapshot is created which is assigned to
- * a cache node by the cluster manager. The live snapshot is updated with the end time of the chunk
- * so it only receives the queries for the data within it's time range. As long as the chunk is up,
- * it will be searched using the live search node.
+ * writing anymore. The snapshotting process consists of 3 steps implemented by the following
+ * methods: preSnapshot, snapshotToS3 and postSnapshot. Currently, only the postSnapshot is
+ * implemented as an abstract method since we don't foresee any customization for the other two
+ * steps.
  *
- * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the live snapshot
- * and the search metadata are deleted as part of the chunk de-registration process.
+ * <p>When the ReadWriteChunk is finally closed (happens when a chunk is evicted), the preClose
+ * method is called to manage any metadata.
  */
-public class ReadWriteChunkImpl<T> implements Chunk<T> {
-
+public abstract class ReadWriteChunk<T> implements Chunk<T> {
   // TODO: Add a global UUID to identify each chunk uniquely.
-  private static final Logger LOG = LoggerFactory.getLogger(ReadWriteChunkImpl.class);
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
   public static final String LIVE_SNAPSHOT_PREFIX = SearchMetadata.LIVE_SNAPSHOT_PATH + "_";
 
   private final LogStore<T> logStore;
-  private final ChunkInfo chunkInfo;
-  private final SnapshotMetadataStore snapshotMetadataStore;
-  private final SearchMetadataStore searchMetadataStore;
-  private final SearchMetadata liveSearchMetadata;
   private final String kafkaPartitionId;
-  private SnapshotMetadata liveSnapshotMetadata;
+  private final Logger logger;
   private LogIndexSearcher<T> logSearcher;
   private final Counter fileUploadAttempts;
   private final Counter fileUploadFailures;
   private final MeterRegistry meterRegistry;
+  protected final ChunkInfo chunkInfo;
+  protected final SearchMetadata liveSearchMetadata;
+  protected SnapshotMetadata liveSnapshotMetadata;
+  protected final SnapshotMetadataStore snapshotMetadataStore;
+  protected final SearchMetadataStore searchMetadataStore;
   // TODO: Export file size uploaded as a metric.
   // TODO: Add chunk info as tags?.
 
   // TODO: Move this flag into LogStore?.
   private boolean readOnly;
 
-  public ReadWriteChunkImpl(
+  protected ReadWriteChunk(
       LogStore<T> logStore,
       String chunkDataPrefix,
       MeterRegistry meterRegistry,
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchContext searchContext,
-      String kafkaPartitionId) {
+      String kafkaPartitionId,
+      Logger logger) {
     this.logStore = logStore;
     this.logSearcher =
         (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
@@ -106,30 +110,21 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.snapshotId, searchContext);
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    LOG.info("Created a new index {} and chunk {}", logStore, chunkInfo);
+    this.logger = logger;
+    logger.info("Created a new index {} and chunk {}", logStore, chunkInfo);
   }
 
-  public void register() {
-    snapshotMetadataStore.createSync(liveSnapshotMetadata);
-    searchMetadataStore.createSync(liveSearchMetadata);
-  }
+  /** postCreate is called by ChunkManager after a chunk is created. */
+  public abstract void postCreate();
 
-  public void deRegister() {
-    searchMetadataStore.deleteSync(liveSearchMetadata);
-    snapshotMetadataStore.deleteSync(liveSnapshotMetadata);
-  }
+  /** preClose method is called before the chunk is closed. */
+  public abstract void preClose();
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
   }
 
-  /**
-   * Index the message in the logstore and update the chunk data time range.
-   *
-   * @param message a LogMessage object.
-   * @param kafkaPartitionId
-   * @param offset
-   */
+  /** Index the message in the logstore and update the chunk data time range. */
   public void addMessage(T message, String kafkaPartitionId, long offset) {
     if (!this.kafkaPartitionId.equals(kafkaPartitionId)) {
       throw new IllegalArgumentException(
@@ -164,18 +159,18 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    deRegister();
+    preClose();
 
     logSearcher.close();
     logStore.close();
-    LOG.info("Closed chunk {}", chunkInfo);
+    logger.info("Closed chunk {}", chunkInfo);
 
     try {
       logStore.cleanup();
-      LOG.info("Cleaned up chunk {}", chunkInfo);
+      logger.info("Cleaned up chunk {}", chunkInfo);
     } catch (Exception e) {
       // this will allow the service to still close successfully when failing to cleanup the file
-      LOG.error("Failed to cleanup logstore for chunk {}", chunkInfo, e);
+      logger.error("Failed to cleanup logstore for chunk {}", chunkInfo, e);
     }
   }
 
@@ -188,12 +183,16 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
     logStore.refresh();
   }
 
+  // Snapshot methods
   public void preSnapshot() {
-    LOG.info("Started RW chunk pre-snapshot {}", chunkInfo);
+    logger.info("Started RW chunk pre-snapshot {}", chunkInfo);
     setReadOnly(true);
     commit();
-    LOG.info("Finished RW chunk pre-snapshot {}", chunkInfo);
+    logger.info("Finished RW chunk pre-snapshot {}", chunkInfo);
   }
+
+  /** postSnapshot method is called after a snapshot is persisted in a blobstore. */
+  public abstract void postSnapshot();
 
   /**
    * Copy the files from log store to S3 to a given bucket, prefix.
@@ -201,16 +200,16 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
    * @return true on success, false on failure.
    */
   public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
-    LOG.info("Started RW chunk snapshot to S3 {}", chunkInfo);
+    logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
     try {
       Path dirPath = logStore.getDirectory().toAbsolutePath();
       indexCommit = logStore.getIndexCommit();
       Collection<String> activeFiles = indexCommit.getFileNames();
-      LOG.info("{} active files in {} in index", activeFiles.size(), dirPath);
+      logger.info("{} active files in {} in index", activeFiles.size(), dirPath);
       for (String fileName : activeFiles) {
-        LOG.debug("File name is {}}", fileName);
+        logger.debug("File name is {}}", fileName);
       }
       this.fileUploadAttempts.increment(activeFiles.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
@@ -218,36 +217,14 @@ public class ReadWriteChunkImpl<T> implements Chunk<T> {
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(activeFiles.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
-      LOG.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
+      logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;
     } catch (Exception e) {
-      LOG.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
+      logger.error("Exception when copying RW chunk " + chunkInfo + " to S3.", e);
       return false;
     } finally {
       logStore.releaseIndexCommit(indexCommit);
     }
-  }
-
-  public void postSnapshot() {
-    LOG.info("Start Post snapshot chunk {}", chunkInfo);
-    // Publish a persistent snapshot for this chunk.
-    SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
-    snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
-
-    // Update the live snapshot. Keep the same snapshotId and snapshotPath to
-    // ensure it's a live snapshot.
-    SnapshotMetadata updatedSnapshotMetadata =
-        new SnapshotMetadata(
-            liveSnapshotMetadata.snapshotId,
-            liveSnapshotMetadata.snapshotPath,
-            chunkInfo.getDataStartTimeEpochMs(),
-            chunkInfo.getDataEndTimeEpochMs(),
-            chunkInfo.getMaxOffset(),
-            chunkInfo.getKafkaPartitionId());
-    snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
-    liveSnapshotMetadata = updatedSnapshotMetadata;
-
-    LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
   }
 
   @VisibleForTesting
