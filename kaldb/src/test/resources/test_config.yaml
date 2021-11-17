@@ -58,7 +58,7 @@ managerConfig:
     scheduleInitialDelayMins: 1
     schedulePeriodMins: 15
   replicaEvictionServiceConfig:
-    replicaLifespanHours: 1
+    replicaLifespanMins: 1440
 
 recoveryConfig:
   serverConfig:

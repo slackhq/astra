@@ -62,7 +62,7 @@ managerConfig:
     scheduleInitialDelayMins: ${KALDB_MANAGER_REPLICAS_INITIAL_DELAY_MINS:-0}
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
   replicaEvictionServiceConfig:
-    replicaLifespanHours: ${KALDB_MANAGER_REPLICA_LIFESPAN_HOURS:-24}
+    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_HOURS:-1440}
 
 recoveryConfig:
   serverConfig:

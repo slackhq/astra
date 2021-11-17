@@ -97,7 +97,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanHours(1)
+            .setReplicaLifespanMins(1440)
             .build();
 
     ReplicaCreationService replicaCreationService =
@@ -146,7 +146,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanHours(1)
+            .setReplicaLifespanMins(1440)
             .build();
 
     ReplicaCreationService replicaCreationService =
@@ -192,7 +192,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanHours(1)
+            .setReplicaLifespanMins(1440)
             .build();
 
     ReplicaCreationService replicaCreationService =

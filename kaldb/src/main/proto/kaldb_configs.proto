@@ -95,7 +95,7 @@ message ManagerConfig {
     }
 
     message ReplicaEvictionServiceConfig {
-        int32 replicaLifespanHours = 1;
+        int32 replicaLifespanMins = 1;
     }
 
     ServerConfig serverConfig = 1;

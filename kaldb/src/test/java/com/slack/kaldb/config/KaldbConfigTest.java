@@ -213,7 +213,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isEqualTo(1);
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
@@ -304,7 +304,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isEqualTo(1);
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
@@ -389,7 +389,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isZero();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
@@ -464,7 +464,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanHours()).isZero();
+    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();

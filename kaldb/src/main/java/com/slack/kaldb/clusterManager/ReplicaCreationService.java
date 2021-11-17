@@ -142,7 +142,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     long snapshotExpiration =
         Instant.now()
-            .minus(replicaEvictionServiceConfig.getReplicaLifespanHours(), ChronoUnit.HOURS)
+            .minus(replicaEvictionServiceConfig.getReplicaLifespanMins(), ChronoUnit.MINUTES)
             .toEpochMilli();
     List<ListenableFuture<?>> createdReplicaMetadataList =
         snapshotMetadataStore

@@ -65,7 +65,7 @@
       "schedulePeriodMins": 15
     },
     "replicaEvictionServiceConfig": {
-      "replicaLifespanHours": 1
+      "replicaLifespanMins": 1440
     }
   },
   "recoveryConfig": {
