@@ -12,8 +12,10 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
@@ -32,9 +34,7 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
@@ -123,6 +123,11 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      services.add(
+          new MetadataStoreLifecycleManager(
+              KaldbConfigs.NodeRole.QUERY, Collections.singletonList(searchMetadataStore)));
+
       KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
       KaldbDistributedQueryService.servers =
           new ArrayList<>(KaldbConfig.get().getQueryConfig().getTmpIndexNodesList());
