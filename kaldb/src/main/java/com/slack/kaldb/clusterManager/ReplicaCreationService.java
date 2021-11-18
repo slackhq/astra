@@ -17,12 +17,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import org.slf4j.Logger;
@@ -127,7 +125,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
    *
    * @return The count of successful created replicas
    */
-  private int createReplicasForUnassignedSnapshots() {
+  protected int createReplicasForUnassignedSnapshots() {
     LOG.info("Starting replica creation for unassigned snapshots");
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
@@ -169,10 +167,15 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     try {
       completeFutures = futureList.get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS).size();
-    } catch (TimeoutException | InterruptedException | ExecutionException e) {
+    } catch (Exception futureListException) {
       for (ListenableFuture<?> future : createdReplicaMetadataList) {
         if (future.isDone()) {
-          completeFutures++;
+          try {
+            future.get();
+            completeFutures++;
+          } catch (Exception futureException) {
+            incompleteFutures++;
+          }
         } else {
           future.cancel(true);
           incompleteFutures++;
