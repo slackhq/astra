@@ -6,11 +6,14 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreatorService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
@@ -159,6 +162,20 @@ public class Kaldb {
       ReplicaCreatorService replicaCreatorService =
           new ReplicaCreatorService(metadataStore, prometheusMeterRegistry);
       services.add(replicaCreatorService);
+
+      RecoveryTaskMetadataStore recoveryTaskMetadataStore =
+          new RecoveryTaskMetadataStore(metadataStore, true);
+      RecoveryNodeMetadataStore recoveryNodeMetadataStore =
+          new RecoveryNodeMetadataStore(metadataStore, true);
+      services.add(
+          new MetadataStoreLifecycleManager(
+              KaldbConfigs.NodeRole.MANAGER,
+              List.of(recoveryTaskMetadataStore, recoveryNodeMetadataStore)));
+
+      RecoveryTaskAssignmentService recoveryTaskAssignmentService =
+          new RecoveryTaskAssignmentService(
+              recoveryTaskMetadataStore, recoveryNodeMetadataStore, prometheusMeterRegistry);
+      services.add(recoveryTaskAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
