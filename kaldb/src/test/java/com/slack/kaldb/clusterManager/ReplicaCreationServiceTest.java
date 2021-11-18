@@ -388,6 +388,7 @@ public class ReplicaCreationServiceTest {
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
     snapshotMetadataStore.createSync(snapshotA);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
@@ -441,6 +442,7 @@ public class ReplicaCreationServiceTest {
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
     snapshotMetadataStore.createSync(snapshotA);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
