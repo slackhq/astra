@@ -161,6 +161,9 @@ public class Kaldb {
 
       ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+      services.add(
+          new MetadataStoreLifecycleManager(
+              KaldbConfigs.NodeRole.MANAGER, List.of(replicaMetadataStore, snapshotMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
