@@ -1,5 +1,6 @@
 package com.slack.kaldb.writer;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
@@ -57,6 +58,8 @@ public class LogMessageWriterImplTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+    chunkManagerUtil.chunkManager.startAsync();
+    chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @After
@@ -460,6 +463,8 @@ public class LogMessageWriterImplTest {
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, localMetricsRegistry, 1000L, 100);
+    localChunkManagerUtil.chunkManager.startAsync();
+    localChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     List<Trace.Span> spans =
         IntStream.range(0, 15)

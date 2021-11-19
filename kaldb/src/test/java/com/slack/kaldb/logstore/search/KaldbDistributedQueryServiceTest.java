@@ -317,8 +317,6 @@ public class KaldbDistributedQueryServiceTest {
     testSearchWithOneShardTimeout();
   }
 
-  // TODO: Verify if we respect setIndexName(MessageUtil.TEST_INDEX_NAME)
-  // TODO: Why do we register SarchContext with index port and not query port ?
   private void verifyAddServerToZK() throws Exception {
     int indexServer3Port = 10003;
     SearchContext searchContext3 = new SearchContext("127.0.0.1", indexServer3Port);
