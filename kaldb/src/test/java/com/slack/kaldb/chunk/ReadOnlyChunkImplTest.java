@@ -442,7 +442,7 @@ public class ReadOnlyChunkImplTest {
       throws Exception {
     ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
     replicaMetadataStore
-        .create(new ReplicaMetadata(replicaId, snapshotId))
+        .create(new ReplicaMetadata(replicaId, snapshotId, Instant.now().toEpochMilli()))
         .get(5, TimeUnit.SECONDS);
   }
 

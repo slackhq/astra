@@ -205,6 +205,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
-    return new ReplicaMetadata(UUID.randomUUID().toString(), snapshotId);
+    return new ReplicaMetadata(
+        String.format("%s-%s", snapshotId, UUID.randomUUID()),
+        snapshotId,
+        Instant.now().toEpochMilli());
   }
 }
