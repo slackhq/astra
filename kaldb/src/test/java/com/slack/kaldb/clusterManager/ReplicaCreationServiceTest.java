@@ -127,7 +127,48 @@ public class ReplicaCreationServiceTest {
   }
 
   @Test
-  public void shouldCreateReplicasIfNoneExist() throws Exception {
+  public void shouldCreateZeroReplicasNoneConfigured() throws Exception {
+    SnapshotMetadata snapshotA =
+        new SnapshotMetadata(
+            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+    snapshotMetadataStore.createSync(snapshotA);
+
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setReplicasPerSnapshot(0)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanMins(1440)
+            .build();
+
+    ReplicaCreationService replicaCreationService =
+        new ReplicaCreationService(
+            replicaMetadataStore,
+            snapshotMetadataStore,
+            replicaCreationServiceConfig,
+            replicaEvictionServiceConfig,
+            meterRegistry);
+    replicaCreationService.startAsync();
+    replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(0);
+    assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(replicaMetadataStore.getCached().size()).isEqualTo(0);
+
+    replicaCreationService.stopAsync();
+    replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+  }
+
+  @Test
+  // todo - make this a parameterized test once we upgrade to junit 5 to test various config
+  // combinations
+  public void shouldCreateFourReplicasIfNoneExist() throws Exception {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
