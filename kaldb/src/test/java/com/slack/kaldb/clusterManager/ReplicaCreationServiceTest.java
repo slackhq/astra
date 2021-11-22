@@ -4,6 +4,7 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
@@ -33,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -91,6 +93,7 @@ public class ReplicaCreationServiceTest {
         ReplicaCreationService.replicaMetadataFromSnapshotId(snapshotA.snapshotId));
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(snapshotA.snapshotId));
+    await().until(() -> replicaMetadataStore.getCached().size() == 2);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
@@ -117,6 +120,7 @@ public class ReplicaCreationServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
+    assertThat(replicaMetadataStore.getCached().size()).isEqualTo(2);
 
     replicaCreationService.stopAsync();
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -207,6 +211,7 @@ public class ReplicaCreationServiceTest {
               snapshotList.add(snapshot);
             });
 
+    List<SnapshotMetadata> eligibleSnapshots = new ArrayList<>();
     IntStream.range(0, eligibleSnapshotsToCreate)
         .forEach(
             (i) -> {
@@ -219,8 +224,9 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli(),
                       0,
                       snapshotId);
-              snapshotList.add(snapshot);
+              eligibleSnapshots.add(snapshot);
             });
+    snapshotList.addAll(eligibleSnapshots);
 
     // randomize the order of eligible and ineligible snapshots and create them in parallel
     assertThat(snapshotList.size())
@@ -229,6 +235,8 @@ public class ReplicaCreationServiceTest {
     snapshotList
         .parallelStream()
         .forEach((snapshotMetadata -> snapshotMetadataStore.createSync(snapshotMetadata)));
+    List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSync();
+    assertThat(snapshotMetadataList.size()).isEqualTo(snapshotList.size());
 
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
@@ -240,11 +248,28 @@ public class ReplicaCreationServiceTest {
 
     int replicasCreated = replicaCreationService.createReplicasForUnassignedSnapshots();
     int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
+
+    await().until(() -> replicaMetadataStore.listSync().size() == expectedReplicas);
+    await().until(() -> replicaMetadataStore.getCached().size() == expectedReplicas);
+
     assertThat(replicasCreated).isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
         .isZero();
+    assertThat(snapshotMetadataList).isEqualTo(snapshotMetadataStore.listSync());
+
+    List<String> eligibleSnapshotIds =
+        eligibleSnapshots
+            .stream()
+            .map(snapshotMetadata -> snapshotMetadata.snapshotId)
+            .collect(Collectors.toList());
+    assertTrue(
+        replicaMetadataStore
+            .listSync()
+            .stream()
+            .allMatch(
+                (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)));
   }
 
   @Test
@@ -488,5 +513,74 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void shouldThrowOnInvalidAggregationSecs() {
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setEventAggregationSecs(0)
+            .setReplicasPerSnapshot(2)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanMins(1440)
+            .build();
+
+    new ReplicaCreationService(
+        replicaMetadataStore,
+        snapshotMetadataStore,
+        replicaCreationServiceConfig,
+        replicaEvictionServiceConfig,
+        meterRegistry);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void shouldThrowOnInvalidLifespanMins() {
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setReplicasPerSnapshot(2)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanMins(0)
+            .build();
+
+    new ReplicaCreationService(
+        replicaMetadataStore,
+        snapshotMetadataStore,
+        replicaCreationServiceConfig,
+        replicaEvictionServiceConfig,
+        meterRegistry);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void shouldThrowOnInvalidReplicasPerSnapshot() {
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setReplicasPerSnapshot(-1)
+            .setScheduleInitialDelayMins(0)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanMins(1440)
+            .build();
+
+    new ReplicaCreationService(
+        replicaMetadataStore,
+        snapshotMetadataStore,
+        replicaCreationServiceConfig,
+        replicaEvictionServiceConfig,
+        meterRegistry);
   }
 }

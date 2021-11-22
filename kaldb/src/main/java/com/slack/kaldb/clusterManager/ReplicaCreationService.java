@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -62,6 +63,17 @@ public class ReplicaCreationService extends AbstractScheduledService {
       KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig,
       KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig,
       MeterRegistry meterRegistry) {
+
+    checkArgument(
+        replicaCreationServiceConfig.getReplicasPerSnapshot() >= 0,
+        "replicasPerSnapshot must be >= 0");
+    checkArgument(
+        replicaCreationServiceConfig.getEventAggregationSecs() > 0,
+        "eventAggregationSecs must be > 0");
+    checkArgument(
+        replicaEvictionServiceConfig.getReplicaLifespanMins() > 0,
+        "replicaLifespanMins must be > 0");
+    // schedule configs checked as part of the AbstractScheduledService
 
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
