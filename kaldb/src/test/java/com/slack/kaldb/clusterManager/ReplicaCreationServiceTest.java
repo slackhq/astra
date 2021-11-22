@@ -1,7 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertTrue;
@@ -382,6 +381,7 @@ public class ReplicaCreationServiceTest {
             replicaCreationServiceConfig,
             replicaEvictionServiceConfig,
             meterRegistry);
+    replicaCreationService.futuresListTimeoutSecs = 2;
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -413,15 +413,15 @@ public class ReplicaCreationServiceTest {
     snapshotMetadataStore.createSync(snapshotA);
 
     await()
-        .atMost(DEFAULT_ZK_TIMEOUT_SECS * 2, TimeUnit.SECONDS)
+        .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(() -> replicaMetadataStore.getCached().size() == 1);
     await()
-        .atMost(DEFAULT_ZK_TIMEOUT_SECS * 2, TimeUnit.SECONDS)
+        .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
             () ->
                 MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 1);
     await()
-        .atMost(DEFAULT_ZK_TIMEOUT_SECS * 2, TimeUnit.SECONDS)
+        .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
             () -> MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry) == 1);
 
@@ -433,12 +433,12 @@ public class ReplicaCreationServiceTest {
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
     await()
-        .atMost(DEFAULT_ZK_TIMEOUT_SECS * 2, TimeUnit.SECONDS)
+        .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
             () ->
                 MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 2);
     await()
-        .atMost(DEFAULT_ZK_TIMEOUT_SECS * 2, TimeUnit.SECONDS)
+        .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
             () -> MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry) == 1);
 
@@ -446,10 +446,11 @@ public class ReplicaCreationServiceTest {
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.awaitTermination(15, TimeUnit.SECONDS);
   }
 
   @Test
-  public void shouldHandleFailedCreateFutures() {
+  public void shouldHandleFailedCreateFutures() throws InterruptedException {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
@@ -500,6 +501,7 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(2);
 
     timeoutServiceExecutor.shutdown();
+    timeoutServiceExecutor.awaitTermination(15, TimeUnit.SECONDS);
   }
 
   @Test
@@ -530,6 +532,7 @@ public class ReplicaCreationServiceTest {
             replicaCreationServiceConfig,
             replicaEvictionServiceConfig,
             meterRegistry);
+    replicaCreationService.futuresListTimeoutSecs = 2;
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
     // allow the first replica creation to work, and timeout the second one

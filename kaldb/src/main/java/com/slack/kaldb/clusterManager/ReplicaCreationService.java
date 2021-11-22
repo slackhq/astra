@@ -3,6 +3,7 @@ package com.slack.kaldb.clusterManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,6 +45,8 @@ public class ReplicaCreationService extends AbstractScheduledService {
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final MeterRegistry meterRegistry;
+
+  @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
   public static final String REPLICAS_CREATED = "replicas_created";
   public static final String REPLICAS_FAILED = "replicas_failed";
@@ -183,7 +186,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
     int failedReplicas = 0;
 
     try {
-      createdReplicas = futureList.get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS).size();
+      createdReplicas = futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS).size();
     } catch (Exception futureListException) {
       for (ListenableFuture<?> future : createdReplicaMetadataList) {
         if (future.isDone()) {
