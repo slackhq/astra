@@ -120,8 +120,13 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
   /**
    * Creates N replicas per the KalDb configuration for each snapshot. If a snapshot does not
-   * contain the amount of replicas configured this will attempt to create the missing replicas to
-   * bring it into compliance.
+   * contain at least the amount of replicas configured, this will attempt to create the missing
+   * replicas to bring it into compliance. No attempt is made to reduce the replica count if for
+   * some reason it exceeds the configured value.
+   *
+   * <p>If this method fails to successfully complete all the required replicas, the following
+   * iteration of this method would attempt to re-create these until they are either brought into
+   * compliance or the snapshot expiration is reached.
    *
    * @return The count of successful created replicas
    */
@@ -162,38 +167,41 @@ public class ReplicaCreationService extends AbstractScheduledService {
             .collect(Collectors.toList());
 
     ListenableFuture<List<Object>> futureList = Futures.allAsList(createdReplicaMetadataList);
-    int completeFutures = 0;
-    int incompleteFutures = 0;
+    int createdReplicas = 0;
+    int failedReplicas = 0;
 
     try {
-      completeFutures = futureList.get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS).size();
+      createdReplicas = futureList.get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS).size();
     } catch (Exception futureListException) {
       for (ListenableFuture<?> future : createdReplicaMetadataList) {
         if (future.isDone()) {
           try {
+            // this additional try/catch/get is used to determine if the future is complete with an
+            // exception
+            // if there is an exception we count this as a failed replica for monitoring purposes
             future.get();
-            completeFutures++;
+            createdReplicas++;
           } catch (Exception futureException) {
-            incompleteFutures++;
+            failedReplicas++;
           }
         } else {
           future.cancel(true);
-          incompleteFutures++;
+          failedReplicas++;
         }
       }
     }
 
-    replicasCreated.increment(completeFutures);
-    replicasFailed.increment(incompleteFutures);
+    replicasCreated.increment(createdReplicas);
+    replicasFailed.increment(failedReplicas);
 
     long assignmentDuration = assignmentTimer.stop(replicaAssignmentTimer);
     LOG.info(
         "Completed replica creation for unassigned snapshots - successfully created {} replicas, failed {} replicas in {} ms",
-        completeFutures,
-        incompleteFutures,
+        createdReplicas,
+        failedReplicas,
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
 
-    return completeFutures;
+    return createdReplicas;
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
