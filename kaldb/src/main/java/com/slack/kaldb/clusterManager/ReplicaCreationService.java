@@ -1,12 +1,15 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -23,8 +26,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -162,6 +167,8 @@ public class ReplicaCreationService extends AbstractScheduledService {
         Instant.now()
             .minus(replicaEvictionServiceConfig.getReplicaLifespanMins(), ChronoUnit.MINUTES)
             .toEpochMilli();
+
+    AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> createdReplicaMetadataList =
         snapshotMetadataStore
             .getCached()
@@ -174,37 +181,29 @@ public class ReplicaCreationService extends AbstractScheduledService {
                             snapshotToReplicas.getOrDefault(snapshotMetadata.snapshotId, 0L),
                             replicaCreationServiceConfig.getReplicasPerSnapshot())
                         .mapToObj(
-                            (i) ->
-                                replicaMetadataStore.create(
-                                    replicaMetadataFromSnapshotId(snapshotMetadata.snapshotId)))
+                            (i) -> {
+                              ListenableFuture<?> future =
+                                  replicaMetadataStore.create(
+                                      replicaMetadataFromSnapshotId(snapshotMetadata.snapshotId));
+                              addCallback(
+                                  future,
+                                  successCountingCallback(successCounter),
+                                  MoreExecutors.directExecutor());
+                              return future;
+                            })
                         .collect(Collectors.toList()))
             .flatMap(List::stream)
             .collect(Collectors.toList());
 
-    ListenableFuture<List<Object>> futureList = Futures.allAsList(createdReplicaMetadataList);
-    int createdReplicas = 0;
-    int failedReplicas = 0;
-
+    ListenableFuture<?> futureList = Futures.successfulAsList(createdReplicaMetadataList);
     try {
-      createdReplicas = futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS).size();
-    } catch (Exception futureListException) {
-      for (ListenableFuture<?> future : createdReplicaMetadataList) {
-        if (future.isDone()) {
-          try {
-            // this additional try/catch/get is used to determine if the future is complete with an
-            // exception
-            // if there is an exception we count this as a failed replica for monitoring purposes
-            future.get();
-            createdReplicas++;
-          } catch (Exception futureException) {
-            failedReplicas++;
-          }
-        } else {
-          future.cancel(true);
-          failedReplicas++;
-        }
-      }
+      futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      futureList.cancel(true);
     }
+
+    int createdReplicas = successCounter.get();
+    int failedReplicas = createdReplicaMetadataList.size() - createdReplicas;
 
     replicasCreated.increment(createdReplicas);
     replicasFailed.increment(failedReplicas);
@@ -217,6 +216,21 @@ public class ReplicaCreationService extends AbstractScheduledService {
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
 
     return createdReplicas;
+  }
+
+  /** Uses the provided atomic integer to keep track of FutureCallbacks that are successful */
+  private FutureCallback<Object> successCountingCallback(AtomicInteger counter) {
+    return new FutureCallback<>() {
+      @Override
+      public void onSuccess(@Nullable Object result) {
+        counter.incrementAndGet();
+      }
+
+      @Override
+      public void onFailure(Throwable t) {
+        // no-op
+      }
+    };
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
