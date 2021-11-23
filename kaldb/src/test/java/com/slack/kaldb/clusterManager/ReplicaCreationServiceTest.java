@@ -6,7 +6,6 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
@@ -32,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
@@ -165,8 +163,6 @@ public class ReplicaCreationServiceTest {
   }
 
   @Test
-  // todo - make this a parameterized test once we upgrade to junit 5 to test various config
-  // combinations
   public void shouldCreateFourReplicasIfNoneExist() throws Exception {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
@@ -450,7 +446,7 @@ public class ReplicaCreationServiceTest {
   }
 
   @Test
-  public void shouldHandleFailedCreateFutures() throws InterruptedException {
+  public void shouldHandleFailedCreateFutures() {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
             "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
@@ -478,30 +474,18 @@ public class ReplicaCreationServiceTest {
             replicaEvictionServiceConfig,
             meterRegistry);
 
-    ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
-    // immediately fail the first replica create, timeout the second
-    doReturn(Futures.immediateFailedFuture(new TimeoutException()))
-        .doReturn(
-            Futures.submit(
-                () -> {
-                  try {
-                    Thread.sleep(30 * 1000);
-                  } catch (InterruptedException ignored) {
-                  }
-                },
-                timeoutServiceExecutor))
+    doCallRealMethod()
+        .doReturn(Futures.immediateFailedFuture(new Exception()))
         .when(replicaMetadataStore)
-        .create(any(ReplicaMetadata.class));
+        .create(any());
 
     int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
-    assertThat(successfulReplicas).isZero();
+    assertThat(successfulReplicas).isEqualTo(1);
+    assertThat(replicaMetadataStore.listSync().size()).isEqualTo(1);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
-        .isEqualTo(0);
+        .isEqualTo(1);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
-        .isEqualTo(2);
-
-    timeoutServiceExecutor.shutdown();
-    timeoutServiceExecutor.awaitTermination(15, TimeUnit.SECONDS);
+        .isEqualTo(1);
   }
 
   @Test
