@@ -33,6 +33,9 @@ message ReplicaMetadata {
 
   // Unique ID for the snapshot blob
   string snapshotId = 2;
+
+  // Last updated timestamp
+  int64 createdTimeUtc = 4;
 }
 
 message SnapshotMetadata {

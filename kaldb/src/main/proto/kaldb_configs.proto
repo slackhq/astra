@@ -87,7 +87,20 @@ message CacheConfig {
 }
 
 message ManagerConfig {
+    message ReplicaCreationServiceConfig {
+        int32 replicasPerSnapshot = 1;
+        int32 eventAggregationSecs = 2;
+        int32 scheduleInitialDelayMins = 3;
+        int32 schedulePeriodMins = 4;
+    }
+
+    message ReplicaEvictionServiceConfig {
+        int32 replicaLifespanMins = 1;
+    }
+
     ServerConfig serverConfig = 1;
+    ReplicaCreationServiceConfig replicaCreationServiceConfig = 2;
+    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 3;
 }
 
 message RecoveryConfig {

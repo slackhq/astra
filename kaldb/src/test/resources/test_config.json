@@ -57,6 +57,15 @@
     "serverConfig": {
       "serverPort": 8083,
       "serverAddress": "localhost"
+    },
+    "replicaCreationServiceConfig": {
+      "replicasPerSnapshot": 2,
+      "eventAggregationSecs": 10,
+      "scheduleInitialDelayMins": 1,
+      "schedulePeriodMins": 15
+    },
+    "replicaEvictionServiceConfig": {
+      "replicaLifespanMins": 1440
     }
   },
   "recoveryConfig": {

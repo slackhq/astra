@@ -6,12 +6,14 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.ReplicaCreatorService;
+import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -151,14 +153,26 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
-      final int serverPort = KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort();
+      final KaldbConfigs.ManagerConfig managerConfig = KaldbConfig.get().getManagerConfig();
+      final int serverPort = managerConfig.getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, "kalDbManager");
       services.add(armeriaService);
 
-      ReplicaCreatorService replicaCreatorService =
-          new ReplicaCreatorService(metadataStore, prometheusMeterRegistry);
-      services.add(replicaCreatorService);
+      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+      services.add(
+          new MetadataStoreLifecycleManager(
+              KaldbConfigs.NodeRole.MANAGER, List.of(replicaMetadataStore, snapshotMetadataStore)));
+
+      ReplicaCreationService replicaCreationService =
+          new ReplicaCreationService(
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              managerConfig.getReplicaCreationServiceConfig(),
+              managerConfig.getReplicaEvictionServiceConfig(),
+              prometheusMeterRegistry);
+      services.add(replicaCreationService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
