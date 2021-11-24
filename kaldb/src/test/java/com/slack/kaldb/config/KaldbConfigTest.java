@@ -215,6 +215,13 @@ public class KaldbConfigTest {
         managerConfig.getReplicaEvictionServiceConfig();
     assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
+    final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            managerConfig.getRecoveryTaskAssignmentServiceConfig();
+    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -306,6 +313,13 @@ public class KaldbConfigTest {
         managerConfig.getReplicaEvictionServiceConfig();
     assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
+    final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            managerConfig.getRecoveryTaskAssignmentServiceConfig();
+    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -391,6 +405,13 @@ public class KaldbConfigTest {
         managerConfig.getReplicaEvictionServiceConfig();
     assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
 
+    final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            managerConfig.getRecoveryTaskAssignmentServiceConfig();
+    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
@@ -465,6 +486,13 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
     assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
+
+    final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            managerConfig.getRecoveryTaskAssignmentServiceConfig();
+    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();

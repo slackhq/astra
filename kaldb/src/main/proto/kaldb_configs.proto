@@ -98,9 +98,16 @@ message ManagerConfig {
         int32 replicaLifespanMins = 1;
     }
 
+    message RecoveryTaskAssignmentServiceConfig {
+        int32 eventAggregationSecs = 1;
+        int32 scheduleInitialDelayMins = 2;
+        int32 schedulePeriodMins = 3;
+    }
+
     ServerConfig serverConfig = 1;
     ReplicaCreationServiceConfig replicaCreationServiceConfig = 2;
     ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 3;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 4;
 }
 
 message RecoveryConfig {

@@ -66,6 +66,11 @@
     },
     "replicaEvictionServiceConfig": {
       "replicaLifespanMins": 1440
+    },
+    "recoveryTaskAssignmentServiceConfig": {
+      "eventAggregationSecs": 10,
+      "scheduleInitialDelayMins": 1,
+      "schedulePeriodMins": 10
     }
   },
   "recoveryConfig": {

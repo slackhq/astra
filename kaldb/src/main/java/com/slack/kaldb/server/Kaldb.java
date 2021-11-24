@@ -192,7 +192,10 @@ public class Kaldb {
 
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
-              recoveryTaskMetadataStore, recoveryNodeMetadataStore, prometheusMeterRegistry);
+              recoveryTaskMetadataStore,
+              recoveryNodeMetadataStore,
+              managerConfig.getRecoveryTaskAssignmentServiceConfig(),
+              prometheusMeterRegistry);
       services.add(recoveryTaskAssignmentService);
     }
 

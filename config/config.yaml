@@ -63,6 +63,10 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
   replicaEvictionServiceConfig:
     replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_HOURS:-1440}
+  recoveryTaskAssignmentServiceConfig:
+    eventAggregationSecs: ${KALDB_MANAGER_RECOVERY_AGGREGATION_SECS:-10}
+    scheduleInitialDelayMins: ${KALDB_MANAGER_RECOVERY_INITIAL_DEPLAY_MINS:-0}
+    schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
 
 recoveryConfig:
   serverConfig:
