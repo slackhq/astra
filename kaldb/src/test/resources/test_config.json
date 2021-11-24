@@ -1,13 +1,17 @@
 {
-  "nodeRoles": ["INDEX", "QUERY", "CACHE", "MANAGER"],
-
+  "nodeRoles": [
+    "INDEX",
+    "QUERY",
+    "CACHE",
+    "MANAGER"
+  ],
   "kafkaConfig": {
     "kafkaTopic": "testTopic",
     "kafkaTopicPartition": "1",
     "kafkaBootStrapServers": "kafka.us-east-1.consul:9092",
-    "kafkaClientGroup":  "kaldb-test",
-    "enableKafkaAutoCommit":  "true",
-    "kafkaAutoCommitInterval":  "5000",
+    "kafkaClientGroup": "kaldb-test",
+    "enableKafkaAutoCommit": "true",
+    "kafkaAutoCommitInterval": "5000",
     "kafkaSessionTimeout": "30000"
   },
   "s3Config": {
@@ -39,7 +43,7 @@
   "metadataStoreConfig": {
     "zookeeperConfig": {
       "zkConnectString": "1.2.3.4:9092",
-      "zkPathPrefix":  "zkPrefix",
+      "zkPathPrefix": "zkPrefix",
       "zkSessionTimeoutMs": 1000,
       "zkConnectionTimeoutMs": 1500,
       "sleepBetweenRetriesMs": 500
@@ -68,6 +72,11 @@
       "replicaLifespanMins": 1440
     },
     "recoveryTaskAssignmentServiceConfig": {
+      "eventAggregationSecs": 10,
+      "scheduleInitialDelayMins": 1,
+      "schedulePeriodMins": 10
+    },
+    "cacheSlotAssignmentServiceConfig": {
       "eventAggregationSecs": 10,
       "scheduleInitialDelayMins": 1,
       "schedulePeriodMins": 10

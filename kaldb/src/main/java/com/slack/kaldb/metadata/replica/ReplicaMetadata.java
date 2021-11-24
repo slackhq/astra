@@ -19,6 +19,10 @@ public class ReplicaMetadata extends KaldbMetadata {
     this.createdTimeUtc = createdTimeUtc;
   }
 
+  public long getCreatedTimeUtc() {
+    return createdTimeUtc;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

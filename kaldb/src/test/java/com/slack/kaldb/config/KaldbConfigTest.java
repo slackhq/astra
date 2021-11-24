@@ -222,6 +222,12 @@ public class KaldbConfigTest {
     assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
+    final KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig
+        cacheSlotAssignmentServiceConfig = managerConfig.getCacheSlotAssignmentServiceConfig();
+    assertThat(cacheSlotAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(cacheSlotAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(cacheSlotAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -320,6 +326,12 @@ public class KaldbConfigTest {
     assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
+    final KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig
+        cacheSlotAssignmentServiceConfig = managerConfig.getCacheSlotAssignmentServiceConfig();
+    assertThat(cacheSlotAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(cacheSlotAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+    assertThat(cacheSlotAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -412,6 +424,12 @@ public class KaldbConfigTest {
     assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
+    final KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig
+        cacheSlotAssignmentServiceConfig = managerConfig.getCacheSlotAssignmentServiceConfig();
+    assertThat(cacheSlotAssignmentServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(cacheSlotAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(cacheSlotAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
@@ -493,6 +511,12 @@ public class KaldbConfigTest {
     assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isZero();
     assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+
+    final KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig
+        cacheSlotAssignmentServiceConfig = managerConfig.getCacheSlotAssignmentServiceConfig();
+    assertThat(cacheSlotAssignmentServiceConfig.getEventAggregationSecs()).isZero();
+    assertThat(cacheSlotAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
+    assertThat(cacheSlotAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isZero();

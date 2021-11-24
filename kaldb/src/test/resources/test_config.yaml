@@ -1,4 +1,4 @@
-nodeRoles: [INDEX,QUERY,CACHE,MANAGER]
+nodeRoles: [ INDEX,QUERY,CACHE,MANAGER ]
 
 indexerConfig:
   maxMessagesPerChunk: 100
@@ -60,6 +60,10 @@ managerConfig:
   replicaEvictionServiceConfig:
     replicaLifespanMins: 1440
   recoveryTaskAssignmentServiceConfig:
+    eventAggregationSecs: 10
+    scheduleInitialDelayMins: 1
+    schedulePeriodMins: 10
+  cacheSlotAssignmentServiceConfig:
     eventAggregationSecs: 10
     scheduleInitialDelayMins: 1
     schedulePeriodMins: 10

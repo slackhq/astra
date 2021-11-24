@@ -104,10 +104,17 @@ message ManagerConfig {
         int32 schedulePeriodMins = 3;
     }
 
+    message CacheSlotAssignmentServiceConfig {
+        int32 eventAggregationSecs = 1;
+        int32 scheduleInitialDelayMins = 2;
+        int32 schedulePeriodMins = 3;
+    }
+
     ServerConfig serverConfig = 1;
     ReplicaCreationServiceConfig replicaCreationServiceConfig = 2;
     ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 3;
     RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 4;
+    CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig = 5;
 }
 
 message RecoveryConfig {

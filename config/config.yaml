@@ -67,6 +67,10 @@ managerConfig:
     eventAggregationSecs: ${KALDB_MANAGER_RECOVERY_AGGREGATION_SECS:-10}
     scheduleInitialDelayMins: ${KALDB_MANAGER_RECOVERY_INITIAL_DEPLAY_MINS:-0}
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
+  cacheSlotAssignmentServiceConfig:
+    eventAggregationSecs: ${KALDB_MANAGER_CACHE_SLOT_AGGREGATION_SECS:-10}
+    scheduleInitialDelayMins: ${KALDB_MANAGER_CACHE_SLOT_INITIAL_DEPLAY_MINS:-0}
+    schedulePeriodMins: ${KALDB_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
 
 recoveryConfig:
   serverConfig:
