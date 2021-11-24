@@ -155,8 +155,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private void registerSearchMetadata(String snapshotName)
       throws ExecutionException, InterruptedException, TimeoutException {
+    // for "name" we pass url so that we can run two JVMs on the same host and not have znode path
+    // collision.
     this.searchMetadata =
-        new SearchMetadata(searchContext.hostname, snapshotName, searchContext.toUrl());
+        new SearchMetadata(searchContext.toName(), snapshotName, searchContext.toUrl());
     searchMetadataStore.create(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
