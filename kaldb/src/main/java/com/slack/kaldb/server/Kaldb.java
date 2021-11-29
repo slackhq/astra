@@ -37,7 +37,6 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -135,12 +134,12 @@ public class Kaldb {
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.QUERY, Collections.singletonList(searchMetadataStore)));
 
-      KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
-      KaldbDistributedQueryService.servers =
-          new ArrayList<>(KaldbConfig.get().getQueryConfig().getTmpIndexNodesList());
+      KaldbDistributedQueryService kaldbDistributedQueryService =
+          new KaldbDistributedQueryService(searchMetadataStore, prometheusMeterRegistry);
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");
+          new ArmeriaService(
+              serverPort, prometheusMeterRegistry, kaldbDistributedQueryService, "kalDbQuery");
       services.add(armeriaService);
     }
 
