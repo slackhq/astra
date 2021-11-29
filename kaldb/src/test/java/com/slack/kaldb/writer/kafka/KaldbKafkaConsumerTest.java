@@ -36,7 +36,7 @@ public class KaldbKafkaConsumerTest {
     public TestKaldbKafkaConsumer(String kafkaBootStrapServers, String testKafkaClientGroup) {
       super(
           TestKafkaServer.TEST_KAFKA_TOPIC,
-          String.valueOf(TestKafkaServer.TEST_KAFKA_PARTITION),
+          "0",
           kafkaBootStrapServers,
           testKafkaClientGroup,
           "true",

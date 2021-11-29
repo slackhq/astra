@@ -27,42 +27,50 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestKafkaServer {
+  private static final Logger LOG = LoggerFactory.getLogger(TestKafkaServer.class);
+
   public static final String TEST_KAFKA_TOPIC = "test-topic";
-  // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
-  public static final int TEST_KAFKA_PARTITION = 0;
 
   // Create messages, format them into murron protobufs, write them to kafka
-  public static void produceMessagesToKafka(
-      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionNumber)
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+
+    int indexedCount = 0;
     // Insert messages into Kafka.
     try (KafkaProducer<String, byte[]> producer =
         broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
-      int i = 0;
       for (LogMessage msg : messages) {
 
+        // Kafka producer creates only a partition 0 on first message. So, set the partition to 0
+        // always.
         Future<RecordMetadata> result =
             producer.send(
                 new ProducerRecord<>(
                     kafkaTopic,
-                    partitionNumber,
-                    String.valueOf(i),
-                    fromLogMessage(msg, i).toByteArray()));
+                    0,
+                    String.valueOf(indexedCount),
+                    fromLogMessage(msg, indexedCount).toByteArray()));
 
         RecordMetadata metadata = result.get(500L, TimeUnit.MILLISECONDS);
         assertThat(metadata).isNotNull();
         assertThat(metadata.topic()).isEqualTo(kafkaTopic);
-        i++;
+        indexedCount++;
       }
     }
+    LOG.info(
+        "Total messages produced={} to topic={} and partition={}", indexedCount, kafkaTopic, 0);
+    return indexedCount;
   }
 
   public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, TEST_KAFKA_PARTITION);
+    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC);
   }
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)
