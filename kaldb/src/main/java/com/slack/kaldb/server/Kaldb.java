@@ -182,18 +182,14 @@ public class Kaldb {
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
-              replicaMetadataStore,
-              snapshotMetadataStore,
-              managerConfig.getReplicaCreationServiceConfig(),
-              managerConfig.getReplicaEvictionServiceConfig(),
-              prometheusMeterRegistry);
+              replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
 
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
               recoveryTaskMetadataStore,
               recoveryNodeMetadataStore,
-              managerConfig.getRecoveryTaskAssignmentServiceConfig(),
+              managerConfig,
               prometheusMeterRegistry);
       services.add(recoveryTaskAssignmentService);
     }

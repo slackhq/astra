@@ -1,5 +1,7 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Objects;
 
@@ -11,12 +13,25 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
   public final String partitionId;
   public final long startOffset;
   public final long endOffset;
+  public final long createdTimeUtc;
 
-  public RecoveryTaskMetadata(String name, String partitionId, long startOffset, long endOffset) {
+  public RecoveryTaskMetadata(
+      String name, String partitionId, long startOffset, long endOffset, long createdTimeUtc) {
     super(name);
+
+    checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
+    checkState(startOffset >= 0, "startOffset must greater than 0");
+    checkState(endOffset > startOffset, "endOffset must be greater than the startOffset");
+    checkState(createdTimeUtc > 0, "createdTimeUtc must be greater than 0");
+
     this.partitionId = partitionId;
     this.startOffset = startOffset;
     this.endOffset = endOffset;
+    this.createdTimeUtc = createdTimeUtc;
+  }
+
+  public long getCreatedTimeUtc() {
+    return createdTimeUtc;
   }
 
   @Override
@@ -27,12 +42,13 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
     RecoveryTaskMetadata that = (RecoveryTaskMetadata) o;
     return startOffset == that.startOffset
         && endOffset == that.endOffset
+        && createdTimeUtc == that.createdTimeUtc
         && partitionId.equals(that.partitionId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), partitionId, startOffset, endOffset);
+    return Objects.hash(super.hashCode(), partitionId, startOffset, endOffset, createdTimeUtc);
   }
 
   @Override
@@ -48,6 +64,8 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
         + startOffset
         + ", endOffset="
         + endOffset
+        + ", createdTimeUtc="
+        + createdTimeUtc
         + '}';
   }
 }

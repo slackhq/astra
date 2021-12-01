@@ -94,9 +94,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -105,13 +103,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -132,9 +134,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(0)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -143,13 +143,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -171,9 +175,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(4)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -182,13 +184,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -220,15 +226,21 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(10)
             .setReplicasPerSnapshot(replicasToCreate)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
             .setReplicaLifespanMins(1440)
+            .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(10)
+            .setScheduleInitialDelayMins(0)
             .build();
 
     List<SnapshotMetadata> snapshotList = new ArrayList<>();
@@ -276,11 +288,7 @@ public class ReplicaCreationServiceTest {
 
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     int replicasCreated = replicaCreationService.createReplicasForUnassignedSnapshots();
     int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
@@ -312,9 +320,7 @@ public class ReplicaCreationServiceTest {
   public void shouldCreateReplicaWhenSnapshotAddedAfterRunning() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -323,13 +329,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -359,9 +369,7 @@ public class ReplicaCreationServiceTest {
   public void shouldStillCreateReplicaIfFirstAttemptFails() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -370,13 +378,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.futuresListTimeoutSecs = 2;
     replicaCreationService.startAsync();
     replicaCreationService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -455,9 +467,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(10)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -466,13 +476,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(10)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
     doCallRealMethod()
         .doReturn(Futures.immediateFailedFuture(new Exception()))
@@ -498,9 +512,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(10)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -509,13 +521,17 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     ReplicaCreationService replicaCreationService =
         new ReplicaCreationService(
-            replicaMetadataStore,
-            snapshotMetadataStore,
-            replicaCreationServiceConfig,
-            replicaEvictionServiceConfig,
-            meterRegistry);
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
     replicaCreationService.futuresListTimeoutSecs = 2;
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -547,9 +563,7 @@ public class ReplicaCreationServiceTest {
   public void shouldThrowOnInvalidAggregationSecs() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(0)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -558,21 +572,23 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(0)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     new ReplicaCreationService(
-        replicaMetadataStore,
-        snapshotMetadataStore,
-        replicaCreationServiceConfig,
-        replicaEvictionServiceConfig,
-        meterRegistry);
+        replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void shouldThrowOnInvalidLifespanMins() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(2)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -581,21 +597,23 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(0)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     new ReplicaCreationService(
-        replicaMetadataStore,
-        snapshotMetadataStore,
-        replicaCreationServiceConfig,
-        replicaEvictionServiceConfig,
-        meterRegistry);
+        replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void shouldThrowOnInvalidReplicasPerSnapshot() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setEventAggregationSecs(2)
             .setReplicasPerSnapshot(-1)
-            .setScheduleInitialDelayMins(0)
             .setSchedulePeriodMins(10)
             .build();
 
@@ -604,11 +622,15 @@ public class ReplicaCreationServiceTest {
             .setReplicaLifespanMins(1440)
             .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
     new ReplicaCreationService(
-        replicaMetadataStore,
-        snapshotMetadataStore,
-        replicaCreationServiceConfig,
-        replicaEvictionServiceConfig,
-        meterRegistry);
+        replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
   }
 }

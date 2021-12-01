@@ -53,19 +53,17 @@ cacheConfig:
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
 
 managerConfig:
+  eventAggregationSecs: ${KALDB_MANAGER_AGGREGATION_SECS:-10}
+  scheduleInitialDelayMins: ${KALDB_MANAGER_INITIAL_DELAY_MINS:-1}
   serverConfig:
     serverPort: ${KALDB_MANAGER_SERVER_PORT:-8083}
     serverAddress: ${KALDB_MANAGER_SERVER_ADDRESS:-localhost}
   replicaCreationServiceConfig:
     replicasPerSnapshot: ${KALDB_MANAGER_REPLICAS_PER_SNAPSHOT:-1}
-    eventAggregationSecs: ${KALDB_MANAGER_REPLICAS_AGGREGATION_SECS:-10}
-    scheduleInitialDelayMins: ${KALDB_MANAGER_REPLICAS_INITIAL_DELAY_MINS:-0}
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
   replicaEvictionServiceConfig:
-    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_HOURS:-1440}
+    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
   recoveryTaskAssignmentServiceConfig:
-    eventAggregationSecs: ${KALDB_MANAGER_RECOVERY_AGGREGATION_SECS:-10}
-    scheduleInitialDelayMins: ${KALDB_MANAGER_RECOVERY_INITIAL_DEPLAY_MINS:-0}
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
 
 recoveryConfig:

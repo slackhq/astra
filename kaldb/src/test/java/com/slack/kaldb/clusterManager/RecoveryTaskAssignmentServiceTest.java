@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -74,20 +75,42 @@ public class RecoveryTaskAssignmentServiceTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void shouldCheckInvalidConfigs() {
+  public void shouldCheckInvalidEventAggregation() {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(-1)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(1)
+            .setEventAggregationSecs(-1)
+            .build();
+
     new RecoveryTaskAssignmentService(
-        recoveryTaskMetadataStore,
-        recoveryNodeMetadataStore,
-        recoveryTaskAssignmentServiceConfig,
-        meterRegistry);
+        recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void shouldCheckInvalidPeriod() {
+    KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
+                .setSchedulePeriodMins(-1)
+                .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(1)
+            .setEventAggregationSecs(1)
+            .build();
+
+    new RecoveryTaskAssignmentService(
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry)
+        .scheduler();
   }
 
   @Test
@@ -95,17 +118,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
@@ -122,6 +147,10 @@ public class RecoveryTaskAssignmentServiceTest {
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -132,21 +161,24 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -164,7 +196,100 @@ public class RecoveryTaskAssignmentServiceTest {
     Assertions.assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(3);
+    Assertions.assertThat(
+            MetricsUtil.getTimerCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void shouldHandleMixOfNodeStates() {
+    KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
+                .setSchedulePeriodMins(10)
+                .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
+    RecoveryTaskAssignmentService recoveryTaskAssignmentService =
+        new RecoveryTaskAssignmentService(
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
+
+    for (int i = 0; i < 3; i++) {
+      recoveryTaskMetadataStore.create(
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+    }
+
+    recoveryNodeMetadataStore.create(
+        new RecoveryNodeMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
+            "",
+            Instant.now().toEpochMilli()));
+
+    List<RecoveryNodeMetadata> ineligibleRecoveryNodes = new ArrayList<>();
+    RecoveryNodeMetadata ineligibleAssigned =
+        new RecoveryNodeMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+            "",
+            Instant.now().toEpochMilli());
+    ineligibleRecoveryNodes.add(ineligibleAssigned);
+    recoveryNodeMetadataStore.create(ineligibleAssigned);
+
+    RecoveryNodeMetadata ineligibleRecovering =
+        new RecoveryNodeMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
+            "",
+            Instant.now().toEpochMilli());
+    ineligibleRecoveryNodes.add(ineligibleRecovering);
+    recoveryNodeMetadataStore.create(ineligibleRecovering);
+
+    await().until(() -> recoveryNodeMetadataStore.getCached().size() == 3);
+    await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
+
+    int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
+
+    assertThat(assignments).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(3);
+    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(3);
+    assertTrue(recoveryNodeMetadataStore.listSync().containsAll(ineligibleRecoveryNodes));
+    assertThat(
+            recoveryNodeMetadataStore
+                .listSync()
+                .stream()
+                .filter(
+                    recoveryNodeMetadata ->
+                        recoveryNodeMetadata.recoveryNodeState.equals(
+                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
+                .count())
+        .isEqualTo(2);
+
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+        .isEqualTo(1);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(2);
     Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
@@ -176,17 +301,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 3; i++) {
       recoveryNodeMetadataStore.create(
@@ -214,6 +341,81 @@ public class RecoveryTaskAssignmentServiceTest {
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
+            MetricsUtil.getTimerCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void shouldAssignOldestTasksFirst() {
+    KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
+        recoveryTaskAssignmentServiceConfig =
+            KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
+                .setSchedulePeriodMins(10)
+                .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
+    RecoveryTaskAssignmentService recoveryTaskAssignmentService =
+        new RecoveryTaskAssignmentService(
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
+
+    RecoveryTaskMetadata newTask =
+        new RecoveryTaskMetadata(
+            UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli());
+    recoveryTaskMetadataStore.create(newTask);
+
+    RecoveryTaskMetadata oldTask =
+        new RecoveryTaskMetadata(
+            UUID.randomUUID().toString(),
+            "1",
+            0,
+            1,
+            Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+    recoveryTaskMetadataStore.create(oldTask);
+
+    recoveryNodeMetadataStore.create(
+        new RecoveryNodeMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
+            "",
+            Instant.now().toEpochMilli()));
+
+    await().until(() -> recoveryNodeMetadataStore.getCached().size() == 1);
+    await().until(() -> recoveryTaskMetadataStore.getCached().size() == 2);
+
+    int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
+
+    assertThat(assignments).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryTaskName)
+        .isEqualTo(oldTask.name);
+    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
+        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED);
+
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+        .isEqualTo(1);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(1);
+    Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -224,17 +426,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 3; i++) {
       recoveryNodeMetadataStore.create(
@@ -247,7 +451,8 @@ public class RecoveryTaskAssignmentServiceTest {
 
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -310,6 +515,10 @@ public class RecoveryTaskAssignmentServiceTest {
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(0);
+    Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(2);
@@ -320,17 +529,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
     recoveryTaskAssignmentService.futuresListTimeoutSecs = 2;
 
     List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
@@ -347,7 +558,8 @@ public class RecoveryTaskAssignmentServiceTest {
 
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -378,6 +590,10 @@ public class RecoveryTaskAssignmentServiceTest {
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
@@ -412,17 +628,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(5)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(5)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
     List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
@@ -438,7 +656,8 @@ public class RecoveryTaskAssignmentServiceTest {
 
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
 
     doCallRealMethod()
@@ -460,6 +679,10 @@ public class RecoveryTaskAssignmentServiceTest {
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
+    Assertions.assertThat(
+            MetricsUtil.getCount(
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
+        .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
@@ -492,17 +715,19 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(2)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(1)
+            .setEventAggregationSecs(2)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
     recoveryTaskAssignmentService.startAsync();
     recoveryTaskAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -531,7 +756,8 @@ public class RecoveryTaskAssignmentServiceTest {
 
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
@@ -616,23 +842,26 @@ public class RecoveryTaskAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                .setEventAggregationSecs(2)
-                .setScheduleInitialDelayMins(1)
                 .setSchedulePeriodMins(10)
                 .build();
 
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setRecoveryTaskAssignmentServiceConfig(recoveryTaskAssignmentServiceConfig)
+            .setScheduleInitialDelayMins(2)
+            .setEventAggregationSecs(1)
+            .build();
+
     RecoveryTaskAssignmentService recoveryTaskAssignmentService =
         new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore,
-            recoveryNodeMetadataStore,
-            recoveryTaskAssignmentServiceConfig,
-            meterRegistry);
+            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
     recoveryTaskAssignmentService.startAsync();
     recoveryTaskAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
-          new RecoveryTaskMetadata(UUID.randomUUID().toString(), "1", 0, 1));
+          new RecoveryTaskMetadata(
+              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
     }
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
 

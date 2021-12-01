@@ -203,12 +203,12 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(managerConfig.getScheduleInitialDelayMins()).isEqualTo(1);
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
-    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
@@ -218,8 +218,6 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             managerConfig.getRecoveryTaskAssignmentServiceConfig();
-    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
@@ -301,12 +299,12 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getEventAggregationSecs()).isEqualTo(10);
+    assertThat(managerConfig.getScheduleInitialDelayMins()).isEqualTo(1);
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
-    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
@@ -316,8 +314,6 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             managerConfig.getRecoveryTaskAssignmentServiceConfig();
-    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isEqualTo(10);
-    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isEqualTo(1);
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
@@ -393,12 +389,12 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getEventAggregationSecs()).isZero();
+    assertThat(managerConfig.getScheduleInitialDelayMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
-    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
@@ -408,8 +404,6 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             managerConfig.getRecoveryTaskAssignmentServiceConfig();
-    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
@@ -475,12 +469,12 @@ public class KaldbConfigTest {
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
+    assertThat(managerConfig.getEventAggregationSecs()).isZero();
+    assertThat(managerConfig.getScheduleInitialDelayMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
-    assertThat(replicaCreationServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(replicaCreationServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
@@ -490,8 +484,6 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
             managerConfig.getRecoveryTaskAssignmentServiceConfig();
-    assertThat(recoveryTaskAssignmentServiceConfig.getEventAggregationSecs()).isZero();
-    assertThat(recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins()).isZero();
     assertThat(recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();

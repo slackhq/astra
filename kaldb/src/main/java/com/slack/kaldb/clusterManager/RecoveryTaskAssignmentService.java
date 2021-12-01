@@ -5,6 +5,7 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -20,8 +21,8 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -44,17 +45,19 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
   private final RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private final RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private final MeterRegistry meterRegistry;
-  private final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
-      recoveryTaskAssignmentServiceConfig;
+  private final KaldbConfigs.ManagerConfig managerConfig;
 
   @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
   public static final String RECOVERY_TASKS_CREATED = "recovery_tasks_created";
   public static final String RECOVERY_TASKS_FAILED = "recovery_tasks_failed";
+  public static final String RECOVERY_TASKS_INSUFFICIENT_CAPACITY =
+      "recovery_tasks_insufficient_capacity";
   public static final String RECOVERY_TASK_ASSIGNMENT_TIMER = "recovery_task_assignment_timer";
 
   protected final Counter recoveryTasksCreated;
   protected final Counter recoveryTasksFailed;
+  protected final Counter recoveryTasksInsufficientCapacity;
   private final Timer recoveryAssignmentTimer;
 
   private final ScheduledExecutorService executorService =
@@ -64,21 +67,19 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
   public RecoveryTaskAssignmentService(
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       RecoveryNodeMetadataStore recoveryNodeMetadataStore,
-      KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
-          recoveryTaskAssignmentServiceConfig,
+      KaldbConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.recoveryNodeMetadataStore = recoveryNodeMetadataStore;
-    this.recoveryTaskAssignmentServiceConfig = recoveryTaskAssignmentServiceConfig;
+    this.managerConfig = managerConfig;
     this.meterRegistry = meterRegistry;
 
-    checkArgument(
-        recoveryTaskAssignmentServiceConfig.getEventAggregationSecs() > 0,
-        "eventAggregationSecs must be > 0");
+    checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
     recoveryTasksCreated = meterRegistry.counter(RECOVERY_TASKS_CREATED);
     recoveryTasksFailed = meterRegistry.counter(RECOVERY_TASKS_FAILED);
+    recoveryTasksInsufficientCapacity = meterRegistry.counter(RECOVERY_TASKS_INSUFFICIENT_CAPACITY);
     recoveryAssignmentTimer = meterRegistry.timer(RECOVERY_TASK_ASSIGNMENT_TIMER);
   }
 
@@ -88,7 +89,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
       pendingTask =
           executorService.schedule(
               this::assignRecoveryTasksToNodes,
-              recoveryTaskAssignmentServiceConfig.getEventAggregationSecs(),
+              managerConfig.getEventAggregationSecs(),
               TimeUnit.SECONDS);
     } else {
       LOG.debug(
@@ -113,16 +114,15 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
   @Override
   protected Scheduler scheduler() {
     return Scheduler.newFixedRateSchedule(
-        recoveryTaskAssignmentServiceConfig.getScheduleInitialDelayMins(),
-        recoveryTaskAssignmentServiceConfig.getSchedulePeriodMins(),
+        managerConfig.getScheduleInitialDelayMins(),
+        managerConfig.getRecoveryTaskAssignmentServiceConfig().getSchedulePeriodMins(),
         TimeUnit.MINUTES);
   }
 
   /**
-   * Assigns the first recovery task needing assignment to the first available recovery node. No
-   * preference is given to specific recovery tasks, nor to executor nodes. This may result in
-   * over/under utilization of specific recovery nodes as well as indeterminate order of recovery
-   * task fulfillment.
+   * Assigns recovery tasks needing assignment to the first available recovery node, starting with
+   * the oldest created recovery task. No preference is given specific executor nodes, which may
+   * result in over/under utilization of specific recovery nodes.
    *
    * <p>If this method fails to successfully assign all the required tasks, the following iteration
    * of this method would attempt to re-assign these until there are no more available tasks.
@@ -145,9 +145,15 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
             .getCached()
             .stream()
             .filter(recoveryTask -> !recoveryTasksAlreadyAssigned.contains(recoveryTask.name))
+            // We are currently starting with the oldest tasks first in an effort to reduce the
+            // possibility of data loss, but this is likely opposite of what most users will
+            // want when running KalDb as a logging solution. If newest recovery tasks were
+            // preferred, under heavy lag you would have higher-value logs available sooner,
+            // at the increased chance of losing old logs.
+            .sorted(Comparator.comparingLong(RecoveryTaskMetadata::getCreatedTimeUtc))
             .collect(Collectors.toList());
 
-    ConcurrentLinkedDeque<RecoveryNodeMetadata> availableRecoveryNodes =
+    List<RecoveryNodeMetadata> availableRecoveryNodes =
         recoveryNodeMetadataStore
             .getCached()
             .stream()
@@ -155,36 +161,42 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                 (recoveryNodeMetadata ->
                     recoveryNodeMetadata.recoveryNodeState.equals(
                         Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)))
-            .collect(Collectors.toCollection(ConcurrentLinkedDeque::new));
+            .collect(Collectors.toList());
+
+    if (recoveryTasksThatNeedAssignment.size() > availableRecoveryNodes.size()) {
+      LOG.warn(
+          "Insufficient recovery nodes to assign task, wanted {} nodes but had {} nodes",
+          recoveryTasksThatNeedAssignment.size(),
+          availableRecoveryNodes.size());
+      recoveryTasksInsufficientCapacity.increment(
+          recoveryTasksThatNeedAssignment.size() - availableRecoveryNodes.size());
+    } else if (recoveryTasksThatNeedAssignment.size() == 0) {
+      LOG.info("No recovery tasks found requiring assignment");
+      assignmentTimer.stop(recoveryAssignmentTimer);
+      return 0;
+    }
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> recoveryTaskAssignments =
-        recoveryTasksThatNeedAssignment
-            .stream()
-            .map(
-                (recoveryTaskMetadata -> {
-                  if (!availableRecoveryNodes.isEmpty()) {
-                    RecoveryNodeMetadata recoveryNodeAssigned =
-                        new RecoveryNodeMetadata(
-                            availableRecoveryNodes.pop().name,
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-                            recoveryTaskMetadata.name,
-                            Instant.now().toEpochMilli());
+        Streams.zip(
+                recoveryTasksThatNeedAssignment.stream(),
+                availableRecoveryNodes.stream(),
+                (recoveryTask, recoveryNode) -> {
+                  RecoveryNodeMetadata recoveryNodeAssigned =
+                      new RecoveryNodeMetadata(
+                          recoveryNode.name,
+                          Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+                          recoveryTask.name,
+                          Instant.now().toEpochMilli());
 
-                    ListenableFuture<?> future =
-                        recoveryNodeMetadataStore.update(recoveryNodeAssigned);
-                    addCallback(
-                        future,
-                        successCountingCallback(successCounter),
-                        MoreExecutors.directExecutor());
-                    return future;
-                  } else {
-                    LOG.warn(
-                        "No available recovery nodes to assign task, will try again later - {}",
-                        recoveryTaskMetadata.name);
-                    return Futures.immediateCancelledFuture();
-                  }
-                }))
+                  ListenableFuture<?> future =
+                      recoveryNodeMetadataStore.update(recoveryNodeAssigned);
+                  addCallback(
+                      future,
+                      successCountingCallback(successCounter),
+                      MoreExecutors.directExecutor());
+                  return future;
+                })
             .collect(Collectors.toList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(recoveryTaskAssignments);

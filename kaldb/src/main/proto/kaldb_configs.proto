@@ -88,8 +88,6 @@ message CacheConfig {
 message ManagerConfig {
     message ReplicaCreationServiceConfig {
         int32 replicasPerSnapshot = 1;
-        int32 eventAggregationSecs = 2;
-        int32 scheduleInitialDelayMins = 3;
         int32 schedulePeriodMins = 4;
     }
 
@@ -98,15 +96,16 @@ message ManagerConfig {
     }
 
     message RecoveryTaskAssignmentServiceConfig {
-        int32 eventAggregationSecs = 1;
-        int32 scheduleInitialDelayMins = 2;
-        int32 schedulePeriodMins = 3;
+        int32 schedulePeriodMins = 1;
     }
 
-    ServerConfig serverConfig = 1;
-    ReplicaCreationServiceConfig replicaCreationServiceConfig = 2;
-    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 3;
-    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 4;
+    int32 eventAggregationSecs = 1;
+    int32 scheduleInitialDelayMins = 2;
+    ServerConfig serverConfig = 3;
+
+    ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
+    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 5;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 6;
 }
 
 message RecoveryConfig {
