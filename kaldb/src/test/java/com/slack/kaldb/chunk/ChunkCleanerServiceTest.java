@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
@@ -54,8 +53,6 @@ public class ChunkCleanerServiceTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
-    chunkManagerUtil.chunkManager.startAsync();
-    chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @After

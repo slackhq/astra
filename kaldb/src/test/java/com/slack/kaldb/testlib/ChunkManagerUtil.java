@@ -46,7 +46,7 @@ public class ChunkManagerUtil<T> {
   public static final String S3_TEST_BUCKET = "test-kaldb-logs";
   public static final String ZK_PATH_PREFIX = "testZK";
   public final IndexingChunkManager<T> chunkManager;
-  private final TestingServer zkServer;
+  private final TestingServer localZkServer;
   private final MetadataStore metadataStore;
 
   public ChunkManagerUtil(
@@ -58,21 +58,17 @@ public class ChunkManagerUtil<T> {
     this(
         s3MockRule,
         meterRegistry,
-        new TestingServer(),
         maxBytesPerChunk,
         maxMessagesPerChunk,
-        new SearchContext(TEST_HOST, TEST_PORT),
-        null);
+        new SearchContext("localhost", TEST_PORT));
   }
 
   public ChunkManagerUtil(
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
-      TestingServer zkServer,
       long maxBytesPerChunk,
       long maxMessagesPerChunk,
-      SearchContext searchContext,
-      MetadataStore metadataStore)
+      SearchContext searchContext)
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -82,29 +78,23 @@ public class ChunkManagerUtil<T> {
 
     S3BlobFs s3BlobFs = new S3BlobFs();
     s3BlobFs.init(s3Client);
-    this.zkServer = zkServer;
-    // noop if zk has already been started by the caller
-    this.zkServer.start();
 
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
 
-    zkServer = new TestingServer();
-    zkServer.start();
+    localZkServer = new TestingServer();
+    localZkServer.start();
 
-    if (metadataStore == null) {
-      KaldbConfigs.ZookeeperConfig zkConfig =
-          KaldbConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(zkServer.getConnectString())
-              .setZkPathPrefix(ZK_PATH_PREFIX)
-              .setZkSessionTimeoutMs(15000)
-              .setZkConnectionTimeoutMs(15000)
-              .setSleepBetweenRetriesMs(1000)
-              .build();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(localZkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(15000)
+            .setZkConnectionTimeoutMs(15000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
 
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    }
-    this.metadataStore = metadataStore;
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     chunkManager =
         new IndexingChunkManager<>(
@@ -118,6 +108,8 @@ public class ChunkManagerUtil<T> {
             10000,
             metadataStore,
             searchContext);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   public void close() throws IOException, TimeoutException {
@@ -125,7 +117,7 @@ public class ChunkManagerUtil<T> {
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3Client.close();
     metadataStore.close();
-    zkServer.close();
+    localZkServer.close();
     FileUtils.deleteDirectory(tempFolder);
   }
 

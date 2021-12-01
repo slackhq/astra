@@ -70,8 +70,6 @@ public class KaldbIndexerTest {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
-    chunkManagerUtil.chunkManager.startAsync();
-    chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     kafkaServer = new TestKafkaServer();
   }

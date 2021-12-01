@@ -61,6 +61,7 @@ message TracingConfig {
 
 message QueryServiceConfig {
     ServerConfig serverConfig = 1;
+    repeated string tmpIndexNodes = 2;
 }
 
 message IndexerConfig {

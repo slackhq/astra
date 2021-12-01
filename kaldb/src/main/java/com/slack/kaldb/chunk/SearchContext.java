@@ -9,10 +9,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
  * Currently, it contains hostname and port.
  */
 public class SearchContext {
-
-  // If we want to make this configurable in the future expose this within the server config
-  public static final String GRPC_PROTOCOL = "gproto+http://";
-
   public static SearchContext fromConfig(KaldbConfigs.ServerConfig serverConfig) {
     return new SearchContext(serverConfig.getServerAddress(), serverConfig.getServerPort());
   }
@@ -28,12 +24,7 @@ public class SearchContext {
     this.port = port;
   }
 
-  // path is derived from name and can't have // part of the protocol
-  public String toName() {
-    return hostname + ":" + port;
-  }
-
   public String toUrl() {
-    return GRPC_PROTOCOL + hostname + ":" + port;
+    return hostname + ":" + port;
   }
 }

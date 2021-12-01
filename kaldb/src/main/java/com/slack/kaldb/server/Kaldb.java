@@ -128,12 +128,12 @@ public class Kaldb {
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.QUERY, Collections.singletonList(searchMetadataStore)));
 
-      KaldbDistributedQueryService kaldbDistributedQueryService =
-          new KaldbDistributedQueryService(searchMetadataStore, prometheusMeterRegistry);
+      KaldbDistributedQueryService searcher = new KaldbDistributedQueryService();
+      KaldbDistributedQueryService.servers =
+          new ArrayList<>(KaldbConfig.get().getQueryConfig().getTmpIndexNodesList());
       final int serverPort = KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService(
-              serverPort, prometheusMeterRegistry, kaldbDistributedQueryService, "kalDbQuery");
+          new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbQuery");
       services.add(armeriaService);
     }
 
