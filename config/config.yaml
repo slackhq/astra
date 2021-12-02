@@ -32,7 +32,6 @@ tracingConfig:
   zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-}
 
 queryConfig:
-  tmpIndexNodes:  [${KALDB_INDEX_NODES:-gproto+http://localhost:8080}]
   serverConfig:
     serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}
     serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
