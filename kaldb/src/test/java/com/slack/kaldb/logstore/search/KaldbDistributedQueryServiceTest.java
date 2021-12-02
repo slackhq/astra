@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -41,13 +42,18 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryServiceTest {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryServiceTest.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final SimpleMeterRegistry zkMetricsRegistry = new SimpleMeterRegistry();
@@ -67,12 +73,14 @@ public class KaldbDistributedQueryServiceTest {
   private static final String TEST_KAFKA_TOPIC_2 = "test-topic-2";
   private static final String TEST_KAFKA_TOPIC_3 = "test-topic-3";
 
-  // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
-  private static final int TEST_KAFKA_PARTITION_1 = 0;
-  private static final int TEST_KAFKA_PARTITION_2 = 0;
-  private static final int TEST_KAFKA_PARTITION_3 = 0;
+  // we need 3 consumer groups to assert each indexer attaches to it's own consumer group
+  // the reason being we need to assert if the consumer group is connected before sending messages
+  // to kafka
+  // else we can end up with missing messages and flaky tests
+  private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
+  private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
+  private static final String KALDB_TEST_CLIENT_3 = "kaldb-test-client3";
 
-  private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static TestKafkaServer kafkaServer;
 
@@ -113,8 +121,8 @@ public class KaldbDistributedQueryServiceTest {
             "localhost:" + broker.getKafkaPort().get(),
             indexServer1Port,
             TEST_KAFKA_TOPIC_1,
-            TEST_KAFKA_PARTITION_1,
-            KALDB_TEST_CLIENT,
+            0,
+            KALDB_TEST_CLIENT_1,
             TEST_S3_BUCKET,
             indexServer1Port,
             "",
@@ -136,6 +144,24 @@ public class KaldbDistributedQueryServiceTest {
     indexingServiceManager1 =
         newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
 
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    int indexed1Count = produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1);
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry1);
+                LOG.debug("Registry1 current_count={} total_count={}", count, indexed1Count);
+                return count == indexed1Count;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
+
     int indexServer2Port = 10001;
     SearchContext searchContext2 = new SearchContext("127.0.0.1", indexServer2Port);
     KaldbConfigs.KaldbConfig kaldbConfig2 =
@@ -143,8 +169,8 @@ public class KaldbDistributedQueryServiceTest {
             "localhost:" + broker.getKafkaPort().get(),
             indexServer2Port,
             TEST_KAFKA_TOPIC_2,
-            TEST_KAFKA_PARTITION_2,
-            KALDB_TEST_CLIENT,
+            0,
+            KALDB_TEST_CLIENT_2,
             TEST_S3_BUCKET,
             indexServer2Port,
             "",
@@ -164,29 +190,19 @@ public class KaldbDistributedQueryServiceTest {
     indexingServiceManager2 =
         newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
 
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1, TEST_KAFKA_PARTITION_1);
-    await()
-        .until(
-            () -> {
-              try {
-                return getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry1) == 100;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime2 =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2, TEST_KAFKA_PARTITION_2);
+    int indexed2Count = produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2);
     await()
         .until(
             () -> {
               try {
-                return getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2) == 100;
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2);
+                LOG.debug("Registry2 current_count={} total_count={}", count, indexed2Count);
+                return count == indexed2Count;
               } catch (MeterNotFoundException e) {
                 return false;
               }
@@ -220,7 +236,8 @@ public class KaldbDistributedQueryServiceTest {
       ChunkManagerUtil<LogMessage> chunkManagerUtil,
       KaldbConfigs.KaldbConfig kaldbConfig,
       SimpleMeterRegistry meterRegistry,
-      int waitForSearchMs) {
+      int waitForSearchMs)
+      throws TimeoutException {
 
     HashSet<Service> services = new HashSet<>();
 
@@ -263,7 +280,9 @@ public class KaldbDistributedQueryServiceTest {
     }
     services.add(new TestingArmeriaServer(server, meterRegistry));
     ServiceManager serviceManager = new ServiceManager(services);
-    return serviceManager.startAsync();
+    // make sure the services are up and running
+    serviceManager.startAsync().awaitHealthy(DEFAULT_START_STOP_DURATION);
+    return serviceManager;
   }
 
   @AfterClass
@@ -325,8 +344,8 @@ public class KaldbDistributedQueryServiceTest {
             "localhost:" + broker.getKafkaPort().get(),
             indexServer3Port,
             TEST_KAFKA_TOPIC_3,
-            TEST_KAFKA_PARTITION_3,
-            KALDB_TEST_CLIENT,
+            0,
+            KALDB_TEST_CLIENT_3,
             TEST_S3_BUCKET,
             indexServer3Port,
             "",
@@ -348,15 +367,19 @@ public class KaldbDistributedQueryServiceTest {
     indexingServiceManager3 =
         newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
 
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
+
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime3 =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    produceMessagesToKafka(broker, startTime3, TEST_KAFKA_TOPIC_3, TEST_KAFKA_PARTITION_3);
+    int indexed3Count = produceMessagesToKafka(broker, startTime3, TEST_KAFKA_TOPIC_3);
     await()
         .until(
             () -> {
               try {
-                return getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry3) == 100;
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry3);
+                LOG.debug("Registry3 current_count={} total_count={}", count, indexed3Count);
+                return count == indexed3Count;
               } catch (MeterNotFoundException e) {
                 return false;
               }

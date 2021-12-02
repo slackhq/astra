@@ -85,8 +85,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           server -> {
             if (!stubs.containsKey(server)) {
               LOG.debug("SearchMetadata listener event. Adding server={}", server);
-              addedStubs.getAndIncrement();
               stubs.put(server, getKaldbServiceGrpcClient(server));
+              addedStubs.getAndIncrement();
             }
           });
 
@@ -97,8 +97,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               server -> {
                 LOG.debug("SearchMetadata listener event. Removing server={}", server);
                 if (!latestSearchServers.contains(server)) {
-                  removedStubs.getAndIncrement();
                   stubs.remove(server);
+                  removedStubs.getAndIncrement();
                 }
               });
 
@@ -116,8 +116,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
     return Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
-        .withCompression("gzip")
-        .withInterceptors(GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor());
+        .withCompression("gzip");
   }
 
   private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
@@ -135,7 +134,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         // per request and not as part of the config
         queryServers.add(
             ListenableFuturesExtra.toCompletableFuture(
-                    stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS).search(request))
+                    stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                        .withInterceptors(
+                            GrpcTracing.newBuilder(Tracing.current())
+                                .build()
+                                .newClientInterceptor())
+                        .search(request))
                 .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
       }
 

@@ -102,19 +102,20 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
     KafkaConsumer<String, byte[]> consumer = getConsumer();
 
     ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
-    LOG.debug("Fetched records." + records.count());
-
     int recordCount = records.count();
-    recordsReceivedCounter.increment(recordCount);
-    int recordFailures = 0;
-    for (ConsumerRecord<String, byte[]> record : records) {
-      if (!messageWriter.insertRecord(record)) recordFailures++;
+    LOG.debug("Fetched records={}", recordCount);
+    if (recordCount > 0) {
+      recordsReceivedCounter.increment(recordCount);
+      int recordFailures = 0;
+      for (ConsumerRecord<String, byte[]> record : records) {
+        if (!messageWriter.insertRecord(record)) recordFailures++;
+      }
+      recordsFailedCounter.increment(recordFailures);
+      LOG.debug(
+          "Processed {} records. Success: {}, Failed: {}",
+          recordCount,
+          recordCount - recordFailures,
+          recordFailures);
     }
-    recordsFailedCounter.increment(recordFailures);
-    LOG.debug(
-        "Processed {} records. Success: {}, Failed: {}",
-        recordCount,
-        recordCount - recordFailures,
-        recordFailures);
   }
 }

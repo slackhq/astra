@@ -1,6 +1,5 @@
 package com.slack.kaldb.util;
 
-import static com.slack.kaldb.testlib.TestKafkaServer.TEST_KAFKA_PARTITION;
 import static com.slack.kaldb.testlib.TestKafkaServer.TEST_KAFKA_TOPIC;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -90,10 +89,7 @@ public class LocalKafkaSeed {
               .build();
 
       return new ProducerRecord<>(
-          TEST_KAFKA_TOPIC,
-          TEST_KAFKA_PARTITION,
-          String.valueOf(offset),
-          testMurronMsg.toByteArray());
+          TEST_KAFKA_TOPIC, 0, String.valueOf(offset), testMurronMsg.toByteArray());
     } catch (Exception e) {
       System.out.println("skipping - cannot parse input" + e);
       return null;
