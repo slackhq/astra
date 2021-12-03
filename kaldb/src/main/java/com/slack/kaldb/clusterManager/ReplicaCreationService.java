@@ -42,10 +42,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ReplicaCreationService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
-  private final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig
-      replicaCreationServiceConfig;
-  private final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig
-      replicaEvictionServiceConfig;
+  private final KaldbConfigs.ManagerConfig managerConfig;
 
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -68,25 +65,21 @@ public class ReplicaCreationService extends AbstractScheduledService {
   public ReplicaCreationService(
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig,
-      KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig,
+      KaldbConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
 
     checkArgument(
-        replicaCreationServiceConfig.getReplicasPerSnapshot() >= 0,
+        managerConfig.getReplicaCreationServiceConfig().getReplicasPerSnapshot() >= 0,
         "replicasPerSnapshot must be >= 0");
     checkArgument(
-        replicaCreationServiceConfig.getEventAggregationSecs() > 0,
-        "eventAggregationSecs must be > 0");
-    checkArgument(
-        replicaEvictionServiceConfig.getReplicaLifespanMins() > 0,
+        managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins() > 0,
         "replicaLifespanMins must be > 0");
+    checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
     this.replicaMetadataStore = replicaMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.replicaCreationServiceConfig = replicaCreationServiceConfig;
-    this.replicaEvictionServiceConfig = replicaEvictionServiceConfig;
+    this.managerConfig = managerConfig;
 
     this.meterRegistry = meterRegistry;
     this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
@@ -119,7 +112,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
       pendingTask =
           executorService.schedule(
               this::createReplicasForUnassignedSnapshots,
-              replicaCreationServiceConfig.getEventAggregationSecs(),
+              managerConfig.getEventAggregationSecs(),
               TimeUnit.SECONDS);
     } else {
       LOG.debug(
@@ -133,8 +126,8 @@ public class ReplicaCreationService extends AbstractScheduledService {
     // run one iteration getScheduleInitialDelayMins after startup, and then every
     // getSchedulePeriodMins mins after that
     return Scheduler.newFixedRateSchedule(
-        replicaCreationServiceConfig.getScheduleInitialDelayMins(),
-        replicaCreationServiceConfig.getSchedulePeriodMins(),
+        managerConfig.getScheduleInitialDelayMins(),
+        managerConfig.getReplicaCreationServiceConfig().getSchedulePeriodMins(),
         TimeUnit.MINUTES);
   }
 
@@ -165,7 +158,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     long snapshotExpiration =
         Instant.now()
-            .minus(replicaEvictionServiceConfig.getReplicaLifespanMins(), ChronoUnit.MINUTES)
+            .minus(
+                managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins(),
+                ChronoUnit.MINUTES)
             .toEpochMilli();
 
     AtomicInteger successCounter = new AtomicInteger(0);
@@ -179,7 +174,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
                 (snapshotMetadata) ->
                     LongStream.range(
                             snapshotToReplicas.getOrDefault(snapshotMetadata.snapshotId, 0L),
-                            replicaCreationServiceConfig.getReplicasPerSnapshot())
+                            managerConfig
+                                .getReplicaCreationServiceConfig()
+                                .getReplicasPerSnapshot())
                         .mapToObj(
                             (i) -> {
                               ListenableFuture<?> future =

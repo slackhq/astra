@@ -6,11 +6,14 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -34,7 +37,10 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
@@ -161,18 +167,31 @@ public class Kaldb {
 
       ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+      RecoveryTaskMetadataStore recoveryTaskMetadataStore =
+          new RecoveryTaskMetadataStore(metadataStore, true);
+      RecoveryNodeMetadataStore recoveryNodeMetadataStore =
+          new RecoveryNodeMetadataStore(metadataStore, true);
       services.add(
           new MetadataStoreLifecycleManager(
-              KaldbConfigs.NodeRole.MANAGER, List.of(replicaMetadataStore, snapshotMetadataStore)));
+              KaldbConfigs.NodeRole.MANAGER,
+              List.of(
+                  replicaMetadataStore,
+                  snapshotMetadataStore,
+                  recoveryTaskMetadataStore,
+                  recoveryNodeMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
-              replicaMetadataStore,
-              snapshotMetadataStore,
-              managerConfig.getReplicaCreationServiceConfig(),
-              managerConfig.getReplicaEvictionServiceConfig(),
-              prometheusMeterRegistry);
+              replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
+
+      RecoveryTaskAssignmentService recoveryTaskAssignmentService =
+          new RecoveryTaskAssignmentService(
+              recoveryTaskMetadataStore,
+              recoveryNodeMetadataStore,
+              managerConfig,
+              prometheusMeterRegistry);
+      services.add(recoveryTaskAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {

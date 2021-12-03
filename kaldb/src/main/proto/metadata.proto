@@ -101,4 +101,7 @@ message RecoveryTaskMetadata {
 
   // Kafka offset (inclusive) to end at
   int64 endOffset = 4;
+
+  // Created timestamp
+  int64 createdTimeUtc = 5;
 }

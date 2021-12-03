@@ -92,6 +92,11 @@ public class RecoveryServiceTest {
                 recoveryNodeMetadataStore.getNodeSync(searchContext.hostname).recoveryNodeState
                     == Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
 
+    recoveryService.stopAsync();
+    recoveryService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+
+    recoveryNodeMetadataStore.close();
+
     metadataStore.close();
   }
 }
