@@ -118,6 +118,7 @@ public class ArmeriaService extends AbstractIdleService {
                     .addScopeDecorator(ThreadContextScopeDecorator.get())
                     .build())
             .addSpanHandler(spanHandler)
+            .addSpanHandler(new KaldbSpanHandler())
             .build();
     sb.decorator(BraveService.newDecorator(tracing));
   }

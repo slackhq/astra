@@ -79,7 +79,6 @@ public class ElasticsearchApiService {
     span.tag("queryString", searchRequest.getQueryString());
     span.tag("queryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
     span.tag("queryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
-    span.tag("threadName", Thread.currentThread().getName());
 
     // TODO remove join when we move to query service
     List<SearchResponseHit> responseHits = new ArrayList<>();

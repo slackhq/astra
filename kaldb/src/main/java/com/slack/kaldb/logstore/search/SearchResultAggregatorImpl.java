@@ -34,7 +34,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   private SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultAggregatorImpl.aggregate");
-    span.tag("threadName", Thread.currentThread().getName());
     long tookMicros = 0;
     int failedNodes = 0;
     int totalNodes = 0;
