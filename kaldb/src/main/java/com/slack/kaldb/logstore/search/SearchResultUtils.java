@@ -30,6 +30,7 @@ public class SearchResultUtils {
       KaldbSearch.SearchResult protoSearchResult) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultUtils.fromSearchResultProtoOrEmpty");
+    span.tag("threadName", Thread.currentThread().getName());
     try {
       return fromSearchResultProto(protoSearchResult);
     } catch (IOException e) {
@@ -74,6 +75,7 @@ public class SearchResultUtils {
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultUtils.toSearchResultProto");
+    span.tag("threadName", Thread.currentThread().getName());
     span.tag("totalCount", String.valueOf(searchResult.totalCount));
     span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
     span.tag("failedNodes", String.valueOf(searchResult.failedNodes));

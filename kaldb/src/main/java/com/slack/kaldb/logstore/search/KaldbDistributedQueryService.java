@@ -123,6 +123,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       KaldbSearch.SearchRequest request) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
+    span.tag("KaldbService", Thread.currentThread().getName());
 
     try {
       List<CompletableFuture<KaldbSearch.SearchResult>> queryServers =
