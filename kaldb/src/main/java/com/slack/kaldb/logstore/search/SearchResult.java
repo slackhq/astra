@@ -2,12 +2,15 @@ package com.slack.kaldb.logstore.search;
 
 import com.google.common.base.Objects;
 import com.slack.kaldb.histogram.HistogramBucket;
+import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class SearchResult<T> {
 
-  private static final SearchResult EMPTY = new SearchResult<>(null, 0, 0, null, 1, 1, 0, 0);
+  private static final SearchResult EMPTY =
+      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0);
 
   public final long totalCount;
 
@@ -84,7 +87,7 @@ public class SearchResult<T> {
         snapshotsWithReplicas);
   }
 
-  public static SearchResult empty() {
+  public static SearchResult<LogMessage> empty() {
     return EMPTY;
   }
 }

@@ -340,7 +340,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           query.howMany,
           query.bucketCount);
     } else {
-      return SearchResult.empty();
+      return (SearchResult<T>) SearchResult.empty();
     }
   }
 }
