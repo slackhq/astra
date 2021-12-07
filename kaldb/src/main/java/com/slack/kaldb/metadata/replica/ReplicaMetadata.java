@@ -1,5 +1,7 @@
 package com.slack.kaldb.metadata.replica;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Objects;
 
@@ -15,8 +17,16 @@ public class ReplicaMetadata extends KaldbMetadata {
 
   public ReplicaMetadata(String name, String snapshotId, long createdTimeUtc) {
     super(name);
+    checkArgument(createdTimeUtc > 0, "Created time must be greater than 0");
+    checkArgument(
+        snapshotId != null && !snapshotId.isEmpty(), "SnapshotId must not be null or empty");
+
     this.snapshotId = snapshotId;
     this.createdTimeUtc = createdTimeUtc;
+  }
+
+  public long getCreatedTimeUtc() {
+    return createdTimeUtc;
   }
 
   @Override

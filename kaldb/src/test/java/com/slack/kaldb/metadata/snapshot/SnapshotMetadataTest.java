@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.snapshot;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -63,22 +63,22 @@ public class SnapshotMetadataTest {
     final long maxOffset = 123;
     final String partitionId = "1";
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(
             () -> new SnapshotMetadata("", path, startTime, endTime, maxOffset, partitionId));
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(
             () -> new SnapshotMetadata(name, "", startTime, endTime, maxOffset, partitionId));
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, 0, endTime, maxOffset, partitionId));
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, 0, maxOffset, partitionId));
 
     // Start time < end time
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(
             () -> new SnapshotMetadata(name, path, endTime, startTime, maxOffset, partitionId));
 
@@ -88,10 +88,10 @@ public class SnapshotMetadataTest {
                 .endTimeUtc)
         .isEqualTo(startTime);
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, -1, partitionId));
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, maxOffset, ""));
   }
 }
