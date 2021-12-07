@@ -244,7 +244,7 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryNodeMetadata(
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-            "",
+            "123",
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleAssigned);
     recoveryNodeMetadataStore.create(ineligibleAssigned);
@@ -253,7 +253,7 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryNodeMetadata(
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
-            "",
+            "321",
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleRecovering);
     recoveryNodeMetadataStore.create(ineligibleRecovering);

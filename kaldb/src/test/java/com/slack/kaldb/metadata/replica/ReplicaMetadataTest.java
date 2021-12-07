@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.replica;
 
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.Instant;
@@ -38,5 +39,14 @@ public class ReplicaMetadataTest {
     assertThat(replicaMetadataA.hashCode()).isEqualTo(replicaMetadataB.hashCode());
     assertThat(replicaMetadataA.hashCode()).isNotEqualTo(replicaMetadataC.hashCode());
     assertThat(replicaMetadataA.hashCode()).isNotEqualTo(replicaMetadataD.hashCode());
+  }
+
+  @Test
+  public void invalidArgumentsShouldThrow() {
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ReplicaMetadata("name", "", Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ReplicaMetadata("name", null, Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException().isThrownBy(() -> new ReplicaMetadata("name", "123", 0));
   }
 }

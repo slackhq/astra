@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.search;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
@@ -13,8 +13,9 @@ public class SearchMetadata extends KaldbMetadata {
 
   public SearchMetadata(String name, String snapshotName, String url) {
     super(name);
-    checkState(url != null && !url.isEmpty(), "Url shouldn't be empty");
-    checkState(snapshotName != null && !snapshotName.isEmpty(), "SnapshotName should not be empty");
+    checkArgument(url != null && !url.isEmpty(), "Url shouldn't be empty");
+    checkArgument(
+        snapshotName != null && !snapshotName.isEmpty(), "SnapshotName should not be empty");
     this.snapshotName = snapshotName;
     this.url = url;
   }

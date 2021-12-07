@@ -19,7 +19,7 @@ public class KaldbMetadataTest {
     assertThat(List.of(new DummyMetadata("test1"), new DummyMetadata("test2")).size()).isEqualTo(2);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testEmptyName() {
     new DummyMetadata("");
   }

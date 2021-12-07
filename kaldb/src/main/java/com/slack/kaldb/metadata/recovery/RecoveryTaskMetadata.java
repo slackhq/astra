@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.recovery;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Objects;
@@ -19,10 +19,11 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
       String name, String partitionId, long startOffset, long endOffset, long createdTimeUtc) {
     super(name);
 
-    checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
-    checkState(startOffset >= 0, "startOffset must greater than 0");
-    checkState(endOffset > startOffset, "endOffset must be greater than the startOffset");
-    checkState(createdTimeUtc > 0, "createdTimeUtc must be greater than 0");
+    checkArgument(
+        partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
+    checkArgument(startOffset >= 0, "startOffset must greater than 0");
+    checkArgument(endOffset > startOffset, "endOffset must be greater than the startOffset");
+    checkArgument(createdTimeUtc > 0, "createdTimeUtc must be greater than 0");
 
     this.partitionId = partitionId;
     this.startOffset = startOffset;

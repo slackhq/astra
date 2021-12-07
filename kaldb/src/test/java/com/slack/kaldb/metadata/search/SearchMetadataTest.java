@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -46,11 +46,15 @@ public class SearchMetadataTest {
     final String snapshotName = "testSnapshot";
     final String url = "http://10.10.1.1:9090";
 
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata("", snapshotName, url));
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata(null, snapshotName, url));
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata(name, "", url));
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata(name, null, url));
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata(name, snapshotName, ""));
-    assertThatIllegalStateException().isThrownBy(() -> new SearchMetadata(name, snapshotName, ""));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new SearchMetadata("", snapshotName, url));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new SearchMetadata(null, snapshotName, url));
+    assertThatIllegalArgumentException().isThrownBy(() -> new SearchMetadata(name, "", url));
+    assertThatIllegalArgumentException().isThrownBy(() -> new SearchMetadata(name, null, url));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new SearchMetadata(name, snapshotName, ""));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new SearchMetadata(name, snapshotName, ""));
   }
 }
