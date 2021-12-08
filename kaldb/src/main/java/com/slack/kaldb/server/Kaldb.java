@@ -6,12 +6,14 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.clusterManager.CacheSlotAssignmentService;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
@@ -171,6 +173,9 @@ public class Kaldb {
           new RecoveryTaskMetadataStore(metadataStore, true);
       RecoveryNodeMetadataStore recoveryNodeMetadataStore =
           new RecoveryNodeMetadataStore(metadataStore, true);
+      CacheSlotMetadataStore cacheSlotMetadataStore =
+          new CacheSlotMetadataStore(metadataStore, true);
+
       services.add(
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.MANAGER,
@@ -178,7 +183,8 @@ public class Kaldb {
                   replicaMetadataStore,
                   snapshotMetadataStore,
                   recoveryTaskMetadataStore,
-                  recoveryNodeMetadataStore)));
+                  recoveryNodeMetadataStore,
+                  cacheSlotMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
@@ -192,6 +198,11 @@ public class Kaldb {
               managerConfig,
               prometheusMeterRegistry);
       services.add(recoveryTaskAssignmentService);
+
+      CacheSlotAssignmentService cacheSlotAssignmentService =
+          new CacheSlotAssignmentService(
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+      services.add(cacheSlotAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
