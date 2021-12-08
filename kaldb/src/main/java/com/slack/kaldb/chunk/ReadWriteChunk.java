@@ -59,7 +59,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
-  public static final String LIVE_SNAPSHOT_PREFIX = SearchMetadata.LIVE_SNAPSHOT_PATH + "_";
+  public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
 
   private final LogStore<T> logStore;
   private final String kafkaPartitionId;
@@ -100,7 +100,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
             chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
-            SearchMetadata.LIVE_SNAPSHOT_PATH);
+            SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     readOnly = false;
     this.meterRegistry = meterRegistry;
