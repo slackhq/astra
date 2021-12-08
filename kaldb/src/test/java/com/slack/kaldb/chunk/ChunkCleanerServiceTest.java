@@ -111,8 +111,8 @@ public class ChunkCleanerServiceTest {
     SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots).get(0);
     assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(liveSnapshot.maxOffset).isEqualTo(9);
-    assertThat(liveSnapshot.snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(liveSnapshot.snapshotId).startsWith(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(liveSnapshot.snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(liveSnapshot.startTimeUtc).isEqualTo(startTime.toEpochMilli());
     assertThat(liveSnapshot.endTimeUtc).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
     SnapshotMetadata nonLiveSnapshot = fetchNonLiveSnapshot(afterSnapshots).get(0);
@@ -130,7 +130,7 @@ public class ChunkCleanerServiceTest {
     assertThat(afterSearchNodes.size()).isEqualTo(1);
     assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(afterSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     assertThat(chunk.isReadOnly()).isTrue();
     assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isNotZero();
@@ -179,10 +179,10 @@ public class ChunkCleanerServiceTest {
       throws InterruptedException, ExecutionException, TimeoutException {
     final List<SnapshotMetadata> snapshotNodes = fetchSnapshots(chunkManager);
     assertThat(snapshotNodes.size()).isEqualTo(1);
-    assertThat(snapshotNodes.get(0).snapshotPath).startsWith(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshotNodes.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).maxOffset).isEqualTo(0);
     assertThat(snapshotNodes.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(snapshotNodes.get(0).snapshotId).startsWith(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshotNodes.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).startTimeUtc)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
     assertThat(snapshotNodes.get(0).endTimeUtc).isEqualTo(MAX_FUTURE_TIME);
@@ -190,7 +190,7 @@ public class ChunkCleanerServiceTest {
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(searchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(searchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   @Test

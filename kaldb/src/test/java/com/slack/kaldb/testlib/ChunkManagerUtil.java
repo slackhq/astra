@@ -130,14 +130,12 @@ public class ChunkManagerUtil<T> {
   }
 
   public static List<SnapshotMetadata> fetchNonLiveSnapshot(List<SnapshotMetadata> snapshots) {
-    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate =
-        s -> !s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    Predicate<SnapshotMetadata> nonLiveSnapshotPredicate = s -> !SnapshotMetadata.isLive(s);
     return fetchSnapshotMatching(snapshots, nonLiveSnapshotPredicate);
   }
 
   public static List<SnapshotMetadata> fetchLiveSnapshot(List<SnapshotMetadata> snapshots) {
-    Predicate<SnapshotMetadata> liveSnapshotPredicate =
-        s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    Predicate<SnapshotMetadata> liveSnapshotPredicate = s -> SnapshotMetadata.isLive(s);
     return fetchSnapshotMatching(snapshots, liveSnapshotPredicate);
   }
 
