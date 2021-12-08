@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -149,34 +150,33 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
                         Metadata.CacheSlotMetadata.CacheSlotState.FREE))
             .collect(Collectors.toList());
 
-    List<String> assignedReplicaIds =
+    Set<String> assignedReplicaIds =
         cacheSlotMetadataStore
             .getCached()
             .stream()
+            .filter(cacheSlotMetadata -> !cacheSlotMetadata.replicaId.isEmpty())
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
-            .filter(replicaId -> !replicaId.isEmpty())
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableSet());
 
+    long cutoffCreatedTime =
+        Instant.now()
+            .minus(
+                managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins(),
+                ChronoUnit.MINUTES)
+            .toEpochMilli();
     List<String> replicaIdsToAssign =
         replicaMetadataStore
             .getCached()
             .stream()
-            // only replicas created in the last X mins
+            // only replicas created in the last X mins, that are not already assigned
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.createdTimeUtc
-                        > Instant.now()
-                            .minus(
-                                managerConfig
-                                    .getReplicaEvictionServiceConfig()
-                                    .getReplicaLifespanMins(),
-                                ChronoUnit.MINUTES)
-                            .toEpochMilli())
+                    replicaMetadata.createdTimeUtc > cutoffCreatedTime
+                        && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
             .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeUtc))
             .map(replicaMetadata -> replicaMetadata.name)
-            .filter(replicaId -> !assignedReplicaIds.contains(replicaId))
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableList());
 
     if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
       LOG.warn(
