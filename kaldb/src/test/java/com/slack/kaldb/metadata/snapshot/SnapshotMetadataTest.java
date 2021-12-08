@@ -94,4 +94,23 @@ public class SnapshotMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, maxOffset, ""));
   }
+
+  @Test
+  public void testLive() {
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 123;
+    final String partitionId = "1";
+
+    SnapshotMetadata nonLiveSnapshot =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    assertThat(SnapshotMetadata.isLive(nonLiveSnapshot)).isFalse();
+
+    SnapshotMetadata liveSnapshot =
+        new SnapshotMetadata(
+            name, SnapshotMetadata.LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    assertThat(SnapshotMetadata.isLive(liveSnapshot)).isTrue();
+  }
 }
