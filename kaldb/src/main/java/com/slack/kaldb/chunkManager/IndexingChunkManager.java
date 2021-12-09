@@ -74,7 +74,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private ListenableFuture<Boolean> rolloverFuture;
 
   // TODO: Pass this in via config file.
-  private static final String CHUNK_DATA_PREFIX = "log_data_";
+  private static final String CHUNK_DATA_PREFIX = "log_data";
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a

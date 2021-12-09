@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -97,7 +98,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.kafkaPartitionId = kafkaPartitionId;
     chunkInfo =
         new ChunkInfo(
-            chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
+            chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli() + "_" + UUID.randomUUID(),
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
             SnapshotMetadata.LIVE_SNAPSHOT_PATH);
@@ -121,7 +122,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public abstract void preClose();
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
+    return new SearchMetadata(
+        snapshotName + "_" + searchContext.hostname, snapshotName, searchContext.toUrl());
   }
 
   /** Index the message in the logstore and update the chunk data time range. */
