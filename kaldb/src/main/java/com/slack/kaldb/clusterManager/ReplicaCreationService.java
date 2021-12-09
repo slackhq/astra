@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
@@ -168,8 +169,11 @@ public class ReplicaCreationService extends AbstractScheduledService {
         snapshotMetadataStore
             .getCached()
             .stream()
-            // only attempt to create replicas for snapshots that have not expired
-            .filter((snapshotMetadata -> snapshotMetadata.endTimeUtc > snapshotExpiration))
+            // only attempt to create replicas for snapshots that have not expired, and are not live
+            .filter(
+                snapshotMetadata ->
+                    snapshotMetadata.endTimeUtc > snapshotExpiration
+                        && !SnapshotMetadata.isLive(snapshotMetadata))
             .map(
                 (snapshotMetadata) ->
                     LongStream.range(
