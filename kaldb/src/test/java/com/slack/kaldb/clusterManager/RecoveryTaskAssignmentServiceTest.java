@@ -544,7 +544,6 @@ public class RecoveryTaskAssignmentServiceTest {
             recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
     recoveryTaskAssignmentService.futuresListTimeoutSecs = 2;
 
-    List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
       RecoveryNodeMetadata recoveryNodeMetadata =
           new RecoveryNodeMetadata(
@@ -553,7 +552,6 @@ public class RecoveryTaskAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
-      recoveryNodeMetadataList.add(recoveryNodeMetadata);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -642,7 +640,6 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryTaskAssignmentService(
             recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
-    List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
       RecoveryNodeMetadata recoveryNodeMetadata =
           new RecoveryNodeMetadata(
@@ -651,7 +648,6 @@ public class RecoveryTaskAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
-      recoveryNodeMetadataList.add(recoveryNodeMetadata);
     }
 
     for (int i = 0; i < 2; i++) {

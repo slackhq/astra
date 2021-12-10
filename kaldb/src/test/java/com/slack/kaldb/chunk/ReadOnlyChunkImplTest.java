@@ -131,11 +131,9 @@ public class ReadOnlyChunkImplTest {
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await()
-        .until(
-            () ->
-                readOnlyChunk.getChunkMetadataState()
-                    == Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    assertThat(readOnlyChunk.getChunkMetadataState())
+        .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
