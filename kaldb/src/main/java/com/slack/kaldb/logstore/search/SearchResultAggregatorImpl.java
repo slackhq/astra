@@ -39,7 +39,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     int totalNodes = 0;
     int totalSnapshots = 0;
     int snapshpotReplicas = 0;
-    int totalCount = 0;
+    long totalCount = 0;
     Optional<Histogram> histogram =
         searchQuery.bucketCount > 0
             ? Optional.of(
