@@ -576,7 +576,7 @@ public class KaldbMetadataStoreTest {
       assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
 
       // Corrupt the metadata store.
-      assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
+      assertThat(zkMetadataStore.put("/snapshot/" + name1, "corrupt").get()).isNull();
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
 
       // Get throws exception but store is fine.
@@ -1316,7 +1316,7 @@ public class KaldbMetadataStoreTest {
 
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       // Corrupt the metadata store.
-      assertThat(zkMetadataStore.put("/snapshots/" + name1, "corrupt").get()).isNull();
+      assertThat(zkMetadataStore.put("/snapshot/" + name1, "corrupt").get()).isNull();
 
       // Get throws exception but store is fine.
       Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
@@ -1606,7 +1606,7 @@ public class KaldbMetadataStoreTest {
           new DummyEphemeralCreatableMetadataStore(
               SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
 
-      SnapshotMetadata snapshotMetadata1 = makeSnapshot("shouldAllowMultipleMetadataStores");
+      SnapshotMetadata snapshotMetadata1 = makeSnapshot("defaultRootSnapshot");
       metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);
 
       await().until(() -> metadataStore2.getCached().size() > 0);

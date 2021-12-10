@@ -28,11 +28,6 @@ public class SearchContext {
     this.port = port;
   }
 
-  // path is derived from name and can't have // part of the protocol
-  public String toName() {
-    return hostname + ":" + port;
-  }
-
   public String toUrl() {
     return GRPC_PROTOCOL + hostname + ":" + port;
   }
