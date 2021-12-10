@@ -157,7 +157,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       throws ExecutionException, InterruptedException, TimeoutException {
     this.searchMetadata =
         new SearchMetadata(
-            snapshotName + "_" + searchContext.hostname, snapshotName, searchContext.toUrl());
+            SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
+            snapshotName,
+            searchContext.toUrl());
     searchMetadataStore.create(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 

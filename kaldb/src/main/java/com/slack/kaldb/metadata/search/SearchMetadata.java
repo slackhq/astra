@@ -18,6 +18,10 @@ public class SearchMetadata extends KaldbMetadata {
     this.url = url;
   }
 
+  public static String getSnapshotName(String snapshotName, String hostname) {
+    return snapshotName + "_" + hostname;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

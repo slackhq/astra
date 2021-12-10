@@ -98,7 +98,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.kafkaPartitionId = kafkaPartitionId;
     chunkInfo =
         new ChunkInfo(
-            chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli() + "_" + UUID.randomUUID(),
+            chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + UUID.randomUUID(),
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
             SnapshotMetadata.LIVE_SNAPSHOT_PATH);
@@ -123,7 +123,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(
-        snapshotName + "_" + searchContext.hostname, snapshotName, searchContext.toUrl());
+        SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
+        snapshotName,
+        searchContext.toUrl());
   }
 
   /** Index the message in the logstore and update the chunk data time range. */

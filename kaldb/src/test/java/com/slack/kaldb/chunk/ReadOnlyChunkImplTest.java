@@ -22,6 +22,7 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -153,7 +154,8 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo(snapshotId + "_localhost");
+    assertThat(searchMetadataStore.getCached().get(0).name)
+        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
 
     // mark the chunk for eviction
     readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
@@ -390,7 +392,8 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCached().get(0).name).isEqualTo(snapshotId + "_localhost");
+    assertThat(searchMetadataStore.getCached().get(0).name)
+        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
 
     // verify we have files on disk
     assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
