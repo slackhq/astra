@@ -139,7 +139,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            histogram.count(),
+            (long) histogram.count(),
             histogram.getBuckets(),
             0,
             0,

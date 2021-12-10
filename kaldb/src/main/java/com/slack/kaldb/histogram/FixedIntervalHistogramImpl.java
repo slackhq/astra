@@ -19,7 +19,7 @@ public class FixedIntervalHistogramImpl implements Histogram {
   // TODO: Make the list immutable?
   private final ArrayList<HistogramBucket> buckets;
   // Count the number of elements in the histogram.
-  private long count;
+  private double count;
 
   public FixedIntervalHistogramImpl(double low, double high, int bucketCount) {
     ensureTrue(bucketCount > 0, "Bucket count should be a positive number");
@@ -119,7 +119,7 @@ public class FixedIntervalHistogramImpl implements Histogram {
   }
 
   @Override
-  public long count() {
+  public double count() {
     return count;
   }
 }

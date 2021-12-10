@@ -15,5 +15,5 @@ public interface Histogram {
   List<HistogramBucket> getBuckets();
 
   // Return count of number of values in histogram.
-  long count();
+  double count();
 }

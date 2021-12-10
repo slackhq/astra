@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class NoOpHistogramImpl implements Histogram {
-  private int count;
+  private double count;
 
   public NoOpHistogramImpl() {
     count = 0;
@@ -28,7 +28,7 @@ public class NoOpHistogramImpl implements Histogram {
   }
 
   @Override
-  public long count() {
+  public double count() {
     return count;
   }
 }
