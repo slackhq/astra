@@ -3,10 +3,10 @@ package com.slack.kaldb.clusterManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -194,7 +193,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
                             })
                         .collect(Collectors.toList()))
             .flatMap(List::stream)
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(createdReplicaMetadataList);
     try {
@@ -217,21 +216,6 @@ public class ReplicaCreationService extends AbstractScheduledService {
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
 
     return createdReplicas;
-  }
-
-  /** Uses the provided atomic integer to keep track of FutureCallbacks that are successful */
-  private FutureCallback<Object> successCountingCallback(AtomicInteger counter) {
-    return new FutureCallback<>() {
-      @Override
-      public void onSuccess(@Nullable Object result) {
-        counter.incrementAndGet();
-      }
-
-      @Override
-      public void onFailure(Throwable t) {
-        // no-op
-      }
-    };
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
