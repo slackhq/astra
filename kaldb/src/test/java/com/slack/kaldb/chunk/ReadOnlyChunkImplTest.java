@@ -46,6 +46,7 @@ import org.assertj.core.util.Files;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -79,6 +80,7 @@ public class ReadOnlyChunkImplTest {
     meterRegistry.close();
   }
 
+  @Ignore
   @Test
   public void shouldHandleChunkLivecycle() throws Exception {
     KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
