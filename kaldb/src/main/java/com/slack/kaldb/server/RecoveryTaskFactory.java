@@ -5,7 +5,6 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -53,17 +52,27 @@ public class RecoveryTaskFactory {
         .forEach(snapshotMetadata -> snapshotMetadataStore.deleteSync(snapshotMetadata));
   }
 
-  public int getStartOffsetForPartition(String partitionId) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    Optional<Long> maxSnapshotOffset = snapshots.stream()
+  public long getStartOffsetForPartition(
+      List<SnapshotMetadata> snapshots,
+      List<RecoveryTaskMetadata> recoveryTasks,
+      String partitionId) {
+
+    Long maxSnapshotOffset =
+        snapshots
+            .stream()
             .filter(snapshot -> snapshot.partitionId.equals(partitionId))
-            .collect(Collectors.maxBy((SnapshotMetadata x, SnapshotMetadata y) -> x.maxOffset - y.maxOffset));
+            .mapToLong(snapshot -> snapshot.maxOffset)
+            .max()
+            .orElse(-1);
 
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
-    Optional<Long> maxRecoveryOffset = recoveryTasks.stream()
-            .filter(recoveryTaskMetadata -> recoveryTaskMetadata.partitionId.equals(recoveryTaskMetadata))
-            .collect(Collectors.maxBy((x, y) -> x.endOffset - y.endOffset));
+    long maxRecoveryOffset =
+        recoveryTasks
+            .stream()
+            .filter(recoveryTaskMetadata -> recoveryTaskMetadata.partitionId.equals(partitionId))
+            .mapToLong(recoveryTaskMetadata -> recoveryTaskMetadata.endOffset)
+            .max()
+            .orElse(-1);
 
-    return Math.max(maxRecoveryOffset.orElse(0), maxRecoveryOffset.orElse(0));
+    return Math.max(maxRecoveryOffset, maxSnapshotOffset);
   }
 }
