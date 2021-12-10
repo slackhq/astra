@@ -619,18 +619,15 @@ public class CacheSlotAssignmentServiceTest {
       replicaMetadataStore.create(replicaMetadata);
     }
 
-    List<ReplicaMetadata> replicaMetadataNonExpiredList = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli());
-      replicaMetadataNonExpiredList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
 
-    List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
     for (int i = 0; i < 4; i++) {
       CacheSlotMetadata cacheSlotMetadata =
           new CacheSlotMetadata(
@@ -638,7 +635,6 @@ public class CacheSlotAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli());
-      cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
