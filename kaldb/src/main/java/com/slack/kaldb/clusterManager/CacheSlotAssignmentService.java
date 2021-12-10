@@ -136,6 +136,7 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
    *
    * @return The count of successfully assigned cache slots
    */
+  @SuppressWarnings("UnstableApiUsage")
   protected int assignCacheSlotsToReplicas() {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 

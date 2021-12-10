@@ -129,6 +129,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
    *
    * @return The count of successfully assigned recovery tasks
    */
+  @SuppressWarnings("UnstableApiUsage")
   protected int assignRecoveryTasksToNodes() {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
