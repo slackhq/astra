@@ -1,19 +1,17 @@
 package com.slack.kaldb.histogram;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.withPrecision;
 
 import org.junit.Test;
 
 public class HistogramBucketTest {
-  private final double epsilon = 0.00001;
 
   @Test
   public void testInit() {
     HistogramBucket bucket = new HistogramBucket(0d, 1.1d);
     assertThat(bucket.getLow()).isEqualTo(0d);
     assertThat(bucket.getHigh()).isEqualTo(1.1d);
-    assertThat(bucket.getCount()).isEqualTo(0.0d);
+    assertThat(bucket.getCount()).isEqualTo(0);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -31,14 +29,10 @@ public class HistogramBucketTest {
     HistogramBucket bucket = new HistogramBucket(0d, 1d);
     assertThat(bucket.getLow()).isEqualTo(0d);
     assertThat(bucket.getHigh()).isEqualTo(1d);
-    bucket.increment(5d);
-    assertThat(bucket.getCount()).isEqualTo(5d);
-    bucket.increment(1d);
-    assertThat(bucket.getCount()).isEqualTo(6d);
-    bucket.increment(1.1d);
-    assertThat(bucket.getCount()).isCloseTo(7.1, withPrecision(epsilon));
-    bucket.increment(0.1d);
-    assertThat(bucket.getCount()).isCloseTo(7.2d, withPrecision(epsilon));
+    bucket.increment(5);
+    assertThat(bucket.getCount()).isEqualTo(5);
+    bucket.increment(1);
+    assertThat(bucket.getCount()).isEqualTo(6);
     assertThat(bucket.getLow()).isEqualTo(0d);
     assertThat(bucket.getHigh()).isEqualTo(1d);
   }

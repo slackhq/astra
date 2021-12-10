@@ -11,9 +11,9 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
   private final double low;
   private final double high;
 
-  private double count;
+  private int count;
 
-  public HistogramBucket(double low, double high, double count) {
+  public HistogramBucket(double low, double high, int count) {
     if (low >= high) {
       throw new IllegalArgumentException(
           String.format("The low %s should be higher than high %s", low, high));
@@ -27,7 +27,7 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
     this(low, high, 0);
   }
 
-  public void increment(double incr) {
+  public void increment(int incr) {
     this.count += incr;
   }
 
@@ -47,7 +47,7 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
     return high;
   }
 
-  public double getCount() {
+  public int getCount() {
     return count;
   }
 
@@ -65,7 +65,7 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
   }
 
   public String toString() {
-    return String.format("HistogramBucket low:%f, high:%f, count:%f", low, high, count);
+    return String.format("HistogramBucket low:%f, high:%f, count:%d", low, high, count);
   }
   // TODO: Consider adding "overlap" projection for merge?
 

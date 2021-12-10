@@ -74,7 +74,7 @@ public class FixedIntervalHistogramImpl implements Histogram {
     for (HistogramBucket mergeBucket : mergeBuckets) {
       Optional<HistogramBucket> localBucket = findMatchingBucket(mergeBucket);
       if (localBucket.isPresent()) {
-        double additionalCount = mergeBucket.getCount();
+        int additionalCount = mergeBucket.getCount();
         localBucket.get().increment(additionalCount);
         count += additionalCount;
       } else {

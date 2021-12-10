@@ -29,7 +29,7 @@ message SearchResult {
 message HistogramBucket {
   double low = 1;
   double high = 2;
-  double count = 3;
+  int32 count = 3;
 }
 
 service KaldbService {
