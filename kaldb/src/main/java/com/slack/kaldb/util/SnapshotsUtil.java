@@ -21,12 +21,12 @@ public class SnapshotsUtil {
   private static final int SNAPSHOT_OPERATION_TIMEOUT_SECS = 10;
 
   public static boolean deleteSnapshots(
-      SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshots) {
-    LOG.info("Deleting {} snapshots: {}", snapshots.size(), snapshots);
+      SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshotsToBeDeleted) {
+    LOG.info("Deleting {} snapshots: {}", snapshotsToBeDeleted.size(), snapshotsToBeDeleted);
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<? extends ListenableFuture<?>> deletionFutures =
-        snapshots
+        snapshotsToBeDeleted
             .stream()
             .map(
                 snapshot -> {
@@ -47,14 +47,14 @@ public class SnapshotsUtil {
     }
 
     final int success = successCounter.get();
-    if (success == snapshots.size()) {
+    if (success == snapshotsToBeDeleted.size()) {
       LOG.info("Successfully deleted all {} snapshots.", success);
       return true;
     } else {
       LOG.warn(
           "Failed to delete {} snapshots within {} secs.",
           SNAPSHOT_OPERATION_TIMEOUT_SECS,
-          snapshots.size() - success);
+          snapshotsToBeDeleted.size() - success);
       return false;
     }
   }

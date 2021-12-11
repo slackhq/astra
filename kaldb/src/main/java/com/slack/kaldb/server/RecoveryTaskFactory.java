@@ -4,6 +4,7 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.util.SnapshotsUtil;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -39,6 +40,12 @@ public class RecoveryTaskFactory {
         .stream()
         .filter(SnapshotMetadata::isLive)
         .collect(Collectors.toUnmodifiableList());
+  }
+
+  public boolean deleteStaleLiveSnapsnots(List<SnapshotMetadata> snapshots) {
+    List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots);
+    LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
+    return SnapshotsUtil.deleteSnapshots(snapshotMetadataStore, staleSnapshots);
   }
 
   public long getStartOffsetForPartition(
