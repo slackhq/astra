@@ -81,7 +81,6 @@ public class ReadOnlyChunkImplTest {
     meterRegistry.close();
   }
 
-  @Ignore
   @Test
   public void shouldHandleChunkLivecycle() throws Exception {
     KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
