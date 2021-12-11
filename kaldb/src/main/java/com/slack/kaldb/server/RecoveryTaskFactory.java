@@ -1,6 +1,5 @@
 package com.slack.kaldb.server;
 
-
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -30,7 +29,7 @@ public class RecoveryTaskFactory {
     this.partitionId = partitionId;
   }
 
-  private List<SnapshotMetadata> getStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
+  public List<SnapshotMetadata> getStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots
             .stream()
