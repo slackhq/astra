@@ -158,4 +158,7 @@ public class RecoveryTaskFactoryTest {
     // Clear state
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
   }
+
+  // TODO: Add a test when stale deletion fails/timeout.
+  // TODO: Add a unit test for determining max offset.
 }
