@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
@@ -41,8 +42,8 @@ public class RecoveryTaskFactoryTest {
             new RetryNTimes(1, 500),
             new CountingFatalErrorHandler(),
             meterRegistry);
-    snapshotMetadataStore = new SnapshotMetadataStore(zkMetadataStore, false);
-    recoveryTaskStore = new RecoveryTaskMetadataStore(zkMetadataStore, false);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
   }
 
   @After
@@ -67,6 +68,9 @@ public class RecoveryTaskFactoryTest {
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
             name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
     SnapshotMetadata livePartition2 =
         new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
     SnapshotMetadata partition2 =
@@ -80,6 +84,8 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition2))).isEmpty();
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition1)))
         .containsExactly(livePartition1);
+    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition1, livePartition11)))
+        .containsExactly(livePartition1, livePartition11);
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1, livePartition1)))
         .containsExactly(livePartition1);
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2, livePartition1)))
@@ -90,6 +96,10 @@ public class RecoveryTaskFactoryTest {
             recoveryTaskFactory.getStaleLiveSnapshots(
                 List.of(livePartition2, livePartition1, partition1, partition2)))
         .containsExactly(livePartition1);
+    assertThat(
+            recoveryTaskFactory.getStaleLiveSnapshots(
+                List.of(livePartition2, livePartition1, livePartition11, partition1, partition2)))
+        .containsExactly(livePartition1, livePartition11);
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1, partition2)))
         .isEmpty();
   }
@@ -107,6 +117,9 @@ public class RecoveryTaskFactoryTest {
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
             name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
     SnapshotMetadata livePartition2 =
         new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
     SnapshotMetadata partition2 =
@@ -116,11 +129,18 @@ public class RecoveryTaskFactoryTest {
     testDeleteSnapshots(List.of(partition2), List.of(partition2));
     testDeleteSnapshots(List.of(livePartition2), List.of(livePartition2));
     testDeleteSnapshots(List.of(livePartition1), Collections.emptyList());
+    testDeleteSnapshots(List.of(livePartition1, livePartition11), Collections.emptyList());
     testDeleteSnapshots(List.of(partition1, livePartition1), List.of(partition1));
+    testDeleteSnapshots(List.of(partition1, livePartition1, livePartition11), List.of(partition1));
     testDeleteSnapshots(List.of(partition2, livePartition2), List.of(partition2, livePartition2));
     testDeleteSnapshots(List.of(partition2, partition1), List.of(partition2, partition1));
     testDeleteSnapshots(
+        List.of(partition2, partition1, livePartition11), List.of(partition2, partition1));
+    testDeleteSnapshots(
         List.of(partition1, livePartition1, partition2, livePartition2),
+        List.of(partition2, partition1, livePartition2));
+    testDeleteSnapshots(
+        List.of(partition1, livePartition1, livePartition11, partition2, livePartition2),
         List.of(partition2, partition1, livePartition2));
   }
 
