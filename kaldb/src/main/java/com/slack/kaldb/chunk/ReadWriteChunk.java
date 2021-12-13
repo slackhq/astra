@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -59,7 +60,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD = "index_files_upload";
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
-  public static final String LIVE_SNAPSHOT_PREFIX = SearchMetadata.LIVE_SNAPSHOT_PATH + "_";
+  public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
 
   private final LogStore<T> logStore;
   private final String kafkaPartitionId;
@@ -97,10 +98,10 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.kafkaPartitionId = kafkaPartitionId;
     chunkInfo =
         new ChunkInfo(
-            chunkDataPrefix + "_" + chunkCreationTime.toEpochMilli(),
+            chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + UUID.randomUUID(),
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
-            SearchMetadata.LIVE_SNAPSHOT_PATH);
+            SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     readOnly = false;
     this.meterRegistry = meterRegistry;
@@ -121,7 +122,10 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public abstract void preClose();
 
   private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
-    return new SearchMetadata(snapshotName, snapshotName, searchContext.toUrl());
+    return new SearchMetadata(
+        SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
+        snapshotName,
+        searchContext.toUrl());
   }
 
   /** Index the message in the logstore and update the chunk data time range. */

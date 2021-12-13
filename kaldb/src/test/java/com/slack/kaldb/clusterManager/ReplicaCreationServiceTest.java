@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -219,8 +220,76 @@ public class ReplicaCreationServiceTest {
   }
 
   @Test
+  public void shouldNotCreateReplicasForLiveSnapshots() {
+    SnapshotMetadata snapshotNotLive =
+        new SnapshotMetadata(
+            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+    snapshotMetadataStore.createSync(snapshotNotLive);
+
+    SnapshotMetadata snapshotLive =
+        new SnapshotMetadata(
+            "b",
+            SnapshotMetadata.LIVE_SNAPSHOT_PATH,
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "b");
+    snapshotMetadataStore.createSync(snapshotLive);
+
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setReplicasPerSnapshot(1)
+            .setSchedulePeriodMins(10)
+            .build();
+
+    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+            .setReplicaLifespanMins(1440)
+            .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
+    ReplicaCreationService replicaCreationService =
+        new ReplicaCreationService(
+            replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
+
+    await()
+        .until(
+            () ->
+                snapshotMetadataStore
+                        .getCached()
+                        .containsAll(Arrays.asList(snapshotLive, snapshotNotLive))
+                    && snapshotMetadataStore.getCached().size() == 2);
+    assertTrue(replicaMetadataStore.getCached().isEmpty());
+
+    int assignReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
+
+    assertThat(assignReplicas).isEqualTo(1);
+    await().until(() -> replicaMetadataStore.getCached().size() == 1);
+
+    assertThat(replicaMetadataStore.getCached().get(0).snapshotId)
+        .isEqualTo(snapshotNotLive.snapshotId);
+
+    assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+    assertThat(
+            MetricsUtil.getTimerCount(
+                ReplicaCreationService.REPLICA_ASSIGNMENT_TIMER, meterRegistry))
+        .isEqualTo(1);
+  }
+
+  @Test
   public void shouldHandleVeryLargeListOfIneligibleSnapshots() {
     int ineligibleSnapshotsToCreate = 500;
+    int liveSnapshotsToCreate = 30;
     int eligibleSnapshotsToCreate = 50;
     int replicasToCreate = 2;
 
@@ -259,6 +328,21 @@ public class ReplicaCreationServiceTest {
               snapshotList.add(snapshot);
             });
 
+    IntStream.range(0, liveSnapshotsToCreate)
+        .forEach(
+            (i) -> {
+              String snapshotId = UUID.randomUUID().toString();
+              SnapshotMetadata snapshot =
+                  new SnapshotMetadata(
+                      snapshotId,
+                      SnapshotMetadata.LIVE_SNAPSHOT_PATH,
+                      Instant.now().toEpochMilli() - 1,
+                      Instant.now().toEpochMilli(),
+                      0,
+                      snapshotId);
+              snapshotList.add(snapshot);
+            });
+
     List<SnapshotMetadata> eligibleSnapshots = new ArrayList<>();
     IntStream.range(0, eligibleSnapshotsToCreate)
         .forEach(
@@ -276,9 +360,9 @@ public class ReplicaCreationServiceTest {
             });
     snapshotList.addAll(eligibleSnapshots);
 
-    // randomize the order of eligible and ineligible snapshots and create them in parallel
+    // randomize the order of eligible, ineligible, and live snapshots and create them in parallel
     assertThat(snapshotList.size())
-        .isEqualTo(eligibleSnapshotsToCreate + ineligibleSnapshotsToCreate);
+        .isEqualTo(eligibleSnapshotsToCreate + ineligibleSnapshotsToCreate + liveSnapshotsToCreate);
     Collections.shuffle(snapshotList);
     snapshotList
         .parallelStream()

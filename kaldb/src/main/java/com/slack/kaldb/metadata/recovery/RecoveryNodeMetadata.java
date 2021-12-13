@@ -1,5 +1,7 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.Objects;
@@ -20,6 +22,18 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
       String recoveryTaskName,
       long updatedTimeUtc) {
     super(name);
+
+    checkArgument(updatedTimeUtc > 0, "Updated time must be greater than 0");
+    if (recoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
+      checkArgument(
+          recoveryTaskName != null && recoveryTaskName.isEmpty(),
+          "Recovery task name must be empty if state is FREE");
+    } else {
+      checkArgument(
+          recoveryTaskName != null && !recoveryTaskName.isEmpty(),
+          "Recovery task name must not be empty if state is not FREE");
+    }
+
     this.recoveryNodeState = recoveryNodeState;
     this.recoveryTaskName = recoveryTaskName;
     this.updatedTimeUtc = updatedTimeUtc;

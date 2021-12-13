@@ -7,7 +7,6 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AbstractScheduledService;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -17,19 +16,20 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.util.FutureUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,16 +129,17 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
    *
    * @return The count of successfully assigned recovery tasks
    */
+  @SuppressWarnings("UnstableApiUsage")
   protected int assignRecoveryTasksToNodes() {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
-    List<String> recoveryTasksAlreadyAssigned =
+    Set<String> recoveryTasksAlreadyAssigned =
         recoveryNodeMetadataStore
             .getCached()
             .stream()
             .map((recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName))
             .filter((recoveryTaskName) -> !recoveryTaskName.isEmpty())
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableSet());
 
     List<RecoveryTaskMetadata> recoveryTasksThatNeedAssignment =
         recoveryTaskMetadataStore
@@ -151,7 +152,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
             // preferred, under heavy lag you would have higher-value logs available sooner,
             // at the increased chance of losing old logs.
             .sorted(Comparator.comparingLong(RecoveryTaskMetadata::getCreatedTimeUtc))
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableList());
 
     List<RecoveryNodeMetadata> availableRecoveryNodes =
         recoveryNodeMetadataStore
@@ -161,7 +162,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                 (recoveryNodeMetadata ->
                     recoveryNodeMetadata.recoveryNodeState.equals(
                         Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)))
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableList());
 
     if (recoveryTasksThatNeedAssignment.size() > availableRecoveryNodes.size()) {
       LOG.warn(
@@ -193,11 +194,11 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                       recoveryNodeMetadataStore.update(recoveryNodeAssigned);
                   addCallback(
                       future,
-                      successCountingCallback(successCounter),
+                      FutureUtils.successCountingCallback(successCounter),
                       MoreExecutors.directExecutor());
                   return future;
                 })
-            .collect(Collectors.toList());
+            .collect(Collectors.toUnmodifiableList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(recoveryTaskAssignments);
     try {
@@ -220,20 +221,5 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
 
     return successfulAssignments;
-  }
-
-  /** Uses the provided atomic integer to keep track of FutureCallbacks that are successful */
-  private FutureCallback<Object> successCountingCallback(AtomicInteger counter) {
-    return new FutureCallback<>() {
-      @Override
-      public void onSuccess(@Nullable Object result) {
-        counter.incrementAndGet();
-      }
-
-      @Override
-      public void onFailure(Throwable t) {
-        // no-op
-      }
-    };
   }
 }

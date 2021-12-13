@@ -244,7 +244,7 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryNodeMetadata(
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-            "",
+            "123",
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleAssigned);
     recoveryNodeMetadataStore.create(ineligibleAssigned);
@@ -253,7 +253,7 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryNodeMetadata(
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
-            "",
+            "321",
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleRecovering);
     recoveryNodeMetadataStore.create(ineligibleRecovering);
@@ -544,7 +544,6 @@ public class RecoveryTaskAssignmentServiceTest {
             recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
     recoveryTaskAssignmentService.futuresListTimeoutSecs = 2;
 
-    List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
       RecoveryNodeMetadata recoveryNodeMetadata =
           new RecoveryNodeMetadata(
@@ -553,7 +552,6 @@ public class RecoveryTaskAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
-      recoveryNodeMetadataList.add(recoveryNodeMetadata);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -642,7 +640,6 @@ public class RecoveryTaskAssignmentServiceTest {
         new RecoveryTaskAssignmentService(
             recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
 
-    List<RecoveryNodeMetadata> recoveryNodeMetadataList = new ArrayList<>();
     for (int i = 0; i < 2; i++) {
       RecoveryNodeMetadata recoveryNodeMetadata =
           new RecoveryNodeMetadata(
@@ -651,7 +648,6 @@ public class RecoveryTaskAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
-      recoveryNodeMetadataList.add(recoveryNodeMetadata);
     }
 
     for (int i = 0; i < 2; i++) {

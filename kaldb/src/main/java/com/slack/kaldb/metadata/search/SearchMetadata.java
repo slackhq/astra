@@ -1,22 +1,25 @@
 package com.slack.kaldb.metadata.search;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
 /** Search metadata contains the metadata needed to perform a search on a snapshot. */
 public class SearchMetadata extends KaldbMetadata {
-  public static final String LIVE_SNAPSHOT_PATH = "LIVE";
-
   public final String snapshotName;
   public final String url;
 
   public SearchMetadata(String name, String snapshotName, String url) {
     super(name);
-    checkState(url != null && !url.isEmpty(), "Url shouldn't be empty");
-    checkState(snapshotName != null && !snapshotName.isEmpty(), "SnapshotName should not be empty");
+    checkArgument(url != null && !url.isEmpty(), "Url shouldn't be empty");
+    checkArgument(
+        snapshotName != null && !snapshotName.isEmpty(), "SnapshotName should not be empty");
     this.snapshotName = snapshotName;
     this.url = url;
+  }
+
+  public static String getSnapshotName(String snapshotName, String hostname) {
+    return snapshotName + "_" + hostname;
   }
 
   @Override

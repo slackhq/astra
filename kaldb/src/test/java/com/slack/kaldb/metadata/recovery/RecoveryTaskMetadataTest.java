@@ -1,7 +1,9 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import java.time.Instant;
 import org.junit.Test;
 
 public class RecoveryTaskMetadataTest {
@@ -52,5 +54,30 @@ public class RecoveryTaskMetadataTest {
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataC.hashCode());
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataD.hashCode());
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataE.hashCode());
+  }
+
+  @Test
+  public void invalidArgumentsShouldThrow() {
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryTaskMetadata(
+                    "name", "partitionId", 0, 0, Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new RecoveryTaskMetadata("name", "", 0, 1, Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () -> new RecoveryTaskMetadata("name", null, 0, 1, Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new RecoveryTaskMetadata("name", "partitionId", 0, 1, 0));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryTaskMetadata(
+                    "name",
+                    "partitionId",
+                    Instant.now().toEpochMilli() + 10,
+                    Instant.now().toEpochMilli() - 10,
+                    Instant.now().toEpochMilli()));
   }
 }

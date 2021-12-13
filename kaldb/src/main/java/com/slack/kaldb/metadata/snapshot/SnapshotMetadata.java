@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.snapshot;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
@@ -18,6 +18,11 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
  * here.
  */
 public class SnapshotMetadata extends KaldbMetadata {
+  public static final String LIVE_SNAPSHOT_PATH = "LIVE";
+
+  public static boolean isLive(SnapshotMetadata snapshotMetadata) {
+    return snapshotMetadata.snapshotPath.equals(LIVE_SNAPSHOT_PATH);
+  }
 
   public final String snapshotPath;
   public final String snapshotId;
@@ -45,13 +50,15 @@ public class SnapshotMetadata extends KaldbMetadata {
       long maxOffset,
       String partitionId) {
     super(name);
-    checkState(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
-    checkState(startTimeUtc > 0, "start time should be greater than zero.");
-    checkState(endTimeUtc > 0, "end time should be greater than zero.");
-    checkState(endTimeUtc >= startTimeUtc, "start time should be greater than or equal to endtime");
-    checkState(maxOffset >= 0, "max offset should be greater than or equal to zero.");
-    checkState(partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
-    checkState(
+    checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
+    checkArgument(startTimeUtc > 0, "start time should be greater than zero.");
+    checkArgument(endTimeUtc > 0, "end time should be greater than zero.");
+    checkArgument(
+        endTimeUtc >= startTimeUtc, "start time should be greater than or equal to endtime");
+    checkArgument(maxOffset >= 0, "max offset should be greater than or equal to zero.");
+    checkArgument(
+        partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
+    checkArgument(
         snapshotPath != null && !snapshotPath.isEmpty(), "snapshotPath can't be null or empty");
 
     this.snapshotPath = snapshotPath;

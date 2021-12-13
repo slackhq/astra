@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SnapshotMetadataStore extends PersistentMutableMetadataStore<SnapshotMetadata> {
-  public static final String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshots";
+  public static final String SNAPSHOT_METADATA_STORE_ZK_PATH = "/snapshot";
 
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotMetadataStore.class);
 

@@ -64,6 +64,8 @@ managerConfig:
     replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
   recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
+  cacheSlotAssignmentServiceConfig:
+    schedulePeriodMins: ${KALDB_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
 
 recoveryConfig:
   serverConfig:

@@ -73,7 +73,7 @@ public class IndexingChunkImplTest {
     assertThat(beforeSearchNodes.size()).isEqualTo(1);
     assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   public static class BasicTests {
@@ -472,7 +472,7 @@ public class IndexingChunkImplTest {
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
       List<SnapshotMetadata> afterSnapshots =
@@ -480,14 +480,15 @@ public class IndexingChunkImplTest {
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
-      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       List<SearchMetadata> afterSearchNodes =
           searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(afterSearchNodes.get(0).snapshotName)
+          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
@@ -527,7 +528,7 @@ public class IndexingChunkImplTest {
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
-      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
@@ -546,19 +547,20 @@ public class IndexingChunkImplTest {
       SnapshotMetadata liveSnapshot =
           afterSnapshots
               .stream()
-              .filter(s -> s.snapshotPath.equals(SearchMetadata.LIVE_SNAPSHOT_PATH))
+              .filter(s -> s.snapshotPath.equals(SnapshotMetadata.LIVE_SNAPSHOT_PATH))
               .findFirst()
               .get();
       assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
-      assertThat(liveSnapshot.snapshotPath).isEqualTo(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       List<SearchMetadata> afterSearchNodes =
           searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName).contains(SearchMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(afterSearchNodes.get(0).snapshotName)
+          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       chunk.close();
       closeChunk = false;

@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -12,7 +13,7 @@ public class RecoveryNodeMetadataTest {
   public void testRecoveryNodeMetadata() {
     String name = "name";
     Metadata.RecoveryNodeMetadata.RecoveryNodeState state =
-        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
+        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED;
     String task = "task";
     long time = Instant.now().toEpochMilli();
 
@@ -28,7 +29,7 @@ public class RecoveryNodeMetadataTest {
   public void testRecoveryNodeEqualsHashcode() {
     String name = "name";
     Metadata.RecoveryNodeMetadata.RecoveryNodeState state =
-        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
+        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED;
     String task = "task";
     long time = Instant.now().toEpochMilli();
 
@@ -36,7 +37,7 @@ public class RecoveryNodeMetadataTest {
     RecoveryNodeMetadata recoveryNodeMetadataB = new RecoveryNodeMetadata(name, state, task, time);
     RecoveryNodeMetadata recoveryNodeMetadataC =
         new RecoveryNodeMetadata(
-            name, Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED, task, time);
+            name, Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING, task, time);
     RecoveryNodeMetadata recoveryNodeMetadataD =
         new RecoveryNodeMetadata(name, state, "taskD", time);
     RecoveryNodeMetadata recoveryNodeMetadataE =
@@ -51,5 +52,38 @@ public class RecoveryNodeMetadataTest {
     assertThat(recoveryNodeMetadataA.hashCode()).isNotEqualTo(recoveryNodeMetadataC.hashCode());
     assertThat(recoveryNodeMetadataA.hashCode()).isNotEqualTo(recoveryNodeMetadataD.hashCode());
     assertThat(recoveryNodeMetadataA.hashCode()).isNotEqualTo(recoveryNodeMetadataE.hashCode());
+  }
+
+  @Test
+  public void invalidArgumentsShouldThrow() {
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryNodeMetadata(
+                    "name",
+                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
+                    "123",
+                    Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryNodeMetadata(
+                    "name",
+                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+                    "",
+                    Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryNodeMetadata(
+                    "name",
+                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
+                    "",
+                    Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryNodeMetadata(
+                    "name", Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED, "123", 0));
   }
 }
