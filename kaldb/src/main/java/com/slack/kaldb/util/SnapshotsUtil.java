@@ -20,7 +20,7 @@ public class SnapshotsUtil {
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotsUtil.class);
   private static final int SNAPSHOT_OPERATION_TIMEOUT_SECS = 10;
 
-  public static boolean deleteSnapshots(
+  public static int deleteSnapshots(
       SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshotsToBeDeleted) {
     LOG.info("Deleting {} snapshots: {}", snapshotsToBeDeleted.size(), snapshotsToBeDeleted);
 
@@ -49,13 +49,12 @@ public class SnapshotsUtil {
     final int success = successCounter.get();
     if (success == snapshotsToBeDeleted.size()) {
       LOG.info("Successfully deleted all {} snapshots.", success);
-      return true;
     } else {
       LOG.warn(
           "Failed to delete {} snapshots within {} secs.",
           SNAPSHOT_OPERATION_TIMEOUT_SECS,
           snapshotsToBeDeleted.size() - success);
-      return false;
     }
+    return success;
   }
 }

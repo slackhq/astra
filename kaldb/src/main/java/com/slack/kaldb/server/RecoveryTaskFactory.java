@@ -42,7 +42,7 @@ public class RecoveryTaskFactory {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public boolean deleteStaleLiveSnapsnots(List<SnapshotMetadata> snapshots) {
+  public int deleteStaleLiveSnapsnots(List<SnapshotMetadata> snapshots) {
     List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots);
     LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
     return SnapshotsUtil.deleteSnapshots(snapshotMetadataStore, staleSnapshots);

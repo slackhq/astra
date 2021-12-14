@@ -2,9 +2,12 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
+import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -152,9 +155,96 @@ public class RecoveryTaskFactoryTest {
 
     RecoveryTaskFactory recoveryTaskFactory =
         new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
-    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots)).isTrue();
+    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots))
+        .isEqualTo(actualSnapshots.size());
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
+    // Clear state
+    expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
+  }
+
+  @Test
+  public void shouldStaleDeletionShouldHandleTimeouts() {
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 123;
+
+    SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    SnapshotMetadata livePartition2 =
+        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+    SnapshotMetadata partition2 =
+        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+
+    testDeleteSnapshotsTimeouts(List.of(partition1), 0, List.of(partition1));
+    testDeleteSnapshotsTimeouts(List.of(livePartition1), 0, List.of(livePartition1));
+    //    testDeleteSnapshots(List.of(partition2), List.of(partition2));
+    //    testDeleteSnapshots(List.of(livePartition2), List.of(livePartition2));
+    //    testDeleteSnapshots(List.of(livePartition1), Collections.emptyList());
+    //    testDeleteSnapshots(List.of(livePartition1, livePartition11), Collections.emptyList());
+    //    testDeleteSnapshots(List.of(partition1, livePartition1), List.of(partition1));
+    //    testDeleteSnapshots(List.of(partition1, livePartition1, livePartition11),
+    // List.of(partition1));
+    //    testDeleteSnapshots(List.of(partition2, livePartition2), List.of(partition2,
+    // livePartition2));
+    //    testDeleteSnapshots(List.of(partition2, partition1), List.of(partition2, partition1));
+    //    testDeleteSnapshots(
+    //            List.of(partition2, partition1, livePartition11), List.of(partition2,
+    // partition1));
+    //    testDeleteSnapshots(
+    //            List.of(partition1, livePartition1, partition2, livePartition2),
+    //            List.of(partition2, partition1, livePartition2));
+    //    testDeleteSnapshots(
+    //            List.of(partition1, livePartition1, livePartition11, partition2, livePartition2),
+    //            List.of(partition2, partition1, livePartition2));
+  }
+
+  private void testDeleteSnapshotsTimeouts(
+      List<SnapshotMetadata> actualSnapshots,
+      int expectedDeletionSize,
+      List<SnapshotMetadata> expectedSnapshots) {
+
+    actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrderElementsOf(actualSnapshots);
+
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+
+    // Throw exceptions on delete.
+    doThrow()
+        .doReturn(Futures.immediateFailedFuture(new Exception()))
+        .when(snapshotMetadataStore)
+        .delete((SnapshotMetadata) any());
+
+    //    ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
+    //    doThrow()
+    //        .doReturn(
+    //            Futures.submit(
+    //                () -> {
+    //                  try {
+    //                    Thread.sleep(30 * 1000);
+    //                  } catch (InterruptedException ignored) {
+    //                  }
+    //                },
+    //                timeoutServiceExecutor))
+    //        .when(snapshotMetadataStore)
+    //        .delete((SnapshotMetadata) any());
+
+    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots))
+        .isEqualTo(expectedDeletionSize);
+
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
+
     // Clear state
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
   }
