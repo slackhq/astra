@@ -8,6 +8,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
+import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.UUID;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -90,6 +90,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       String kafkaPartitionId,
       Logger logger) {
     this.logStore = logStore;
+    String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
     this.logSearcher =
         (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
 
@@ -98,7 +99,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.kafkaPartitionId = kafkaPartitionId;
     chunkInfo =
         new ChunkInfo(
-            chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + UUID.randomUUID(),
+            chunkDataPrefix + "_" + chunkCreationTime.getEpochSecond() + "_" + logStoreId,
             chunkCreationTime.toEpochMilli(),
             kafkaPartitionId,
             SnapshotMetadata.LIVE_SNAPSHOT_PATH);
