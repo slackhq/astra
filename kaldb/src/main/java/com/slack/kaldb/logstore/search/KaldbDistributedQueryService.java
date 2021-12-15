@@ -16,7 +16,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +45,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // TODO: In the future expose this as a config in the proto
   // TODO: ChunkManager#QUERY_TIMEOUT_SECONDS and this could be unified?
   public static int READ_TIMEOUT_MS = 15000;
-
-  public static final KaldbSearch.SearchResult emptyResult =
-      KaldbSearch.SearchResult.newBuilder().setFailedNodes(1).setTotalNodes(1).build();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -119,13 +115,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-  private CompletableFuture<List<KaldbSearch.SearchResult>> distributedSearch(
+  private CompletableFuture<List<SearchResult<LogMessage>>> distributedSearch(
       KaldbSearch.SearchRequest request) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     try {
-      List<CompletableFuture<KaldbSearch.SearchResult>> queryServers =
+      List<CompletableFuture<SearchResult<LogMessage>>> queryServers =
           new ArrayList<>(stubs.size());
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
@@ -140,6 +136,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                                 .build()
                                 .newClientInterceptor())
                         .search(request))
+                .thenApply(SearchResultUtils::fromSearchResultProtoOrEmpty)
                 .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
       }
 
@@ -148,28 +145,21 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             queryServers,
             ex -> {
               LOG.error("Node failed to respond ", ex);
-              return emptyResult;
+              return SearchResult.empty();
             });
       } finally {
         span.finish();
       }
     } catch (Exception e) {
       LOG.error("SearchMetadata failed with " + e);
-      List<CompletableFuture<KaldbSearch.SearchResult>> emptyResultList =
-          Collections.singletonList(CompletableFuture.supplyAsync(() -> emptyResult));
+      List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
+          Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
       return CompletableFutures.allAsList(emptyResultList);
     }
   }
 
   public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
-    CompletableFuture<List<SearchResult<LogMessage>>> searchResults =
-        distributedSearch(request)
-            .thenApply(
-                results ->
-                    results
-                        .stream()
-                        .map(SearchResultUtils::fromSearchResultProtoOrEmpty)
-                        .collect(Collectors.toList()));
+    CompletableFuture<List<SearchResult<LogMessage>>> searchResults = distributedSearch(request);
 
     CompletableFuture<SearchResult<LogMessage>> aggregatedResult =
         ((SearchResultAggregator<LogMessage>)

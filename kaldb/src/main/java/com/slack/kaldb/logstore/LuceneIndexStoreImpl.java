@@ -187,8 +187,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       if (indexWriter.isPresent()) {
         indexWriter.get().addDocument(documentBuilder.fromMessage(message));
       } else {
-        LOG.warn("IndexWriter should never be null when adding a message");
-        throw new IllegalStateException("Index writer should never be null when adding a message");
+        LOG.error("IndexWriter should never be null when adding a message");
+        throw new IllegalStateException("IndexWriter should never be null when adding a message");
       }
     } catch (PropertyTypeMismatchException
         | UnSupportedPropertyTypeException
@@ -304,5 +304,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   @Override
   public SearcherManager getSearcherManager() {
     return searcherManager;
+  }
+
+  public String getId() {
+    return id;
   }
 }
