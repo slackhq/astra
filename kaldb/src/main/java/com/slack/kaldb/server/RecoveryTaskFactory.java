@@ -51,7 +51,7 @@ public class RecoveryTaskFactory {
   public long getStartOffsetForPartition(
       List<SnapshotMetadata> snapshots, List<RecoveryTaskMetadata> recoveryTasks) {
 
-    Long maxSnapshotOffset =
+    long maxSnapshotOffset =
         snapshots
             .stream()
             .filter(snapshot -> snapshot.partitionId.equals(partitionId))
