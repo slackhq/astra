@@ -18,6 +18,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -219,7 +221,7 @@ public class RecoveryTaskFactoryTest {
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
         .when(snapshotMetadataStore)
-        .delete((SnapshotMetadata) any());
+        .delete((any(SnapshotMetadata.class)));
 
     assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots)).isEqualTo(0);
 
@@ -231,6 +233,69 @@ public class RecoveryTaskFactoryTest {
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
   }
 
-  // TODO: Add a test when stale deletion fails/timeout.
+  @Test
+  public void shouldStaleDeletionShouldHandleExceptions() {
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 123;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    final SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    final SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    final SnapshotMetadata livePartition2 =
+        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+    final SnapshotMetadata partition2 =
+        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+
+    List<SnapshotMetadata> snapshots =
+        List.of(partition1, livePartition1, livePartition11, partition2, livePartition2);
+
+    snapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
+
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+
+    // Pass first call, fail second call.
+    ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
+    // allow the first deletion to work, and timeout the second one
+    doCallRealMethod()
+        .doReturn(
+            Futures.submit(
+                () -> {
+                  try {
+                    Thread.sleep(30 * 1000);
+                  } catch (InterruptedException ignored) {
+                  }
+                },
+                timeoutServiceExecutor))
+        .when(snapshotMetadataStore)
+        .delete(any(SnapshotMetadata.class));
+
+    doCallRealMethod()
+        .doReturn(Futures.immediateFailedFuture(new RuntimeException()))
+        .when(snapshotMetadataStore)
+        .delete((SnapshotMetadata) any());
+
+    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(snapshots)).isEqualTo(1);
+
+    // Either liveSnapshot1 or liveSnapshot11 remain but not both.
+    List<SnapshotMetadata> actualSnapshots = snapshotMetadataStore.listSync();
+    assertThat(actualSnapshots.size()).isEqualTo(4);
+    assertThat(actualSnapshots).contains(partition1, partition2, livePartition2);
+    assertThat(
+            (actualSnapshots.contains(livePartition1) && !actualSnapshots.contains(livePartition11))
+                || (actualSnapshots.contains(livePartition11)
+                    && !actualSnapshots.contains(livePartition1)))
+        .isTrue();
+  }
+
   // TODO: Add a unit test for determining max offset.
 }
