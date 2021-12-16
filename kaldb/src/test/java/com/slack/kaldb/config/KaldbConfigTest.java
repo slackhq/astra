@@ -210,10 +210,11 @@ public class KaldbConfigTest {
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
+    assertThat(replicaEvictionServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
@@ -310,10 +311,11 @@ public class KaldbConfigTest {
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
+    assertThat(replicaEvictionServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
 
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
@@ -404,10 +406,11 @@ public class KaldbConfigTest {
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
+    assertThat(replicaEvictionServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
@@ -488,10 +491,11 @@ public class KaldbConfigTest {
         managerConfig.getReplicaCreationServiceConfig();
     assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         managerConfig.getReplicaEvictionServiceConfig();
-    assertThat(replicaEvictionServiceConfig.getReplicaLifespanMins()).isZero();
+    assertThat(replicaEvictionServiceConfig.getSchedulePeriodMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =

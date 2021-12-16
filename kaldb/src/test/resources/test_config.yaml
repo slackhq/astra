@@ -57,8 +57,9 @@ managerConfig:
   replicaCreationServiceConfig:
     replicasPerSnapshot: 2
     schedulePeriodMins: 15
-  replicaEvictionServiceConfig:
     replicaLifespanMins: 1440
+  replicaEvictionServiceConfig:
+    schedulePeriodMins: 10
   recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: 10
   cacheSlotAssignmentServiceConfig:

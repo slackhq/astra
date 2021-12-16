@@ -60,8 +60,9 @@ managerConfig:
   replicaCreationServiceConfig:
     replicasPerSnapshot: ${KALDB_MANAGER_REPLICAS_PER_SNAPSHOT:-1}
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
-  replicaEvictionServiceConfig:
     replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
+  replicaEvictionServiceConfig:
+    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_EVICT_PERIOD_MINS:-15}
   recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
   cacheSlotAssignmentServiceConfig:

@@ -12,12 +12,14 @@ public class ReplicaMetadataSerializerTest {
   private final ReplicaMetadataSerializer serDe = new ReplicaMetadataSerializer();
 
   @Test
-  public void testCacheSlotMetadataSerializer() throws InvalidProtocolBufferException {
+  public void testReplicaMetadataSerializer() throws InvalidProtocolBufferException {
     String name = "name";
     String snapshotId = "snapshotId";
     long createdTimeUtc = Instant.now().toEpochMilli();
+    long expireAfterUtc = Instant.now().plusSeconds(60).toEpochMilli();
 
-    ReplicaMetadata replicaMetadata = new ReplicaMetadata(name, snapshotId, createdTimeUtc);
+    ReplicaMetadata replicaMetadata =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -28,6 +30,25 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
+    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(expireAfterUtc);
+  }
+
+  @Test
+  public void shouldHandleEmptyExpiration() throws InvalidProtocolBufferException {
+    // ensure even though adding expiration field we can still deserialize existing replicas
+    // this can likely be removed after this code has shipped to production
+    String emptyExpiration =
+        "{\n"
+            + "  \"name\": \"name\",\n"
+            + "  \"snapshotId\": \"snapshotId\",\n"
+            + "  \"createdTimeUtc\": \"1639677020380\"\n"
+            + "}";
+    ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
+
+    assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
+    assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
+    assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(1639677020380L);
+    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(0L);
   }
 
   @Test
