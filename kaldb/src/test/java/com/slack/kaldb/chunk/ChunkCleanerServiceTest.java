@@ -96,6 +96,9 @@ public class ChunkCleanerServiceTest {
 
     testBasicSnapshotMetadata(chunkManager, creationTime);
 
+    // try to delete active chunk
+    assertThat(chunkCleanerService.deleteStaleData(Instant.now().plusSeconds(100))).isEqualTo(0);
+
     // Commit the chunk and roll it over.
     chunkManager.rollOverActiveChunk();
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
