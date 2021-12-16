@@ -48,7 +48,7 @@ public class RecoveryTaskFactory {
     return SnapshotsUtil.deleteSnapshots(snapshotMetadataStore, staleSnapshots);
   }
 
-  public long getStartOffsetForPartition(
+  public long getHigestDurableOffsetForPartition(
       List<SnapshotMetadata> snapshots, List<RecoveryTaskMetadata> recoveryTasks) {
 
     long maxSnapshotOffset =
