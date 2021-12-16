@@ -437,17 +437,12 @@ public class RecoveryTaskFactoryTest {
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
             recoveryTaskFactory.getHigestDurableOffsetForPartition(
-                Collections.emptyList(),
-                List.of(recoveryTask1, recoveryTask11, recoveryTask21)))
+                Collections.emptyList(), List.of(recoveryTask1, recoveryTask11, recoveryTask21)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
             recoveryTaskFactory.getHigestDurableOffsetForPartition(
                 Collections.emptyList(),
-                List.of(
-                    recoveryTask1,
-                    recoveryTask11,
-                    recoveryTask21,
-                    recoveryTask22)))
+                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
         .isEqualTo(recoveryStartOffset * 3);
 
     //  snapshots and recovery tasks for same partition
@@ -474,8 +469,7 @@ public class RecoveryTaskFactoryTest {
         .isNegative();
     assertThat(
             recoveryTaskFactory.getHigestDurableOffsetForPartition(
-                List.of(partition2, partition21),
-                List.of(recoveryTask21, recoveryTask22)))
+                List.of(partition2, partition21), List.of(recoveryTask21, recoveryTask22)))
         .isNegative();
 
     //  snapshots for diff partitions, recovery tasks for diff partitions.
@@ -485,12 +479,12 @@ public class RecoveryTaskFactoryTest {
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
             recoveryTaskFactory.getHigestDurableOffsetForPartition(
-                    List.of(partition1, partition2, partition12), List.of(recoveryTask11)))
-            .isEqualTo(recoveryStartOffset * 3);
+                List.of(partition1, partition2, partition12), List.of(recoveryTask11)))
+        .isEqualTo(recoveryStartOffset * 3);
     assertThat(
             recoveryTaskFactory.getHigestDurableOffsetForPartition(
-                    List.of(partition1, partition11, partition12, partition2, partition21, partition22),
-                    List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
-            .isEqualTo(recoveryStartOffset * 3);
+                List.of(partition1, partition11, partition12, partition2, partition21, partition22),
+                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
+        .isEqualTo(recoveryStartOffset * 3);
   }
 }

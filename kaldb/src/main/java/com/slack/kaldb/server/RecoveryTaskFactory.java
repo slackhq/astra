@@ -48,6 +48,15 @@ public class RecoveryTaskFactory {
     return SnapshotsUtil.deleteSnapshots(snapshotMetadataStore, staleSnapshots);
   }
 
+  /*
+  TODO: Implement start up operation.
+  TODO: Implement recovery task creation.
+  start up tasks:
+      * Cleanup stale live nodes.
+      * Create a recovery task if needed.
+      * Get max offset to start indexing.
+   */
+  // Get the highest offset for which data is durable for a partition.
   public long getHigestDurableOffsetForPartition(
       List<SnapshotMetadata> snapshots, List<RecoveryTaskMetadata> recoveryTasks) {
 
