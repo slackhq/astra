@@ -226,8 +226,9 @@ public class Kaldb {
       @Override
       public void failure(Service service) {
         LOG.error(
-            String.format("Service %s failed with cause ", service.getClass().toString()),
-            service.failureCause());
+            String.format(
+                "Service %s failed with cause %s",
+                service.getClass().toString(), service.failureCause().toString()));
 
         // shutdown if any services enters failure state
         new RuntimeHalterImpl()
