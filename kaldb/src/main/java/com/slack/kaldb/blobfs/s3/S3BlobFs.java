@@ -48,7 +48,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class S3BlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
-  private static final Logger LOGGER = LoggerFactory.getLogger(S3BlobFs.class);
+  private static final Logger LOG = LoggerFactory.getLogger(S3BlobFs.class);
   private static final String DELIMITER = "/";
   private S3Client _s3Client;
 
@@ -225,7 +225,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean mkdir(URI uri) throws IOException {
-    LOGGER.info("mkdir {}", uri);
+    LOG.info("mkdir {}", uri);
     try {
       Preconditions.checkNotNull(uri, "uri is null");
       String path = normalizeToDirectoryPrefix(uri);
@@ -248,7 +248,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean delete(URI segmentUri, boolean forceDelete) throws IOException {
-    LOGGER.info("Deleting uri {} force {}", segmentUri, forceDelete);
+    LOG.info("Deleting uri {} force {}", segmentUri, forceDelete);
     try {
       if (isDirectory(segmentUri)) {
         if (!forceDelete) {
@@ -311,7 +311,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean copy(URI srcUri, URI dstUri) throws IOException {
-    LOGGER.info("Copying uri {} to uri {}", srcUri, dstUri);
+    LOG.info("Copying uri {} to uri {}", srcUri, dstUri);
     Preconditions.checkState(exists(srcUri), "Source URI '%s' does not exist", srcUri);
     if (srcUri.equals(dstUri)) {
       return true;
@@ -389,9 +389,9 @@ public class S3BlobFs extends BlobFs {
           listObjectsV2RequestBuilder.continuationToken(continuationToken);
         }
         ListObjectsV2Request listObjectsV2Request = listObjectsV2RequestBuilder.build();
-        LOGGER.debug("Trying to send ListObjectsV2Request {}", listObjectsV2Request);
+        LOG.debug("Trying to send ListObjectsV2Request {}", listObjectsV2Request);
         ListObjectsV2Response listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
-        LOGGER.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
+        LOG.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
         List<S3Object> filesReturned = listObjectsV2Response.contents();
         filesReturned
             .stream()
@@ -411,7 +411,7 @@ public class S3BlobFs extends BlobFs {
         continuationToken = listObjectsV2Response.nextContinuationToken();
       }
       String[] listedFiles = builder.build().toArray(new String[0]);
-      LOGGER.info(
+      LOG.info(
           "Listed {} files from URI: {}, is recursive: {}", listedFiles.length, fileUri, recursive);
       return listedFiles;
     } catch (Throwable t) {
@@ -421,7 +421,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public void copyToLocalFile(URI srcUri, File dstFile) throws Exception {
-    LOGGER.info("Copy {} to local {}", srcUri, dstFile.getAbsolutePath());
+    LOG.debug("Copy {} to local {}", srcUri, dstFile.getAbsolutePath());
     URI base = getBase(srcUri);
     FileUtils.forceMkdir(dstFile.getParentFile());
     String prefix = sanitizePath(base.relativize(srcUri).getPath());
@@ -433,7 +433,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public void copyFromLocalFile(File srcFile, URI dstUri) throws Exception {
-    LOGGER.debug("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
+    LOG.debug("Copy {} from local to {}", srcFile.getAbsolutePath(), dstUri);
     URI base = getBase(dstUri);
     String prefix = sanitizePath(base.relativize(dstUri).getPath());
     PutObjectRequest putObjectRequest =
@@ -455,7 +455,7 @@ public class S3BlobFs extends BlobFs {
       ListObjectsV2Response listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
       return listObjectsV2Response.hasContents();
     } catch (NoSuchKeyException e) {
-      LOGGER.error("Could not get directory entry for {}", uri);
+      LOG.error("Could not get directory entry for {}", uri);
       return false;
     }
   }
