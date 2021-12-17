@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
+import com.slack.kaldb.util.SpanUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,14 +75,7 @@ public class SearchResultUtils {
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultUtils.toSearchResultProto");
-    span.tag("totalCount", String.valueOf(searchResult.totalCount));
-    span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
-    span.tag("failedNodes", String.valueOf(searchResult.failedNodes));
-    span.tag("totalNodes", String.valueOf(searchResult.totalNodes));
-    span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
-    span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
-    span.tag("hits", String.valueOf(searchResult.hits.size()));
-    span.tag("buckets", String.valueOf(searchResult.buckets.size()));
+    SpanUtils.addSearchResultMeta(span, searchResult);
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);

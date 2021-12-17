@@ -125,6 +125,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           new ArrayList<>(stubs.size());
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
+
         // With the deadline we are keeping a high limit on how much time each CompletableFuture
         // take. Alternately use completeOnTimeout and the value can then we configured
         // per request and not as part of the config
@@ -139,22 +140,20 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                 .thenApply(SearchResultUtils::fromSearchResultProtoOrEmpty)
                 .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
       }
-
-      try {
-        return CompletableFutures.successfulAsList(
-            queryServers,
-            ex -> {
-              LOG.error("Node failed to respond ", ex);
-              return SearchResult.empty();
-            });
-      } finally {
-        span.finish();
-      }
+      return CompletableFutures.successfulAsList(
+          queryServers,
+          ex -> {
+            LOG.error("Node failed to respond ", ex);
+            return SearchResult.empty();
+          });
     } catch (Exception e) {
       LOG.error("SearchMetadata failed with " + e);
       List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
           Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
+      span.error(e);
       return CompletableFutures.allAsList(emptyResultList);
+    } finally {
+      span.finish();
     }
   }
 
