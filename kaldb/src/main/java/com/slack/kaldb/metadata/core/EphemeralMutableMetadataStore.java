@@ -11,9 +11,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     extends UpdatableCacheableMetadataStore<T> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(EphemeralMutableMetadataStore.class);
 
   private final boolean updatable;
 
@@ -45,8 +48,8 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     try {
       create(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new InternalMetadataStoreException(
-          "Failed to create metadata node " + metadataNode.toString(), e);
+      LOG.error("Failed to create znode " + metadataNode, e);
+      throw new InternalMetadataStoreException("Failed to create znode " + metadataNode, e);
     }
   }
 
@@ -62,8 +65,8 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     try {
       update(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | TimeoutException | InterruptedException e) {
-      throw new InternalMetadataStoreException(
-          "Failed to update node " + metadataNode.toString(), e);
+      LOG.error("Failed to update znode " + metadataNode, e);
+      throw new InternalMetadataStoreException("Failed to update znode " + metadataNode, e);
     }
   }
 
@@ -76,8 +79,8 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     try {
       delete(metadataNode).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | TimeoutException | InterruptedException e) {
-      throw new InternalMetadataStoreException(
-          "Failed to delete node: " + metadataNode.toString(), e);
+      LOG.error("Failed to delete znode " + metadataNode, e);
+      throw new InternalMetadataStoreException("Failed to delete znode " + metadataNode, e);
     }
   }
 }
