@@ -92,6 +92,10 @@ message ManagerConfig {
         int32 replicaLifespanMins = 3;
     }
 
+    message ReplicaAssignmentServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
+
     message ReplicaEvictionServiceConfig {
         int32 schedulePeriodMins = 1;
     }
@@ -100,18 +104,14 @@ message ManagerConfig {
         int32 schedulePeriodMins = 1;
     }
 
-    message CacheSlotAssignmentServiceConfig {
-        int32 schedulePeriodMins = 1;
-    }
-
     int32 eventAggregationSecs = 1;
     int32 scheduleInitialDelayMins = 2;
     ServerConfig serverConfig = 3;
 
     ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
-    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 5;
-    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 6;
-    CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig = 7;
+    ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig = 5;
+    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 6;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 7;
 }
 
 message RecoveryConfig {

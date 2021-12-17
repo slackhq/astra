@@ -6,8 +6,8 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.CacheSlotAssignmentService;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
+import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
@@ -199,10 +199,10 @@ public class Kaldb {
               prometheusMeterRegistry);
       services.add(recoveryTaskAssignmentService);
 
-      CacheSlotAssignmentService cacheSlotAssignmentService =
-          new CacheSlotAssignmentService(
+      ReplicaAssignmentService replicaAssignmentService =
+          new ReplicaAssignmentService(
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
-      services.add(cacheSlotAssignmentService);
+      services.add(replicaAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
