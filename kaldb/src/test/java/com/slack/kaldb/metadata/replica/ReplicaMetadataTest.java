@@ -13,8 +13,10 @@ public class ReplicaMetadataTest {
     String name = "name";
     String snapshotId = "snapshotId";
     long createdTimeUtc = Instant.now().toEpochMilli();
+    long expireAfterUtc = Instant.now().toEpochMilli();
 
-    ReplicaMetadata replicaMetadata = new ReplicaMetadata(name, snapshotId, createdTimeUtc);
+    ReplicaMetadata replicaMetadata =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
@@ -26,27 +28,45 @@ public class ReplicaMetadataTest {
     String name = "name";
     String snapshotId = "snapshotId";
     long createdTimeUtc = Instant.now().toEpochMilli();
+    long expireAfterUtc = Instant.now().toEpochMilli();
 
-    ReplicaMetadata replicaMetadataA = new ReplicaMetadata(name, snapshotId, createdTimeUtc);
-    ReplicaMetadata replicaMetadataB = new ReplicaMetadata(name, snapshotId, createdTimeUtc);
-    ReplicaMetadata replicaMetadataC = new ReplicaMetadata("nameC", snapshotId, createdTimeUtc);
-    ReplicaMetadata replicaMetadataD = new ReplicaMetadata(name, snapshotId, createdTimeUtc + 1);
+    ReplicaMetadata replicaMetadataA =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+    ReplicaMetadata replicaMetadataB =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+    ReplicaMetadata replicaMetadataC =
+        new ReplicaMetadata("nameC", snapshotId, createdTimeUtc, expireAfterUtc);
+    ReplicaMetadata replicaMetadataD =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc + 1, expireAfterUtc);
+    ReplicaMetadata replicaMetadataE =
+        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc + 1);
 
     assertThat(replicaMetadataA).isEqualTo(replicaMetadataB);
     assertThat(replicaMetadataA).isNotEqualTo(replicaMetadataC);
     assertThat(replicaMetadataA).isNotEqualTo(replicaMetadataD);
+    assertThat(replicaMetadataA).isNotEqualTo(replicaMetadataE);
 
     assertThat(replicaMetadataA.hashCode()).isEqualTo(replicaMetadataB.hashCode());
     assertThat(replicaMetadataA.hashCode()).isNotEqualTo(replicaMetadataC.hashCode());
     assertThat(replicaMetadataA.hashCode()).isNotEqualTo(replicaMetadataD.hashCode());
+    assertThat(replicaMetadataA.hashCode()).isNotEqualTo(replicaMetadataE.hashCode());
   }
 
   @Test
   public void invalidArgumentsShouldThrow() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ReplicaMetadata("name", "", Instant.now().toEpochMilli()));
+        .isThrownBy(
+            () ->
+                new ReplicaMetadata(
+                    "name", "", Instant.now().toEpochMilli(), Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ReplicaMetadata("name", null, Instant.now().toEpochMilli()));
-    assertThatIllegalArgumentException().isThrownBy(() -> new ReplicaMetadata("name", "123", 0));
+        .isThrownBy(
+            () ->
+                new ReplicaMetadata(
+                    "name", null, Instant.now().toEpochMilli(), Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ReplicaMetadata("name", "123", 0, Instant.now().toEpochMilli()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ReplicaMetadata("name", "123", Instant.now().toEpochMilli(), -1));
   }
 }

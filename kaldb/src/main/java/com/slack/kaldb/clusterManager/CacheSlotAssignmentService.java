@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -76,9 +75,6 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
     this.meterRegistry = meterRegistry;
 
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
-    checkArgument(
-        managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins() > 0,
-        "replicaLifespanMins must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
     slotAssignSucceeded = meterRegistry.counter(SLOT_ASSIGN_SUCCEEDED);
@@ -158,20 +154,15 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
-    long cutoffCreatedTime =
-        Instant.now()
-            .minus(
-                managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins(),
-                ChronoUnit.MINUTES)
-            .toEpochMilli();
+    long nowMilli = Instant.now().toEpochMilli();
     List<String> replicaIdsToAssign =
         replicaMetadataStore
             .getCached()
             .stream()
-            // only replicas created in the last X mins, that are not already assigned
+            // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.createdTimeUtc > cutoffCreatedTime
+                    replicaMetadata.expireAfterUtc > nowMilli
                         && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
             .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeUtc))

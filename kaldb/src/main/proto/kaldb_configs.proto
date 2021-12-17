@@ -88,11 +88,12 @@ message CacheConfig {
 message ManagerConfig {
     message ReplicaCreationServiceConfig {
         int32 replicasPerSnapshot = 1;
-        int32 schedulePeriodMins = 4;
+        int32 schedulePeriodMins = 2;
+        int32 replicaLifespanMins = 3;
     }
 
     message ReplicaEvictionServiceConfig {
-        int32 replicaLifespanMins = 1;
+        int32 schedulePeriodMins = 1;
     }
 
     message RecoveryTaskAssignmentServiceConfig {

@@ -72,7 +72,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
         managerConfig.getReplicaCreationServiceConfig().getReplicasPerSnapshot() >= 0,
         "replicasPerSnapshot must be >= 0");
     checkArgument(
-        managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins() > 0,
+        managerConfig.getReplicaCreationServiceConfig().getReplicaLifespanMins() > 0,
         "replicaLifespanMins must be > 0");
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
@@ -159,7 +159,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
     long snapshotExpiration =
         Instant.now()
             .minus(
-                managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins(),
+                managerConfig.getReplicaCreationServiceConfig().getReplicaLifespanMins(),
                 ChronoUnit.MINUTES)
             .toEpochMilli();
 
@@ -184,7 +184,14 @@ public class ReplicaCreationService extends AbstractScheduledService {
                             (i) -> {
                               ListenableFuture<?> future =
                                   replicaMetadataStore.create(
-                                      replicaMetadataFromSnapshotId(snapshotMetadata.snapshotId));
+                                      replicaMetadataFromSnapshotId(
+                                          snapshotMetadata.snapshotId,
+                                          Instant.ofEpochMilli(snapshotMetadata.endTimeUtc)
+                                              .plus(
+                                                  managerConfig
+                                                      .getReplicaCreationServiceConfig()
+                                                      .getReplicaLifespanMins(),
+                                                  ChronoUnit.MINUTES)));
                               addCallback(
                                   future,
                                   successCountingCallback(successCounter),
@@ -218,10 +225,12 @@ public class ReplicaCreationService extends AbstractScheduledService {
     return createdReplicas;
   }
 
-  public static ReplicaMetadata replicaMetadataFromSnapshotId(String snapshotId) {
+  public static ReplicaMetadata replicaMetadataFromSnapshotId(
+      String snapshotId, Instant expireAfter) {
     return new ReplicaMetadata(
         String.format("%s-%s", snapshotId, UUID.randomUUID()),
         snapshotId,
-        Instant.now().toEpochMilli());
+        Instant.now().toEpochMilli(),
+        expireAfter.toEpochMilli());
   }
 }
