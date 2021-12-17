@@ -81,65 +81,15 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(0)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     new CacheSlotAssignmentService(
         cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldCheckInvalidReplicaLifespanMins() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
-            .setSchedulePeriodMins(1)
-            .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(0)
-            .build();
-    KaldbConfigs.ManagerConfig managerConfig =
-        KaldbConfigs.ManagerConfig.newBuilder()
-            .setEventAggregationSecs(10)
-            .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
-            .build();
-
-    new CacheSlotAssignmentService(
-        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void shouldCheckInvalidScheduleInitialDelay() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
-            .setSchedulePeriodMins(1)
-            .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(0)
-            .build();
-    KaldbConfigs.ManagerConfig managerConfig =
-        KaldbConfigs.ManagerConfig.newBuilder()
-            .setEventAggregationSecs(10)
-            .setScheduleInitialDelayMins(-1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
-            .build();
-
-    new CacheSlotAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
-        .scheduler();
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -148,16 +98,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(-1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(0)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     new CacheSlotAssignmentService(
@@ -171,16 +116,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -216,16 +156,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -238,7 +173,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -274,16 +210,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -333,16 +264,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -355,7 +281,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -415,16 +342,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -437,7 +359,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -521,16 +444,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -543,7 +461,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -592,16 +511,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -609,22 +523,34 @@ public class CacheSlotAssignmentServiceTest {
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataExpiredList = new ArrayList<>();
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 2; i++) {
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli());
+              Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
+              Instant.now().minusSeconds(60).toEpochMilli());
       replicaMetadataExpiredList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
+
+    // add an expired replica with a value of 0
+    ReplicaMetadata replicaMetadataZero =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
+            0);
+    replicaMetadataExpiredList.add(replicaMetadataZero);
+    replicaMetadataStore.create(replicaMetadataZero);
 
     for (int i = 0; i < 3; i++) {
       ReplicaMetadata replicaMetadata =
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -699,16 +625,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -720,7 +641,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -827,16 +749,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -848,7 +765,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -929,16 +847,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -950,7 +863,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -1019,16 +933,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -1066,7 +975,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -1120,16 +1030,11 @@ public class CacheSlotAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
-    KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-            .setReplicaLifespanMins(1440)
-            .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setScheduleInitialDelayMins(1)
             .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
-            .setReplicaEvictionServiceConfig(replicaEvictionServiceConfig)
             .build();
 
     CacheSlotAssignmentService cacheSlotAssignmentService =
@@ -1142,7 +1047,8 @@ public class CacheSlotAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              Instant.now().plusSeconds(60).toEpochMilli());
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }

@@ -66,10 +66,11 @@
     },
     "replicaCreationServiceConfig": {
       "replicasPerSnapshot": 2,
-      "schedulePeriodMins": 15
+      "schedulePeriodMins": 15,
+      "replicaLifespanMins": 1440
     },
     "replicaEvictionServiceConfig": {
-      "replicaLifespanMins": 1440
+      "schedulePeriodMins": 10
     },
     "recoveryTaskAssignmentServiceConfig": {
       "schedulePeriodMins": 10
