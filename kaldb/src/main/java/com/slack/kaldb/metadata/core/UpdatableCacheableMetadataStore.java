@@ -40,8 +40,7 @@ public abstract class UpdatableCacheableMetadataStore<T extends KaldbMetadata>
     try {
       update(metadataNode).get(KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      logger.error("Error updating znode: " + metadataNode, e);
-      throw new InternalMetadataStoreException("Error updating znode: " + metadataNode, e);
+      throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
 }
