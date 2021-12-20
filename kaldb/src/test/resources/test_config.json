@@ -69,13 +69,13 @@
       "schedulePeriodMins": 15,
       "replicaLifespanMins": 1440
     },
+    "replicaAssignmentServiceConfig": {
+      "schedulePeriodMins": 10
+    },
     "replicaEvictionServiceConfig": {
       "schedulePeriodMins": 10
     },
     "recoveryTaskAssignmentServiceConfig": {
-      "schedulePeriodMins": 10
-    },
-    "cacheSlotAssignmentServiceConfig": {
       "schedulePeriodMins": 10
     }
   },

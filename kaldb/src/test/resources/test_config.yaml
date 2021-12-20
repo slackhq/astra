@@ -60,9 +60,9 @@ managerConfig:
     replicaLifespanMins: 1440
   replicaEvictionServiceConfig:
     schedulePeriodMins: 10
-  recoveryTaskAssignmentServiceConfig:
+  replicaAssignmentServiceConfig:
     schedulePeriodMins: 10
-  cacheSlotAssignmentServiceConfig:
+  recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: 10
 
 recoveryConfig:

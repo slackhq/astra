@@ -36,7 +36,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class CacheSlotAssignmentServiceTest {
+public class ReplicaAssignmentServiceTest {
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -54,7 +54,7 @@ public class CacheSlotAssignmentServiceTest {
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
-            .setZkPathPrefix("CacheSlotAssignmentServiceTest")
+            .setZkPathPrefix("ReplicaAssignmentServiceTest")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
@@ -77,94 +77,94 @@ public class CacheSlotAssignmentServiceTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void shouldCheckInvalidEventAggregation() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(0)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    new CacheSlotAssignmentService(
+    new ReplicaAssignmentService(
         cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void shouldCheckInvalidSchedulePeriod() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(-1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    new CacheSlotAssignmentService(
+    new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
         .scheduler();
   }
 
   @Test
   public void shouldHandleNoSlotsOrReplicas() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleNoAvailableSlots() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
@@ -182,7 +182,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 3);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
@@ -190,35 +190,35 @@ public class CacheSlotAssignmentServiceTest {
 
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(3);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleNoAvailableReplicas() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
@@ -236,7 +236,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
@@ -244,35 +244,35 @@ public class CacheSlotAssignmentServiceTest {
 
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleAllReplicasAlreadyAssigned() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
@@ -313,7 +313,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 5);
     await().until(() -> replicaMetadataStore.getCached().size() == 3);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(3);
@@ -322,35 +322,35 @@ public class CacheSlotAssignmentServiceTest {
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleMixOfSlotStates() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
@@ -366,14 +366,14 @@ public class CacheSlotAssignmentServiceTest {
     }
 
     List<CacheSlotMetadata> unmutatedSlots = new ArrayList<>();
-    CacheSlotMetadata cacheSlotAssigned =
+    CacheSlotMetadata cacheSlotWithAssignment =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli());
-    unmutatedSlots.add(cacheSlotAssigned);
-    cacheSlotMetadataStore.create(cacheSlotAssigned);
+    unmutatedSlots.add(cacheSlotWithAssignment);
+    cacheSlotMetadataStore.create(cacheSlotWithAssignment);
 
     CacheSlotMetadata cacheSlotLive =
         new CacheSlotMetadata(
@@ -404,7 +404,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 4);
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
@@ -424,35 +424,35 @@ public class CacheSlotAssignmentServiceTest {
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleAllSlotsAlreadyAssigned() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
@@ -482,7 +482,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
     await().until(() -> replicaMetadataStore.getCached().size() == 5);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(5);
@@ -491,35 +491,35 @@ public class CacheSlotAssignmentServiceTest {
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(2);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleExpiredReplicas() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataExpiredList = new ArrayList<>();
@@ -567,7 +567,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 4);
     await().until(() -> replicaMetadataStore.getCached().size() == 6);
 
-    int assignments = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(3);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(6);
@@ -605,35 +605,35 @@ public class CacheSlotAssignmentServiceTest {
                 .collect(Collectors.toList())));
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(3);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldRetryFailedAssignmentOnFollowingRun() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
@@ -664,7 +664,7 @@ public class CacheSlotAssignmentServiceTest {
         .when(cacheSlotMetadataStore)
         .update(any());
 
-    int firstAssignment = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
@@ -691,18 +691,18 @@ public class CacheSlotAssignmentServiceTest {
         .isEqualTo(1);
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
     doCallRealMethod().when(cacheSlotMetadataStore).update(any());
 
-    int secondAssignment = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int secondAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(secondAssignment).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
@@ -729,35 +729,35 @@ public class CacheSlotAssignmentServiceTest {
         .isEqualTo(1);
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(2);
   }
 
   @Test
   public void shouldHandleTimedOutFutures() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
@@ -783,7 +783,7 @@ public class CacheSlotAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
 
-    cacheSlotAssignmentService.futuresListTimeoutSecs = 2;
+    replicaAssignmentService.futuresListTimeoutSecs = 2;
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
     doCallRealMethod()
         .doReturn(
@@ -798,7 +798,7 @@ public class CacheSlotAssignmentServiceTest {
         .when(cacheSlotMetadataStore)
         .update(any());
 
-    int firstAssignment = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
@@ -825,17 +825,17 @@ public class CacheSlotAssignmentServiceTest {
         .isEqualTo(1);
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
@@ -843,19 +843,19 @@ public class CacheSlotAssignmentServiceTest {
 
   @Test
   public void shouldHandleExceptionalFutures() {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(10)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 2; i++) {
@@ -886,7 +886,7 @@ public class CacheSlotAssignmentServiceTest {
         .when(cacheSlotMetadataStore)
         .update(any());
 
-    int firstAssignment = cacheSlotAssignmentService.assignCacheSlotsToReplicas();
+    int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
@@ -913,35 +913,35 @@ public class CacheSlotAssignmentServiceTest {
         .isEqualTo(1);
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
 
   @Test
   public void shouldHandleSlotsAvailableFirstLifecycle() throws Exception {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     for (int i = 0; i < 3; i++) {
@@ -967,8 +967,8 @@ public class CacheSlotAssignmentServiceTest {
                 .count())
         .isEqualTo(3);
 
-    cacheSlotAssignmentService.startAsync();
-    cacheSlotAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     for (int i = 0; i < 2; i++) {
       ReplicaMetadata replicaMetadata =
@@ -1007,38 +1007,38 @@ public class CacheSlotAssignmentServiceTest {
                     == 1);
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    cacheSlotAssignmentService.stopAsync();
-    cacheSlotAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    replicaAssignmentService.stopAsync();
+    replicaAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
   public void shouldHandleReplicasAvailableFirstLifecycle() throws Exception {
-    KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig =
-        KaldbConfigs.ManagerConfig.CacheSlotAssignmentServiceConfig.newBuilder()
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
             .setEventAggregationSecs(2)
             .setScheduleInitialDelayMins(1)
-            .setCacheSlotAssignmentServiceConfig(cacheSlotAssignmentServiceConfig)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    CacheSlotAssignmentService cacheSlotAssignmentService =
-        new CacheSlotAssignmentService(
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
     List<ReplicaMetadata> replicaMetadataList = new ArrayList<>();
@@ -1055,8 +1055,8 @@ public class CacheSlotAssignmentServiceTest {
 
     await().until(() -> replicaMetadataStore.getCached().size() == 3);
 
-    cacheSlotAssignmentService.startAsync();
-    cacheSlotAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     for (int i = 0; i < 2; i++) {
       CacheSlotMetadata cacheSlotMetadata =
@@ -1084,20 +1084,20 @@ public class CacheSlotAssignmentServiceTest {
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
 
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_FAILED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     Assertions.assertThat(
-            MetricsUtil.getCount(CacheSlotAssignmentService.SLOT_ASSIGN_SUCCEEDED, meterRegistry))
+            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
     Assertions.assertThat(
             MetricsUtil.getCount(
-                CacheSlotAssignmentService.SLOT_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
+                ReplicaAssignmentService.REPLICA_ASSIGN_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(1);
     Assertions.assertThat(
-            MetricsUtil.getTimerCount(CacheSlotAssignmentService.SLOT_ASSIGN_TIMER, meterRegistry))
+            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    cacheSlotAssignmentService.stopAsync();
-    cacheSlotAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    replicaAssignmentService.stopAsync();
+    replicaAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
 }
