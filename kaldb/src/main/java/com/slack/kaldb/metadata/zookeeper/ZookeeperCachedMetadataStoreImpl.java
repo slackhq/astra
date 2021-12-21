@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.EnsureContainers;
@@ -227,20 +228,23 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
   }
 
   private void maybeNotify() {
-    // TODO: getCount when used this way could return a stale value and we may have a race
-    //  condition here. Update this code to not use getCount.
-    if (initializedLatch.getCount() == 0) {
-      listenerContainer.forEach(
-          listener -> {
-            try {
-              listener.cacheChanged();
-            } catch (Exception e) {
-              // If a listener throws an exception log it and ignore it.
-              errorCounter.increment();
-              LOG.error("Caught an exception notifying listener " + listener, e);
-            }
-          });
-      LOG.debug("Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
+    try {
+      if (initializedLatch.await(0, TimeUnit.SECONDS)) {
+        listenerContainer.forEach(
+            listener -> {
+              try {
+                listener.cacheChanged();
+              } catch (Exception e) {
+                // If a listener throws an exception log it and ignore it.
+                errorCounter.increment();
+                LOG.error("Caught an exception notifying listener " + listener, e);
+              }
+            });
+        LOG.debug(
+            "Notified {} listeners on node change at {}", listenerContainer.size(), pathPrefix);
+      }
+    } catch (InterruptedException e) {
+      LOG.error("Encountered an exception reading initialized latch", e);
     }
   }
 
