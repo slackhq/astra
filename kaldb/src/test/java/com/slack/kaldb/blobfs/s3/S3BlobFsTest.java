@@ -1,5 +1,8 @@
 package com.slack.kaldb.blobfs.s3;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
+
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import java.io.File;
 import java.io.IOException;
@@ -9,7 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,21 +32,20 @@ public class S3BlobFsTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
   final String DELIMITER = "/";
-  static final String BUCKET = "test-bucket";
   final String SCHEME = "s3";
   final String FILE_FORMAT = "%s://%s/%s";
   final String DIR_FORMAT = "%s://%s";
 
   private final S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+  private String bucket;
   private S3BlobFs s3BlobFs;
-
-  // TODO: Make this before and after class to speed up the unit test runs like Pinot tests.
 
   @Before
   public void setUp() {
+    bucket = "test-bucket-" + UUID.randomUUID();
     s3BlobFs = new S3BlobFs();
     s3BlobFs.init(s3Client);
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(BUCKET).build());
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
   }
 
   @After
@@ -49,10 +53,17 @@ public class S3BlobFsTest {
     s3BlobFs.close();
   }
 
+  private void createEmptyFile(String[] folderNames, String fileName) {
+    String fileNameWithFolder = StringUtils.join(folderNames, DELIMITER) + DELIMITER + fileName;
+    s3Client.putObject(
+        S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
+        RequestBody.fromBytes(new byte[0]));
+  }
+
   private void createEmptyFile(String folderName, String fileName) {
     String fileNameWithFolder = folderName + DELIMITER + fileName;
     s3Client.putObject(
-        S3TestUtils.getPutObjectRequest(BUCKET, fileNameWithFolder),
+        S3TestUtils.getPutObjectRequest(bucket, fileNameWithFolder),
         RequestBody.fromBytes(new byte[0]));
   }
 
@@ -62,10 +73,10 @@ public class S3BlobFsTest {
     String[] originalFiles = new String[] {"a-touch.txt", "b-touch.txt", "c-touch.txt"};
 
     for (String fileName : originalFiles) {
-      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileName)));
+      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
     }
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(BUCKET, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
 
     String[] response =
         listObjectsV2Response
@@ -87,10 +98,10 @@ public class S3BlobFsTest {
 
     for (String fileName : originalFiles) {
       String fileNameWithFolder = folder + DELIMITER + fileName;
-      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileNameWithFolder)));
+      s3BlobFs.touch(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileNameWithFolder)));
     }
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(BUCKET, folder, false));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, folder, false));
 
     String[] response =
         listObjectsV2Response
@@ -107,17 +118,60 @@ public class S3BlobFsTest {
   }
 
   @Test
+  public void testListDirectoriesInBucket() throws Exception {
+    createEmptyFile(new String[] {"foo", "bar"}, "a-list.txt");
+    createEmptyFile(new String[] {"foo", "baz"}, "b-list.txt");
+    createEmptyFile(new String[] {"baz"}, "c-list.txt");
+    createEmptyFile(new String[] {"baz", "bar"}, "d-list.txt");
+    createEmptyFile(new String[] {}, "e-list.txt");
+
+    assertThat(s3BlobFs.listDirectories(URI.create(String.format(DIR_FORMAT, SCHEME, bucket))))
+        .containsExactlyInAnyOrder("foo", "baz");
+    assertThat(
+            s3BlobFs.listDirectories(
+                URI.create(String.format(DIR_FORMAT, SCHEME, bucket) + DELIMITER + "foo")))
+        .containsExactlyInAnyOrder("bar", "baz");
+    assertThat(
+            s3BlobFs.listDirectories(
+                URI.create(
+                    String.format(DIR_FORMAT, SCHEME, bucket)
+                        + DELIMITER
+                        + "foo"
+                        + DELIMITER
+                        + "bar")))
+        .isEmpty();
+    assertThat(
+            s3BlobFs.listDirectories(
+                URI.create(String.format(DIR_FORMAT, SCHEME, bucket) + DELIMITER + "baz")))
+        .containsExactlyInAnyOrder("bar");
+
+    Throwable nonExistingPath =
+        catchThrowable(
+            () ->
+                s3BlobFs.listDirectories(
+                    URI.create(String.format(DIR_FORMAT, SCHEME, bucket) + DELIMITER + "qux")));
+    assertThat(nonExistingPath).isInstanceOf(IOException.class);
+    Throwable notAPath =
+        catchThrowable(
+            () ->
+                s3BlobFs.listDirectories(
+                    URI.create(
+                        String.format(DIR_FORMAT, SCHEME, bucket) + DELIMITER + "e-list.txt")));
+    assertThat(notAPath).isInstanceOf(IOException.class);
+  }
+
+  @Test
   public void testListFilesInBucketNonRecursive() throws Exception {
     String[] originalFiles = new String[] {"a-list.txt", "b-list.txt", "c-list.txt"};
     List<String> expectedFileNames = new ArrayList<>();
 
     for (String fileName : originalFiles) {
       createEmptyFile("", fileName);
-      expectedFileNames.add(String.format(FILE_FORMAT, SCHEME, BUCKET, fileName));
+      expectedFileNames.add(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
     }
 
     String[] actualFiles =
-        s3BlobFs.listFiles(URI.create(String.format(DIR_FORMAT, SCHEME, BUCKET)), false);
+        s3BlobFs.listFiles(URI.create(String.format(DIR_FORMAT, SCHEME, bucket)), false);
 
     actualFiles = Arrays.stream(actualFiles).filter(x -> x.contains("list")).toArray(String[]::new);
     Assert.assertEquals(actualFiles.length, originalFiles.length);
@@ -135,7 +189,7 @@ public class S3BlobFsTest {
     }
 
     String[] actualFiles =
-        s3BlobFs.listFiles(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folder)), false);
+        s3BlobFs.listFiles(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder)), false);
 
     actualFiles =
         Arrays.stream(actualFiles).filter(x -> x.contains("list-2")).toArray(String[]::new);
@@ -146,7 +200,7 @@ public class S3BlobFsTest {
             Arrays.stream(originalFiles)
                 .map(
                     fileName ->
-                        String.format(FILE_FORMAT, SCHEME, BUCKET, folder + DELIMITER + fileName))
+                        String.format(FILE_FORMAT, SCHEME, bucket, folder + DELIMITER + fileName))
                 .toArray(),
             actualFiles));
   }
@@ -163,11 +217,11 @@ public class S3BlobFsTest {
       for (String fileName : originalFiles) {
         createEmptyFile(folderName, fileName);
         expectedResultList.add(
-            String.format(FILE_FORMAT, SCHEME, BUCKET, folderName + DELIMITER + fileName));
+            String.format(FILE_FORMAT, SCHEME, bucket, folderName + DELIMITER + fileName));
       }
     }
     String[] actualFiles =
-        s3BlobFs.listFiles(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folder)), true);
+        s3BlobFs.listFiles(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder)), true);
 
     actualFiles =
         Arrays.stream(actualFiles).filter(x -> x.contains("list-3")).toArray(String[]::new);
@@ -188,10 +242,10 @@ public class S3BlobFsTest {
       }
     }
 
-    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileToDelete)), false);
+    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileToDelete)), false);
 
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(BUCKET, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
     String[] actualResponse =
         listObjectsV2Response
             .contents()
@@ -213,10 +267,10 @@ public class S3BlobFsTest {
       createEmptyFile(folderName, fileName);
     }
 
-    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folderName)), true);
+    s3BlobFs.delete(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)), true);
 
     ListObjectsV2Response listObjectsV2Response =
-        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(BUCKET, "", true));
+        s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
     String[] actualResponse =
         listObjectsV2Response
             .contents()
@@ -239,20 +293,20 @@ public class S3BlobFsTest {
     }
 
     boolean isBucketDir =
-        s3BlobFs.isDirectory(URI.create(String.format(DIR_FORMAT, SCHEME, BUCKET)));
+        s3BlobFs.isDirectory(URI.create(String.format(DIR_FORMAT, SCHEME, bucket)));
     boolean isDir =
-        s3BlobFs.isDirectory(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folder)));
+        s3BlobFs.isDirectory(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder)));
     boolean isDirChild =
         s3BlobFs.isDirectory(
             URI.create(
-                String.format(FILE_FORMAT, SCHEME, BUCKET, folder + DELIMITER + childFolder)));
+                String.format(FILE_FORMAT, SCHEME, bucket, folder + DELIMITER + childFolder)));
     boolean notIsDir =
         s3BlobFs.isDirectory(
             URI.create(
                 String.format(
                     FILE_FORMAT,
                     SCHEME,
-                    BUCKET,
+                    bucket,
                     folder + DELIMITER + childFolder + DELIMITER + "a-delete.txt")));
 
     Assert.assertTrue(isBucketDir);
@@ -272,20 +326,20 @@ public class S3BlobFsTest {
       createEmptyFile(folderName, fileName);
     }
 
-    boolean bucketExists = s3BlobFs.exists(URI.create(String.format(DIR_FORMAT, SCHEME, BUCKET)));
+    boolean bucketExists = s3BlobFs.exists(URI.create(String.format(DIR_FORMAT, SCHEME, bucket)));
     boolean dirExists =
-        s3BlobFs.exists(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folder)));
+        s3BlobFs.exists(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folder)));
     boolean childDirExists =
         s3BlobFs.exists(
             URI.create(
-                String.format(FILE_FORMAT, SCHEME, BUCKET, folder + DELIMITER + childFolder)));
+                String.format(FILE_FORMAT, SCHEME, bucket, folder + DELIMITER + childFolder)));
     boolean fileExists =
         s3BlobFs.exists(
             URI.create(
                 String.format(
                     FILE_FORMAT,
                     SCHEME,
-                    BUCKET,
+                    bucket,
                     folder + DELIMITER + childFolder + DELIMITER + "a-ex.txt")));
     boolean fileNotExists =
         s3BlobFs.exists(
@@ -293,7 +347,7 @@ public class S3BlobFsTest {
                 String.format(
                     FILE_FORMAT,
                     SCHEME,
-                    BUCKET,
+                    bucket,
                     folder + DELIMITER + childFolder + DELIMITER + "d-ex.txt")));
 
     Assert.assertTrue(bucketExists);
@@ -310,16 +364,16 @@ public class S3BlobFsTest {
     File fileToCopy = new File(getClass().getClassLoader().getResource(fileName).getFile());
 
     s3BlobFs.copyFromLocalFile(
-        fileToCopy, URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileName)));
+        fileToCopy, URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(BUCKET, fileName));
+        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName));
 
     Assert.assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
 
     File fileToDownload = new File("copyFile_download.txt").getAbsoluteFile();
     s3BlobFs.copyToLocalFile(
-        URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileName)), fileToDownload);
+        URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)), fileToDownload);
     Assert.assertEquals(fileToCopy.length(), fileToDownload.length());
 
     fileToDownload.deleteOnExit();
@@ -331,10 +385,10 @@ public class S3BlobFsTest {
     String fileContent = "Hello, World";
 
     s3Client.putObject(
-        S3TestUtils.getPutObjectRequest(BUCKET, fileName), RequestBody.fromString(fileContent));
+        S3TestUtils.getPutObjectRequest(bucket, fileName), RequestBody.fromString(fileContent));
 
     InputStream is =
-        s3BlobFs.open(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, fileName)));
+        s3BlobFs.open(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
     String actualContents = IOUtils.toString(is, StandardCharsets.UTF_8);
     Assert.assertEquals(actualContents, fileContent);
   }
@@ -343,10 +397,10 @@ public class S3BlobFsTest {
   public void testMkdir() throws Exception {
     String folderName = "my-test-folder";
 
-    s3BlobFs.mkdir(URI.create(String.format(FILE_FORMAT, SCHEME, BUCKET, folderName)));
+    s3BlobFs.mkdir(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, folderName)));
 
     HeadObjectResponse headObjectResponse =
-        s3Client.headObject(S3TestUtils.getHeadObjectRequest(BUCKET, folderName));
+        s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, folderName + DELIMITER));
     Assert.assertTrue(headObjectResponse.sdkHttpResponse().isSuccessful());
   }
 }

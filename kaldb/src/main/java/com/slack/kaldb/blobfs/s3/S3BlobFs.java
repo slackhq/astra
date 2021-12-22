@@ -2,6 +2,7 @@ package com.slack.kaldb.blobfs.s3;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.BlobFsConfig;
 import java.io.File;
@@ -17,7 +18,10 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -30,6 +34,7 @@ import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -284,7 +289,7 @@ public class S3BlobFs extends BlobFs {
         }
         return deleteSucceeded;
       } else {
-        String prefix = sanitizePath(segmentUri.getPath());
+        String prefix = DELIMITER + sanitizePath(segmentUri.getPath());
         DeleteObjectRequest deleteObjectRequest =
             DeleteObjectRequest.builder().bucket(segmentUri.getHost()).key(prefix).build();
 
@@ -364,6 +369,60 @@ public class S3BlobFs extends BlobFs {
         return 0;
       }
       return s3ObjectMetadata.contentLength();
+    } catch (Throwable t) {
+      throw new IOException(t);
+    }
+  }
+
+  @Override
+  public Set<String> listDirectories(URI directory) throws IOException {
+    try {
+      if (!isDirectory(directory)) {
+        throw new IOException(String.format("%s is not a valid directory", directory));
+      }
+      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+      String continuationToken = null;
+      boolean isDone = false;
+      String prefix = normalizeToDirectoryPrefix(directory);
+      while (!isDone) {
+        ListObjectsV2Request.Builder listObjectsV2RequestBuilder =
+            ListObjectsV2Request.builder().bucket(directory.getHost());
+        if (!prefix.equals(DELIMITER)) {
+          listObjectsV2RequestBuilder = listObjectsV2RequestBuilder.prefix(prefix);
+        }
+        listObjectsV2RequestBuilder = listObjectsV2RequestBuilder.delimiter(DELIMITER);
+        if (continuationToken != null) {
+          listObjectsV2RequestBuilder.continuationToken(continuationToken);
+        }
+        ListObjectsV2Request listObjectsV2Request = listObjectsV2RequestBuilder.build();
+        LOG.debug("Trying to send ListObjectsV2Request {}", listObjectsV2Request);
+        ListObjectsV2Response listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+        LOG.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
+        List<CommonPrefix> prefixesReturned = listObjectsV2Response.commonPrefixes();
+
+        int substringBegin;
+        if (!prefix.equals(DELIMITER)) {
+          substringBegin = prefix.length();
+        } else {
+          substringBegin = 0;
+        }
+        int substringEnd = -DELIMITER.length();
+        Set<String> directories =
+            prefixesReturned
+                .stream()
+                .map(
+                    prefixReturned ->
+                        StringUtils.substring(
+                            prefixReturned.prefix(), substringBegin, substringEnd))
+                .collect(Collectors.toUnmodifiableSet());
+        builder.addAll(directories);
+        isDone = !listObjectsV2Response.isTruncated();
+        continuationToken = listObjectsV2Response.nextContinuationToken();
+      }
+
+      Set<String> finalDirectories = builder.build();
+      LOG.info("Listed {} directories from directory URI: {}", finalDirectories, directory);
+      return finalDirectories;
     } catch (Throwable t) {
       throw new IOException(t);
     }

@@ -1,10 +1,14 @@
 package com.slack.kaldb.blobfs;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -52,6 +56,37 @@ public class LocalBlobFsTest {
   public void tearDown() {
     absoluteTmpDirPath.delete();
     newTmpDir.delete();
+  }
+
+  @Test
+  public void shouldListDirectories() throws IOException {
+    Path testParent = Files.createTempDirectory("shouldListDirectories");
+    Files.createFile(
+        Path.of(Files.createDirectories(Path.of(testParent + "/foo/bar")) + "/a-list.txt"));
+    Files.createFile(
+        Path.of(Files.createDirectories(Path.of(testParent + "/foo/baz")) + "/b-list.txt"));
+    Files.createFile(
+        Path.of(Files.createDirectories(Path.of(testParent + "/baz")) + "/c-list.txt"));
+    Files.createFile(
+        Path.of(Files.createDirectories(Path.of(testParent + "/baz/bar")) + "/d-list.txt"));
+    Files.createFile(Path.of(testParent + "/e-list.txt"));
+
+    LocalBlobFs localBlobFs = new LocalBlobFs();
+
+    assertThat(localBlobFs.listDirectories(testParent.toUri()))
+        .containsExactlyInAnyOrder("foo", "baz");
+    assertThat(localBlobFs.listDirectories(URI.create(testParent + "/foo")))
+        .containsExactlyInAnyOrder("bar", "baz");
+    assertThat(localBlobFs.listDirectories(URI.create(testParent + "/foo/bar"))).isEmpty();
+    assertThat(localBlobFs.listDirectories(URI.create(testParent + "/baz")))
+        .containsExactlyInAnyOrder("bar");
+
+    Throwable nonExistingPath =
+        catchThrowable(() -> localBlobFs.listDirectories(URI.create(testParent + "/quz")));
+    assertThat(nonExistingPath).isInstanceOf(IOException.class);
+    Throwable notAPath =
+        catchThrowable(() -> localBlobFs.listDirectories(URI.create(testParent + "/e-list.txt")));
+    assertThat(notAPath).isInstanceOf(IOException.class);
   }
 
   @Test

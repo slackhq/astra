@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,6 +141,21 @@ public abstract class BlobFs implements Closeable, Serializable {
    * @throws IOException on IO failure, e.g if it's a directory.
    */
   public abstract long length(URI fileUri) throws IOException;
+
+  /**
+   * Returns the directory names found at the provided location. Returned directory names do not
+   * contain their provided prefixes or trailing delimiters. Provided URI must be a valid directory
+   * or an I/O error will occur.
+   *
+   * <p>Given the following directory structure: foo/bar/file1.txt, foo/baz/file2.txt, foo/file3.txt
+   * and baz/file4.txt - A request for directories at / would return [foo, baz], and a request for
+   * directories at foo/ would return [bar, baz].
+   *
+   * @param directory location of directory
+   * @return a set of strings that contains directories
+   * @throws IOException on IO failure, or attempting to list on an invalid directory
+   */
+  public abstract Set<String> listDirectories(URI directory) throws IOException;
 
   /**
    * Lists all the files and directories at the location provided. Lists recursively if {@code

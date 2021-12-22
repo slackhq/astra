@@ -12,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -76,6 +78,22 @@ public class LocalBlobFs extends BlobFs {
       throw new IllegalArgumentException("File is directory");
     }
     return FileUtils.sizeOf(file);
+  }
+
+  @Override
+  public Set<String> listDirectories(URI directory) throws IOException {
+    try {
+      File file = toFile(directory);
+      int prefix = file.getAbsolutePath().length() + 1;
+      return Arrays.stream(file.list())
+          .map(s -> new File(file, s))
+          .filter(File::isDirectory)
+          .map(File::getAbsolutePath)
+          .map(string -> string.substring(prefix))
+          .collect(Collectors.toUnmodifiableSet());
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
   }
 
   @Override
