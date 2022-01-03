@@ -44,10 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -239,19 +236,17 @@ public class Kaldb {
   public void shutdown() {
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-      metadataStore.close();
-
-      // Ensure that log4j is the final thing to shut down, so that it available
-      // throughout the service manager shutdown lifecycle
-      if (LogManager.getContext() instanceof LoggerContext) {
-        LOG.info("Shutting down log4j2");
-        Configurator.shutdown((LoggerContext) LogManager.getContext());
-      } else {
-        LOG.error("Unable to shutdown log4j2");
-      }
-    } catch (TimeoutException timeout) {
+    } catch (Exception e) {
       // stopping timed out
+      LOG.error("ServiceManager shutdown timed out", e);
     }
+    try {
+      metadataStore.close();
+    } catch (Exception e) {
+      LOG.error("Error while calling metadataStore.close() ", e);
+    }
+    LOG.info("Shutting down LogManager");
+    LogManager.shutdown();
   }
 
   private void addShutdownHook() {
