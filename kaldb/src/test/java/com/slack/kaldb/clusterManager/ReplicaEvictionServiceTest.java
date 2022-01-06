@@ -111,7 +111,7 @@ public class ReplicaEvictionServiceTest {
         new ReplicaEvictionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
     assertThat(
@@ -158,21 +158,37 @@ public class ReplicaEvictionServiceTest {
     }
 
     List<CacheSlotMetadata> cacheSlots = new ArrayList<>();
-    for (int i = 0; i < 3; i++) {
-      CacheSlotMetadata cacheSlotMetadata =
-          new CacheSlotMetadata(
-              UUID.randomUUID().toString(),
-              Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
-              replicas.get(i).name,
-              Instant.now().toEpochMilli());
-      cacheSlots.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
-    }
+    CacheSlotMetadata cacheSlotAssigned =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            replicas.get(0).name,
+            Instant.now().toEpochMilli());
+    cacheSlots.add(cacheSlotAssigned);
+    cacheSlotMetadataStore.create(cacheSlotAssigned);
+
+    CacheSlotMetadata cacheSlotLive =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
+            replicas.get(1).name,
+            Instant.now().toEpochMilli());
+    cacheSlots.add(cacheSlotLive);
+    cacheSlotMetadataStore.create(cacheSlotLive);
+
+    CacheSlotMetadata cacheSlotLoading =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
+            replicas.get(2).name,
+            Instant.now().toEpochMilli());
+    cacheSlots.add(cacheSlotLoading);
+    cacheSlotMetadataStore.create(cacheSlotLoading);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 5);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrderElementsOf(replicas);
@@ -220,7 +236,7 @@ public class ReplicaEvictionServiceTest {
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotMetadata);
@@ -228,7 +244,7 @@ public class ReplicaEvictionServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(1);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -292,7 +308,7 @@ public class ReplicaEvictionServiceTest {
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotMetadata);
@@ -300,7 +316,7 @@ public class ReplicaEvictionServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(1);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -372,7 +388,7 @@ public class ReplicaEvictionServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -428,7 +444,7 @@ public class ReplicaEvictionServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
 
-    int replicasMarked = replicaEvictionService.markReplicasForEviction();
+    int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -476,7 +492,7 @@ public class ReplicaEvictionServiceTest {
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotMetadata);
@@ -488,7 +504,7 @@ public class ReplicaEvictionServiceTest {
         .when(cacheSlotMetadataStore)
         .update(any());
 
-    int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction();
+    int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedFirstAttempt).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -508,7 +524,7 @@ public class ReplicaEvictionServiceTest {
 
     doCallRealMethod().when(cacheSlotMetadataStore).update(any());
 
-    int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction();
+    int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedSecondAttempt).isEqualTo(1);
 
     assertThat(replicaMetadataStore.getCached()).containsExactly(replicaMetadata);
@@ -579,7 +595,7 @@ public class ReplicaEvictionServiceTest {
       CacheSlotMetadata cacheSlotMetadata =
           new CacheSlotMetadata(
               UUID.randomUUID().toString(),
-              Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+              Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
               replicas.get(0).name,
               Instant.now().toEpochMilli());
       cacheSlotMetadataStore.create(cacheSlotMetadata);
@@ -603,7 +619,7 @@ public class ReplicaEvictionServiceTest {
         .when(cacheSlotMetadataStore)
         .update(any());
 
-    int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction();
+    int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedFirstAttempt).isEqualTo(1);
 
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrderElementsOf(replicas);
@@ -616,7 +632,7 @@ public class ReplicaEvictionServiceTest {
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
-                                    Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                                    Metadata.CacheSlotMetadata.CacheSlotState.LIVE))
                         .count()
                     == 1);
     await()
@@ -647,7 +663,7 @@ public class ReplicaEvictionServiceTest {
 
     doCallRealMethod().when(cacheSlotMetadataStore).update(any());
 
-    int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction();
+    int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedSecondAttempt).isEqualTo(1);
 
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrderElementsOf(replicas);
@@ -704,7 +720,7 @@ public class ReplicaEvictionServiceTest {
     CacheSlotMetadata cacheSlotReplicaExpiredOne =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataExpiredOne.name,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotReplicaExpiredOne);
@@ -734,7 +750,7 @@ public class ReplicaEvictionServiceTest {
     CacheSlotMetadata cacheSlotReplicaUnexpiredOne =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataUnexpiredOne.name,
             Instant.now().toEpochMilli());
     cacheSlotMetadataStore.create(cacheSlotReplicaUnexpiredOne);

@@ -71,7 +71,7 @@ public class ReplicaEvictionService extends AbstractScheduledService {
 
   @Override
   protected void runOneIteration() {
-    markReplicasForEviction();
+    markReplicasForEviction(Instant.now());
   }
 
   @Override
@@ -96,8 +96,10 @@ public class ReplicaEvictionService extends AbstractScheduledService {
    * Marks cache slots that contain an expired replica as ready for eviction. Once eviction has
    * started the cache node will further update the state indicating it has started evicting the
    * replica from memory/disk.
+   *
+   * @param expireOlderThan Will only expire replicas that have an expiration prior to this value
    */
-  protected int markReplicasForEviction() {
+  protected int markReplicasForEviction(Instant expireOlderThan) {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
 
     Map<String, ReplicaMetadata> replicaMetadataByReplicaId =
@@ -106,21 +108,15 @@ public class ReplicaEvictionService extends AbstractScheduledService {
             .stream()
             .collect(Collectors.toUnmodifiableMap(ReplicaMetadata::getName, Function.identity()));
 
-    long expireAfterNow = Instant.now().toEpochMilli();
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaEvictions =
         cacheSlotMetadataStore
             .getCached()
             .stream()
-            // get all the slots that are currently assigned, but have an expiration in the past
             .filter(
                 cacheSlotMetadata ->
-                    cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)
-                        && replicaMetadataByReplicaId.containsKey(cacheSlotMetadata.replicaId)
-                        && replicaMetadataByReplicaId.get(cacheSlotMetadata.replicaId)
-                                .expireAfterUtc
-                            < expireAfterNow)
+                    shouldEvictReplica(
+                        expireOlderThan, replicaMetadataByReplicaId, cacheSlotMetadata))
             .map(
                 (cacheSlotMetadata) -> {
                   ListenableFuture<?> future =
@@ -160,5 +156,18 @@ public class ReplicaEvictionService extends AbstractScheduledService {
         TimeUnit.MILLISECONDS.convert(evictionDuration, TimeUnit.NANOSECONDS));
 
     return successfulEvictions;
+  }
+
+  /**
+   * Checks if the cache slot should be evicted (currently live, and has an expiration in the past)
+   */
+  private boolean shouldEvictReplica(
+      Instant expireOlderThan,
+      Map<String, ReplicaMetadata> replicaMetadataByReplicaId,
+      CacheSlotMetadata cacheSlotMetadata) {
+    return cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)
+        && replicaMetadataByReplicaId.containsKey(cacheSlotMetadata.replicaId)
+        && replicaMetadataByReplicaId.get(cacheSlotMetadata.replicaId).expireAfterUtc
+            < expireOlderThan.toEpochMilli();
   }
 }
