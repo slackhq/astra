@@ -9,6 +9,7 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
+import com.slack.kaldb.clusterManager.ReplicaEvictionService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -187,6 +188,11 @@ public class Kaldb {
           new ReplicaCreationService(
               replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
+
+      ReplicaEvictionService replicaEvictionService =
+          new ReplicaEvictionService(
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+      services.add(replicaEvictionService);
 
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
