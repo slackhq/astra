@@ -5,7 +5,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.MergePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +30,11 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
     this.mergeCounter = this.metricsRegistry.counter(MERGE_COUNTER);
   }
 
-  protected void doMerge(IndexWriter writer, MergePolicy.OneMerge merge) throws IOException {
+  protected void doMerge(MergeSource mergeSource, MergePolicy.OneMerge merge) throws IOException {
     // We can use `merge` to get more stats when we want to tune further
     LOG.debug("Starting merge");
     mergeCounter.increment();
-    super.doMerge(writer, merge);
+    super.doMerge(mergeSource, merge);
     LOG.debug("Ending merge");
   }
 
@@ -48,11 +47,11 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
    * offline indexing ) based on this knowledge https://issues.apache.org/jira/browse/LUCENE-6119
    * has details on why Lucene added auto IO throttle
    */
-  protected synchronized boolean maybeStall(IndexWriter writer) {
+  protected synchronized boolean maybeStall(MergeSource mergeSource) {
     long startTime = System.nanoTime();
     activeStallThreadsCount.incrementAndGet();
 
-    boolean paused = super.maybeStall(writer);
+    boolean paused = super.maybeStall(mergeSource);
 
     long elapsed = System.nanoTime() - startTime;
     stallCounter.increment(elapsed);
