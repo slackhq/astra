@@ -66,7 +66,7 @@ managerConfig:
   replicaEvictionServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICA_EVICT_PERIOD_MINS:-15}
   replicaDeletionServiceConfig:
-    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_DELETE_PERIOD_MINS:-360}
+    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_DELETE_PERIOD_MINS:-15}
   recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
 

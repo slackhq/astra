@@ -66,7 +66,7 @@ public class ReplicaDeletionService extends AbstractScheduledService {
 
   @Override
   protected void runOneIteration() {
-    deleteExpiredUnassignedReplicas();
+    deleteExpiredUnassignedReplicas(Instant.now());
   }
 
   @Override
@@ -90,8 +90,10 @@ public class ReplicaDeletionService extends AbstractScheduledService {
   /**
    * Deletes replicas that are expired and not currently assigned to a given cache slot. Return
    * value is the amount of successful deletion requests.
+   *
+   * @param deleteOlderThan Will only delete replicas that have an expiration prior to this value
    */
-  protected int deleteExpiredUnassignedReplicas() {
+  protected int deleteExpiredUnassignedReplicas(Instant deleteOlderThan) {
     Timer.Sample deleteTimer = Timer.start(meterRegistry);
 
     Set<String> replicaIdsWithAssignments =
@@ -102,14 +104,13 @@ public class ReplicaDeletionService extends AbstractScheduledService {
             .collect(Collectors.toUnmodifiableSet());
 
     AtomicInteger successCounter = new AtomicInteger(0);
-    long milliNow = Instant.now().toEpochMilli();
     List<ListenableFuture<?>> replicaDeletions =
         replicaMetadataStore
             .getCached()
             .stream()
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.expireAfterUtc < milliNow
+                    replicaMetadata.expireAfterUtc < deleteOlderThan.toEpochMilli()
                         && !replicaIdsWithAssignments.contains(replicaMetadata.name))
             .map(
                 (replicaMetadata) -> {

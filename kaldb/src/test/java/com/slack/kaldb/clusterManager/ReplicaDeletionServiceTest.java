@@ -107,7 +107,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaDeletionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
@@ -155,7 +155,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaDeletionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(1);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 0);
@@ -226,7 +226,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaDeletionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached())
@@ -280,7 +280,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaDeletionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
@@ -335,7 +335,7 @@ public class ReplicaDeletionServiceTest {
         .when(replicaMetadataStore)
         .delete(any(ReplicaMetadata.class));
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
@@ -351,7 +351,8 @@ public class ReplicaDeletionServiceTest {
 
     doCallRealMethod().when(replicaMetadataStore).delete(any(ReplicaMetadata.class));
 
-    int replicasDeletedRetry = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeletedRetry =
+        replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeletedRetry).isEqualTo(1);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 0);
@@ -423,7 +424,7 @@ public class ReplicaDeletionServiceTest {
         .when(replicaMetadataStore)
         .delete(any(ReplicaMetadata.class));
 
-    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(1);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
@@ -440,7 +441,8 @@ public class ReplicaDeletionServiceTest {
 
     doCallRealMethod().when(replicaMetadataStore).delete(any(ReplicaMetadata.class));
 
-    int replicasDeletedRetry = replicaDeletionService.deleteExpiredUnassignedReplicas();
+    int replicasDeletedRetry =
+        replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeletedRetry).isEqualTo(1);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 0);
