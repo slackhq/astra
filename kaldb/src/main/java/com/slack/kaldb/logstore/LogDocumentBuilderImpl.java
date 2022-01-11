@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
@@ -187,11 +188,15 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       if (!(desc.propertyType.equals(PropertyType.ANY)
           || desc.propertyType.equals(PropertyType.TEXT))) {
         throw new PropertyTypeMismatchException(
-            String.format("Found string but property %s was not configured as TextProperty", name));
+            String.format(
+                Locale.ROOT,
+                "Found string but property %s was not configured as TextProperty",
+                name));
       }
       if (desc.storeNumericDocValue) {
         throw new PropertyTypeMismatchException(
             String.format(
+                Locale.ROOT,
                 "Found string but property %s was configured with storeNumericDocValue=true.",
                 name));
       }
@@ -220,7 +225,9 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       } else {
         throw new PropertyTypeMismatchException(
             String.format(
-                "Found int but property %s was not configured to be an int property.", name));
+                Locale.ROOT,
+                "Found int but property %s was not configured to be an int property.",
+                name));
       }
       return;
     }
@@ -244,7 +251,8 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         addStringProperty(doc, name, String.valueOf(longValue), desc);
       } else {
         throw new PropertyTypeMismatchException(
-            String.format("Found long but property %s was not configured to be a Long.", name));
+            String.format(
+                Locale.ROOT, "Found long but property %s was not configured to be a Long.", name));
       }
       return;
     }
@@ -268,7 +276,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         addStringProperty(doc, name, String.valueOf(floatValue), desc);
       } else {
         throw new PropertyTypeMismatchException(
-            String.format("Found float but property %s was not configured to be a Float.", name));
+            String.format(
+                Locale.ROOT,
+                "Found float but property %s was not configured to be a Float.",
+                name));
       }
       return;
     }
@@ -292,7 +303,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         addStringProperty(doc, name, String.valueOf(doubleValue), desc);
       } else {
         throw new PropertyTypeMismatchException(
-            String.format("Found double but property %s was not configured to be a Double.", name));
+            String.format(
+                Locale.ROOT,
+                "Found double but property %s was not configured to be a Double.",
+                name));
       }
       return;
     }
@@ -312,7 +326,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         } else {
           throw new PropertyTypeMismatchException(
               String.format(
-                  "Property %s,%s has an non-string type which is unsupported", name, value));
+                  Locale.ROOT,
+                  "Property %s,%s has an non-string type which is unsupported",
+                  name,
+                  value));
         }
       }
       return;
@@ -320,7 +337,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
     // Unknown type.
     throw new UnSupportedPropertyTypeException(
-        String.format("Property %s, %s has unsupported type.", name, value));
+        String.format(Locale.ROOT, "Property %s, %s has unsupported type.", name, value));
   }
 
   private void addPropertyHandleExceptions(Document doc, String name, Object value) {

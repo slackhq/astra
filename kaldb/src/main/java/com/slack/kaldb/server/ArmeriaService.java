@@ -27,6 +27,7 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -107,7 +108,7 @@ public class ArmeriaService extends AbstractIdleService {
     SpanHandler spanHandler = new SpanHandler() {};
 
     if (!endpoint.isBlank()) {
-      LOG.info(String.format("Trace reporting enabled: %s", endpoint));
+      LOG.info(String.format(Locale.ROOT, "Trace reporting enabled: %s", endpoint));
       Sender sender = URLConnectionSender.create(endpoint);
       spanHandler = AsyncZipkinSpanHandler.create(sender);
     } else {

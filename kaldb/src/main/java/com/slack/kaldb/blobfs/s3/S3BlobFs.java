@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -118,7 +119,7 @@ public class S3BlobFs extends BlobFs {
   }
 
   private String normalizeToDirectoryPrefix(URI uri) throws IOException {
-    Preconditions.checkNotNull(uri, "uri is null");
+    Objects.requireNonNull(uri, "uri is null");
     URI strippedUri = getBase(uri).relativize(uri);
     if (isPathTerminatedByDelimiter(strippedUri)) {
       return sanitizePath(strippedUri.getPath());
@@ -227,7 +228,7 @@ public class S3BlobFs extends BlobFs {
   public boolean mkdir(URI uri) throws IOException {
     LOG.info("mkdir {}", uri);
     try {
-      Preconditions.checkNotNull(uri, "uri is null");
+      Objects.requireNonNull(uri, "uri is null");
       String path = normalizeToDirectoryPrefix(uri);
       // Bucket root directory already exists and cannot be created
       if (path.equals(DELIMITER)) {

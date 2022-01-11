@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -35,7 +36,8 @@ public abstract class EphemeralMutableMetadataStore<T extends KaldbMetadata>
     try {
       return metadataStore.createEphemeralNode(path, metadataSerializer.toJsonStr(metadataNode));
     } catch (InvalidProtocolBufferException e) {
-      String msg = String.format("Error serializing node %s at path %s", metadataNode, path);
+      String msg =
+          String.format(Locale.ROOT, "Error serializing node %s at path %s", metadataNode, path);
       logger.error(msg, e);
       return Futures.immediateFailedFuture(e);
     }

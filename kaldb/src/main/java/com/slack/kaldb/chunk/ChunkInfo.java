@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -173,7 +174,10 @@ public class ChunkInfo {
     ensureTrue(
         endTimeMs - startTimeMs >= 0,
         String.format(
-            "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
+            Locale.ROOT,
+            "end timestamp %d can't be less than the start timestamp %d.",
+            endTimeMs,
+            startTimeMs));
     return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
         || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
         || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);

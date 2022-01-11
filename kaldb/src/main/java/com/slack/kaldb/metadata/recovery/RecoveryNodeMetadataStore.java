@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.recovery;
 
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +35,7 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
     super(
         shouldCache,
         false,
-        String.format("%s/%s", RECOVERY_NODE_ZK_PATH, recoveryNodeName),
+        String.format(Locale.ROOT, "%s/%s", RECOVERY_NODE_ZK_PATH, recoveryNodeName),
         metadataStore,
         new RecoveryNodeMetadataSerializer(),
         LOG);

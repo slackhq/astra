@@ -9,7 +9,9 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -73,9 +75,9 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
       MetadataSerializer<T> metadataSerde,
       CuratorFramework curator,
       MeterRegistry meterRegistry) {
-    Preconditions.checkNotNull(path, "name cannot be null");
-    Preconditions.checkNotNull(metadataSerde, "metadata serializer cannot be null");
-    Preconditions.checkNotNull(curator, "curator framework cannot be null");
+    Objects.requireNonNull(path, "name cannot be null");
+    Objects.requireNonNull(metadataSerde, "metadata serializer cannot be null");
+    Objects.requireNonNull(curator, "curator framework cannot be null");
     this.metadataSerde = metadataSerde;
     this.pathPrefix = path.endsWith(ZKPaths.PATH_SEPARATOR) ? path : path + ZKPaths.PATH_SEPARATOR;
     /*
@@ -192,7 +194,8 @@ public class ZookeeperCachedMetadataStoreImpl<T extends KaldbMetadata>
     String instanceId = "";
     try {
       instanceId = instanceIdFromData(childData);
-      T serviceInstance = metadataSerde.fromJsonStr(new String(childData.getData()));
+      T serviceInstance =
+          metadataSerde.fromJsonStr(new String(childData.getData(), StandardCharsets.UTF_8));
       instances.put(instanceId, serviceInstance);
     } catch (InvalidProtocolBufferException e) {
       // If we are unable to add the updated value to the cache, invalidate the key so cache is

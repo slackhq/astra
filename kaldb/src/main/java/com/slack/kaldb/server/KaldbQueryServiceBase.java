@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.grpc.stub.StreamObserver;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,8 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
 
     LOG.info(
-        String.format("Search request received: '%s'", request.toString().replace("\n", ", ")));
+        String.format(
+            Locale.ROOT, "Search request received: '%s'", request.toString().replace("\n", ", ")));
 
     // There is a nuance between handle vs handleAsync/whenCompleteAsync
     // handleAsync/whenCompleteAsync will cause the callback to be invoked from Java's default

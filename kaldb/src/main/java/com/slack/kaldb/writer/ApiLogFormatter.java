@@ -8,6 +8,7 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,11 +51,11 @@ public class ApiLogFormatter {
 
     String parentId =
         (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.PARENT_ID.fieldName, "");
-    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
+    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes(StandardCharsets.UTF_8)));
 
     String traceId =
         (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.TRACE_ID.fieldName, "");
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
+    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes(StandardCharsets.UTF_8)));
 
     spanBuilder.setStartTimestampMicros(murronMsg.getTimestamp() / 1000);
     spanBuilder.setDurationMicros((int) jsonMsgMap.getOrDefault(API_LOG_DURATION_FIELD, 1));
@@ -84,7 +85,8 @@ public class ApiLogFormatter {
         tagBuilder.setVFloat64((double) entry.getValue());
       } else if (entry.getValue() != null) {
         tagBuilder.setVType(Trace.ValueType.BINARY);
-        tagBuilder.setVBinary(ByteString.copyFrom(entry.getValue().toString().getBytes()));
+        tagBuilder.setVBinary(
+            ByteString.copyFrom(entry.getValue().toString().getBytes(StandardCharsets.UTF_8)));
       }
       tags.add(tagBuilder.build());
     }
@@ -99,7 +101,7 @@ public class ApiLogFormatter {
 
     // Create a message id.
     String msgId = murronMsg.getHost() + ":" + murronMsg.getPid() + ":" + murronMsg.getOffset();
-    spanBuilder.setId(ByteString.copyFrom(msgId.getBytes()));
+    spanBuilder.setId(ByteString.copyFrom(msgId.getBytes(StandardCharsets.UTF_8)));
 
     // Replace hyphens with underscore since lucene doesn't like it.
     tags.add(

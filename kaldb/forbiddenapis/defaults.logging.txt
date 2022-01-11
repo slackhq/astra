@@ -1,0 +1,9 @@
+@defaultMessage Use slf4j classes instead
+java.util.logging.**
+org.apache.log4j.**
+# We depend on LogManager so not banning this one
+# org.apache.logging.log4j.**
+
+@defaultMessage Always include exception as the second parameter
+org.slf4j.Logger#error(java.lang.String)
+# org.apache.logging.slf4.Log4jLogger.**

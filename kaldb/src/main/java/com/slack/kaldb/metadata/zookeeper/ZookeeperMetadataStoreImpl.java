@@ -15,6 +15,7 @@ import com.slack.kaldb.util.FatalErrorHandler;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -187,17 +188,17 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
       boolean metadataCompletedShutdown =
           metadataExecutorService.awaitTermination(10, TimeUnit.SECONDS);
       if (!metadataCompletedShutdown) {
-        LOG.error(
-            "Failed to gracefully shutdown metadataExecutorService in time, proceeding with shutdown anyways.");
+        LOG.warn(
+            "Failed to gracefully shutdown metadataExecutorService in time, proceeding with shutdown anyways");
       }
 
       boolean runsafeCompletedShutdown = runSafeService.awaitTermination(10, TimeUnit.SECONDS);
       if (!runsafeCompletedShutdown) {
-        LOG.error(
-            "Failed to gracefully shutdown runSafeService in time, proceeding with shutdown anyways.");
+        LOG.warn(
+            "Failed to gracefully shutdown runSafeService in time, proceeding with shutdown anyways");
       }
     } catch (InterruptedException e) {
-      LOG.error(
+      LOG.warn(
           "Interrupted while attempting to shutting down executor services, proceeding anyways");
     }
 
@@ -210,7 +211,10 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     metadataWriteCounter.increment();
     LOG.info("Creating ephemeral node at {} with data {}", path, data);
     try {
-      curator.create().withMode(CreateMode.EPHEMERAL).forPath(path, data.getBytes());
+      curator
+          .create()
+          .withMode(CreateMode.EPHEMERAL)
+          .forPath(path, data.getBytes(StandardCharsets.UTF_8));
     } catch (KeeperException.NodeExistsException e) {
       throw new NodeExistsException(path);
     } catch (KeeperException e) {
@@ -239,9 +243,12 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
             .create()
             .creatingParentsIfNeeded()
             .withMode(CreateMode.PERSISTENT)
-            .forPath(path, data.getBytes());
+            .forPath(path, data.getBytes(StandardCharsets.UTF_8));
       } else {
-        curator.create().withMode(CreateMode.PERSISTENT).forPath(path, data.getBytes());
+        curator
+            .create()
+            .withMode(CreateMode.PERSISTENT)
+            .forPath(path, data.getBytes(StandardCharsets.UTF_8));
       }
     } catch (KeeperException.NodeExistsException e) {
       throw new NodeExistsException(path);
@@ -295,7 +302,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     try {
       metadataWriteCounter.increment();
       LOG.info("Setting data for node at {} to {}", path, data);
-      curator.setData().forPath(path, data.getBytes());
+      curator.setData().forPath(path, data.getBytes(StandardCharsets.UTF_8));
     } catch (KeeperException.NoNodeException e) {
       throw new NoNodeException(path);
     } catch (KeeperException e) {
@@ -322,7 +329,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
       LOG.debug("Fetching data for node at {}", path);
       byte[] data = curator.getData().forPath(path);
       if (data != null) {
-        result = new String(data);
+        result = new String(data, StandardCharsets.UTF_8);
       } else {
         throw new InternalMetadataStoreException("Get returned no data");
       }

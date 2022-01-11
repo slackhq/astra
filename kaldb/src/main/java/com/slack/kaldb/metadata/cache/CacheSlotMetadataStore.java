@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.cache;
 
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     super(
         shouldCache,
         false,
-        String.format("%s/%s", CACHE_SLOT_ZK_PATH, cacheSlotName),
+        String.format(Locale.ROOT, "%s/%s", CACHE_SLOT_ZK_PATH, cacheSlotName),
         metadataStore,
         new CacheSlotMetadataSerializer(),
         LOG);

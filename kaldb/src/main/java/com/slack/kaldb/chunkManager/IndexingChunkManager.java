@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -225,6 +226,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     } else {
       throw new ChunkRollOverException(
           String.format(
+              Locale.ROOT,
               "The chunk roll over %s is already in progress."
                   + "It is not recommended to index faster than we can roll over, since we may not be able to keep up",
               currentChunk.info()));

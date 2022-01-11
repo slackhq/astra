@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public class JsonUtil {
   private static JsonUtil ourInstance = new JsonUtil();
@@ -16,7 +17,7 @@ public class JsonUtil {
   }
 
   public static <T> ByteBuffer toByteBuffer(T obj) throws JsonProcessingException {
-    return ByteBuffer.wrap(writeAsString(obj).getBytes());
+    return ByteBuffer.wrap(writeAsString(obj).getBytes(StandardCharsets.UTF_8));
   }
 
   public static <T> String writeAsString(T obj) throws JsonProcessingException {

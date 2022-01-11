@@ -7,11 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.UUID;
+import java.util.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -147,7 +143,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
     if (config.enableTracing) {
-      indexWriterCfg.setInfoStream(System.out);
+      indexWriterCfg.setInfoStream(new LoggingInfoStream());
     }
 
     return indexWriterCfg;
@@ -177,7 +173,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   private void handleNonFatal(Throwable ex) {
     messagesFailedCounter.increment();
-    LOG.error(String.format("Exception %s processing", ex));
+    LOG.error("Exception processing", ex);
   }
 
   @Override
@@ -187,18 +183,20 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       if (indexWriter.isPresent()) {
         indexWriter.get().addDocument(documentBuilder.fromMessage(message));
       } else {
-        LOG.error("IndexWriter should never be null when adding a message");
-        throw new IllegalStateException("IndexWriter should never be null when adding a message");
+        RuntimeException ex =
+            new IllegalStateException("IndexWriter should never be null when adding a message");
+        LOG.error("IndexWriter should never be null when adding a message", ex);
+        throw ex;
       }
     } catch (PropertyTypeMismatchException
         | UnSupportedPropertyTypeException
         | IllegalArgumentException e) {
-      LOG.error(String.format("Indexing message %s failed with error:", message), e);
+      LOG.error(String.format(Locale.ROOT, "Indexing message %s failed with error:", message), e);
       messagesFailedCounter.increment();
     } catch (IOException e) {
       // TODO: For now crash the program on IOException since it is likely a serious issue.
       // In future may need to handle this case more gracefully.
-      e.printStackTrace();
+      LOG.error("Error adding document ", e);
     }
   }
 

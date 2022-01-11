@@ -1,12 +1,8 @@
 package com.slack.kaldb.logstore;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import java.time.*;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,7 +112,12 @@ public class LogMessage extends LogWireMessage {
   private BadMessageFormatException raiseException(Throwable t) {
     throw new BadMessageFormatException(
         String.format(
-            "Index:%s, Type: %s, Id: %s, Source: %s".format(getIndex(), getType(), id, source)),
+            Locale.ROOT,
+            "Index:%s, Type: %s, Id: %s, Source: %s",
+            getIndex(),
+            getType(),
+            id,
+            source),
         t);
   }
 
@@ -127,7 +128,8 @@ public class LogMessage extends LogWireMessage {
     super(index, type, messageId, source);
     if (!isValid()) {
       throw new BadMessageFormatException(
-          String.format("Index:%s, Type: %s, Id: %s, Source: %s".format(index, type, id, source)));
+          String.format(
+              Locale.ROOT, "Index:%s, Type: %s, Id: %s, Source: %s", index, type, id, source));
     }
     this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
   }
@@ -165,13 +167,13 @@ public class LogMessage extends LogWireMessage {
       LOG.warn("id missing - equals comparison won't be accurate");
     }
     return timeSinceEpochMilli == that.timeSinceEpochMilli
-        && Objects.equal(getIndex(), that.getIndex())
-        && Objects.equal(getType(), that.getType())
-        && Objects.equal(id, that.id);
+        && Objects.equals(getIndex(), that.getIndex())
+        && Objects.equals(getType(), that.getType())
+        && Objects.equals(id, that.id);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(timeSinceEpochMilli, getIndex(), getMillisecondsSinceEpoch(), id);
+    return Objects.hash(timeSinceEpochMilli, getIndex(), getMillisecondsSinceEpoch(), id);
   }
 }

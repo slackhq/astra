@@ -41,10 +41,7 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.slf4j.Logger;
@@ -235,7 +232,8 @@ public class Kaldb {
       @Override
       public void failure(Service service) {
         LOG.error(
-            String.format("Service %s failed with cause ", service.getClass().toString()),
+            String.format(
+                Locale.ROOT, "Service %s failed with cause ", service.getClass().toString()),
             service.failureCause());
 
         // shutdown if any services enters failure state
@@ -257,8 +255,17 @@ public class Kaldb {
     } catch (Exception e) {
       LOG.error("Error while calling metadataStore.close() ", e);
     }
-    LOG.info("Shutting down LogManager");
-    LogManager.shutdown();
+
+    // this call assumes that the logging impl is Log4J
+    // all logging calls implement the SLF4J API so technically one can decide to use a different
+    // logging impl
+    // so let's wrap it in try-catch
+    try {
+      LOG.info("Shutting down LogManager");
+      LogManager.shutdown();
+    } catch (Exception e) {
+      // do nothing
+    }
   }
 
   private void addShutdownHook() {

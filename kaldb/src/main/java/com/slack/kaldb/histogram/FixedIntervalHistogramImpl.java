@@ -4,6 +4,7 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /** This class contains an implementation of the histogram with fixed interval buckets. */
@@ -103,7 +104,8 @@ public class FixedIntervalHistogramImpl implements Histogram {
       ArrayList<HistogramBucket> buckets, int start, int end, double value) {
     if (start == end) {
       throw new IllegalStateException(
-          String.format("Value out of bounds for histogram (%f %f %f)", value, low, high));
+          String.format(
+              Locale.ROOT, "Value out of bounds for histogram (%f %f %f)", value, low, high));
     } else {
       int mid = start + ((end - start - 1) / 2);
       int valueComparator = buckets.get(mid).compareTo(value);

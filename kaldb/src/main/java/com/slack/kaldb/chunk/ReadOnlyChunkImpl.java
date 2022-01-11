@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -99,7 +100,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setNameFormat("readonly-chunk-%d").build());
     this.searchContext = searchContext;
-    this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
+    this.slotName = String.format(Locale.ROOT, "%s-%s", searchContext.hostname, slotId);
 
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
     this.replicaMetadataStore = replicaMetadataStore;
@@ -180,7 +181,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       dataDirectory =
           Path.of(
-              String.format("%s/kaldb-slot-%s", dataDirectoryPrefix, cacheSlotMetadata.replicaId));
+              String.format(
+                  Locale.ROOT,
+                  "%s/kaldb-slot-%s",
+                  dataDirectoryPrefix,
+                  cacheSlotMetadata.replicaId));
       if (Files.isDirectory(dataDirectory) && Files.list(dataDirectory).findFirst().isPresent()) {
         LOG.warn("Existing files found in slot directory, clearing directory");
         cleanDirectory();
@@ -279,7 +284,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       cacheSlotMetadataStore.update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Error setting chunk metadata state");
+      LOG.error("Error setting chunk metadata state", e);
       return false;
     }
   }

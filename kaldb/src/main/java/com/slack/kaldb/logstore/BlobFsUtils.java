@@ -8,6 +8,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +38,9 @@ public class BlobFsUtils {
 
   public static URI createURI(String bucket, String prefix, String fileName) {
     return (prefix != null && !prefix.isEmpty())
-        ? URI.create(String.format(FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
-        : URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName));
+        ? URI.create(
+            String.format(Locale.ROOT, FILE_FORMAT, SCHEME, bucket + DELIMITER + prefix, fileName))
+        : URI.create(String.format(Locale.ROOT, FILE_FORMAT, SCHEME, bucket, fileName));
   }
 
   // TODO: Can we copy files without list files and a prefix only?

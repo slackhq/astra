@@ -121,7 +121,10 @@ public class LogMessageWriterImpl implements MessageWriter {
     try {
       murronMsg = Murron.MurronMessage.parseFrom(recordStr);
     } catch (InvalidProtocolBufferException e) {
-      LOG.info("Error parsing byte string into MurronMessage: {}", new String(recordStr), e);
+      LOG.info(
+          "Error parsing byte string into MurronMessage: {}",
+          new String(recordStr, StandardCharsets.UTF_8),
+          e);
     }
     return murronMsg;
   }

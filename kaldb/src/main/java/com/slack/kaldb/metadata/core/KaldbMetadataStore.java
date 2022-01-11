@@ -1,6 +1,5 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
@@ -12,9 +11,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -45,11 +42,11 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
       MetadataSerializer<T> metadataSerializer,
       Logger logger)
       throws ExecutionException, InterruptedException {
-    checkNotNull(metadataStore, "MetadataStore can't be null");
+    Objects.requireNonNull(metadataStore, "MetadataStore can't be null");
     checkState(
         storeFolder != null && !storeFolder.isEmpty(),
         "SnapshotStoreFolder can't be null or empty.");
-    checkNotNull(logger, "Logger can't be null or empty");
+    Objects.requireNonNull(logger, "Logger can't be null or empty");
 
     this.metadataStore = metadataStore;
     this.storeFolder = storeFolder;
@@ -88,8 +85,10 @@ abstract class KaldbMetadataStore<T extends KaldbMetadata> {
             } catch (InvalidProtocolBufferException e) {
               final String msg =
                   String.format(
+                      Locale.ROOT,
                       "Unable to de-serialize data %s at path %s into a protobuf message.",
-                      data, path);
+                      data,
+                      path);
               logger.error(msg, e);
               throw new IllegalStateException(msg, e);
             }

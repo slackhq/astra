@@ -1,11 +1,11 @@
 package com.slack.kaldb.logstore.search;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 public class SearchResult<T> {
 
@@ -70,13 +70,13 @@ public class SearchResult<T> {
         && totalNodes == that.totalNodes
         && totalSnapshots == that.totalSnapshots
         && snapshotsWithReplicas == that.snapshotsWithReplicas
-        && Objects.equal(hits, that.hits)
-        && Objects.equal(buckets, that.buckets);
+        && Objects.equals(hits, that.hits)
+        && Objects.equals(buckets, that.buckets);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         totalCount,
         hits,
         tookMicros,

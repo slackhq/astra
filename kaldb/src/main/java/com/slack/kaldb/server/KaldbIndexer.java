@@ -1,6 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -13,6 +12,7 @@ import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
@@ -92,7 +92,7 @@ public class KaldbIndexer extends AbstractIdleService {
    * chunkManager and then the consumer,
    */
   public KaldbIndexer(IndexingChunkManager<LogMessage> chunkManager, KaldbKafkaWriter kafkaWriter) {
-    checkNotNull(chunkManager, "Chunk manager can't be null");
+    Objects.requireNonNull(chunkManager, "Chunk manager can't be null");
     this.chunkManager = chunkManager;
     this.kafkaWriter = kafkaWriter;
   }

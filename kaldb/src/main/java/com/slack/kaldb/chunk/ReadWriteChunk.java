@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Locale;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -148,7 +149,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         chunkInfo.updateMaxOffset(offset);
       }
     } else {
-      throw new IllegalStateException(String.format("Chunk %s is read only", chunkInfo));
+      throw new IllegalStateException(
+          String.format(Locale.ROOT, "Chunk %s is read only", chunkInfo));
     }
   }
 
