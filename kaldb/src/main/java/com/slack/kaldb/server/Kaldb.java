@@ -43,7 +43,6 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -157,13 +156,17 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
       services.add(
           new MetadataStoreLifecycleManager(
-              KaldbConfigs.NodeRole.QUERY, Collections.singletonList(searchMetadataStore)));
+              KaldbConfigs.NodeRole.QUERY, List.of(searchMetadataStore, snapshotMetadataStore)));
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
-          new KaldbDistributedQueryService(searchMetadataStore, prometheusMeterRegistry);
-      final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
+          new KaldbDistributedQueryService(
+              searchMetadataStore, snapshotMetadataStore, prometheusMeterRegistry);
+      new KaldbDistributedQueryService(
+          searchMetadataStore, snapshotMetadataStore, prometheusMeterRegistry);
+      final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
