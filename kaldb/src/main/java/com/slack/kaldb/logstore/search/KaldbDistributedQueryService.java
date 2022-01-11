@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
 import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
@@ -13,16 +14,13 @@ import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +43,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   private final SearchMetadataStore searchMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -65,8 +64,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // Whichever store we fetch the information in the future, we should also store the
   // protocol that the node can be contacted by there since we hardcode it today
   public KaldbDistributedQueryService(
-      SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
+      SearchMetadataStore searchMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -128,6 +130,42 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
+  private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotsToSearch(
+      long startTimeMs, long endTimeMs) {
+    Set<String> snapshotsToSearch =
+        snapshotMetadataStore
+            .getCached()
+            .stream()
+            .filter(
+                snapshotMetadata ->
+                    containsDataInTimeRange(
+                        snapshotMetadata.startTimeEpochMs,
+                        snapshotMetadata.endTimeEpochMs,
+                        startTimeMs,
+                        endTimeMs))
+            .map(snapshotMetadata -> snapshotMetadata.name)
+            .collect(Collectors.toSet());
+
+    return searchMetadataStore
+        .getCached()
+        .stream()
+        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
+        .map(searchMetadata -> searchMetadata.url)
+        .map(this::getStub)
+        .collect(Collectors.toSet());
+  }
+
+  private KaldbServiceGrpc.KaldbServiceFutureStub getStub(String url) {
+    if (stubs.get(url) != null) {
+      return stubs.get(url);
+    } else {
+      LOG.warn(
+          "snapshot {} is not cached. ZK listener on searchMetadataStore should have cached the stub",
+          url);
+      return null;
+    }
+  }
+
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
@@ -136,7 +174,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
     span.tag("queryServerCount", String.valueOf(stubs.size()));
 
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub :
+        getSnapshotsToSearch(request.getStartTimeEpochMs(), request.getEndTimeEpochMs())) {
+
+      //      for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
+
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =

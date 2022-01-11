@@ -4,6 +4,8 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
@@ -17,6 +19,9 @@ import java.util.Objects;
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
  */
 public class ChunkInfo {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ChunkInfo.class);
+
   public static final long MAX_FUTURE_TIME = Long.MAX_VALUE;
   public static final int DEFAULT_MAX_OFFSET = 0;
 
@@ -168,15 +173,32 @@ public class ChunkInfo {
 
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
+    return containsDataInTimeRange(
+        dataStartTimeEpochMs, dataEndTimeEpochMs, startTimeMs, endTimeMs);
+  }
+
+  public static boolean containsDataInTimeRange(
+      long chunkStartTimeMs, long chunkEndTimeMs, long startTimeMs, long endTimeMs) {
+
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
     ensureTrue(startTimeMs >= 0, "start timestamp should be greater than zero: " + startTimeMs);
     ensureTrue(
         endTimeMs - startTimeMs >= 0,
         String.format(
             "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
-    return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
-        || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
-        || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
+    boolean shouldSearch =
+        (chunkStartTimeMs <= startTimeMs && chunkEndTimeMs >= startTimeMs)
+            || (chunkStartTimeMs <= endTimeMs && chunkEndTimeMs >= endTimeMs)
+            || (chunkStartTimeMs >= startTimeMs && chunkEndTimeMs <= endTimeMs);
+
+    LOG.warn(
+        "TEST:: chunkStartTimeMs={} chunkEndTimeMs={} startTimeMs={} endTimeMs={} will return={}",
+        chunkStartTimeMs,
+        chunkEndTimeMs,
+        startTimeMs,
+        endTimeMs,
+        shouldSearch);
+    return shouldSearch;
   }
 
   /*
