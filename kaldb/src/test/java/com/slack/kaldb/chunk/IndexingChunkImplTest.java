@@ -532,7 +532,7 @@ public class IndexingChunkImplTest {
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
-      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(15);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(18);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
       assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
 
