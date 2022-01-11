@@ -105,7 +105,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           addedStubs.get(),
           removedStubs.get());
     } catch (Exception e) {
-      LOG.error("Cannot update SearchMetadata cache on the query service" + e);
+      LOG.error("Cannot update SearchMetadata cache on the query service", e);
       throw new RuntimeException("Cannot update SearchMetadata cache on the query service ", e);
     }
   }
@@ -151,7 +151,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         span.finish();
       }
     } catch (Exception e) {
-      LOG.error("SearchMetadata failed with " + e);
+      LOG.error("SearchMetadata failed with ", e);
       List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
           Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
       return CompletableFutures.allAsList(emptyResultList);
