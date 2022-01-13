@@ -75,6 +75,9 @@
     "replicaEvictionServiceConfig": {
       "schedulePeriodMins": 10
     },
+    "replicaDeletionServiceConfig": {
+      "schedulePeriodMins": 90
+    },
     "recoveryTaskAssignmentServiceConfig": {
       "schedulePeriodMins": 10
     }

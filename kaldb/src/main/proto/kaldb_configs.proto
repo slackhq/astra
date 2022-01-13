@@ -100,6 +100,10 @@ message ManagerConfig {
         int32 schedulePeriodMins = 1;
     }
 
+    message ReplicaDeletionServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
+
     message RecoveryTaskAssignmentServiceConfig {
         int32 schedulePeriodMins = 1;
     }
@@ -111,7 +115,8 @@ message ManagerConfig {
     ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
     ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig = 5;
     ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 6;
-    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 7;
+    ReplicaDeletionServiceConfig replicaDeletionServiceConfig = 7;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 8;
 }
 
 message RecoveryConfig {
