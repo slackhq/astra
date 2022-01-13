@@ -4,6 +4,13 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
+// The DataType contains the type of the data held in Kaldb.
+// The type consists of 2 parts, a MELT type followed by the storage engine type.
+enum DataType {
+  // LOGS stored in lucene storage engine.
+  LOGS_LUCENE = 0;
+}
+
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -25,6 +32,9 @@ message CacheSlotMetadata {
 
   // Last updated timestamp
   int64 updatedTimeUtc = 4;
+
+  // Type of cache slot metadata.
+  DataType type = 5;
 }
 
 message ReplicaMetadata {
@@ -39,6 +49,9 @@ message ReplicaMetadata {
 
   // Timestamp after which this replica can be deleted
   int64 expireAfterUtc = 5;
+
+  // Type of replica metadata.
+  DataType type = 6;
 }
 
 message SnapshotMetadata {
@@ -55,10 +68,13 @@ message SnapshotMetadata {
   // End or latest timestamp of the event in the snapshot file.
   int64 endTimeUtc = 5;
 
-  // Kafka partitionId.
-  string partitionId = 7;
   // Kafka offset when this snapshot was taken for that partition.
   int64 maxOffset = 6;
+  // Kafka partitionId.
+  string partitionId = 7;
+
+  // Type of snapshot.
+  DataType type = 8;
 }
 
 message SearchMetadata {
@@ -90,6 +106,9 @@ message RecoveryNodeMetadata {
 
   // Last updated timestamp
   int64 updatedTimeUtc = 4;
+
+  // Type of recovery node.
+  DataType type = 5;
 }
 
 message RecoveryTaskMetadata {
@@ -107,4 +126,7 @@ message RecoveryTaskMetadata {
 
   // Created timestamp
   int64 createdTimeUtc = 5;
+
+  // Type of data for recovery task.
+  DataType type = 6;
 }
