@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -35,13 +34,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The cache slot assignment service watches for changes in the available cache slots and replicas
+ * The replica assignment service watches for changes in the available cache slots and replicas
  * requiring assignments, and attempts to assign replicas to available slots. In the event there are
  * no available slots a failure will be noted and the assignment will be retried on the following
  * run.
  */
-public class CacheSlotAssignmentService extends AbstractScheduledService {
-  private static final Logger LOG = LoggerFactory.getLogger(CacheSlotAssignmentService.class);
+public class ReplicaAssignmentService extends AbstractScheduledService {
+  private static final Logger LOG = LoggerFactory.getLogger(ReplicaAssignmentService.class);
 
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
@@ -50,22 +49,22 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
 
   @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
-  public static final String SLOT_ASSIGN_SUCCEEDED = "cache_slot_assign_succeeded";
-  public static final String SLOT_ASSIGN_FAILED = "cache_slot_assign_failed";
-  public static final String SLOT_ASSIGN_INSUFFICIENT_CAPACITY =
-      "cache_slot_assign_insufficient_capacity";
-  public static final String SLOT_ASSIGN_TIMER = "cache_slot_assign_timer";
+  public static final String REPLICA_ASSIGN_SUCCEEDED = "replica_assign_succeeded";
+  public static final String REPLICA_ASSIGN_FAILED = "replica_assign_failed";
+  public static final String REPLICA_ASSIGN_AVAILABLE_CAPACITY =
+      "replica_assign_available_capacity";
+  public static final String REPLICA_ASSIGN_TIMER = "replica_assign_timer";
 
-  protected final Counter slotAssignSucceeded;
-  protected final Counter slotAssignFailed;
-  protected final Counter slotAssignInsufficientCapacity;
-  private final Timer slotAssignTimer;
+  protected final Counter replicaAssignSucceeded;
+  protected final Counter replicaAssignFailed;
+  protected final AtomicInteger replicaAssignAvailableCapacity;
+  private final Timer replicaAssignTimer;
 
   private final ScheduledExecutorService executorService =
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
-  public CacheSlotAssignmentService(
+  public ReplicaAssignmentService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       KaldbConfigs.ManagerConfig managerConfig,
@@ -76,15 +75,13 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
     this.meterRegistry = meterRegistry;
 
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
-    checkArgument(
-        managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins() > 0,
-        "replicaLifespanMins must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
-    slotAssignSucceeded = meterRegistry.counter(SLOT_ASSIGN_SUCCEEDED);
-    slotAssignFailed = meterRegistry.counter(SLOT_ASSIGN_FAILED);
-    slotAssignInsufficientCapacity = meterRegistry.counter(SLOT_ASSIGN_INSUFFICIENT_CAPACITY);
-    slotAssignTimer = meterRegistry.timer(SLOT_ASSIGN_TIMER);
+    replicaAssignSucceeded = meterRegistry.counter(REPLICA_ASSIGN_SUCCEEDED);
+    replicaAssignFailed = meterRegistry.counter(REPLICA_ASSIGN_FAILED);
+    replicaAssignAvailableCapacity =
+        meterRegistry.gauge(REPLICA_ASSIGN_AVAILABLE_CAPACITY, new AtomicInteger(0));
+    replicaAssignTimer = meterRegistry.timer(REPLICA_ASSIGN_TIMER);
   }
 
   @Override
@@ -92,12 +89,12 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
     if (pendingTask == null || pendingTask.getDelay(TimeUnit.SECONDS) <= 0) {
       pendingTask =
           executorService.schedule(
-              this::assignCacheSlotsToReplicas,
+              this::assignReplicasToCacheSlots,
               managerConfig.getEventAggregationSecs(),
               TimeUnit.SECONDS);
     } else {
       LOG.debug(
-          "Cache slot assignment already queued for execution, will run in {} ms",
+          "Replica assignment already queued for execution, will run in {} ms",
           pendingTask.getDelay(TimeUnit.MILLISECONDS));
     }
   }
@@ -106,13 +103,13 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
   protected Scheduler scheduler() {
     return Scheduler.newFixedRateSchedule(
         managerConfig.getScheduleInitialDelayMins(),
-        managerConfig.getCacheSlotAssignmentServiceConfig().getSchedulePeriodMins(),
+        managerConfig.getReplicaAssignmentServiceConfig().getSchedulePeriodMins(),
         TimeUnit.MINUTES);
   }
 
   @Override
   protected void startUp() throws Exception {
-    LOG.info("Starting cache slot assignment service");
+    LOG.info("Starting replica assignment service");
     cacheSlotMetadataStore.addListener(this::runOneIteration);
     replicaMetadataStore.addListener(this::runOneIteration);
   }
@@ -120,7 +117,7 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
   @Override
   protected void shutDown() throws Exception {
     executorService.shutdown();
-    LOG.info("Closed cache assignment service");
+    LOG.info("Closed replica assignment service");
   }
 
   /**
@@ -137,7 +134,7 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
    * @return The count of successfully assigned cache slots
    */
   @SuppressWarnings("UnstableApiUsage")
-  protected int assignCacheSlotsToReplicas() {
+  protected int assignReplicasToCacheSlots() {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     List<CacheSlotMetadata> availableCacheSlots =
@@ -158,41 +155,37 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
-    long cutoffCreatedTime =
-        Instant.now()
-            .minus(
-                managerConfig.getReplicaEvictionServiceConfig().getReplicaLifespanMins(),
-                ChronoUnit.MINUTES)
-            .toEpochMilli();
+    long nowMilli = Instant.now().toEpochMilli();
     List<String> replicaIdsToAssign =
         replicaMetadataStore
             .getCached()
             .stream()
-            // only replicas created in the last X mins, that are not already assigned
+            // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.createdTimeUtc > cutoffCreatedTime
+                    replicaMetadata.expireAfterUtc > nowMilli
                         && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
             .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeUtc))
             .map(replicaMetadata -> replicaMetadata.name)
             .collect(Collectors.toUnmodifiableList());
 
+    // Report either a positive value (excess capacity) or a negative value (insufficient capacity)
+    replicaAssignAvailableCapacity.set(availableCacheSlots.size() - replicaIdsToAssign.size());
+
     if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
       LOG.warn(
           "Insufficient cache slots to assign replicas, wanted {} slots but had {} replicas",
           replicaIdsToAssign.size(),
           availableCacheSlots.size());
-      slotAssignInsufficientCapacity.increment(
-          replicaIdsToAssign.size() - availableCacheSlots.size());
     } else if (replicaIdsToAssign.size() == 0) {
       LOG.info("No replicas found requiring assignment");
-      assignmentTimer.stop(slotAssignTimer);
+      assignmentTimer.stop(replicaAssignTimer);
       return 0;
     }
 
     AtomicInteger successCounter = new AtomicInteger(0);
-    List<ListenableFuture<?>> cacheSlotAssignments =
+    List<ListenableFuture<?>> replicaAssignments =
         Streams.zip(
                 replicaIdsToAssign.stream(),
                 availableCacheSlots.stream(),
@@ -213,7 +206,7 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
                 })
             .collect(Collectors.toList());
 
-    ListenableFuture<?> futureList = Futures.successfulAsList(cacheSlotAssignments);
+    ListenableFuture<?> futureList = Futures.successfulAsList(replicaAssignments);
     try {
       futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
     } catch (Exception e) {
@@ -221,14 +214,14 @@ public class CacheSlotAssignmentService extends AbstractScheduledService {
     }
 
     int successfulAssignments = successCounter.get();
-    int failedAssignments = cacheSlotAssignments.size() - successfulAssignments;
+    int failedAssignments = replicaAssignments.size() - successfulAssignments;
 
-    slotAssignSucceeded.increment(successfulAssignments);
-    slotAssignFailed.increment(failedAssignments);
+    replicaAssignSucceeded.increment(successfulAssignments);
+    replicaAssignFailed.increment(failedAssignments);
 
-    long assignmentDuration = assignmentTimer.stop(slotAssignTimer);
+    long assignmentDuration = assignmentTimer.stop(replicaAssignTimer);
     LOG.info(
-        "Completed cache slot assignment - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
+        "Completed replica assignment - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
         successfulAssignments,
         failedAssignments,
         TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));

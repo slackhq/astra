@@ -3,6 +3,7 @@ package com.slack.kaldb.chunkManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkInfo;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class ChunkCleanerService<T> extends AbstractScheduledService {
 
     List<Chunk<T>> staleChunks = new ArrayList<>();
     for (Chunk<T> chunk : (Iterable<Chunk<T>>) chunkManager.chunkList) {
-      if (chunk.info().getChunkSnapshotTimeEpochMs() <= staleDataCutOffMs) {
+      if (chunkIsStale(chunk.info(), staleDataCutOffMs)) {
         staleChunks.add(chunk);
       }
     }
@@ -59,6 +60,11 @@ public class ChunkCleanerService<T> extends AbstractScheduledService {
         staleChunks.size());
     chunkManager.removeStaleChunks(staleChunks);
     return staleChunks.size();
+  }
+
+  private boolean chunkIsStale(ChunkInfo chunkInfo, long staleDataCutoffMs) {
+    return chunkInfo.getChunkSnapshotTimeEpochMs() > 0
+        && chunkInfo.getChunkSnapshotTimeEpochMs() <= staleDataCutoffMs;
   }
 
   @Override

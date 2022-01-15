@@ -36,6 +36,9 @@ message ReplicaMetadata {
 
   // Last updated timestamp
   int64 createdTimeUtc = 4;
+
+  // Timestamp after which this replica can be deleted
+  int64 expireAfterUtc = 5;
 }
 
 message SnapshotMetadata {

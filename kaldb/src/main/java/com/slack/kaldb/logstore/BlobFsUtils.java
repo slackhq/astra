@@ -8,9 +8,13 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** This class contains static methods that help with blobfs operations. */
 public class BlobFsUtils {
+
+  private static final Logger LOG = LoggerFactory.getLogger(BlobFsUtils.class);
 
   public static final String SCHEME = "s3";
   public static final String DELIMITER = "/";
@@ -42,6 +46,8 @@ public class BlobFsUtils {
   public static String[] copyFromS3(
       String bucket, String prefix, S3BlobFs s3BlobFs, Path localDirPath) throws Exception {
     String[] s3Files = s3BlobFs.listFiles(createURI(bucket, prefix, ""), true);
+    LOG.info(
+        "Copying files from bucket={} prefix={} filesToCopy={}", bucket, prefix, s3Files.length);
     for (String fileName : s3Files) {
       URI fileToCopy = URI.create(fileName);
       File toFile =
@@ -49,6 +55,7 @@ public class BlobFsUtils {
               localDirPath.toString(), Paths.get(fileToCopy.getPath()).getFileName().toString());
       s3BlobFs.copyToLocalFile(fileToCopy, toFile);
     }
+    LOG.info("Copying S3 files complete");
     return s3Files;
   }
 

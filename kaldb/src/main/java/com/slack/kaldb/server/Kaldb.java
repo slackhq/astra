@@ -6,9 +6,11 @@ import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.CacheSlotAssignmentService;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
+import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
+import com.slack.kaldb.clusterManager.ReplicaDeletionService;
+import com.slack.kaldb.clusterManager.ReplicaEvictionService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -44,10 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -191,6 +190,16 @@ public class Kaldb {
               replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
 
+      ReplicaEvictionService replicaEvictionService =
+          new ReplicaEvictionService(
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+      services.add(replicaEvictionService);
+
+      ReplicaDeletionService replicaDeletionService =
+          new ReplicaDeletionService(
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+      services.add(replicaDeletionService);
+
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
               recoveryTaskMetadataStore,
@@ -199,10 +208,10 @@ public class Kaldb {
               prometheusMeterRegistry);
       services.add(recoveryTaskAssignmentService);
 
-      CacheSlotAssignmentService cacheSlotAssignmentService =
-          new CacheSlotAssignmentService(
+      ReplicaAssignmentService replicaAssignmentService =
+          new ReplicaAssignmentService(
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
-      services.add(cacheSlotAssignmentService);
+      services.add(replicaAssignmentService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
@@ -226,9 +235,8 @@ public class Kaldb {
       @Override
       public void failure(Service service) {
         LOG.error(
-            String.format(
-                "Service %s failed with cause %s",
-                service.getClass().toString(), service.failureCause().toString()));
+            String.format("Service %s failed with cause ", service.getClass().toString()),
+            service.failureCause());
 
         // shutdown if any services enters failure state
         new RuntimeHalterImpl()
@@ -240,19 +248,17 @@ public class Kaldb {
   public void shutdown() {
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-      metadataStore.close();
-
-      // Ensure that log4j is the final thing to shut down, so that it available
-      // throughout the service manager shutdown lifecycle
-      if (LogManager.getContext() instanceof LoggerContext) {
-        LOG.info("Shutting down log4j2");
-        Configurator.shutdown((LoggerContext) LogManager.getContext());
-      } else {
-        LOG.error("Unable to shutdown log4j2");
-      }
-    } catch (TimeoutException timeout) {
+    } catch (Exception e) {
       // stopping timed out
+      LOG.error("ServiceManager shutdown timed out", e);
     }
+    try {
+      metadataStore.close();
+    } catch (Exception e) {
+      LOG.error("Error while calling metadataStore.close() ", e);
+    }
+    LOG.info("Shutting down LogManager");
+    LogManager.shutdown();
   }
 
   private void addShutdownHook() {

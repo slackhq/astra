@@ -4,7 +4,8 @@
 
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
-            <PatternLayout  pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %notEmpty{[trace=%X{traceId}/%X{spanId}]} %c{1} - %msg%n" />
+            <!-- https://github.com/apache/logging-log4j2/blob/master/log4j-layout-template-json/src/main/resources/EcsLayout.json -->
+            <JsonTemplateLayout eventTemplateUri="classpath:KaldbLayout.json" />
         </Console>
     </Appenders>
 

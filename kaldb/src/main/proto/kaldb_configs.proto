@@ -88,18 +88,23 @@ message CacheConfig {
 message ManagerConfig {
     message ReplicaCreationServiceConfig {
         int32 replicasPerSnapshot = 1;
-        int32 schedulePeriodMins = 4;
+        int32 schedulePeriodMins = 2;
+        int32 replicaLifespanMins = 3;
     }
 
-    message ReplicaEvictionServiceConfig {
-        int32 replicaLifespanMins = 1;
-    }
-
-    message RecoveryTaskAssignmentServiceConfig {
+    message ReplicaAssignmentServiceConfig {
         int32 schedulePeriodMins = 1;
     }
 
-    message CacheSlotAssignmentServiceConfig {
+    message ReplicaEvictionServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
+
+    message ReplicaDeletionServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
+
+    message RecoveryTaskAssignmentServiceConfig {
         int32 schedulePeriodMins = 1;
     }
 
@@ -108,9 +113,10 @@ message ManagerConfig {
     ServerConfig serverConfig = 3;
 
     ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
-    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 5;
-    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 6;
-    CacheSlotAssignmentServiceConfig cacheSlotAssignmentServiceConfig = 7;
+    ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig = 5;
+    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 6;
+    ReplicaDeletionServiceConfig replicaDeletionServiceConfig = 7;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 8;
 }
 
 message RecoveryConfig {
