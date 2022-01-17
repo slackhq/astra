@@ -12,8 +12,8 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         .setName(snapshotMetadata.name)
         .setSnapshotId(snapshotMetadata.snapshotId)
         .setSnapshotPath(snapshotMetadata.snapshotPath)
-        .setStartTimeUtc(snapshotMetadata.startTimeUtc)
-        .setEndTimeUtc(snapshotMetadata.endTimeUtc)
+        .setStartTimeEpochMsUtc(snapshotMetadata.startTimeUtc)
+        .setEndTimeEpochMsUtc(snapshotMetadata.endTimeUtc)
         .setPartitionId(snapshotMetadata.partitionId)
         .setMaxOffset(snapshotMetadata.maxOffset)
         .build();
@@ -24,8 +24,8 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
     return new SnapshotMetadata(
         protoSnapshotMetadata.getSnapshotId(),
         protoSnapshotMetadata.getSnapshotPath(),
-        protoSnapshotMetadata.getStartTimeUtc(),
-        protoSnapshotMetadata.getEndTimeUtc(),
+        protoSnapshotMetadata.getStartTimeEpochMsUtc(),
+        protoSnapshotMetadata.getEndTimeEpochMsUtc(),
         protoSnapshotMetadata.getMaxOffset(),
         protoSnapshotMetadata.getPartitionId());
   }
