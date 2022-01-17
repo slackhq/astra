@@ -5,6 +5,7 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.util.SnapshotsUtil;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -20,14 +21,17 @@ public class RecoveryTaskFactory {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private final String partitionId;
+  private final long maxOffsetDelay;
 
   public RecoveryTaskFactory(
       SnapshotMetadataStore snapshotMetadataStore,
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
-      String partitionId) {
+      String partitionId,
+      long maxOffsetDelay) {
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.partitionId = partitionId;
+    this.maxOffsetDelay = maxOffsetDelay;
   }
 
   public List<SnapshotMetadata> getStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
@@ -77,5 +81,30 @@ public class RecoveryTaskFactory {
             .orElse(-1);
 
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
+  }
+
+  /**
+   * If the current index offset is more than the configured delay, we can't catch up indexing. So,
+   * instead of trying to catch up, create a recovery task and start indexing at the current head.
+   * This strategy achieves 2 goals: we start indexing fresh data when we are behind and we add more
+   * indexing capacity when needed.
+   */
+  public long getStartOffset(long currentOffset, long currentHeadOffset) {
+    if (currentHeadOffset - currentOffset > maxOffsetDelay) {
+      // TODO: Name task better.
+      // TODO: created time is in ms?
+      // TODO: are offsets inclusive? current head offset -1?
+      // TODO: Make sure the offsets are inclusive
+      recoveryTaskMetadataStore.createSync(
+          new RecoveryTaskMetadata(
+              "recoveryTask" + partitionId,
+              partitionId,
+              currentOffset,
+              currentHeadOffset,
+              Instant.now().toEpochMilli()));
+      return currentHeadOffset;
+    } else {
+      return currentOffset;
+    }
   }
 }

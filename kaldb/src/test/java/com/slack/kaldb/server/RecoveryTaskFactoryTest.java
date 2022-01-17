@@ -86,7 +86,7 @@ public class RecoveryTaskFactoryTest {
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
 
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
@@ -166,7 +166,7 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
     assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots))
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
@@ -219,7 +219,7 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
 
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
@@ -264,7 +264,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -303,7 +303,7 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testMaxOffset() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
