@@ -41,7 +41,7 @@ public class ReplicaMetadataSerializerTest {
         "{\n"
             + "  \"name\": \"name\",\n"
             + "  \"snapshotId\": \"snapshotId\",\n"
-            + "  \"createdTimeUtc\": \"1639677020380\"\n"
+            + "  \"createdTimeEpochMsUtc\": \"1639677020380\"\n"
             + "}";
     ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
 
