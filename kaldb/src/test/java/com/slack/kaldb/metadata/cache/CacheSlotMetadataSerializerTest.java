@@ -32,7 +32,7 @@ public class CacheSlotMetadataSerializerTest {
     assertThat(deserializedCacheSlotMetadata.name).isEqualTo(name);
     assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
-    assertThat(deserializedCacheSlotMetadata.updatedTimeUtc).isEqualTo(updatedTimeUtc);
+    assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMsUtc).isEqualTo(updatedTimeUtc);
   }
 
   @Test

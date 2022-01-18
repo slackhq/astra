@@ -260,7 +260,8 @@ public class ReplicaEvictionServiceTest {
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
     CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCached().get(0);
-    assertThat(updatedCacheSlot.updatedTimeUtc).isGreaterThan(cacheSlotMetadata.updatedTimeUtc);
+    assertThat(updatedCacheSlot.updatedTimeEpochMsUtc)
+        .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMsUtc);
     assertThat(updatedCacheSlot.cacheSlotState)
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
     assertThat(updatedCacheSlot.name).isEqualTo(cacheSlotMetadata.name);
@@ -332,7 +333,8 @@ public class ReplicaEvictionServiceTest {
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
     CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCached().get(0);
-    assertThat(updatedCacheSlot.updatedTimeUtc).isGreaterThan(cacheSlotMetadata.updatedTimeUtc);
+    assertThat(updatedCacheSlot.updatedTimeEpochMsUtc)
+        .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMsUtc);
     assertThat(updatedCacheSlot.cacheSlotState)
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
     assertThat(updatedCacheSlot.name).isEqualTo(cacheSlotMetadata.name);
@@ -541,7 +543,8 @@ public class ReplicaEvictionServiceTest {
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
     CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCached().get(0);
-    assertThat(updatedCacheSlot.updatedTimeUtc).isGreaterThan(cacheSlotMetadata.updatedTimeUtc);
+    assertThat(updatedCacheSlot.updatedTimeEpochMsUtc)
+        .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMsUtc);
     assertThat(updatedCacheSlot.cacheSlotState)
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
     assertThat(updatedCacheSlot.name).isEqualTo(cacheSlotMetadata.name);
@@ -821,8 +824,8 @@ public class ReplicaEvictionServiceTest {
     assertThat(updatedCacheSlot.replicaId).isEqualTo(cacheSlotReplicaExpiredOne.replicaId);
     assertThat(updatedCacheSlot.cacheSlotState)
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
-    assertThat(updatedCacheSlot.updatedTimeUtc)
-        .isGreaterThan(cacheSlotReplicaExpiredOne.updatedTimeUtc);
+    assertThat(updatedCacheSlot.updatedTimeEpochMsUtc)
+        .isGreaterThan(cacheSlotReplicaExpiredOne.updatedTimeEpochMsUtc);
 
     replicaEvictionService.stopAsync();
     replicaEvictionService.awaitTerminated(DEFAULT_START_STOP_DURATION);

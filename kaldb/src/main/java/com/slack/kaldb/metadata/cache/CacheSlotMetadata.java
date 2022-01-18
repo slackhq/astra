@@ -8,7 +8,7 @@ import com.slack.kaldb.proto.metadata.Metadata;
 public class CacheSlotMetadata extends KaldbMetadata {
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
-  public final long updatedTimeUtc;
+  public final long updatedTimeEpochMsUtc;
 
   public CacheSlotMetadata(
       String name,
@@ -30,7 +30,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
 
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
-    this.updatedTimeUtc = updatedTimeUtc;
+    this.updatedTimeEpochMsUtc = updatedTimeUtc;
   }
 
   @Override
@@ -42,7 +42,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
     CacheSlotMetadata that = (CacheSlotMetadata) o;
 
     if (!cacheSlotState.equals(that.cacheSlotState)) return false;
-    if (updatedTimeUtc != that.updatedTimeUtc) return false;
+    if (updatedTimeEpochMsUtc != that.updatedTimeEpochMsUtc) return false;
     return replicaId.equals(that.replicaId);
   }
 
@@ -51,7 +51,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
     int result = super.hashCode();
     result = 31 * result + cacheSlotState.hashCode();
     result = 31 * result + replicaId.hashCode();
-    result = 31 * result + (int) (updatedTimeUtc ^ (updatedTimeUtc >>> 32));
+    result = 31 * result + (int) (updatedTimeEpochMsUtc ^ (updatedTimeEpochMsUtc >>> 32));
     return result;
   }
 
@@ -64,7 +64,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
         + replicaId
         + '\''
         + ", updatedTimeUtc='"
-        + updatedTimeUtc
+        + updatedTimeEpochMsUtc
         + ", name='"
         + name
         + '\''

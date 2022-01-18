@@ -21,7 +21,7 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
         .setName(metadata.name)
         .setReplicaId(metadata.replicaId)
         .setCacheSlotState(metadata.cacheSlotState)
-        .setUpdatedTimeEpochMsUtc(metadata.updatedTimeUtc)
+        .setUpdatedTimeEpochMsUtc(metadata.updatedTimeEpochMsUtc)
         .build();
   }
 
