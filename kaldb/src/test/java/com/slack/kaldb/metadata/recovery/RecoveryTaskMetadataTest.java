@@ -23,7 +23,7 @@ public class RecoveryTaskMetadataTest {
     assertThat(recoveryTaskMetadata.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(recoveryTaskMetadata.endOffset).isEqualTo(endOffset);
-    assertThat(recoveryTaskMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
+    assertThat(recoveryTaskMetadata.createdTimeEpochMsUtc).isEqualTo(createdTimeUtc);
   }
 
   @Test

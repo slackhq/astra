@@ -13,26 +13,30 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
   public final String partitionId;
   public final long startOffset;
   public final long endOffset;
-  public final long createdTimeUtc;
+  public final long createdTimeEpochMsUtc;
 
   public RecoveryTaskMetadata(
-      String name, String partitionId, long startOffset, long endOffset, long createdTimeUtc) {
+      String name,
+      String partitionId,
+      long startOffset,
+      long endOffset,
+      long createdTimeEpochMsUtc) {
     super(name);
 
     checkArgument(
         partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
     checkArgument(startOffset >= 0, "startOffset must greater than 0");
     checkArgument(endOffset > startOffset, "endOffset must be greater than the startOffset");
-    checkArgument(createdTimeUtc > 0, "createdTimeUtc must be greater than 0");
+    checkArgument(createdTimeEpochMsUtc > 0, "createdTimeEpochMsUtc must be greater than 0");
 
     this.partitionId = partitionId;
     this.startOffset = startOffset;
     this.endOffset = endOffset;
-    this.createdTimeUtc = createdTimeUtc;
+    this.createdTimeEpochMsUtc = createdTimeEpochMsUtc;
   }
 
-  public long getCreatedTimeUtc() {
-    return createdTimeUtc;
+  public long getCreatedTimeEpochMsUtc() {
+    return createdTimeEpochMsUtc;
   }
 
   @Override
@@ -43,13 +47,14 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
     RecoveryTaskMetadata that = (RecoveryTaskMetadata) o;
     return startOffset == that.startOffset
         && endOffset == that.endOffset
-        && createdTimeUtc == that.createdTimeUtc
+        && createdTimeEpochMsUtc == that.createdTimeEpochMsUtc
         && partitionId.equals(that.partitionId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), partitionId, startOffset, endOffset, createdTimeUtc);
+    return Objects.hash(
+        super.hashCode(), partitionId, startOffset, endOffset, createdTimeEpochMsUtc);
   }
 
   @Override
@@ -66,7 +71,7 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
         + ", endOffset="
         + endOffset
         + ", createdTimeUtc="
-        + createdTimeUtc
+        + createdTimeEpochMsUtc
         + '}';
   }
 }

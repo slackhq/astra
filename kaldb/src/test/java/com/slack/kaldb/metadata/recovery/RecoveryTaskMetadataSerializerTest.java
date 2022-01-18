@@ -32,7 +32,7 @@ public class RecoveryTaskMetadataSerializerTest {
     assertThat(deserializedRecoveryTaskMetadata.partitionId).isEqualTo(partitionId);
     assertThat(deserializedRecoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(deserializedRecoveryTaskMetadata.endOffset).isEqualTo(endOffset);
-    assertThat(deserializedRecoveryTaskMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
+    assertThat(deserializedRecoveryTaskMetadata.createdTimeEpochMsUtc).isEqualTo(createdTimeUtc);
   }
 
   @Test

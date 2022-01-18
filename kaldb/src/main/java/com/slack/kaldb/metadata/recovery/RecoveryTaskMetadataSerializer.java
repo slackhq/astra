@@ -24,7 +24,7 @@ public class RecoveryTaskMetadataSerializer implements MetadataSerializer<Recove
         .setPartitionId(metadata.partitionId)
         .setStartOffset(metadata.startOffset)
         .setEndOffset(metadata.endOffset)
-        .setCreatedTimeEpochMsUtc(metadata.createdTimeUtc)
+        .setCreatedTimeEpochMsUtc(metadata.createdTimeEpochMsUtc)
         .build();
   }
 
