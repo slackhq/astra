@@ -29,8 +29,8 @@ public class SnapshotMetadataSerializerTest {
     assertThat(deserializedSnapshotMetadata.name).isEqualTo(name);
     assertThat(deserializedSnapshotMetadata.snapshotPath).isEqualTo(path);
     assertThat(deserializedSnapshotMetadata.snapshotId).isEqualTo(name);
-    assertThat(deserializedSnapshotMetadata.startTimeUtc).isEqualTo(startTime);
-    assertThat(deserializedSnapshotMetadata.endTimeUtc).isEqualTo(endTime);
+    assertThat(deserializedSnapshotMetadata.startTimeEpochMsUtc).isEqualTo(startTime);
+    assertThat(deserializedSnapshotMetadata.endTimeEpochMsUtc).isEqualTo(endTime);
     assertThat(deserializedSnapshotMetadata.maxOffset).isEqualTo(maxOffset);
     assertThat(deserializedSnapshotMetadata.partitionId).isEqualTo(partitionId);
   }

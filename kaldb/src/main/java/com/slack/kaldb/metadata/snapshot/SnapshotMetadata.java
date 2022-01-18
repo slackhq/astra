@@ -26,35 +26,43 @@ public class SnapshotMetadata extends KaldbMetadata {
 
   public final String snapshotPath;
   public final String snapshotId;
-  public final long startTimeUtc;
-  public final long endTimeUtc;
+  public final long startTimeEpochMsUtc;
+  public final long endTimeEpochMsUtc;
   public final long maxOffset;
   public final String partitionId;
 
   public SnapshotMetadata(
       String snapshotId,
       String snapshotPath,
-      long startTimeUtc,
-      long endTimeUtc,
+      long startTimeEpochMsUtc,
+      long endTimeEpochMsUtc,
       long maxOffset,
       String partitionId) {
-    this(snapshotId, snapshotPath, snapshotId, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+    this(
+        snapshotId,
+        snapshotPath,
+        snapshotId,
+        startTimeEpochMsUtc,
+        endTimeEpochMsUtc,
+        maxOffset,
+        partitionId);
   }
 
   private SnapshotMetadata(
       String name,
       String snapshotPath,
       String snapshotId,
-      long startTimeUtc,
-      long endTimeUtc,
+      long startTimeEpochMsUtc,
+      long endTimeEpochMsUtc,
       long maxOffset,
       String partitionId) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
-    checkArgument(startTimeUtc > 0, "start time should be greater than zero.");
-    checkArgument(endTimeUtc > 0, "end time should be greater than zero.");
+    checkArgument(startTimeEpochMsUtc > 0, "start time should be greater than zero.");
+    checkArgument(endTimeEpochMsUtc > 0, "end time should be greater than zero.");
     checkArgument(
-        endTimeUtc >= startTimeUtc, "start time should be greater than or equal to endtime");
+        endTimeEpochMsUtc >= startTimeEpochMsUtc,
+        "start time should be greater than or equal to endtime");
     checkArgument(maxOffset >= 0, "max offset should be greater than or equal to zero.");
     checkArgument(
         partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
@@ -63,8 +71,8 @@ public class SnapshotMetadata extends KaldbMetadata {
 
     this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;
-    this.startTimeUtc = startTimeUtc;
-    this.endTimeUtc = endTimeUtc;
+    this.startTimeEpochMsUtc = startTimeEpochMsUtc;
+    this.endTimeEpochMsUtc = endTimeEpochMsUtc;
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
   }
@@ -77,8 +85,8 @@ public class SnapshotMetadata extends KaldbMetadata {
 
     SnapshotMetadata that = (SnapshotMetadata) o;
 
-    if (startTimeUtc != that.startTimeUtc) return false;
-    if (endTimeUtc != that.endTimeUtc) return false;
+    if (startTimeEpochMsUtc != that.startTimeEpochMsUtc) return false;
+    if (endTimeEpochMsUtc != that.endTimeEpochMsUtc) return false;
     if (maxOffset != that.maxOffset) return false;
     if (!snapshotPath.equals(that.snapshotPath)) return false;
     if (!snapshotId.equals(that.snapshotId)) return false;
@@ -90,8 +98,8 @@ public class SnapshotMetadata extends KaldbMetadata {
     int result = super.hashCode();
     result = 31 * result + snapshotPath.hashCode();
     result = 31 * result + snapshotId.hashCode();
-    result = 31 * result + (int) (startTimeUtc ^ (startTimeUtc >>> 32));
-    result = 31 * result + (int) (endTimeUtc ^ (endTimeUtc >>> 32));
+    result = 31 * result + (int) (startTimeEpochMsUtc ^ (startTimeEpochMsUtc >>> 32));
+    result = 31 * result + (int) (endTimeEpochMsUtc ^ (endTimeEpochMsUtc >>> 32));
     result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
     result = 31 * result + partitionId.hashCode();
     return result;
@@ -110,10 +118,10 @@ public class SnapshotMetadata extends KaldbMetadata {
         + ", snapshotId='"
         + snapshotId
         + '\''
-        + ", startTimeUtc="
-        + startTimeUtc
-        + ", endTimeUtc="
-        + endTimeUtc
+        + ", startTimeEpochMsUtc="
+        + startTimeEpochMsUtc
+        + ", endTimeEpochMsUtc="
+        + endTimeEpochMsUtc
         + ", maxOffset="
         + maxOffset
         + ", partitionId='"

@@ -12,8 +12,8 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         .setName(snapshotMetadata.name)
         .setSnapshotId(snapshotMetadata.snapshotId)
         .setSnapshotPath(snapshotMetadata.snapshotPath)
-        .setStartTimeEpochMsUtc(snapshotMetadata.startTimeUtc)
-        .setEndTimeEpochMsUtc(snapshotMetadata.endTimeUtc)
+        .setStartTimeEpochMsUtc(snapshotMetadata.startTimeEpochMsUtc)
+        .setEndTimeEpochMsUtc(snapshotMetadata.endTimeEpochMsUtc)
         .setPartitionId(snapshotMetadata.partitionId)
         .setMaxOffset(snapshotMetadata.maxOffset)
         .build();
