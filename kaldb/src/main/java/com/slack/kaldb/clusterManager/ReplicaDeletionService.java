@@ -110,7 +110,7 @@ public class ReplicaDeletionService extends AbstractScheduledService {
             .stream()
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.expireAfterUtc < deleteOlderThan.toEpochMilli()
+                    replicaMetadata.expireAfterEpochMsUtc < deleteOlderThan.toEpochMilli()
                         && !replicaIdsWithAssignments.contains(replicaMetadata.name))
             .map(
                 (replicaMetadata) -> {

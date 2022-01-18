@@ -167,7 +167,7 @@ public class ReplicaEvictionService extends AbstractScheduledService {
       CacheSlotMetadata cacheSlotMetadata) {
     return cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)
         && replicaMetadataByReplicaId.containsKey(cacheSlotMetadata.replicaId)
-        && replicaMetadataByReplicaId.get(cacheSlotMetadata.replicaId).expireAfterUtc
+        && replicaMetadataByReplicaId.get(cacheSlotMetadata.replicaId).expireAfterEpochMsUtc
             < expireOlderThan.toEpochMilli();
   }
 }

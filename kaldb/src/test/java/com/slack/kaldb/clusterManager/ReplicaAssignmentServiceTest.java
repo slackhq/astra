@@ -600,7 +600,7 @@ public class ReplicaAssignmentServiceTest {
                 .stream()
                 .filter(
                     replicaMetadata ->
-                        replicaMetadata.createdTimeUtc
+                        replicaMetadata.createdTimeEpochMsUtc
                             < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
                 .collect(Collectors.toList())));
 

@@ -13,8 +13,8 @@ import java.util.Objects;
 public class ReplicaMetadata extends KaldbMetadata {
 
   public final String snapshotId;
-  public final long createdTimeUtc;
-  public final long expireAfterUtc;
+  public final long createdTimeEpochMsUtc;
+  public final long expireAfterEpochMsUtc;
 
   public ReplicaMetadata(String name, String snapshotId, long createdTimeUtc, long expireAfterUtc) {
     super(name);
@@ -24,20 +24,20 @@ public class ReplicaMetadata extends KaldbMetadata {
         snapshotId != null && !snapshotId.isEmpty(), "SnapshotId must not be null or empty");
 
     this.snapshotId = snapshotId;
-    this.createdTimeUtc = createdTimeUtc;
-    this.expireAfterUtc = expireAfterUtc;
+    this.createdTimeEpochMsUtc = createdTimeUtc;
+    this.expireAfterEpochMsUtc = expireAfterUtc;
   }
 
   public String getSnapshotId() {
     return snapshotId;
   }
 
-  public long getCreatedTimeUtc() {
-    return createdTimeUtc;
+  public long getCreatedTimeEpochMsUtc() {
+    return createdTimeEpochMsUtc;
   }
 
-  public long getExpireAfterUtc() {
-    return expireAfterUtc;
+  public long getExpireAfterEpochMsUtc() {
+    return expireAfterEpochMsUtc;
   }
 
   @Override
@@ -46,14 +46,14 @@ public class ReplicaMetadata extends KaldbMetadata {
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
     ReplicaMetadata that = (ReplicaMetadata) o;
-    return createdTimeUtc == that.createdTimeUtc
-        && expireAfterUtc == that.expireAfterUtc
+    return createdTimeEpochMsUtc == that.createdTimeEpochMsUtc
+        && expireAfterEpochMsUtc == that.expireAfterEpochMsUtc
         && snapshotId.equals(that.snapshotId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), snapshotId, createdTimeUtc, expireAfterUtc);
+    return Objects.hash(super.hashCode(), snapshotId, createdTimeEpochMsUtc, expireAfterEpochMsUtc);
   }
 
   @Override
@@ -66,9 +66,9 @@ public class ReplicaMetadata extends KaldbMetadata {
         + snapshotId
         + '\''
         + ", createdTimeUtc="
-        + createdTimeUtc
+        + createdTimeEpochMsUtc
         + ", expireAfterUtc="
-        + expireAfterUtc
+        + expireAfterEpochMsUtc
         + '}';
   }
 }

@@ -19,8 +19,8 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
     return Metadata.ReplicaMetadata.newBuilder()
         .setName(metadata.name)
         .setSnapshotId(metadata.snapshotId)
-        .setCreatedTimeEpochMsUtc(metadata.createdTimeUtc)
-        .setExpireAfterEpochMsUtc(metadata.expireAfterUtc)
+        .setCreatedTimeEpochMsUtc(metadata.createdTimeEpochMsUtc)
+        .setExpireAfterEpochMsUtc(metadata.expireAfterEpochMsUtc)
         .build();
   }
 

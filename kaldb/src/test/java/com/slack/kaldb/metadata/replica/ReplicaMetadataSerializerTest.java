@@ -2,7 +2,6 @@ package com.slack.kaldb.metadata.replica;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.junit.Assert.*;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.time.Instant;
@@ -29,8 +28,8 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
-    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(expireAfterUtc);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMsUtc).isEqualTo(createdTimeUtc);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMsUtc).isEqualTo(expireAfterUtc);
   }
 
   @Test
@@ -47,8 +46,8 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
-    assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(1639677020380L);
-    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(0L);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMsUtc).isEqualTo(1639677020380L);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMsUtc).isEqualTo(0L);
   }
 
   @Test
