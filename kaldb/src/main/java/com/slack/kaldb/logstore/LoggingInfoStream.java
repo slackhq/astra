@@ -6,7 +6,11 @@ import org.apache.lucene.util.InfoStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** An {@link InfoStream} implementation which passes messages on to Kaldb's logging */
+/**
+ * LoggingInfoStream ( inspired by Solr ) is an {@link InfoStream} implementation passes messages on
+ * to Kaldb's logging mechanism (Log4J) instead of writing to system out. Writing via Log4J means
+ * logs will respect JSON logging, file rotations etc.
+ */
 public class LoggingInfoStream extends InfoStream {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

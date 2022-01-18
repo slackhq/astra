@@ -256,10 +256,9 @@ public class Kaldb {
       LOG.error("Error while calling metadataStore.close() ", e);
     }
 
-    // this call assumes that the logging impl is Log4J
-    // all logging calls implement the SLF4J API so technically one can decide to use a different
-    // logging impl
-    // so let's wrap it in try-catch
+    // This call assumes that the logging impl is Log4J
+    // All logging calls implement the SLF4J API so technically one can decide to use a different
+    // logging impl so let's wrap it in try-catch
     try {
       LOG.info("Shutting down LogManager");
       LogManager.shutdown();
