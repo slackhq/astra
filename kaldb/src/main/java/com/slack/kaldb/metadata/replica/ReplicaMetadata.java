@@ -65,9 +65,9 @@ public class ReplicaMetadata extends KaldbMetadata {
         + ", snapshotId='"
         + snapshotId
         + '\''
-        + ", createdTimeUtc="
+        + ", createdTimeEpochMsUtc="
         + createdTimeEpochMsUtc
-        + ", expireAfterUtc="
+        + ", expireAfterEpochMsUtc="
         + expireAfterEpochMsUtc
         + '}';
   }

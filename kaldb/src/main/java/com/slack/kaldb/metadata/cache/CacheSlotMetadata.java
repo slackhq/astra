@@ -14,10 +14,10 @@ public class CacheSlotMetadata extends KaldbMetadata {
       String name,
       Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState,
       String replicaId,
-      long updatedTimeUtc) {
+      long updatedTimeEpochMsUtc) {
     super(name);
     checkArgument(cacheSlotState != null, "Cache slot state cannot be null");
-    checkArgument(updatedTimeUtc > 0, "Updated time must be greater than 0");
+    checkArgument(updatedTimeEpochMsUtc > 0, "Updated time must be greater than 0");
     if (cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
       checkArgument(
           replicaId != null && replicaId.isEmpty(),
@@ -30,7 +30,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
 
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
-    this.updatedTimeEpochMsUtc = updatedTimeUtc;
+    this.updatedTimeEpochMsUtc = updatedTimeEpochMsUtc;
   }
 
   @Override
@@ -63,7 +63,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
         + ", replicaId='"
         + replicaId
         + '\''
-        + ", updatedTimeUtc='"
+        + ", updatedTimeEpochMsUtc='"
         + updatedTimeEpochMsUtc
         + ", name='"
         + name
