@@ -27,6 +27,54 @@ public class FieldConflictsTest {
   public FieldConflictsTest() throws IOException {}
 
   @Test
+  public void testMessageEquality() {
+    String ts = MessageUtil.getCurrentLogDate();
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_INDEX_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                ts,
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com"));
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_INDEX_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                ts,
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com"));
+
+    assertThat(msg1).isEqualTo(msg2);
+
+    // change the timestamp
+    msg2 =
+        new LogMessage(
+            MessageUtil.TEST_INDEX_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com"));
+
+    assertThat(msg1).isNotEqualTo(msg2);
+  }
+
+  @Test
   public void testFieldConflictingFieldTypeWithSameValue() throws InterruptedException {
     final String conflictingFieldName = "conflictingField";
 
