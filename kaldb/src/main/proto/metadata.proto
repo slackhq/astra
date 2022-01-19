@@ -24,7 +24,7 @@ message CacheSlotMetadata {
   CacheSlotState cacheSlotState = 3;
 
   // Last updated timestamp
-  int64 updatedTimeEpochMsUtc = 4;
+  int64 updatedTimeEpochMs = 4;
 }
 
 message ReplicaMetadata {
@@ -35,10 +35,10 @@ message ReplicaMetadata {
   string snapshotId = 2;
 
   // Last updated timestamp
-  int64 createdTimeEpochMsUtc = 4;
+  int64 createdTimeEpochMs = 4;
 
   // Timestamp after which this replica can be deleted
-  int64 expireAfterEpochMsUtc = 5;
+  int64 expireAfterEpochMs = 5;
 }
 
 message SnapshotMetadata {
@@ -51,9 +51,9 @@ message SnapshotMetadata {
   // Path of the file stored in blobstore.
   string snapshotPath = 3;
   // earliest timestamp of the event in the snapshot file.
-  int64 startTimeEpochMsUtc = 4;
+  int64 startTimeEpochMs = 4;
   // End or latest timestamp of the event in the snapshot file.
-  int64 endTimeEpochMsUtc = 5;
+  int64 endTimeEpochMs = 5;
 
   // Kafka partitionId.
   string partitionId = 7;
@@ -89,7 +89,7 @@ message RecoveryNodeMetadata {
   RecoveryNodeState recoveryNodeState = 3;
 
   // Last updated timestamp
-  int64 updatedTimeEpochMsUtc = 4;
+  int64 updatedTimeEpochMs = 4;
 }
 
 message RecoveryTaskMetadata {
@@ -106,5 +106,5 @@ message RecoveryTaskMetadata {
   int64 endOffset = 4;
 
   // Created timestamp
-  int64 createdTimeEpochMsUtc = 5;
+  int64 createdTimeEpochMs = 5;
 }

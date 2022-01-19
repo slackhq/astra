@@ -26,24 +26,24 @@ public class SnapshotMetadata extends KaldbMetadata {
 
   public final String snapshotPath;
   public final String snapshotId;
-  public final long startTimeEpochMsUtc;
-  public final long endTimeEpochMsUtc;
+  public final long startTimeEpochMs;
+  public final long endTimeEpochMs;
   public final long maxOffset;
   public final String partitionId;
 
   public SnapshotMetadata(
       String snapshotId,
       String snapshotPath,
-      long startTimeEpochMsUtc,
-      long endTimeEpochMsUtc,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
       long maxOffset,
       String partitionId) {
     this(
         snapshotId,
         snapshotPath,
         snapshotId,
-        startTimeEpochMsUtc,
-        endTimeEpochMsUtc,
+        startTimeEpochMs,
+        endTimeEpochMs,
         maxOffset,
         partitionId);
   }
@@ -52,16 +52,16 @@ public class SnapshotMetadata extends KaldbMetadata {
       String name,
       String snapshotPath,
       String snapshotId,
-      long startTimeEpochMsUtc,
-      long endTimeEpochMsUtc,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
       long maxOffset,
       String partitionId) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
-    checkArgument(startTimeEpochMsUtc > 0, "start time should be greater than zero.");
-    checkArgument(endTimeEpochMsUtc > 0, "end time should be greater than zero.");
+    checkArgument(startTimeEpochMs > 0, "start time should be greater than zero.");
+    checkArgument(endTimeEpochMs > 0, "end time should be greater than zero.");
     checkArgument(
-        endTimeEpochMsUtc >= startTimeEpochMsUtc,
+        endTimeEpochMs >= startTimeEpochMs,
         "start time should be greater than or equal to endtime");
     checkArgument(maxOffset >= 0, "max offset should be greater than or equal to zero.");
     checkArgument(
@@ -71,8 +71,8 @@ public class SnapshotMetadata extends KaldbMetadata {
 
     this.snapshotPath = snapshotPath;
     this.snapshotId = snapshotId;
-    this.startTimeEpochMsUtc = startTimeEpochMsUtc;
-    this.endTimeEpochMsUtc = endTimeEpochMsUtc;
+    this.startTimeEpochMs = startTimeEpochMs;
+    this.endTimeEpochMs = endTimeEpochMs;
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
   }
@@ -85,8 +85,8 @@ public class SnapshotMetadata extends KaldbMetadata {
 
     SnapshotMetadata that = (SnapshotMetadata) o;
 
-    if (startTimeEpochMsUtc != that.startTimeEpochMsUtc) return false;
-    if (endTimeEpochMsUtc != that.endTimeEpochMsUtc) return false;
+    if (startTimeEpochMs != that.startTimeEpochMs) return false;
+    if (endTimeEpochMs != that.endTimeEpochMs) return false;
     if (maxOffset != that.maxOffset) return false;
     if (!snapshotPath.equals(that.snapshotPath)) return false;
     if (!snapshotId.equals(that.snapshotId)) return false;
@@ -98,8 +98,8 @@ public class SnapshotMetadata extends KaldbMetadata {
     int result = super.hashCode();
     result = 31 * result + snapshotPath.hashCode();
     result = 31 * result + snapshotId.hashCode();
-    result = 31 * result + (int) (startTimeEpochMsUtc ^ (startTimeEpochMsUtc >>> 32));
-    result = 31 * result + (int) (endTimeEpochMsUtc ^ (endTimeEpochMsUtc >>> 32));
+    result = 31 * result + (int) (startTimeEpochMs ^ (startTimeEpochMs >>> 32));
+    result = 31 * result + (int) (endTimeEpochMs ^ (endTimeEpochMs >>> 32));
     result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
     result = 31 * result + partitionId.hashCode();
     return result;
@@ -119,9 +119,9 @@ public class SnapshotMetadata extends KaldbMetadata {
         + snapshotId
         + '\''
         + ", startTimeEpochMsUtc="
-        + startTimeEpochMsUtc
+        + startTimeEpochMs
         + ", endTimeEpochMsUtc="
-        + endTimeEpochMsUtc
+        + endTimeEpochMs
         + ", maxOffset="
         + maxOffset
         + ", partitionId='"

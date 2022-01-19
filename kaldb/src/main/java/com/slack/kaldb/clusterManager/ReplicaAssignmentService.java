@@ -163,10 +163,10 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
             // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.expireAfterEpochMsUtc > nowMilli
+                    replicaMetadata.expireAfterEpochMs > nowMilli
                         && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
-            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMsUtc))
+            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs))
             .map(replicaMetadata -> replicaMetadata.name)
             .collect(Collectors.toUnmodifiableList());
 

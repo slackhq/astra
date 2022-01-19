@@ -28,8 +28,8 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(deserializedReplicaMetadata.createdTimeEpochMsUtc).isEqualTo(createdTimeUtc);
-    assertThat(deserializedReplicaMetadata.expireAfterEpochMsUtc).isEqualTo(expireAfterUtc);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeUtc);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterUtc);
   }
 
   @Test
@@ -40,14 +40,14 @@ public class ReplicaMetadataSerializerTest {
         "{\n"
             + "  \"name\": \"name\",\n"
             + "  \"snapshotId\": \"snapshotId\",\n"
-            + "  \"createdTimeEpochMsUtc\": \"1639677020380\"\n"
+            + "  \"createdTimeEpochMs\": \"1639677020380\"\n"
             + "}";
     ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
-    assertThat(deserializedReplicaMetadata.createdTimeEpochMsUtc).isEqualTo(1639677020380L);
-    assertThat(deserializedReplicaMetadata.expireAfterEpochMsUtc).isEqualTo(0L);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
   }
 
   @Test

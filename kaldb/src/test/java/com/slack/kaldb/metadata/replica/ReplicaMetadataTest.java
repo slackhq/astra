@@ -20,7 +20,7 @@ public class ReplicaMetadataTest {
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(replicaMetadata.createdTimeEpochMsUtc).isEqualTo(createdTimeUtc);
+    assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeUtc);
   }
 
   @Test

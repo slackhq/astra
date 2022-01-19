@@ -32,7 +32,7 @@ public class RecoveryNodeMetadataSerializerTest {
     assertThat(deserializedRecoveryNodeMetadata.name).isEqualTo(name);
     assertThat(deserializedRecoveryNodeMetadata.recoveryNodeState).isEqualTo(recoveryNodeState);
     assertThat(deserializedRecoveryNodeMetadata.recoveryTaskName).isEqualTo(recoveryTaskName);
-    assertThat(deserializedRecoveryNodeMetadata.updatedTimeUtc).isEqualTo(updatedTimeUtc);
+    assertThat(deserializedRecoveryNodeMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeUtc);
   }
 
   @Test

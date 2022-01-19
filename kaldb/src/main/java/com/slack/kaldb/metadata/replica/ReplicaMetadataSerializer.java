@@ -11,16 +11,16 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
     return new ReplicaMetadata(
         replicaMetadataProto.getName(),
         replicaMetadataProto.getSnapshotId(),
-        replicaMetadataProto.getCreatedTimeEpochMsUtc(),
-        replicaMetadataProto.getExpireAfterEpochMsUtc());
+        replicaMetadataProto.getCreatedTimeEpochMs(),
+        replicaMetadataProto.getExpireAfterEpochMs());
   }
 
   private static Metadata.ReplicaMetadata toReplicaMetadataProto(ReplicaMetadata metadata) {
     return Metadata.ReplicaMetadata.newBuilder()
         .setName(metadata.name)
         .setSnapshotId(metadata.snapshotId)
-        .setCreatedTimeEpochMsUtc(metadata.createdTimeEpochMsUtc)
-        .setExpireAfterEpochMsUtc(metadata.expireAfterEpochMsUtc)
+        .setCreatedTimeEpochMs(metadata.createdTimeEpochMs)
+        .setExpireAfterEpochMs(metadata.expireAfterEpochMs)
         .build();
   }
 

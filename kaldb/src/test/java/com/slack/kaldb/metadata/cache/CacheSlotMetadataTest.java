@@ -22,7 +22,7 @@ public class CacheSlotMetadataTest {
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
-    assertThat(cacheSlotMetadata.updatedTimeEpochMsUtc).isEqualTo(updatedTimeUtc);
+    assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeUtc);
   }
 
   @Test

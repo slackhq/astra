@@ -116,8 +116,8 @@ public class ChunkCleanerServiceTest {
     assertThat(liveSnapshot.maxOffset).isEqualTo(9);
     assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(liveSnapshot.snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(liveSnapshot.startTimeEpochMsUtc).isEqualTo(startTime.toEpochMilli());
-    assertThat(liveSnapshot.endTimeEpochMsUtc).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
+    assertThat(liveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
+    assertThat(liveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
     SnapshotMetadata nonLiveSnapshot = fetchNonLiveSnapshot(afterSnapshots).get(0);
     assertThat(nonLiveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(nonLiveSnapshot.maxOffset).isEqualTo(9);
@@ -126,9 +126,8 @@ public class ChunkCleanerServiceTest {
                 && nonLiveSnapshot.snapshotPath.contains(nonLiveSnapshot.name))
         .isTrue();
     assertThat(nonLiveSnapshot.snapshotId).isEqualTo(nonLiveSnapshot.name);
-    assertThat(nonLiveSnapshot.startTimeEpochMsUtc).isEqualTo(startTime.toEpochMilli());
-    assertThat(nonLiveSnapshot.endTimeEpochMsUtc)
-        .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
+    assertThat(nonLiveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
+    assertThat(nonLiveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
 
     List<SearchMetadata> afterSearchNodes = fetchSearchNodes(chunkManager);
     assertThat(afterSearchNodes.size()).isEqualTo(1);
@@ -172,9 +171,9 @@ public class ChunkCleanerServiceTest {
         .isTrue();
     assertThat(nonLiveSnapshotAfterChunkDelete.snapshotId)
         .isEqualTo(nonLiveSnapshotAfterChunkDelete.name);
-    assertThat(nonLiveSnapshotAfterChunkDelete.startTimeEpochMsUtc)
+    assertThat(nonLiveSnapshotAfterChunkDelete.startTimeEpochMs)
         .isEqualTo(startTime.toEpochMilli());
-    assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMsUtc)
+    assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMs)
         .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
     assertThat(fetchSearchNodes(chunkManager)).isEmpty();
   }
@@ -188,9 +187,9 @@ public class ChunkCleanerServiceTest {
     assertThat(snapshotNodes.get(0).maxOffset).isEqualTo(0);
     assertThat(snapshotNodes.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshotNodes.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshotNodes.get(0).startTimeEpochMsUtc)
+    assertThat(snapshotNodes.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
-    assertThat(snapshotNodes.get(0).endTimeEpochMsUtc).isEqualTo(MAX_FUTURE_TIME);
+    assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
     final List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
@@ -336,7 +335,7 @@ public class ChunkCleanerServiceTest {
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMsUtc == MAX_FUTURE_TIME).count())
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotSize);
   }
 

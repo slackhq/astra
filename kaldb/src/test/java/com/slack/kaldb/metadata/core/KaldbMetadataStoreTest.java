@@ -141,8 +141,8 @@ public class KaldbMetadataStoreTest {
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
@@ -156,8 +156,8 @@ public class KaldbMetadataStoreTest {
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(newMetadata.snapshotId).isEqualTo(name);
-      assertThat(newMetadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc + 1);
-      assertThat(newMetadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc + 1);
+      assertThat(newMetadata.startTimeEpochMs).isEqualTo(startTimeUtc + 1);
+      assertThat(newMetadata.endTimeEpochMs).isEqualTo(endTimeUtc + 1);
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
       assertThat(newMetadata.partitionId).isEqualTo(partitionId);
 
@@ -217,8 +217,8 @@ public class KaldbMetadataStoreTest {
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
@@ -879,8 +879,8 @@ public class KaldbMetadataStoreTest {
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
@@ -894,8 +894,8 @@ public class KaldbMetadataStoreTest {
       assertThat(newMetadata.name).isEqualTo(name);
       assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(newMetadata.snapshotId).isEqualTo(name);
-      assertThat(newMetadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc + 1);
-      assertThat(newMetadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc + 1);
+      assertThat(newMetadata.startTimeEpochMs).isEqualTo(startTimeUtc + 1);
+      assertThat(newMetadata.endTimeEpochMs).isEqualTo(endTimeUtc + 1);
       assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
       assertThat(newMetadata.partitionId).isEqualTo(partitionId);
 
@@ -955,8 +955,8 @@ public class KaldbMetadataStoreTest {
       assertThat(metadata.name).isEqualTo(name);
       assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
       assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMsUtc).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMsUtc).isEqualTo(endTimeUtc);
+      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
+      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
       assertThat(metadata.maxOffset).isEqualTo(maxOffset);
       assertThat(metadata.partitionId).isEqualTo(partitionId);
 
