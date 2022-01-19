@@ -23,7 +23,7 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
         partitionId != null && !partitionId.isEmpty(), "partitionId can't be null or empty");
     checkArgument(startOffset >= 0, "startOffset must greater than 0");
     checkArgument(endOffset > startOffset, "endOffset must be greater than the startOffset");
-    checkArgument(createdTimeEpochMs > 0, "createdTimeEpochMsUtc must be greater than 0");
+    checkArgument(createdTimeEpochMs > 0, "createdTimeEpochMs must be greater than 0");
 
     this.partitionId = partitionId;
     this.startOffset = startOffset;
@@ -65,7 +65,7 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
         + startOffset
         + ", endOffset="
         + endOffset
-        + ", createdTimeUtc="
+        + ", createdTimeEpochMs="
         + createdTimeEpochMs
         + '}';
   }

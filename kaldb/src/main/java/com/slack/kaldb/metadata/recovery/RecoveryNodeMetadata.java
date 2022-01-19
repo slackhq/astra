@@ -66,7 +66,7 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
         + ", recoveryTaskName='"
         + recoveryTaskName
         + '\''
-        + ", updatedTimeUtc="
+        + ", updatedTimeEpchMs="
         + updatedTimeEpochMs
         + '}';
   }

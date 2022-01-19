@@ -118,9 +118,9 @@ public class SnapshotMetadata extends KaldbMetadata {
         + ", snapshotId='"
         + snapshotId
         + '\''
-        + ", startTimeEpochMsUtc="
+        + ", startTimeEpochMs="
         + startTimeEpochMs
-        + ", endTimeEpochMsUtc="
+        + ", endTimeEpochMs="
         + endTimeEpochMs
         + ", maxOffset="
         + maxOffset

@@ -15,14 +15,14 @@ public class CacheSlotMetadataTest {
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     String replicaId = "";
-    long updatedTimeUtc = Instant.now().toEpochMilli();
+    long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     CacheSlotMetadata cacheSlotMetadata =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeUtc);
+        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
-    assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeUtc);
+    assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
   }
 
   @Test
@@ -31,19 +31,19 @@ public class CacheSlotMetadataTest {
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
     String replicaId = "123";
-    long updatedTimeUtc = Instant.now().toEpochMilli();
+    long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     CacheSlotMetadata cacheSlot =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeUtc);
+        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs);
     CacheSlotMetadata cacheSlotDuplicate =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeUtc);
+        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs);
     CacheSlotMetadata cacheSlotDifferentState =
         new CacheSlotMetadata(
-            name, Metadata.CacheSlotMetadata.CacheSlotState.EVICT, replicaId, updatedTimeUtc);
+            name, Metadata.CacheSlotMetadata.CacheSlotState.EVICT, replicaId, updatedTimeEpochMs);
     CacheSlotMetadata cacheSlotDifferentReplicaId =
-        new CacheSlotMetadata(name, cacheSlotState, "321", updatedTimeUtc);
+        new CacheSlotMetadata(name, cacheSlotState, "321", updatedTimeEpochMs);
     CacheSlotMetadata cacheSlotDifferentUpdatedTime =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeUtc + 1);
+        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs + 1);
 
     assertThat(cacheSlot.hashCode()).isEqualTo(cacheSlotDuplicate.hashCode());
     assertThat(cacheSlot).isEqualTo(cacheSlotDuplicate);

@@ -12,34 +12,34 @@ public class ReplicaMetadataTest {
   public void testReplicaMetadata() {
     String name = "name";
     String snapshotId = "snapshotId";
-    long createdTimeUtc = Instant.now().toEpochMilli();
-    long expireAfterUtc = Instant.now().toEpochMilli();
+    long createdTimeEpochMs = Instant.now().toEpochMilli();
+    long expireAfterEpochMs = Instant.now().toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeUtc);
+    assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
   }
 
   @Test
   public void testReplicaMetadataEqualsHashcode() {
     String name = "name";
     String snapshotId = "snapshotId";
-    long createdTimeUtc = Instant.now().toEpochMilli();
-    long expireAfterUtc = Instant.now().toEpochMilli();
+    long createdTimeEpochMs = Instant.now().toEpochMilli();
+    long expireAfterEpochMs = Instant.now().toEpochMilli();
 
     ReplicaMetadata replicaMetadataA =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
     ReplicaMetadata replicaMetadataB =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
     ReplicaMetadata replicaMetadataC =
-        new ReplicaMetadata("nameC", snapshotId, createdTimeUtc, expireAfterUtc);
+        new ReplicaMetadata("nameC", snapshotId, createdTimeEpochMs, expireAfterEpochMs);
     ReplicaMetadata replicaMetadataD =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc + 1, expireAfterUtc);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs + 1, expireAfterEpochMs);
     ReplicaMetadata replicaMetadataE =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc + 1);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs + 1);
 
     assertThat(replicaMetadataA).isEqualTo(replicaMetadataB);
     assertThat(replicaMetadataA).isNotEqualTo(replicaMetadataC);
