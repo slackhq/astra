@@ -171,7 +171,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
             // only attempt to create replicas for snapshots that have not expired, and are not live
             .filter(
                 snapshotMetadata ->
-                    snapshotMetadata.endTimeUtc > snapshotExpiration
+                    snapshotMetadata.endTimeEpochMs > snapshotExpiration
                         && !SnapshotMetadata.isLive(snapshotMetadata))
             .map(
                 (snapshotMetadata) ->
@@ -186,7 +186,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                   replicaMetadataStore.create(
                                       replicaMetadataFromSnapshotId(
                                           snapshotMetadata.snapshotId,
-                                          Instant.ofEpochMilli(snapshotMetadata.endTimeUtc)
+                                          Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
                                               .plus(
                                                   managerConfig
                                                       .getReplicaCreationServiceConfig()

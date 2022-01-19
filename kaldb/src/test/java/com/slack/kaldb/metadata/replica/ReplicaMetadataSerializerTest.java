@@ -2,7 +2,6 @@ package com.slack.kaldb.metadata.replica;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.junit.Assert.*;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.time.Instant;
@@ -15,11 +14,11 @@ public class ReplicaMetadataSerializerTest {
   public void testReplicaMetadataSerializer() throws InvalidProtocolBufferException {
     String name = "name";
     String snapshotId = "snapshotId";
-    long createdTimeUtc = Instant.now().toEpochMilli();
-    long expireAfterUtc = Instant.now().plusSeconds(60).toEpochMilli();
+    long createdTimeEpochMs = Instant.now().toEpochMilli();
+    long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeUtc, expireAfterUtc);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -29,8 +28,8 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
-    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(expireAfterUtc);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
   }
 
   @Test
@@ -41,14 +40,14 @@ public class ReplicaMetadataSerializerTest {
         "{\n"
             + "  \"name\": \"name\",\n"
             + "  \"snapshotId\": \"snapshotId\",\n"
-            + "  \"createdTimeUtc\": \"1639677020380\"\n"
+            + "  \"createdTimeEpochMs\": \"1639677020380\"\n"
             + "}";
     ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
-    assertThat(deserializedReplicaMetadata.createdTimeUtc).isEqualTo(1639677020380L);
-    assertThat(deserializedReplicaMetadata.expireAfterUtc).isEqualTo(0L);
+    assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
+    assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
   }
 
   @Test

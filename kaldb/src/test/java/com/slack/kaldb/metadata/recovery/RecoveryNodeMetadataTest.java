@@ -22,7 +22,7 @@ public class RecoveryNodeMetadataTest {
     assertThat(recoveryNodeMetadata.name).isEqualTo(name);
     assertThat(recoveryNodeMetadata.recoveryNodeState).isEqualTo(state);
     assertThat(recoveryNodeMetadata.recoveryTaskName).isEqualTo(task);
-    assertThat(recoveryNodeMetadata.updatedTimeUtc).isEqualTo(time);
+    assertThat(recoveryNodeMetadata.updatedTimeEpochMs).isEqualTo(time);
   }
 
   @Test

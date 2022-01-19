@@ -17,10 +17,10 @@ public class RecoveryNodeMetadataSerializerTest {
     Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeState =
         Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED;
     String recoveryTaskName = "taskName";
-    long updatedTimeUtc = Instant.now().toEpochMilli();
+    long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     RecoveryNodeMetadata recoveryNodeMetadata =
-        new RecoveryNodeMetadata(name, recoveryNodeState, recoveryTaskName, updatedTimeUtc);
+        new RecoveryNodeMetadata(name, recoveryNodeState, recoveryTaskName, updatedTimeEpochMs);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(recoveryNodeMetadata);
     assertThat(serializedCacheSlotMetadata).isNotEmpty();
@@ -32,7 +32,7 @@ public class RecoveryNodeMetadataSerializerTest {
     assertThat(deserializedRecoveryNodeMetadata.name).isEqualTo(name);
     assertThat(deserializedRecoveryNodeMetadata.recoveryNodeState).isEqualTo(recoveryNodeState);
     assertThat(deserializedRecoveryNodeMetadata.recoveryTaskName).isEqualTo(recoveryTaskName);
-    assertThat(deserializedRecoveryNodeMetadata.updatedTimeUtc).isEqualTo(updatedTimeUtc);
+    assertThat(deserializedRecoveryNodeMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
   }
 
   @Test

@@ -151,7 +151,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
             // want when running KalDb as a logging solution. If newest recovery tasks were
             // preferred, under heavy lag you would have higher-value logs available sooner,
             // at the increased chance of losing old logs.
-            .sorted(Comparator.comparingLong(RecoveryTaskMetadata::getCreatedTimeUtc))
+            .sorted(Comparator.comparingLong(RecoveryTaskMetadata::getCreatedTimeEpochMs))
             .collect(Collectors.toUnmodifiableList());
 
     List<RecoveryNodeMetadata> availableRecoveryNodes =

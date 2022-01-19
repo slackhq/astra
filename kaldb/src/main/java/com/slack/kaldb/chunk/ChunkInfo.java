@@ -23,11 +23,11 @@ public class ChunkInfo {
   public static ChunkInfo fromSnapshotMetadata(SnapshotMetadata snapshotMetadata) {
     return new ChunkInfo(
         snapshotMetadata.snapshotId,
-        snapshotMetadata.startTimeUtc,
-        snapshotMetadata.endTimeUtc,
-        snapshotMetadata.startTimeUtc,
-        snapshotMetadata.endTimeUtc,
-        snapshotMetadata.endTimeUtc,
+        snapshotMetadata.startTimeEpochMs,
+        snapshotMetadata.endTimeEpochMs,
+        snapshotMetadata.startTimeEpochMs,
+        snapshotMetadata.endTimeEpochMs,
+        snapshotMetadata.endTimeEpochMs,
         snapshotMetadata.maxOffset,
         snapshotMetadata.partitionId,
         snapshotMetadata.snapshotPath);

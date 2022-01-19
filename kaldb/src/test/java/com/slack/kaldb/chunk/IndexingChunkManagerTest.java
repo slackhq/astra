@@ -256,9 +256,9 @@ public class IndexingChunkManagerTest {
     assertThat(snapshots.get(0).maxOffset).isEqualTo(0);
     assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshots.get(0).startTimeUtc)
+    assertThat(snapshots.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
-    assertThat(snapshots.get(0).endTimeUtc).isEqualTo(MAX_FUTURE_TIME);
+    assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
     List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
     assertThat(searchNodes.size()).isEqualTo(1);
@@ -435,7 +435,7 @@ public class IndexingChunkManagerTest {
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
@@ -893,7 +893,7 @@ public class IndexingChunkManagerTest {
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(2);
   }
 
@@ -942,7 +942,7 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
     assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
     assertThat(snapshots.get(0).maxOffset).isEqualTo(offset - 1);
-    assertThat(snapshots.get(0).endTimeUtc).isLessThan(MAX_FUTURE_TIME);
+    assertThat(snapshots.get(0).endTimeEpochMs).isLessThan(MAX_FUTURE_TIME);
     assertThat(snapshots.get(0).snapshotId).doesNotContain(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     searchMetadataStore.close();
     snapshotMetadataStore.close();
