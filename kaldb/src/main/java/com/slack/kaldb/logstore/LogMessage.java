@@ -174,6 +174,6 @@ public class LogMessage extends LogWireMessage {
 
   @Override
   public int hashCode() {
-    return Objects.hash(timeSinceEpochMilli, getIndex(), getMillisecondsSinceEpoch(), id);
+    return Objects.hash(timeSinceEpochMilli, getIndex(), id);
   }
 }
