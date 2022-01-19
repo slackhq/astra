@@ -284,7 +284,7 @@ public class S3BlobFs extends BlobFs {
         }
         return deleteSucceeded;
       } else {
-        String prefix = sanitizePath(segmentUri.getPath());
+        String prefix = DELIMITER + sanitizePath(segmentUri.getPath());
         DeleteObjectRequest deleteObjectRequest =
             DeleteObjectRequest.builder().bucket(segmentUri.getHost()).key(prefix).build();
 
