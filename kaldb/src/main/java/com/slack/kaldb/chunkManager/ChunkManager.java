@@ -15,11 +15,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +36,8 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   // TODO: We want to move this to the config eventually
   // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
   public static final int QUERY_TIMEOUT_SECONDS = 10;
-  public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 200;
+  public static final int MIN_QUERY_THREAD_POOL_SIZE = 20;
+  public static final int MAX_QUERY_THREAD_POOL_SIZE = 200;
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
@@ -48,8 +45,12 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
      One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
   */
   private static ExecutorService queryThreadPool() {
-    return Executors.newFixedThreadPool(
-        LOCAL_QUERY_THREAD_POOL_SIZE,
+    return new ThreadPoolExecutor(
+        MIN_QUERY_THREAD_POOL_SIZE,
+        MAX_QUERY_THREAD_POOL_SIZE,
+        60L,
+        TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(),
         new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
