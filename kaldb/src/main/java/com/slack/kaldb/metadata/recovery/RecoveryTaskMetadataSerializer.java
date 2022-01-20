@@ -14,7 +14,7 @@ public class RecoveryTaskMetadataSerializer implements MetadataSerializer<Recove
         recoveryTaskMetadataProto.getPartitionId(),
         recoveryTaskMetadataProto.getStartOffset(),
         recoveryTaskMetadataProto.getEndOffset(),
-        recoveryTaskMetadataProto.getCreatedTimeUtc());
+        recoveryTaskMetadataProto.getCreatedTimeEpochMs());
   }
 
   private static Metadata.RecoveryTaskMetadata toRecoveryTaskMetadataProto(
@@ -24,7 +24,7 @@ public class RecoveryTaskMetadataSerializer implements MetadataSerializer<Recove
         .setPartitionId(metadata.partitionId)
         .setStartOffset(metadata.startOffset)
         .setEndOffset(metadata.endOffset)
-        .setCreatedTimeUtc(metadata.createdTimeUtc)
+        .setCreatedTimeEpochMs(metadata.createdTimeEpochMs)
         .build();
   }
 

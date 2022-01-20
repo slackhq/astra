@@ -17,10 +17,10 @@ public class CacheSlotMetadataSerializerTest {
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
     String replicaId = "123";
-    long updatedTimeUtc = Instant.now().toEpochMilli();
+    long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     CacheSlotMetadata cacheSlotMetadata =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeUtc);
+        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(cacheSlotMetadata);
     assertThat(serializedCacheSlotMetadata).isNotEmpty();
@@ -32,7 +32,7 @@ public class CacheSlotMetadataSerializerTest {
     assertThat(deserializedCacheSlotMetadata.name).isEqualTo(name);
     assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
-    assertThat(deserializedCacheSlotMetadata.updatedTimeUtc).isEqualTo(updatedTimeUtc);
+    assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
   }
 
   @Test

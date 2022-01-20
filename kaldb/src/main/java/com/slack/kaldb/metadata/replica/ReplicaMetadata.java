@@ -13,31 +13,32 @@ import java.util.Objects;
 public class ReplicaMetadata extends KaldbMetadata {
 
   public final String snapshotId;
-  public final long createdTimeUtc;
-  public final long expireAfterUtc;
+  public final long createdTimeEpochMs;
+  public final long expireAfterEpochMs;
 
-  public ReplicaMetadata(String name, String snapshotId, long createdTimeUtc, long expireAfterUtc) {
+  public ReplicaMetadata(
+      String name, String snapshotId, long createdTimeEpochMs, long expireAfterEpochMs) {
     super(name);
-    checkArgument(createdTimeUtc > 0, "Created time must be greater than 0");
-    checkArgument(expireAfterUtc >= 0, "Expiration time must be greater than or equal to 0");
+    checkArgument(createdTimeEpochMs > 0, "Created time must be greater than 0");
+    checkArgument(expireAfterEpochMs >= 0, "Expiration time must be greater than or equal to 0");
     checkArgument(
         snapshotId != null && !snapshotId.isEmpty(), "SnapshotId must not be null or empty");
 
     this.snapshotId = snapshotId;
-    this.createdTimeUtc = createdTimeUtc;
-    this.expireAfterUtc = expireAfterUtc;
+    this.createdTimeEpochMs = createdTimeEpochMs;
+    this.expireAfterEpochMs = expireAfterEpochMs;
   }
 
   public String getSnapshotId() {
     return snapshotId;
   }
 
-  public long getCreatedTimeUtc() {
-    return createdTimeUtc;
+  public long getCreatedTimeEpochMs() {
+    return createdTimeEpochMs;
   }
 
-  public long getExpireAfterUtc() {
-    return expireAfterUtc;
+  public long getExpireAfterEpochMs() {
+    return expireAfterEpochMs;
   }
 
   @Override
@@ -46,14 +47,14 @@ public class ReplicaMetadata extends KaldbMetadata {
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
     ReplicaMetadata that = (ReplicaMetadata) o;
-    return createdTimeUtc == that.createdTimeUtc
-        && expireAfterUtc == that.expireAfterUtc
+    return createdTimeEpochMs == that.createdTimeEpochMs
+        && expireAfterEpochMs == that.expireAfterEpochMs
         && snapshotId.equals(that.snapshotId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), snapshotId, createdTimeUtc, expireAfterUtc);
+    return Objects.hash(super.hashCode(), snapshotId, createdTimeEpochMs, expireAfterEpochMs);
   }
 
   @Override
@@ -65,10 +66,10 @@ public class ReplicaMetadata extends KaldbMetadata {
         + ", snapshotId='"
         + snapshotId
         + '\''
-        + ", createdTimeUtc="
-        + createdTimeUtc
-        + ", expireAfterUtc="
-        + expireAfterUtc
+        + ", createdTimeEpochMs="
+        + createdTimeEpochMs
+        + ", expireAfterEpochMs="
+        + expireAfterEpochMs
         + '}';
   }
 }

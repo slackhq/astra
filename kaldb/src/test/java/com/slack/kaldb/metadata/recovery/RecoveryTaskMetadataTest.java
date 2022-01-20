@@ -14,16 +14,16 @@ public class RecoveryTaskMetadataTest {
     String partitionId = "partitionId";
     long startOffset = 1;
     long endOffset = 2;
-    long createdTimeUtc = 3;
+    long createdTimeEpochMs = 3;
 
     RecoveryTaskMetadata recoveryTaskMetadata =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeEpochMs);
 
     assertThat(recoveryTaskMetadata.name).isEqualTo(name);
     assertThat(recoveryTaskMetadata.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(recoveryTaskMetadata.endOffset).isEqualTo(endOffset);
-    assertThat(recoveryTaskMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
+    assertThat(recoveryTaskMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
   }
 
   @Test
@@ -32,18 +32,18 @@ public class RecoveryTaskMetadataTest {
     String partitionId = "partitionId";
     long startOffset = 1;
     long endOffset = 5;
-    long createdTimeUtc = 9;
+    long createdTimeEpochMs = 9;
 
     RecoveryTaskMetadata recoveryTaskMetadataA =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeEpochMs);
     RecoveryTaskMetadata recoveryTaskMetadataB =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeEpochMs);
     RecoveryTaskMetadata recoveryTaskMetadataC =
-        new RecoveryTaskMetadata(name, "partitionIdC", startOffset, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, "partitionIdC", startOffset, endOffset, createdTimeEpochMs);
     RecoveryTaskMetadata recoveryTaskMetadataD =
-        new RecoveryTaskMetadata(name, partitionId, 3, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, 3, endOffset, createdTimeEpochMs);
     RecoveryTaskMetadata recoveryTaskMetadataE =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, 8, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, startOffset, 8, createdTimeEpochMs);
 
     assertThat(recoveryTaskMetadataA).isEqualTo(recoveryTaskMetadataB);
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataC);

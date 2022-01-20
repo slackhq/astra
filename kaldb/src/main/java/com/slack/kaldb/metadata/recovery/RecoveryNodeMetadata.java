@@ -14,16 +14,16 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
 
   public final Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeState;
   public final String recoveryTaskName;
-  public final long updatedTimeUtc;
+  public final long updatedTimeEpochMs;
 
   public RecoveryNodeMetadata(
       String name,
       Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeState,
       String recoveryTaskName,
-      long updatedTimeUtc) {
+      long updatedTimeEpochMs) {
     super(name);
 
-    checkArgument(updatedTimeUtc > 0, "Updated time must be greater than 0");
+    checkArgument(updatedTimeEpochMs > 0, "Updated time must be greater than 0");
     if (recoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
       checkArgument(
           recoveryTaskName != null && recoveryTaskName.isEmpty(),
@@ -36,7 +36,7 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
 
     this.recoveryNodeState = recoveryNodeState;
     this.recoveryTaskName = recoveryTaskName;
-    this.updatedTimeUtc = updatedTimeUtc;
+    this.updatedTimeEpochMs = updatedTimeEpochMs;
   }
 
   @Override
@@ -45,14 +45,14 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
     RecoveryNodeMetadata that = (RecoveryNodeMetadata) o;
-    return updatedTimeUtc == that.updatedTimeUtc
+    return updatedTimeEpochMs == that.updatedTimeEpochMs
         && recoveryNodeState == that.recoveryNodeState
         && recoveryTaskName.equals(that.recoveryTaskName);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), recoveryNodeState, recoveryTaskName, updatedTimeUtc);
+    return Objects.hash(super.hashCode(), recoveryNodeState, recoveryTaskName, updatedTimeEpochMs);
   }
 
   @Override
@@ -66,8 +66,8 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
         + ", recoveryTaskName='"
         + recoveryTaskName
         + '\''
-        + ", updatedTimeUtc="
-        + updatedTimeUtc
+        + ", updatedTimeEpchMs="
+        + updatedTimeEpochMs
         + '}';
   }
 }
