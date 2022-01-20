@@ -8,6 +8,7 @@ import brave.Tracing;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import org.junit.BeforeClass;
@@ -28,7 +29,10 @@ public class FieldConflictsTest {
 
   @Test
   public void testMessageEquality() {
-    String ts = MessageUtil.getCurrentLogDate();
+    Instant time = Instant.now();
+    Instant time2 = Instant.ofEpochSecond(time.getEpochSecond() + 1);
+
+    String ts = time.toString();
     LogMessage msg1 =
         new LogMessage(
             MessageUtil.TEST_INDEX_NAME,
@@ -65,7 +69,7 @@ public class FieldConflictsTest {
             "1",
             Map.of(
                 LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
+                time2.toString(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.HOSTNAME.fieldName,
