@@ -40,7 +40,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   // TODO: We want to move this to the config eventually
   // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
   public static final int QUERY_TIMEOUT_SECONDS = 10;
-  public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 4;
+  public static final int LOCAL_QUERY_THREAD_POOL_SIZE = 200;
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
