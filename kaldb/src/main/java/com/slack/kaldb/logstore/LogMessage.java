@@ -166,6 +166,7 @@ public class LogMessage extends LogWireMessage {
     if (id == null || that.id == null) {
       LOG.warn("id missing - equals comparison won't be accurate");
     }
+    LOG.info("TEST:: timeSinceEpochMilli=" + timeSinceEpochMilli + " that.timeSinceEpochMilli=" + that.timeSinceEpochMilli);
     return timeSinceEpochMilli == that.timeSinceEpochMilli
         && Objects.equals(getIndex(), that.getIndex())
         && Objects.equals(getType(), that.getType())
