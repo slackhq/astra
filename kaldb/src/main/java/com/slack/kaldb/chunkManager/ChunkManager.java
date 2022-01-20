@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.MetricCollectingThreadPoolExecutor;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +49,8 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
      One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
   */
   private static ExecutorService queryThreadPool() {
+    // How can I get meterRegistry from the CachingChunkManager/IndexingChunkManager??
+    //return new MetricCollectingThreadPoolExecutor(meterRegistry, )
     return Executors.newFixedThreadPool(
         LOCAL_QUERY_THREAD_POOL_SIZE,
         new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
