@@ -50,7 +50,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
         MAX_QUERY_THREAD_POOL_SIZE,
         60L,
         TimeUnit.SECONDS,
-        new LinkedBlockingQueue<>(),
+        new SynchronousQueue<>(),
         new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
