@@ -33,24 +33,19 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   // to the amount of reads, and it must be a threadsafe implementation
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  // TODO: We want to move this to the config eventually
+  // TODO: Move this config to Kaldb config.
   // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
   public static final int QUERY_TIMEOUT_SECONDS = 10;
-  public static final int MIN_QUERY_THREAD_POOL_SIZE = 20;
-  public static final int MAX_QUERY_THREAD_POOL_SIZE = 200;
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
   /*
-     One day we will have to think about rate limiting/backpressure and we will revisit this so it could potentially reject threads if the pool is full
-  */
+   * Use an unbounded cached thread pool to service the read requests, so we can saturate the CPU.
+   * Revisit the thread pool settings if this becomes a perf issue. Also, we may need
+   * different thread pools for indexer and cache nodes in the future.
+   */
   private static ExecutorService queryThreadPool() {
-    return new ThreadPoolExecutor(
-        MIN_QUERY_THREAD_POOL_SIZE,
-        MAX_QUERY_THREAD_POOL_SIZE,
-        60L,
-        TimeUnit.SECONDS,
-        new SynchronousQueue<>(),
+    return Executors.newCachedThreadPool(
         new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
