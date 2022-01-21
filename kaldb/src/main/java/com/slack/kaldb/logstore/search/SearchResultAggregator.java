@@ -6,4 +6,6 @@ import java.util.concurrent.CompletableFuture;
 public interface SearchResultAggregator<T> {
   CompletableFuture<SearchResult<T>> aggregate(
       CompletableFuture<List<SearchResult<T>>> searchResults);
+
+  SearchResult<T> aggregate(List<SearchResult<T>> searchResults);
 }

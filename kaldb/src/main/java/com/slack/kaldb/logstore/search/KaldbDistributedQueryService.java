@@ -13,6 +13,7 @@ import com.spotify.futures.CompletableFutures;
 import com.spotify.futures.ListenableFuturesExtra;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -105,7 +106,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           addedStubs.get(),
           removedStubs.get());
     } catch (Exception e) {
-      LOG.error("Cannot update SearchMetadata cache on the query service" + e);
+      LOG.error("Cannot update SearchMetadata cache on the query service", e);
       throw new RuntimeException("Cannot update SearchMetadata cache on the query service ", e);
     }
   }
@@ -151,21 +152,25 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         span.finish();
       }
     } catch (Exception e) {
-      LOG.error("SearchMetadata failed with " + e);
+      LOG.error("SearchMetadata failed with ", e);
       List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
           Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
       return CompletableFutures.allAsList(emptyResultList);
     }
   }
 
-  public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
-    CompletableFuture<List<SearchResult<LogMessage>>> searchResults = distributedSearch(request);
-
-    CompletableFuture<SearchResult<LogMessage>> aggregatedResult =
-        ((SearchResultAggregator<LogMessage>)
-                new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-            .aggregate(searchResults);
-
-    return SearchResultUtils.toSearchResultProto(aggregatedResult);
+  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) throws IOException {
+    try {
+      List<SearchResult<LogMessage>> searchResults =
+          distributedSearch(request).get(30, TimeUnit.SECONDS);
+      SearchResult<LogMessage> aggregatedResult =
+          ((SearchResultAggregator<LogMessage>)
+                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
+              .aggregate(searchResults);
+      return SearchResultUtils.toSearchResultProto(aggregatedResult);
+    } catch (Exception e) {
+      LOG.error("Distributed search failed", e);
+      throw new IOException(e);
+    }
   }
 }

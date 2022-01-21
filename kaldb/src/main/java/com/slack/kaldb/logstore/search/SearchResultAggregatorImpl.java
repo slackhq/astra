@@ -31,7 +31,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     return searchResults.thenApply(this::aggregate);
   }
 
-  private SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
+  @Override
+  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultAggregatorImpl.aggregate");
     long tookMicros = 0;

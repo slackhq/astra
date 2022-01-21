@@ -234,7 +234,7 @@ public class IndexingChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> results = chunkManager.query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
     // Test chunk metadata.
@@ -283,7 +283,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message101", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -306,7 +305,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -330,12 +328,13 @@ public class IndexingChunkManagerTest {
       int totalSnapshots,
       int expectedSnapshotsWithReplicas,
       long startTimeEpochMs,
-      long endTimeEpochMs) {
+      long endTimeEpochMs)
+      throws IOException {
 
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
@@ -346,12 +345,13 @@ public class IndexingChunkManagerTest {
       ChunkManager<LogMessage> chunkManager,
       String searchString,
       long startTimeEpochMs,
-      long endTimeEpochMs) {
+      long endTimeEpochMs)
+      throws IOException {
 
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    return chunkManager.query(searchQuery).join().hits.size();
+    return chunkManager.query(searchQuery).hits.size();
   }
 
   @Test
@@ -597,7 +597,7 @@ public class IndexingChunkManagerTest {
     testOneFailedChunk(secondChunk);
   }
 
-  private void testOneFailedChunk(ChunkInfo secondChunk) {
+  private void testOneFailedChunk(ChunkInfo secondChunk) throws IOException {
     ReadWriteChunk<LogMessage> chunk =
         (ReadWriteChunk<LogMessage>)
             chunkManager
