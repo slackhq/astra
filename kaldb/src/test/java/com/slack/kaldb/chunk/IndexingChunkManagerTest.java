@@ -26,6 +26,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -683,7 +684,7 @@ public class IndexingChunkManagerTest {
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
-    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
+    assertThat(Throwables.getRootCause(throwable)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
