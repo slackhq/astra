@@ -59,6 +59,11 @@ public class ArmeriaService extends AbstractIdleService {
     this.server = sb.build();
   }
 
+  @Override
+  public String toString() {
+    return "ArmeriaService{" + "serviceName='" + serviceName + '\'' + '}';
+  }
+
   public ArmeriaService(
       int serverPort,
       PrometheusMeterRegistry prometheusMeterRegistry,
