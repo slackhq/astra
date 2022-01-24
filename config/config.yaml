@@ -69,6 +69,10 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICA_DELETE_PERIOD_MINS:-15}
   recoveryTaskAssignmentServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_RECOVERY_PERIOD_MINS:-15}
+  snapshotDeletionServiceConfig:
+    schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
+    snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
+
 
 recoveryConfig:
   serverConfig:
