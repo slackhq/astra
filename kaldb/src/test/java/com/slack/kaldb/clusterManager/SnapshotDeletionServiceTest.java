@@ -223,6 +223,7 @@ public class SnapshotDeletionServiceTest {
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
             replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
@@ -230,6 +231,7 @@ public class SnapshotDeletionServiceTest {
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -314,6 +316,7 @@ public class SnapshotDeletionServiceTest {
             "1");
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -324,6 +327,7 @@ public class SnapshotDeletionServiceTest {
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -380,6 +384,7 @@ public class SnapshotDeletionServiceTest {
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -391,6 +396,7 @@ public class SnapshotDeletionServiceTest {
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -500,12 +506,14 @@ public class SnapshotDeletionServiceTest {
     doReturn(Futures.immediateFailedFuture(new InternalMetadataStoreException("failed")))
         .when(snapshotMetadataStore)
         .delete(any(SnapshotMetadata.class));
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -612,6 +620,7 @@ public class SnapshotDeletionServiceTest {
         new SnapshotDeletionService(
             replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
     snapshotDeletionService.futuresListTimeoutSecs = 2;
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
     doReturn(
@@ -631,6 +640,7 @@ public class SnapshotDeletionServiceTest {
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
