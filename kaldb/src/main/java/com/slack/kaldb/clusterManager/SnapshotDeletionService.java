@@ -10,6 +10,7 @@ import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
@@ -39,9 +40,13 @@ import org.slf4j.LoggerFactory;
  * have a corresponding snapshot object - removal of orphaned objects will be removed by a separate
  * service.
  */
+@SuppressWarnings("UnstableApiUsage")
 public class SnapshotDeletionService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotDeletionService.class);
+
   private static final int THREAD_POOL_SIZE = 10;
+  private static final int MAXIMUM_DELETES_PER_SECOND = 100;
+
   private final KaldbConfigs.ManagerConfig managerConfig;
 
   private final ReplicaMetadataStore replicaMetadataStore;
@@ -63,6 +68,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
       Executors.newFixedThreadPool(
           THREAD_POOL_SIZE,
           new ThreadFactoryBuilder().setNameFormat("snapshot-deletion-service-%d").build());
+  private final RateLimiter rateLimiter = RateLimiter.create(MAXIMUM_DELETES_PER_SECOND);
 
   public SnapshotDeletionService(
       ReplicaMetadataStore replicaMetadataStore,
@@ -164,7 +170,13 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                   ListenableFuture<?> future =
                       Futures.submit(
                           () -> {
-                            // we first delete the snapshot reference - if for some reason we fail
+                            // These futures are rate-limited so that we can more evenly distribute
+                            // the load to the downstream services (metadata, s3). There is no
+                            // urgency to complete the deletes, so limiting the maximum rate allows
+                            // us to avoid unnecessary spikes.
+                            rateLimiter.acquire();
+
+                            // We first delete the snapshot reference - if for some reason we fail
                             // to delete the object from the object storage, the orphaned object
                             // cleanup service will attempt to delete it later
                             snapshotMetadataStore.deleteSync(snapshotMetadata);
