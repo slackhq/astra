@@ -7,7 +7,8 @@ import java.util.Objects;
 
 /**
  * The recovery task metadata contains all information required to back-fill messages that have been
- * previously skipped.
+ * previously skipped. For partitionId, the recovery task should index from startOffset up to but
+ * not including endOffset: [startOffset, endOffset)
  */
 public class RecoveryTaskMetadata extends KaldbMetadata {
   public final String partitionId;
