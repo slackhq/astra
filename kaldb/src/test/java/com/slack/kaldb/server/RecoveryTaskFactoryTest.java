@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
@@ -167,7 +168,7 @@ public class RecoveryTaskFactoryTest {
 
     RecoveryTaskFactory recoveryTaskFactory =
         new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
-    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots))
+    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
@@ -196,23 +197,28 @@ public class RecoveryTaskFactoryTest {
     SnapshotMetadata partition2 =
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
-    testDeleteSnapshotsTimeouts(List.of(partition1), List.of(partition1));
-    testDeleteSnapshotsTimeouts(List.of(livePartition1), List.of(livePartition1));
+    testDeleteSnapshotsTimeouts(List.of(partition1), List.of(partition1), false);
+    testDeleteSnapshotsTimeouts(List.of(livePartition1), List.of(livePartition1), true);
     testDeleteSnapshotsTimeouts(
-        List.of(partition1, livePartition1), List.of(partition1, livePartition1));
+        List.of(partition1, livePartition1), List.of(partition1, livePartition1), true);
     testDeleteSnapshotsTimeouts(
         List.of(partition1, livePartition1, livePartition11),
-        List.of(partition1, livePartition1, livePartition11));
+        List.of(partition1, livePartition1, livePartition11),
+        true);
     testDeleteSnapshotsTimeouts(
         List.of(partition1, livePartition1, livePartition11, partition2),
-        List.of(partition1, livePartition1, livePartition11, partition2));
+        List.of(partition1, livePartition1, livePartition11, partition2),
+        true);
     testDeleteSnapshotsTimeouts(
         List.of(partition1, livePartition1, livePartition11, partition2, livePartition2),
-        List.of(partition1, livePartition1, livePartition11, partition2, livePartition2));
+        List.of(partition1, livePartition1, livePartition11, partition2, livePartition2),
+        true);
   }
 
   private void testDeleteSnapshotsTimeouts(
-      List<SnapshotMetadata> actualSnapshots, List<SnapshotMetadata> expectedSnapshots) {
+      List<SnapshotMetadata> actualSnapshots,
+      List<SnapshotMetadata> expectedSnapshots,
+      boolean hasException) {
 
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
     assertThat(snapshotMetadataStore.listSync())
@@ -226,7 +232,12 @@ public class RecoveryTaskFactoryTest {
         .when(snapshotMetadataStore)
         .delete((any(SnapshotMetadata.class)));
 
-    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots)).isEqualTo(0);
+    if (hasException) {
+      assertThatIllegalStateException()
+          .isThrownBy(() -> recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots));
+    } else {
+      assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots)).isEmpty();
+    }
 
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
@@ -287,7 +298,8 @@ public class RecoveryTaskFactoryTest {
         .when(snapshotMetadataStore)
         .delete((SnapshotMetadata) any());
 
-    assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(snapshots)).isEqualTo(1);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.deleteStaleLiveSnapsnots(snapshots));
 
     // Either liveSnapshot1 or liveSnapshot11 remain but not both.
     List<SnapshotMetadata> actualSnapshots = snapshotMetadataStore.listSync();
@@ -487,4 +499,8 @@ public class RecoveryTaskFactoryTest {
                 List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
         .isEqualTo(recoveryStartOffset * 3);
   }
+
+  // TODO: Test determine start offset.
+  // TODO: Test reliability and fault tolerance across multiple restarts of indexer. Double
+  //  recovery task creation.
 }
