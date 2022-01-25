@@ -3,20 +3,23 @@ package com.slack.kaldb.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
-import com.spotify.futures.CompletableFutures;
-import com.spotify.futures.ListenableFuturesExtra;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -116,53 +119,44 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-  private CompletableFuture<List<SearchResult<LogMessage>>> distributedSearch(
-      KaldbSearch.SearchRequest request) {
+  private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     try {
-      List<CompletableFuture<SearchResult<LogMessage>>> queryServers =
-          new ArrayList<>(stubs.size());
+      List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
-        // With the deadline we are keeping a high limit on how much time each CompletableFuture
-        // take. Alternately use completeOnTimeout and the value can then we configured
-        // per request and not as part of the config
+        ListenableFuture<KaldbSearch.SearchResult> searchRequest =
+            stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .withInterceptors(
+                    GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
+                .search(request);
+        Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
+            SearchResultUtils::fromSearchResultProtoOrEmpty;
         queryServers.add(
-            ListenableFuturesExtra.toCompletableFuture(
-                    stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                        .withInterceptors(
-                            GrpcTracing.newBuilder(Tracing.current())
-                                .build()
-                                .newClientInterceptor())
-                        .search(request))
-                .thenApply(SearchResultUtils::fromSearchResultProtoOrEmpty)
-                .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            Futures.transform(
+                searchRequest, searchRequestTransform, MoreExecutors.directExecutor()));
       }
 
-      try {
-        return CompletableFutures.successfulAsList(
-            queryServers,
-            ex -> {
-              LOG.error("Node failed to respond ", ex);
-              return SearchResult.empty();
-            });
-      } finally {
-        span.finish();
-      }
+      List<SearchResult<LogMessage>> searchResults =
+          Futures.successfulAsList(queryServers).get(30, TimeUnit.SECONDS);
+      return searchResults
+          .stream()
+          .map(searchResult -> searchResult == null ? SearchResult.empty() : searchResult)
+          .collect(Collectors.toList());
     } catch (Exception e) {
-      LOG.error("SearchMetadata failed with ", e);
-      List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
-          Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
-      return CompletableFutures.allAsList(emptyResultList);
+      LOG.error("Search failed with ", e);
+      span.error(e);
+      return List.of(SearchResult.empty());
+    } finally {
+      span.finish();
     }
   }
 
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) throws IOException {
     try {
-      List<SearchResult<LogMessage>> searchResults =
-          distributedSearch(request).get(30, TimeUnit.SECONDS);
+      List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
       SearchResult<LogMessage> aggregatedResult =
           ((SearchResultAggregator<LogMessage>)
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))

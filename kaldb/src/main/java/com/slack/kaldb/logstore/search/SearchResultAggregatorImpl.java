@@ -9,7 +9,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -23,12 +22,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
   public SearchResultAggregatorImpl(SearchQuery searchQuery) {
     this.searchQuery = searchQuery;
-  }
-
-  @Override
-  public CompletableFuture<SearchResult<T>> aggregate(
-      CompletableFuture<List<SearchResult<T>>> searchResults) {
-    return searchResults.thenApply(this::aggregate);
   }
 
   @Override
