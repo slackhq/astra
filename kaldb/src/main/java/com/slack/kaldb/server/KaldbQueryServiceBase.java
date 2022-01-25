@@ -3,7 +3,6 @@ package com.slack.kaldb.server;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.grpc.stub.StreamObserver;
-import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,12 +20,11 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
 
     try {
       responseObserver.onNext(doSearch(request));
-    } catch (IOException e) {
+    } catch (Exception e) {
       responseObserver.onError(e);
     }
     responseObserver.onCompleted();
   }
 
-  public abstract KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request)
-      throws IOException;
+  public abstract KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request);
 }

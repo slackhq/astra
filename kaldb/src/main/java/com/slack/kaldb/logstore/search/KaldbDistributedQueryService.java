@@ -15,7 +15,6 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -154,7 +153,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
   }
 
-  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) throws IOException {
+  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
     try {
       List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
       SearchResult<LogMessage> aggregatedResult =
@@ -164,7 +163,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
     } catch (Exception e) {
       LOG.error("Distributed search failed", e);
-      throw new IOException(e);
+      throw new RuntimeException(e);
     }
   }
 }

@@ -13,7 +13,6 @@ import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.spotify.futures.CompletableFutures;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -57,7 +56,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
-  public SearchResult<T> query(SearchQuery query) throws IOException {
+  public SearchResult<T> query(SearchQuery query) {
 
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
@@ -105,7 +104,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
       return incrementNodeCount(aggregatedResults);
     } catch (Exception e) {
       LOG.error("Error searching across chunks ", e);
-      throw new IOException(e);
+      throw new RuntimeException(e);
     }
   }
 
