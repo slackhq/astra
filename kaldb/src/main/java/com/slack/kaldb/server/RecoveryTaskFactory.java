@@ -137,7 +137,8 @@ public class RecoveryTaskFactory {
       final long creationTimeEpochMs = Instant.now().toEpochMilli();
       final String recoveryTaskName = "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
       LOG.info(
-          "The current position {} and head location {} are higher than max offset {}",
+          "Recovery task needed. The current position {} and head location {} are higher than max"
+              + " offset {}",
           highestDuableOffsetForPartition,
           currentHeadOffsetForPartition,
           maxOffsetDelay);
