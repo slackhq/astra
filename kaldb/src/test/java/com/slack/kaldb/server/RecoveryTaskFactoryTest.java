@@ -87,7 +87,7 @@ public class RecoveryTaskFactoryTest {
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
 
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
@@ -167,7 +167,7 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
     assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
@@ -225,7 +225,7 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
 
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
@@ -275,7 +275,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -315,7 +315,7 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testMaxOffset() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0);
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -500,7 +500,40 @@ public class RecoveryTaskFactoryTest {
         .isEqualTo(recoveryStartOffset * 3);
   }
 
+  @Test
+  public void testInit() {
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () ->
+                new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0));
+
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () -> new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, "", 100));
+  }
+
   // TODO: Test determine start offset.
+  @Test
+  public void testDetermineStartOffsetWorksWithNoData() {}
+
+  // no data.
+  // no snapsnots or recovery.
+  // no snapshots but only recovery.
+  // only snapshots, no recovery.
+  // only snapshots, multiple recoveries.
+
+  // only snapshots, no recovery, behind.
+  // only snapshots, no recovery, not behind.
+  // only snapshots, multiple recoveries, behind.
+  // only snapshots, multiple recoveries, not behind.
+  // Test with delay of zero.
+
+  // Throw exception in these cases.
+  // only snapshots, no recovery, behind.
+  // only snapshots, no recovery, not behind.
+  // only snapshots, multiple recoveries, behind
+  // only snapshots, multiple recoveries, not behind.
+
   // TODO: Test reliability and fault tolerance across multiple restarts of indexer. Double
   //  recovery task creation.
 }

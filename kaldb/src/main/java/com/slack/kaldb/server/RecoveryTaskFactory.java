@@ -32,8 +32,8 @@ public class RecoveryTaskFactory {
       String partitionId,
       long maxOffsetDelay) {
     checkState(
-        partitionId == null || partitionId.isEmpty(), "partitionId shouldn't be null or empty");
-    checkState(maxOffsetDelay <= 0, "maxOffsetDelay should be a positive number");
+        partitionId != null && !partitionId.isEmpty(), "partitionId shouldn't be null or empty");
+    checkState(maxOffsetDelay > 0, "maxOffsetDelay should be a positive number");
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.partitionId = partitionId;
