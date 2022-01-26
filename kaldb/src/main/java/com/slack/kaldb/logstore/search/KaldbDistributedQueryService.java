@@ -119,11 +119,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
+    LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     try {
       List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+      span.tag("stub_count", String.valueOf(stubs.size()));
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
         ListenableFuture<KaldbSearch.SearchResult> searchRequest =
@@ -149,6 +151,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
+      LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
   }
