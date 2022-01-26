@@ -291,7 +291,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getBucketsList().size()).isEqualTo(0);
   }
 
-  @Test(expected = IOException.class)
+  @Test(expected = RuntimeException.class)
   public void testKalDbBadArgSearch() throws Throwable {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
