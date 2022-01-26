@@ -24,4 +24,24 @@ public class SearchQuery {
     this.howMany = howMany;
     this.bucketCount = bucketCount;
   }
+
+  @Override
+  public String toString() {
+    return "SearchQuery{"
+        + "indexName='"
+        + indexName
+        + '\''
+        + ", queryStr='"
+        + queryStr
+        + '\''
+        + ", startTimeEpochMs="
+        + startTimeEpochMs
+        + ", endTimeEpochMs="
+        + endTimeEpochMs
+        + ", howMany="
+        + howMany
+        + ", bucketCount="
+        + bucketCount
+        + '}';
+  }
 }

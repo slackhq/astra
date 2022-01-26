@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -15,9 +14,15 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +44,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
       "search_metadata_total_change_counter";
-  private final MeterRegistry meterRegistry;
   private final Counter searchMetadataTotalChangeCounter;
 
-  private Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs = new ConcurrentHashMap<>();
+  private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
+      new ConcurrentHashMap<>();
 
   // public so that we can override in tests
   // TODO: In the future expose this as a config in the proto
@@ -57,9 +62,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
-    this.meterRegistry = meterRegistry;
-    searchMetadataTotalChangeCounter =
-        this.meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
+    searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
     // first time call this function manually so that we initialize stubs
@@ -119,11 +122,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
+    LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     try {
       List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+      span.tag("queryServerCount", String.valueOf(stubs.size()));
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
         ListenableFuture<KaldbSearch.SearchResult> searchRequest =
@@ -135,7 +140,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             SearchResultUtils::fromSearchResultProtoOrEmpty;
         queryServers.add(
             Futures.transform(
-                searchRequest, searchRequestTransform, MoreExecutors.directExecutor()));
+                searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
       }
 
       List<SearchResult<LogMessage>> searchResults =
@@ -149,6 +154,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
+      LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
   }

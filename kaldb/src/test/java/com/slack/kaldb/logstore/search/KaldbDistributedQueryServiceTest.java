@@ -91,6 +91,7 @@ public class KaldbDistributedQueryServiceTest {
 
   private static EphemeralKafkaBroker broker;
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   @BeforeClass
   // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
   public static void initialize() throws Exception {
@@ -336,6 +337,7 @@ public class KaldbDistributedQueryServiceTest {
     testSearchWithOneShardTimeout();
   }
 
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
   private void verifyAddServerToZK() throws Exception {
     int indexServer3Port = 10003;
     SearchContext searchContext3 = new SearchContext("127.0.0.1", indexServer3Port);
