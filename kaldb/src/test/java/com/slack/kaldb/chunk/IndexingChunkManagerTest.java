@@ -26,6 +26,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -234,7 +235,7 @@ public class IndexingChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> results = chunkManager.query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
     // Test chunk metadata.
@@ -283,7 +284,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message101", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -306,7 +306,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -335,7 +334,7 @@ public class IndexingChunkManagerTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
@@ -347,11 +346,10 @@ public class IndexingChunkManagerTest {
       String searchString,
       long startTimeEpochMs,
       long endTimeEpochMs) {
-
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    return chunkManager.query(searchQuery).join().hits.size();
+    return chunkManager.query(searchQuery).hits.size();
   }
 
   @Test
@@ -683,7 +681,7 @@ public class IndexingChunkManagerTest {
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
-    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
+    assertThat(Throwables.getRootCause(throwable)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

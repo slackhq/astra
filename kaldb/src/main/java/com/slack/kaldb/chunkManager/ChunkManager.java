@@ -56,7 +56,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
-  public CompletableFuture<SearchResult<T>> query(SearchQuery query) {
+  public SearchResult<T> query(SearchQuery query) {
 
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
@@ -96,12 +96,16 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
     // CompletableFuture.allOf and converting the CompletableFuture<Void> to
     // CompletableFuture<List<SearchResult>>
     CompletableFuture<List<SearchResult<T>>> searchResults = CompletableFutures.allAsList(queries);
-
-    // Increment the node count right at the end so that we increment it only once
-    //noinspection unchecked
-    return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-        .aggregate(searchResults)
-        .thenApply(this::incrementNodeCount);
+    try {
+      //noinspection unchecked
+      SearchResult<T> aggregatedResults =
+          ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
+              .aggregate(searchResults.get(30, TimeUnit.SECONDS));
+      return incrementNodeCount(aggregatedResults);
+    } catch (Exception e) {
+      LOG.error("Error searching across chunks ", e);
+      throw new RuntimeException(e);
+    }
   }
 
   private SearchResult<T> incrementNodeCount(SearchResult<T> searchResult) {
