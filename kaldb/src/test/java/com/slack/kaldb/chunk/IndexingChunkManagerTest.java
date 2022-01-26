@@ -329,8 +329,7 @@ public class IndexingChunkManagerTest {
       int totalSnapshots,
       int expectedSnapshotsWithReplicas,
       long startTimeEpochMs,
-      long endTimeEpochMs)
-      throws IOException {
+      long endTimeEpochMs) {
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -346,9 +345,7 @@ public class IndexingChunkManagerTest {
       ChunkManager<LogMessage> chunkManager,
       String searchString,
       long startTimeEpochMs,
-      long endTimeEpochMs)
-      throws IOException {
-
+      long endTimeEpochMs) {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
@@ -598,7 +595,7 @@ public class IndexingChunkManagerTest {
     testOneFailedChunk(secondChunk);
   }
 
-  private void testOneFailedChunk(ChunkInfo secondChunk) throws IOException {
+  private void testOneFailedChunk(ChunkInfo secondChunk) {
     ReadWriteChunk<LogMessage> chunk =
         (ReadWriteChunk<LogMessage>)
             chunkManager
