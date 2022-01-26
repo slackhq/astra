@@ -20,10 +20,11 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
 
     try {
       responseObserver.onNext(doSearch(request));
+      responseObserver.onCompleted();
     } catch (Exception e) {
+      LOG.error("Error completing search request", e);
       responseObserver.onError(e);
     }
-    responseObserver.onCompleted();
   }
 
   public abstract KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request);
