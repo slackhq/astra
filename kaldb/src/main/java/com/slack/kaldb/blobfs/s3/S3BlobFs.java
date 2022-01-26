@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.BlobFsConfig;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -519,5 +520,17 @@ public class S3BlobFs extends BlobFs {
   @Override
   public void close() throws IOException {
     super.close();
+  }
+
+  public static S3BlobFs getS3BlobFsClient(KaldbConfigs.S3Config s3Config) {
+    S3BlobFsConfig s3BlobFsConfig =
+        new S3BlobFsConfig(
+            s3Config.getS3AccessKey(),
+            s3Config.getS3SecretKey(),
+            s3Config.getS3Region(),
+            s3Config.getS3EndPoint());
+    S3BlobFs s3BlobFs = new S3BlobFs();
+    s3BlobFs.init(s3BlobFsConfig);
+    return s3BlobFs;
   }
 }
