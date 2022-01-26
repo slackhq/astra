@@ -559,8 +559,52 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
   }
 
+  @Test
+  public void testDetermineStartingOffsetOnlyRecoveryNotBehind() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    final String recoveryTaskName = "recoveryTask";
+    final long recoveryStartOffset = 400;
+    final long createdTimeUtc = Instant.now().toEpochMilli();
+
+    final RecoveryTaskMetadata recoveryTask1 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "1",
+            partitionId,
+            recoveryStartOffset,
+            recoveryStartOffset * 2,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask1);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    assertThat(recoveryTaskFactory.determineStartingOffset(850)).isEqualTo(recoveryStartOffset * 2);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(750));
+
+    final RecoveryTaskMetadata recoveryTask11 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "11",
+            partitionId,
+            recoveryStartOffset * 2 + 1,
+            recoveryStartOffset * 3,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask11);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1201))
+        .isEqualTo(recoveryStartOffset * 3);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1200))
+        .isEqualTo(recoveryStartOffset * 3);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1150));
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+  }
+
   // TODO: Test determine start offset.
-  // no snapshots but only recovery.
   // only snapshots, no recovery.
   // only snapshots, multiple recoveries.
 

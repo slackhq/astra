@@ -133,33 +133,45 @@ public class RecoveryTaskFactory {
 
     // Get the highest offset that is indexed in durable store.
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
-    long highestDuableOffsetForPartition =
+    long highestDurableOffsetForPartition =
         getHigestDurableOffsetForPartition(nonLiveSnapshotsForPartition, recoveryTasks);
     LOG.info(
         "The highest durable offset for partition {} is {}",
         partitionId,
-        highestDuableOffsetForPartition);
+        highestDurableOffsetForPartition);
 
-    if (highestDuableOffsetForPartition <= 0) {
+    if (highestDurableOffsetForPartition <= 0) {
       LOG.info("There is no prior offset for this partition {}.", partitionId);
-      return highestDuableOffsetForPartition;
+      return highestDurableOffsetForPartition;
+    }
+
+    // The current head offset shouldn't be lower than the highest durable offset. If it is it
+    // means that we indexed more data than the current head offset. This is either a bug in the
+    // offset handling mechanism or the kafka partition has rolled over. We throw an exception
+    // for now so we can investigate.
+    if (currentHeadOffsetForPartition < highestDurableOffsetForPartition) {
+      throw new IllegalStateException(
+          String.format(
+              "The current head for the partition %d can't "
+                  + "be lower than the highest durable offset for that partition %d",
+              currentHeadOffsetForPartition, highestDurableOffsetForPartition));
     }
 
     // Create a recovery task if needed.
-    if (currentHeadOffsetForPartition - highestDuableOffsetForPartition > maxOffsetDelay) {
+    if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       final long creationTimeEpochMs = Instant.now().toEpochMilli();
       final String recoveryTaskName = "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
       LOG.info(
           "Recovery task needed. The current position {} and head location {} are higher than max"
               + " offset {}",
-          highestDuableOffsetForPartition,
+          highestDurableOffsetForPartition,
           currentHeadOffsetForPartition,
           maxOffsetDelay);
       recoveryTaskMetadataStore.createSync(
           new RecoveryTaskMetadata(
               recoveryTaskName,
               partitionId,
-              highestDuableOffsetForPartition,
+              highestDurableOffsetForPartition,
               currentHeadOffsetForPartition,
               creationTimeEpochMs));
       LOG.info(
@@ -171,10 +183,10 @@ public class RecoveryTaskFactory {
       LOG.info(
           "The current position {} and head location {} are lower than max offset {}. Using "
               + "current position as start offset",
-          highestDuableOffsetForPartition,
+          highestDurableOffsetForPartition,
           currentHeadOffsetForPartition,
           maxOffsetDelay);
-      return highestDuableOffsetForPartition;
+      return highestDurableOffsetForPartition;
     }
   }
 }
