@@ -1,5 +1,7 @@
 package com.slack.kaldb.chunk;
 
+import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
+import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -145,7 +147,15 @@ public class ReadOnlyChunkImplTest {
                 500,
                 0));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
-    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
+
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(0);
 
     // ensure we registered a search node for this cache slot
     await().until(() -> searchMetadataStore.getCached().size() == 1);
@@ -179,9 +189,15 @@ public class ReadOnlyChunkImplTest {
                 0));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
-    assertThat(readOnlyChunk.successfulChunkEvictions.count()).isEqualTo(1);
 
-    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(0);
 
     metadataStore.close();
   }
@@ -245,8 +261,10 @@ public class ReadOnlyChunkImplTest {
     // ensure we did not register a search node
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
 
-    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
-    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(1);
 
     metadataStore.close();
   }
@@ -310,8 +328,10 @@ public class ReadOnlyChunkImplTest {
     // ensure we did not register a search node
     assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
 
-    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(0);
-    assertThat(readOnlyChunk.failedChunkAssignments.count()).isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(0);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
+        .isEqualTo(1);
 
     metadataStore.close();
   }
@@ -383,7 +403,8 @@ public class ReadOnlyChunkImplTest {
             0);
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
-    assertThat(readOnlyChunk.successfulChunkAssignments.count()).isEqualTo(1);
+    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
+        .isEqualTo(1);
 
     // ensure we registered a search node for this cache slot
     await().until(() -> searchMetadataStore.getCached().size() == 1);
