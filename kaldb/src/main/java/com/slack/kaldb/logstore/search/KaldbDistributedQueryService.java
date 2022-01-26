@@ -125,7 +125,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     try {
       List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-      span.tag("stub_count", String.valueOf(stubs.size()));
+      span.tag("queryServerCount", String.valueOf(stubs.size()));
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
         ListenableFuture<KaldbSearch.SearchResult> searchRequest =
