@@ -14,9 +14,6 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * gRPC service that performs a distributed search We take all the search metadata stores and query
@@ -47,7 +46,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       "search_metadata_total_change_counter";
   private final Counter searchMetadataTotalChangeCounter;
 
-  private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs = new ConcurrentHashMap<>();
+  private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
+      new ConcurrentHashMap<>();
 
   // public so that we can override in tests
   // TODO: In the future expose this as a config in the proto
@@ -62,8 +62,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
-    searchMetadataTotalChangeCounter =
-        meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
+    searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
     // first time call this function manually so that we initialize stubs
