@@ -196,13 +196,14 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -223,7 +224,8 @@ public class SnapshotDeletionServiceTest {
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
             replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
-    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
+    assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
@@ -231,7 +233,7 @@ public class SnapshotDeletionServiceTest {
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
-    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -303,20 +305,22 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             "1");
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
-    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
+    assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -327,7 +331,7 @@ public class SnapshotDeletionServiceTest {
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
-    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -359,14 +363,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -384,7 +389,8 @@ public class SnapshotDeletionServiceTest {
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
+    assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -396,7 +402,7 @@ public class SnapshotDeletionServiceTest {
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
     assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
-    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -428,14 +434,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -452,8 +459,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    await().until(() -> snapshotMetadataStore.getCached().size() == 0);
-    verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    assertThat(snapshotMetadataStore.getCached().size()).isEqualTo(1);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -485,14 +491,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -506,14 +513,14 @@ public class SnapshotDeletionServiceTest {
     doReturn(Futures.immediateFailedFuture(new InternalMetadataStoreException("failed")))
         .when(snapshotMetadataStore)
         .delete(any(SnapshotMetadata.class));
-    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isNotEmpty();
 
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
-    verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
-    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
+    verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -545,14 +552,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -568,8 +576,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    await().until(() -> snapshotMetadataStore.getCached().size() == 0);
-    verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    assertThat(snapshotMetadataStore.getCached().size()).isEqualTo(1);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -601,14 +608,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -620,7 +628,8 @@ public class SnapshotDeletionServiceTest {
         new SnapshotDeletionService(
             replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
     snapshotDeletionService.futuresListTimeoutSecs = 2;
-    String[] s3BlobFsFiles = s3BlobFs.listFiles(path, true);
+    String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
+    assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
     doReturn(
@@ -639,8 +648,8 @@ public class SnapshotDeletionServiceTest {
     assertThat(deletes).isEqualTo(0);
 
     assertThat(snapshotMetadataStore.getCached()).containsExactlyInAnyOrder(snapshotMetadata);
-    verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
-    assertThat(s3BlobFs.listFiles(path, true)).isEqualTo(s3BlobFsFiles);
+    verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -656,7 +665,9 @@ public class SnapshotDeletionServiceTest {
     assertThat(deletesRetry).isEqualTo(1);
 
     assertThat(snapshotMetadataStore.getCached().size()).isEqualTo(0);
+    // delete was called once before - should still be only once
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -670,7 +681,7 @@ public class SnapshotDeletionServiceTest {
   }
 
   @Test
-  public void shouldNotRetryFailedObjectStorageDeleteNextRun() throws Exception {
+  public void shouldRetryFailedObjectStorageDeleteNextRun() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
             .setReplicaLifespanMins(1440)
@@ -690,14 +701,15 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     // snapshot is expired
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -714,7 +726,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    await().until(() -> snapshotMetadataStore.getCached().size() == 0);
+    assertThat(snapshotMetadataStore.getCached().size()).isEqualTo(1);
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
@@ -727,13 +739,13 @@ public class SnapshotDeletionServiceTest {
 
     doCallRealMethod().when(s3BlobFs).delete(any(), anyBoolean());
     int deleteRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
-    assertThat(deleteRetry).isEqualTo(0);
+    assertThat(deleteRetry).isEqualTo(1);
 
-    // should be the same count as before
-    verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
+    await().until(() -> snapshotMetadataStore.getCached().size() == 0);
+    verify(s3BlobFs, times(2)).delete(any(), anyBoolean());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
-        .isEqualTo(0);
+        .isEqualTo(1);
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_FAILED, meterRegistry))
         .isEqualTo(1);
     assertThat(
@@ -762,13 +774,14 @@ public class SnapshotDeletionServiceTest {
             .build();
 
     Path file = Files.createTempFile("", "");
-    URI path = createURI(S3_TEST_BUCKET, "foo", "bar");
-    s3BlobFs.copyFromLocalFile(file.toFile(), path);
+    URI filePath = createURI(S3_TEST_BUCKET, "foo", "bar");
+    URI directoryPath = URI.create(String.format("s3://%s/%s", S3_TEST_BUCKET, "foo"));
+    s3BlobFs.copyFromLocalFile(file.toFile(), filePath);
 
     SnapshotMetadata snapshotMetadata =
         new SnapshotMetadata(
             UUID.randomUUID().toString(),
-            path.toString(),
+            directoryPath.toString(),
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
@@ -783,7 +796,7 @@ public class SnapshotDeletionServiceTest {
     snapshotDeletionService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 0);
-    verify(s3BlobFs, times(1)).delete(eq(path), eq(true));
+    verify(s3BlobFs, times(1)).delete(eq(directoryPath), eq(true));
 
     await()
         .until(

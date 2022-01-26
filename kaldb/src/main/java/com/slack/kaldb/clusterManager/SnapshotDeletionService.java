@@ -35,17 +35,18 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Deletes snapshots and their associated blob storage objects that both exceed their configured
- * lifespan, and have no associated replicas configured. Snapshot lifespan is expected to be some
- * value greater than the replica lifespan. This service only delete objects from blob storage that
- * have a corresponding snapshot object - removal of orphaned objects will be removed by a separate
- * service.
+ * lifespan (plus buffer), and have no associated replicas configured. Snapshot lifespan is expected
+ * to be some value greater than the replica lifespan.
  */
 @SuppressWarnings("UnstableApiUsage")
 public class SnapshotDeletionService extends AbstractScheduledService {
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotDeletionService.class);
 
-  private static final int THREAD_POOL_SIZE = 10;
-  private static final int MAXIMUM_DELETES_PER_SECOND = 100;
+  private static final int THREAD_POOL_SIZE = 1;
+  private static final int MAXIMUM_DELETES_PER_SECOND = 10;
+
+  // Additional buffer to wait past expiration before deleting, as a safety buffer
+  private static final int DELETE_BUFFER_MINS = 360;
 
   private final KaldbConfigs.ManagerConfig managerConfig;
 
@@ -133,10 +134,6 @@ public class SnapshotDeletionService extends AbstractScheduledService {
    * downloading for servicing the request. The expectation from the end user would be that the
    * request would still be served, as when the request was made it was still "in compliance" with
    * the lifespan configuration.
-   *
-   * <p>When creating on-demand replicas, care should be taken to not create replicas for snapshots
-   * that already exceed their maximum lifespan to prevent a race condition between on-demand
-   * creation and snapshot deletion.
    */
   protected int deleteExpiredSnapshotsWithoutReplicas() {
     Timer.Sample deletionTimer = Timer.start(meterRegistry);
@@ -154,6 +151,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
             .minus(
                 managerConfig.getSnapshotDeletionServiceConfig().getSnapshotLifespanMins(),
                 ChronoUnit.MINUTES)
+            .minus(DELETE_BUFFER_MINS, ChronoUnit.MINUTES)
             .toEpochMilli();
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> deletedSnapshotList =
@@ -176,15 +174,25 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                             // us to avoid unnecessary spikes.
                             rateLimiter.acquire();
 
-                            // We first delete the snapshot reference - if for some reason we fail
-                            // to delete the object from the object storage, the orphaned object
-                            // cleanup service will attempt to delete it later
-                            snapshotMetadataStore.deleteSync(snapshotMetadata);
-                            if (!s3BlobFs.delete(URI.create(snapshotMetadata.snapshotPath), true)) {
-                              throw new IOException(
-                                  String.format(
-                                      "Failed to delete '%s' from object store",
-                                      snapshotMetadata.snapshotPath));
+                            // First try to delete the object from S3, then delete from metadata
+                            // store. If for some reason the object delete fails, it will leave the
+                            // metadata and try again on the next run.
+                            URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
+                            if (s3BlobFs.exists(snapshotUri)) {
+                              // Ensure that the file exists before attempting to delete, in case
+                              // the previous run successfully deleted the object but failed the
+                              // metadata delete. Otherwise, this would be expected to perpetually
+                              // fail deleting a non-existing file.
+                              if (s3BlobFs.delete(snapshotUri, true)) {
+                                snapshotMetadataStore.deleteSync(snapshotMetadata);
+                              } else {
+                                throw new IOException(
+                                    String.format(
+                                        "Failed to delete '%s' from object store",
+                                        snapshotMetadata.snapshotPath));
+                              }
+                            } else {
+                              snapshotMetadataStore.deleteSync(snapshotMetadata);
                             }
                             return null;
                           },
