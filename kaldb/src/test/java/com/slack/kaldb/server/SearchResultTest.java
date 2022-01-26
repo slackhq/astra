@@ -12,7 +12,6 @@ import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
 
 public class SearchResultTest {
@@ -38,7 +37,7 @@ public class SearchResultTest {
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7);
     KaldbSearch.SearchResult protoSearchResult =
-        SearchResultUtils.toSearchResultProto(makeAsync(searchResult)).join();
+        SearchResultUtils.toSearchResultProto(searchResult);
 
     assertThat(protoSearchResult.getHitsCount()).isEqualTo(numDocs);
     assertThat(protoSearchResult.getTookMicros()).isEqualTo(1);
@@ -53,10 +52,5 @@ public class SearchResultTest {
         SearchResultUtils.fromSearchResultProto(protoSearchResult);
 
     assertThat(convertedSearchResult).isEqualTo(searchResult);
-  }
-
-  private CompletableFuture<SearchResult<LogMessage>> makeAsync(
-      SearchResult<LogMessage> searchResult) {
-    return CompletableFuture.supplyAsync(() -> searchResult);
   }
 }
