@@ -123,7 +123,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
     assertThat(bucket1.getCount()).isEqualTo(0);
     assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2);
+    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
     KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
     assertThat(bucket2.getCount()).isEqualTo(1);
     assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
@@ -176,7 +176,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
     assertThat(bucket1.getCount()).isEqualTo(0);
     assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2);
+    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
     KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
     assertThat(bucket2.getCount()).isEqualTo(0);
     assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
@@ -228,7 +228,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
     assertThat(bucket1.getCount()).isEqualTo(1);
     assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2);
+    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
     KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
     assertThat(bucket2.getCount()).isEqualTo(0);
     assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
@@ -397,7 +397,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
     assertThat(bucket1.getCount()).isEqualTo(1);
     assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2);
+    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
     KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
     assertThat(bucket2.getCount()).isEqualTo(0);
     assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
