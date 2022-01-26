@@ -111,6 +111,9 @@ public class RecoveryTaskFactory {
    * indexing fresh data when we are behind and we add more indexing capacity when needed. The
    * recovery task offsets are [startOffset, endOffset). If a recovery task is created, we start
    * indexing at the offset after the recovery task.
+   *
+   * <p>When there is no offset data for a partition, return -1. In that case, the consumer would
+   * have to start indexing the data from the earliest offset.
    */
   public long determineStartingOffset(long currentHeadOffsetForPartition) {
     // Filter stale snapshots for partition.
@@ -136,6 +139,11 @@ public class RecoveryTaskFactory {
         "The highest durable offset for partition {} is {}",
         partitionId,
         highestDuableOffsetForPartition);
+
+    if (highestDuableOffsetForPartition <= 0) {
+      LOG.info("There is no prior offset for this partition {}.", partitionId);
+      return highestDuableOffsetForPartition;
+    }
 
     // Create a recovery task if needed.
     if (currentHeadOffsetForPartition - highestDuableOffsetForPartition > maxOffsetDelay) {

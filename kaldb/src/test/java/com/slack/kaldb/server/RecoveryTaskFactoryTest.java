@@ -512,12 +512,54 @@ public class RecoveryTaskFactoryTest {
             () -> new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, "", 100));
   }
 
-  // TODO: Test determine start offset.
   @Test
-  public void testDetermineStartOffsetWorksWithNoData() {}
+  public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
 
-  // no data.
-  // no snapsnots or recovery.
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+
+    // Data exists for not for this partition.
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2");
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+
+    final SnapshotMetadata partition11 =
+        new SnapshotMetadata(name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, "2");
+    snapshotMetadataStore.createSync(partition11);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+
+    final String recoveryTaskName = "recoveryTask";
+    final long recoveryStartOffset = 400;
+    final long createdTimeUtc = Instant.now().toEpochMilli();
+
+    final RecoveryTaskMetadata recoveryTask1 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "1",
+            "2",
+            recoveryStartOffset,
+            recoveryStartOffset * 2,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask1);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+  }
+
+  // TODO: Test determine start offset.
   // no snapshots but only recovery.
   // only snapshots, no recovery.
   // only snapshots, multiple recoveries.
