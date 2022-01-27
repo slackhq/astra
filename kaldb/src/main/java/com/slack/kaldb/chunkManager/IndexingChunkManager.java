@@ -1,5 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
+import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -395,7 +396,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         KaldbConfig.get().getIndexerConfig().getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        getS3BlobFsClient(KaldbConfig.get()),
+        getS3BlobFsClient(KaldbConfig.get().getS3Config()),
         KaldbConfig.get().getS3Config().getS3Bucket(),
         makeDefaultRollOverExecutor(),
         DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,

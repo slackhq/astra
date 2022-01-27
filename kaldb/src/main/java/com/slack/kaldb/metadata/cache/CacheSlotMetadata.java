@@ -8,16 +8,16 @@ import com.slack.kaldb.proto.metadata.Metadata;
 public class CacheSlotMetadata extends KaldbMetadata {
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
-  public final long updatedTimeUtc;
+  public final long updatedTimeEpochMs;
 
   public CacheSlotMetadata(
       String name,
       Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState,
       String replicaId,
-      long updatedTimeUtc) {
+      long updatedTimeEpochMs) {
     super(name);
     checkArgument(cacheSlotState != null, "Cache slot state cannot be null");
-    checkArgument(updatedTimeUtc > 0, "Updated time must be greater than 0");
+    checkArgument(updatedTimeEpochMs > 0, "Updated time must be greater than 0");
     if (cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
       checkArgument(
           replicaId != null && replicaId.isEmpty(),
@@ -30,7 +30,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
 
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
-    this.updatedTimeUtc = updatedTimeUtc;
+    this.updatedTimeEpochMs = updatedTimeEpochMs;
   }
 
   @Override
@@ -42,7 +42,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
     CacheSlotMetadata that = (CacheSlotMetadata) o;
 
     if (!cacheSlotState.equals(that.cacheSlotState)) return false;
-    if (updatedTimeUtc != that.updatedTimeUtc) return false;
+    if (updatedTimeEpochMs != that.updatedTimeEpochMs) return false;
     return replicaId.equals(that.replicaId);
   }
 
@@ -51,7 +51,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
     int result = super.hashCode();
     result = 31 * result + cacheSlotState.hashCode();
     result = 31 * result + replicaId.hashCode();
-    result = 31 * result + (int) (updatedTimeUtc ^ (updatedTimeUtc >>> 32));
+    result = 31 * result + (int) (updatedTimeEpochMs ^ (updatedTimeEpochMs >>> 32));
     return result;
   }
 
@@ -63,8 +63,8 @@ public class CacheSlotMetadata extends KaldbMetadata {
         + ", replicaId='"
         + replicaId
         + '\''
-        + ", updatedTimeUtc='"
-        + updatedTimeUtc
+        + ", updatedTimeEpochMs='"
+        + updatedTimeEpochMs
         + ", name='"
         + name
         + '\''

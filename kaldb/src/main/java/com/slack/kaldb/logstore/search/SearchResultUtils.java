@@ -12,7 +12,6 @@ import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public class SearchResultUtils {
 
@@ -64,11 +63,6 @@ public class SearchResultUtils {
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
         protoSearchResult.getSnapshotsWithReplicas());
-  }
-
-  public static <T> CompletableFuture<KaldbSearch.SearchResult> toSearchResultProto(
-      CompletableFuture<SearchResult<T>> searchResult) {
-    return searchResult.thenApply(SearchResultUtils::toSearchResultProto);
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {

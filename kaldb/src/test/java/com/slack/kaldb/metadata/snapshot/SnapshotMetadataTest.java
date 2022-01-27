@@ -24,8 +24,8 @@ public class SnapshotMetadataTest {
     assertThat(snapshotMetadata.name).isEqualTo(name);
     assertThat(snapshotMetadata.snapshotPath).isEqualTo(path);
     assertThat(snapshotMetadata.snapshotId).isEqualTo(name);
-    assertThat(snapshotMetadata.startTimeUtc).isEqualTo(startTime);
-    assertThat(snapshotMetadata.endTimeUtc).isEqualTo(endTime);
+    assertThat(snapshotMetadata.startTimeEpochMs).isEqualTo(startTime);
+    assertThat(snapshotMetadata.endTimeEpochMs).isEqualTo(endTime);
     assertThat(snapshotMetadata.maxOffset).isEqualTo(maxOffset);
     assertThat(snapshotMetadata.partitionId).isEqualTo(partitionId);
   }
@@ -85,7 +85,7 @@ public class SnapshotMetadataTest {
     // Start time same as end time.
     assertThat(
             new SnapshotMetadata(name, path, startTime, startTime, maxOffset, partitionId)
-                .endTimeUtc)
+                .endTimeEpochMs)
         .isEqualTo(startTime);
 
     assertThatIllegalArgumentException()

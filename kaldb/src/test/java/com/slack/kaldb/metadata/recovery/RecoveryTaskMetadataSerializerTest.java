@@ -16,10 +16,10 @@ public class RecoveryTaskMetadataSerializerTest {
     String partitionId = "partitionId";
     long startOffset = 0;
     long endOffset = 1;
-    long createdTimeUtc = Instant.now().toEpochMilli();
+    long createdTimeEpochMs = Instant.now().toEpochMilli();
 
     RecoveryTaskMetadata recoveryTaskMetadata =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeUtc);
+        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeEpochMs);
 
     String serializedRecoveryTaskMetadata = serDe.toJsonStr(recoveryTaskMetadata);
     assertThat(serializedRecoveryTaskMetadata).isNotEmpty();
@@ -32,7 +32,7 @@ public class RecoveryTaskMetadataSerializerTest {
     assertThat(deserializedRecoveryTaskMetadata.partitionId).isEqualTo(partitionId);
     assertThat(deserializedRecoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(deserializedRecoveryTaskMetadata.endOffset).isEqualTo(endOffset);
-    assertThat(deserializedRecoveryTaskMetadata.createdTimeUtc).isEqualTo(createdTimeUtc);
+    assertThat(deserializedRecoveryTaskMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
   }
 
   @Test

@@ -26,6 +26,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -234,7 +235,7 @@ public class IndexingChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> results = chunkManager.query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
     // Test chunk metadata.
@@ -256,9 +257,9 @@ public class IndexingChunkManagerTest {
     assertThat(snapshots.get(0).maxOffset).isEqualTo(0);
     assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshots.get(0).startTimeUtc)
+    assertThat(snapshots.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
-    assertThat(snapshots.get(0).endTimeUtc).isEqualTo(MAX_FUTURE_TIME);
+    assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
     List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
     assertThat(searchNodes.size()).isEqualTo(1);
@@ -283,7 +284,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message101", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -306,7 +306,6 @@ public class IndexingChunkManagerTest {
                 .query(
                     new SearchQuery(
                         MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
-                .join()
                 .hits
                 .size())
         .isEqualTo(1);
@@ -335,7 +334,7 @@ public class IndexingChunkManagerTest {
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery).join();
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
@@ -347,11 +346,10 @@ public class IndexingChunkManagerTest {
       String searchString,
       long startTimeEpochMs,
       long endTimeEpochMs) {
-
     SearchQuery searchQuery =
         new SearchQuery(
             MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
-    return chunkManager.query(searchQuery).join().hits.size();
+    return chunkManager.query(searchQuery).hits.size();
   }
 
   @Test
@@ -435,7 +433,7 @@ public class IndexingChunkManagerTest {
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
@@ -683,7 +681,7 @@ public class IndexingChunkManagerTest {
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
-    assertThat(throwable.getCause()).isInstanceOf(IllegalArgumentException.class);
+    assertThat(Throwables.getRootCause(throwable)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
@@ -893,7 +891,7 @@ public class IndexingChunkManagerTest {
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeUtc == MAX_FUTURE_TIME).count())
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(2);
   }
 
@@ -942,7 +940,7 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
     assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
     assertThat(snapshots.get(0).maxOffset).isEqualTo(offset - 1);
-    assertThat(snapshots.get(0).endTimeUtc).isLessThan(MAX_FUTURE_TIME);
+    assertThat(snapshots.get(0).endTimeEpochMs).isLessThan(MAX_FUTURE_TIME);
     assertThat(snapshots.get(0).snapshotId).doesNotContain(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     searchMetadataStore.close();
     snapshotMetadataStore.close();

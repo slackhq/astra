@@ -3,19 +3,27 @@ package com.slack.kaldb.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
-import com.spotify.futures.CompletableFutures;
-import com.spotify.futures.ListenableFuturesExtra;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,10 +44,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
       "search_metadata_total_change_counter";
-  private final MeterRegistry meterRegistry;
   private final Counter searchMetadataTotalChangeCounter;
 
-  private Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs = new ConcurrentHashMap<>();
+  private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
+      new ConcurrentHashMap<>();
 
   // public so that we can override in tests
   // TODO: In the future expose this as a config in the proto
@@ -54,9 +62,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
-    this.meterRegistry = meterRegistry;
-    searchMetadataTotalChangeCounter =
-        this.meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
+    searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
     // first time call this function manually so that we initialize stubs
@@ -105,7 +111,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           addedStubs.get(),
           removedStubs.get());
     } catch (Exception e) {
-      LOG.error("Cannot update SearchMetadata cache on the query service" + e);
+      LOG.error("Cannot update SearchMetadata cache on the query service", e);
       throw new RuntimeException("Cannot update SearchMetadata cache on the query service ", e);
     }
   }
@@ -115,57 +121,55 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-  private CompletableFuture<List<SearchResult<LogMessage>>> distributedSearch(
-      KaldbSearch.SearchRequest request) {
+  private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
+    LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     try {
-      List<CompletableFuture<SearchResult<LogMessage>>> queryServers =
-          new ArrayList<>(stubs.size());
+      List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+      span.tag("queryServerCount", String.valueOf(stubs.size()));
 
       for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
-        // With the deadline we are keeping a high limit on how much time each CompletableFuture
-        // take. Alternately use completeOnTimeout and the value can then we configured
-        // per request and not as part of the config
+        ListenableFuture<KaldbSearch.SearchResult> searchRequest =
+            stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .withInterceptors(
+                    GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
+                .search(request);
+        Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
+            SearchResultUtils::fromSearchResultProtoOrEmpty;
         queryServers.add(
-            ListenableFuturesExtra.toCompletableFuture(
-                    stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                        .withInterceptors(
-                            GrpcTracing.newBuilder(Tracing.current())
-                                .build()
-                                .newClientInterceptor())
-                        .search(request))
-                .thenApply(SearchResultUtils::fromSearchResultProtoOrEmpty)
-                .orTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            Futures.transform(
+                searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
       }
 
-      try {
-        return CompletableFutures.successfulAsList(
-            queryServers,
-            ex -> {
-              LOG.error("Node failed to respond ", ex);
-              return SearchResult.empty();
-            });
-      } finally {
-        span.finish();
-      }
+      List<SearchResult<LogMessage>> searchResults =
+          Futures.successfulAsList(queryServers).get(30, TimeUnit.SECONDS);
+      return searchResults
+          .stream()
+          .map(searchResult -> searchResult == null ? SearchResult.empty() : searchResult)
+          .collect(Collectors.toList());
     } catch (Exception e) {
-      LOG.error("SearchMetadata failed with " + e);
-      List<CompletableFuture<SearchResult<LogMessage>>> emptyResultList =
-          Collections.singletonList(CompletableFuture.supplyAsync(SearchResult::empty));
-      return CompletableFutures.allAsList(emptyResultList);
+      LOG.error("Search failed with ", e);
+      span.error(e);
+      return List.of(SearchResult.empty());
+    } finally {
+      LOG.info("Finished distributed search for request: {}", request);
+      span.finish();
     }
   }
 
-  public CompletableFuture<KaldbSearch.SearchResult> doSearch(KaldbSearch.SearchRequest request) {
-    CompletableFuture<List<SearchResult<LogMessage>>> searchResults = distributedSearch(request);
-
-    CompletableFuture<SearchResult<LogMessage>> aggregatedResult =
-        ((SearchResultAggregator<LogMessage>)
-                new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-            .aggregate(searchResults);
-
-    return SearchResultUtils.toSearchResultProto(aggregatedResult);
+  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
+    try {
+      List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
+      SearchResult<LogMessage> aggregatedResult =
+          ((SearchResultAggregator<LogMessage>)
+                  new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
+              .aggregate(searchResults);
+      return SearchResultUtils.toSearchResultProto(aggregatedResult);
+    } catch (Exception e) {
+      LOG.error("Distributed search failed", e);
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -51,13 +51,13 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
   public static final String REPLICA_ASSIGN_SUCCEEDED = "replica_assign_succeeded";
   public static final String REPLICA_ASSIGN_FAILED = "replica_assign_failed";
-  public static final String REPLICA_ASSIGN_INSUFFICIENT_CAPACITY =
-      "replica_assign_insufficient_capacity";
+  public static final String REPLICA_ASSIGN_AVAILABLE_CAPACITY =
+      "replica_assign_available_capacity";
   public static final String REPLICA_ASSIGN_TIMER = "replica_assign_timer";
 
   protected final Counter replicaAssignSucceeded;
   protected final Counter replicaAssignFailed;
-  protected final Counter replicaAssignInsufficientCapacity;
+  protected final AtomicInteger replicaAssignAvailableCapacity;
   private final Timer replicaAssignTimer;
 
   private final ScheduledExecutorService executorService =
@@ -79,7 +79,8 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
     replicaAssignSucceeded = meterRegistry.counter(REPLICA_ASSIGN_SUCCEEDED);
     replicaAssignFailed = meterRegistry.counter(REPLICA_ASSIGN_FAILED);
-    replicaAssignInsufficientCapacity = meterRegistry.counter(REPLICA_ASSIGN_INSUFFICIENT_CAPACITY);
+    replicaAssignAvailableCapacity =
+        meterRegistry.gauge(REPLICA_ASSIGN_AVAILABLE_CAPACITY, new AtomicInteger(0));
     replicaAssignTimer = meterRegistry.timer(REPLICA_ASSIGN_TIMER);
   }
 
@@ -162,20 +163,21 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
             // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->
-                    replicaMetadata.expireAfterUtc > nowMilli
+                    replicaMetadata.expireAfterEpochMs > nowMilli
                         && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
-            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeUtc))
+            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs))
             .map(replicaMetadata -> replicaMetadata.name)
             .collect(Collectors.toUnmodifiableList());
+
+    // Report either a positive value (excess capacity) or a negative value (insufficient capacity)
+    replicaAssignAvailableCapacity.set(availableCacheSlots.size() - replicaIdsToAssign.size());
 
     if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
       LOG.warn(
           "Insufficient cache slots to assign replicas, wanted {} slots but had {} replicas",
           replicaIdsToAssign.size(),
           availableCacheSlots.size());
-      replicaAssignInsufficientCapacity.increment(
-          replicaIdsToAssign.size() - availableCacheSlots.size());
     } else if (replicaIdsToAssign.size() == 0) {
       LOG.info("No replicas found requiring assignment");
       assignmentTimer.stop(replicaAssignTimer);

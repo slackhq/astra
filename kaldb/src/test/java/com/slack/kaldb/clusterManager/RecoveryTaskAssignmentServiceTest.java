@@ -824,7 +824,7 @@ public class RecoveryTaskAssignmentServiceTest {
                     .stream()
                     .allMatch(
                         (recoveryNodeMetadata ->
-                            recoveryNodeMetadata.updatedTimeUtc > before.toEpochMilli()
+                            recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()
                                 && recoveryNodeMetadata.recoveryNodeState.equals(
                                     Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))));
     assertThat(recoveryTaskMetadataStore.getCached().size()).isEqualTo(7);
@@ -938,7 +938,7 @@ public class RecoveryTaskAssignmentServiceTest {
                     .stream()
                     .allMatch(
                         (recoveryNodeMetadata ->
-                            recoveryNodeMetadata.updatedTimeUtc > before.toEpochMilli()
+                            recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()
                                 && recoveryNodeMetadata.recoveryNodeState.equals(
                                     Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))));
     assertThat(recoveryTaskMetadataStore.getCached().size()).isEqualTo(7);

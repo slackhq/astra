@@ -3,13 +3,16 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
 import com.slack.kaldb.clusterManager.ReplicaCreationService;
+import com.slack.kaldb.clusterManager.ReplicaDeletionService;
 import com.slack.kaldb.clusterManager.ReplicaEvictionService;
+import com.slack.kaldb.clusterManager.SnapshotDeletionService;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -194,6 +197,11 @@ public class Kaldb {
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaEvictionService);
 
+      ReplicaDeletionService replicaDeletionService =
+          new ReplicaDeletionService(
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+      services.add(replicaDeletionService);
+
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
               recoveryTaskMetadataStore,
@@ -206,6 +214,16 @@ public class Kaldb {
           new ReplicaAssignmentService(
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaAssignmentService);
+
+      S3BlobFs s3BlobFs = S3BlobFs.getS3BlobFsClient(KaldbConfig.get().getS3Config());
+      SnapshotDeletionService snapshotDeletionService =
+          new SnapshotDeletionService(
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              s3BlobFs,
+              managerConfig,
+              prometheusMeterRegistry);
+      services.add(snapshotDeletionService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {

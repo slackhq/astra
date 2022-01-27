@@ -351,7 +351,7 @@
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock-junit4</artifactId>
-            <version>2.1.24</version>
+            <version>2.2.3</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -412,12 +412,6 @@
             <groupId>com.spotify</groupId>
             <artifactId>completable-futures</artifactId>
             <version>0.3.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.spotify</groupId>
-            <artifactId>futures-extra</artifactId>
-            <version>4.2.0</version>
         </dependency>
 
         <!-- Zipkin -->

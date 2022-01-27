@@ -13,7 +13,7 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
         Metadata.CacheSlotMetadata.CacheSlotState.valueOf(
             cacheSlotMetadataProto.getCacheSlotState().name()),
         cacheSlotMetadataProto.getReplicaId(),
-        cacheSlotMetadataProto.getUpdatedTimeUtc());
+        cacheSlotMetadataProto.getUpdatedTimeEpochMs());
   }
 
   private static Metadata.CacheSlotMetadata toCacheSlotMetadataProto(CacheSlotMetadata metadata) {
@@ -21,7 +21,7 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
         .setName(metadata.name)
         .setReplicaId(metadata.replicaId)
         .setCacheSlotState(metadata.cacheSlotState)
-        .setUpdatedTimeUtc(metadata.updatedTimeUtc)
+        .setUpdatedTimeEpochMs(metadata.updatedTimeEpochMs)
         .build();
   }
 
