@@ -986,17 +986,22 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
+    final RecoveryTaskMetadata recoveryTaskPartition2 =
+        new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, 1000);
+    recoveryTaskStore.createSync(recoveryTaskPartition2);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1650));
     assertThat(recoveryTaskFactory.determineStartingOffset(1900)).isEqualTo(1850);
     assertThat(recoveryTaskStore.listSync())
-        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4);
+        .containsExactlyInAnyOrder(
+            recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTaskPartition2);
     assertThat(recoveryTaskFactory.determineStartingOffset(2050)).isEqualTo(2050);
+    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(6);
     RecoveryTaskMetadata recoveryTask5 =
         recoveryTaskStore
             .listSync()
             .stream()
-            .filter(r -> !recoveryTasks4.contains(r))
+            .filter(r -> !recoveryTasks4.contains(r) && !r.equals(recoveryTaskPartition2))
             .findFirst()
             .get();
     assertThat(recoveryTask5.partitionId).isEqualTo(partitionId);
@@ -1006,11 +1011,12 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(
-            recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTask5);
-    assertThat(snapshotMetadataStore.listSync())
-        .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
-
-    // TODO: Add a recovery task for other partition.
+            recoveryTask1,
+            recoveryTask2,
+            recoveryTask3,
+            recoveryTask4,
+            recoveryTask5,
+            recoveryTaskPartition2);
   }
 
   // TODO: Test determine start offset.
