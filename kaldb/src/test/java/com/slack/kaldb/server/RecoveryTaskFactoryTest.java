@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.retry.RetryNTimes;
@@ -603,6 +604,96 @@ public class RecoveryTaskFactoryTest {
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1150));
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
   }
+
+  @Test
+  public void testDetermineStartingOffsetOnlyRecoveryBehind() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    final String recoveryTaskName = "recoveryTask";
+    final long recoveryStartOffset = 400;
+    final long createdTimeUtc = Instant.now().toEpochMilli();
+
+    final RecoveryTaskMetadata recoveryTask1 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "1",
+            partitionId,
+            recoveryStartOffset,
+            recoveryStartOffset * 2,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask1);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    final long currentHeadOffset = 4000;
+    assertThat(recoveryTaskFactory.determineStartingOffset(currentHeadOffset))
+        .isEqualTo(currentHeadOffset);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(2);
+    assertThat(recoveryTasks).contains(recoveryTask1);
+    Optional<RecoveryTaskMetadata> newRecoveryTask =
+        recoveryTasks.stream().filter(r -> !r.equals(recoveryTask1)).findFirst();
+    assertThat(newRecoveryTask).isNotEmpty();
+    if (newRecoveryTask.isPresent()) {
+      RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
+      assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 2);
+      assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
+    }
+  }
+
+  @Test
+  public void testDetermineStartingOffsetOnlyMultipleRecoveryBehind() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    final String recoveryTaskName = "BasicRecoveryTask";
+    final long recoveryStartOffset = 400;
+    final long createdTimeUtc = Instant.now().toEpochMilli();
+
+    final RecoveryTaskMetadata recoveryTask1 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "1",
+            partitionId,
+            recoveryStartOffset,
+            recoveryStartOffset * 2,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask1);
+    final RecoveryTaskMetadata recoveryTask11 =
+        new RecoveryTaskMetadata(
+            recoveryTaskName + "11",
+            partitionId,
+            recoveryStartOffset * 2 + 1,
+            recoveryStartOffset * 3,
+            createdTimeUtc);
+    recoveryTaskStore.createSync(recoveryTask11);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+
+    final long currentHeadOffset = 4000;
+    assertThat(recoveryTaskFactory.determineStartingOffset(currentHeadOffset))
+        .isEqualTo(currentHeadOffset);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(3);
+    assertThat(recoveryTasks).contains(recoveryTask1, recoveryTask11);
+    Optional<RecoveryTaskMetadata> newRecoveryTask =
+        recoveryTasks.stream().filter(r -> !r.name.contains(recoveryTaskName)).findFirst();
+    assertThat(newRecoveryTask).isNotEmpty();
+    if (newRecoveryTask.isPresent()) {
+      RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
+      assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
+      assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
+    }
+  }
+
+  @Test
+  public void testDetermineStartingOffsetOnlySnapshotsNotBehind() {}
 
   // TODO: Test determine start offset.
   // only snapshots, no recovery.
