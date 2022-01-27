@@ -117,14 +117,31 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 
+    // https://github.com/micrometer-metrics/micrometer-docs/blob/main/src/docs/concepts/histogram-quantiles.adoc
     chunkAssignmentTimerSuccess =
-        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "true");
+        Timer.builder(CHUNK_ASSIGNMENT_TIMER)
+            .tags("slotName", slotName, "successful", "true")
+            .publishPercentiles(0.5, 0.9)
+            .publishPercentileHistogram()
+            .register(meterRegistry);
     chunkAssignmentTimerFailure =
-        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "false");
+        Timer.builder(CHUNK_ASSIGNMENT_TIMER)
+            .tags("slotName", slotName, "successful", "false")
+            .publishPercentiles(0.5, 0.9)
+            .publishPercentileHistogram()
+            .register(meterRegistry);
     chunkEvictionTimerSuccess =
-        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "true");
+        Timer.builder(CHUNK_EVICTION_TIMER)
+            .tags("slotName", slotName, "successful", "true")
+            .publishPercentiles(0.5, 0.9)
+            .publishPercentileHistogram()
+            .register(meterRegistry);
     chunkEvictionTimerFailure =
-        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "false");
+        Timer.builder(CHUNK_EVICTION_TIMER)
+            .tags("slotName", slotName, "successful", "false")
+            .publishPercentiles(0.5, 0.9)
+            .publishPercentileHistogram()
+            .register(meterRegistry);
 
     LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
   }
