@@ -89,6 +89,8 @@ public class RecoveryTaskFactory {
             .max()
             .orElse(-1);
 
+    // TODO: Return the next offset.
+    // return Math.max(maxRecoveryOffset, maxSnapshotOffset) + 1;
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
   }
 
@@ -128,7 +130,7 @@ public class RecoveryTaskFactory {
     List<SnapshotMetadata> nonLiveSnapshotsForPartition =
         snapshotsForPartition
             .stream()
-            .filter(deletedSnapshots::contains)
+            .filter(s -> !deletedSnapshots.contains(s))
             .collect(Collectors.toUnmodifiableList());
 
     // Get the highest offset that is indexed in durable store.

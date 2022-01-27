@@ -603,6 +603,7 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1150));
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
   @Test
@@ -640,6 +641,7 @@ public class RecoveryTaskFactoryTest {
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 2);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
   @Test
@@ -686,6 +688,7 @@ public class RecoveryTaskFactoryTest {
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
   @Test
@@ -738,26 +741,282 @@ public class RecoveryTaskFactoryTest {
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
     assertThat(recoveryTasks.size()).isEqualTo(5);
-    assertThat(recoveryTasks).contains(recoveryTask1, recoveryTask11);
+    assertThat(recoveryTasks)
+        .contains(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21);
     Optional<RecoveryTaskMetadata> newRecoveryTask =
         recoveryTasks.stream().filter(r -> !r.name.contains(recoveryTaskName)).findFirst();
     assertThat(newRecoveryTask).isNotEmpty();
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
   @Test
-  public void testDetermineStartingOffsetOnlySnapshotsNotBehind() {}
+  public void testDetermineStartingOffsetOnlySnapshotsNoDelay() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(
+            recoveryTaskFactory.getHigestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList()))
+        .isEqualTo(100);
+    assertThat(recoveryTaskFactory.determineStartingOffset(150)).isEqualTo(100);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+
+    final SnapshotMetadata partition11 =
+        new SnapshotMetadata(
+            name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId);
+
+    snapshotMetadataStore.createSync(partition11);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(200);
+    assertThat(recoveryTaskFactory.determineStartingOffset(201)).isEqualTo(200);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(150));
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // Live partition is cleaned up, no delay.
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
+    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(200);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+
+    // Multiple live partitions for the same partition are cleaned up, no delay.
+    snapshotMetadataStore.createSync(livePartition1);
+    SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "live11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(livePartition11);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(200);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+
+    // Live partitions from multiple stores exist.
+    snapshotMetadataStore.createSync(livePartition1);
+    snapshotMetadataStore.createSync(livePartition11);
+    SnapshotMetadata livePartition2 =
+        new SnapshotMetadata(
+            name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2");
+    snapshotMetadataStore.createSync(livePartition2);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition2);
+    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(200);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
+
+    // Live and non-live partitions for different partitions exist.
+    snapshotMetadataStore.createSync(livePartition1);
+    snapshotMetadataStore.createSync(livePartition11);
+    SnapshotMetadata partition2 =
+        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset * 3, "2");
+    snapshotMetadataStore.createSync(partition2);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition2, partition2);
+    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(200);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  @Test
+  public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(
+            recoveryTaskFactory.getHigestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList()))
+        .isEqualTo(100);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks1.size()).isEqualTo(1);
+    assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(100);
+    assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1150);
+    assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+    // clean up recovery task.
+    recoveryTaskStore.deleteSync(recoveryTasks1.get(0).name);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    final SnapshotMetadata partition11 =
+        new SnapshotMetadata(
+            name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId);
+
+    snapshotMetadataStore.createSync(partition11);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1250)).isEqualTo(1250);
+    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
+    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSync().get(0);
+    assertThat(recoveryTask1.startOffset).isEqualTo(200);
+    assertThat(recoveryTask1.endOffset).isEqualTo(1250);
+    assertThat(recoveryTask1.partitionId).isEqualTo(partitionId);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1249));
+    assertThat(recoveryTaskFactory.determineStartingOffset(1250)).isEqualTo(1250);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1251)).isEqualTo(1250);
+
+    // Live partition is cleaned up, new recovery task is created.
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTask1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(250));
+    assertThat(recoveryTaskFactory.determineStartingOffset(1450)).isEqualTo(1450);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    List<RecoveryTaskMetadata> recoveryTasks2 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks2.size()).isEqualTo(2);
+    RecoveryTaskMetadata recoveryTask2 =
+        recoveryTasks2.stream().filter(r -> !recoveryTask1.equals(r)).findFirst().get();
+    assertThat(recoveryTask2.startOffset).isEqualTo(1250);
+    assertThat(recoveryTask2.endOffset).isEqualTo(1450);
+    assertThat(recoveryTask2.partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2);
+
+    // Multiple live partitions for the same partition are cleaned up, no delay.
+    snapshotMetadataStore.createSync(livePartition1);
+    SnapshotMetadata livePartition11 =
+        new SnapshotMetadata(
+            name + "live11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(livePartition11);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition11);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1500)).isEqualTo(1450);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask2);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1650)).isEqualTo(1650);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    List<RecoveryTaskMetadata> recoveryTasks3 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks3.size()).isEqualTo(3);
+    RecoveryTaskMetadata recoveryTask3 =
+        recoveryTaskStore
+            .listSync()
+            .stream()
+            .filter(r -> !r.equals(recoveryTask1) && !r.equals(recoveryTask2))
+            .findFirst()
+            .get();
+    assertThat(recoveryTask3.partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTask3.startOffset).isEqualTo(1450);
+    assertThat(recoveryTask3.endOffset).isEqualTo(1650);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
+
+    // Live partitions from multiple partitions exist.
+    snapshotMetadataStore.createSync(livePartition1);
+    snapshotMetadataStore.createSync(livePartition11);
+    SnapshotMetadata livePartition2 =
+        new SnapshotMetadata(
+            name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2");
+    snapshotMetadataStore.createSync(livePartition2);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition2);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1660)).isEqualTo(1650);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1850)).isEqualTo(1850);
+    List<RecoveryTaskMetadata> recoveryTasks4 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks4.size()).isEqualTo(4);
+    RecoveryTaskMetadata recoveryTask4 =
+        recoveryTaskStore
+            .listSync()
+            .stream()
+            .filter(r -> !recoveryTasks3.contains(r))
+            .findFirst()
+            .get();
+    assertThat(recoveryTask4.partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTask4.startOffset).isEqualTo(1650);
+    assertThat(recoveryTask4.endOffset).isEqualTo(1850);
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4);
+
+    // Live and non-live partitions for different partitions exist.
+    snapshotMetadataStore.createSync(livePartition1);
+    snapshotMetadataStore.createSync(livePartition11);
+    SnapshotMetadata partition2 =
+        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset * 3, "2");
+    snapshotMetadataStore.createSync(partition2);
+    assertThat(snapshotMetadataStore.listSync())
+        .contains(partition1, partition11, livePartition1, livePartition2, partition2);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1650));
+    assertThat(recoveryTaskFactory.determineStartingOffset(1900)).isEqualTo(1850);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4);
+    assertThat(recoveryTaskFactory.determineStartingOffset(2050)).isEqualTo(2050);
+    RecoveryTaskMetadata recoveryTask5 =
+        recoveryTaskStore
+            .listSync()
+            .stream()
+            .filter(r -> !recoveryTasks4.contains(r))
+            .findFirst()
+            .get();
+    assertThat(recoveryTask5.partitionId).isEqualTo(partitionId);
+    assertThat(recoveryTask5.startOffset).isEqualTo(1850);
+    assertThat(recoveryTask5.endOffset).isEqualTo(2050);
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
+    assertThat(recoveryTaskStore.listSync())
+        .containsExactlyInAnyOrder(
+            recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTask5);
+    assertThat(snapshotMetadataStore.listSync())
+        .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
+
+    // TODO: Add a recovery task for other partition.
+  }
 
   // TODO: Test determine start offset.
   // only snapshots, no recovery.
   // only snapshots, multiple recoveries.
 
-  // only snapshots, no recovery, behind.
-  // only snapshots, no recovery, not behind.
-  // only snapshots, multiple recoveries, behind.
-  // only snapshots, multiple recoveries, not behind.
   // Test with delay of zero.
 
   // Throw exception in these cases.
