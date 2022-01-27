@@ -66,6 +66,9 @@ managerConfig:
     schedulePeriodMins: 90
   recoveryTaskAssignmentServiceConfig: 
     schedulePeriodMins: 10
+  snapshotDeletionServiceConfig:
+    schedulePeriodMins: 15
+    snapshotLifespanMins: 10080
 
 recoveryConfig:
   serverConfig:

@@ -3,7 +3,6 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
@@ -21,14 +20,12 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -64,17 +61,17 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
+  private final MeterRegistry meterRegistry;
   private final ExecutorService executorService;
   private final S3BlobFs s3BlobFs;
 
-  public static final String SUCCESSFUL_CHUNK_ASSIGNMENT = "chunk_assign_success";
-  public static final String SUCCESSFUL_CHUNK_EVICTION = "chunk_evict_success";
-  public static final String FAILED_CHUNK_ASSIGNMENT = "chunk_assign_fail";
-  public static final String FAILED_CHUNK_EVICTION = "chunk_evict_fail";
-  protected final Counter successfulChunkAssignments;
-  protected final Counter successfulChunkEvictions;
-  protected final Counter failedChunkAssignments;
-  protected final Counter failedChunkEvictions;
+  public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
+  public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
+
+  private final Timer chunkAssignmentTimerSuccess;
+  private final Timer chunkAssignmentTimerFailure;
+  private final Timer chunkEvictionTimerSuccess;
+  private final Timer chunkEvictionTimerFailure;
 
   public ReadOnlyChunkImpl(
       MetadataStore metadataStore,
@@ -89,6 +86,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
+    this.meterRegistry = meterRegistry;
     this.s3BlobFs = s3BlobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
@@ -119,11 +117,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 
-    Collection<Tag> meterTags = ImmutableList.of(Tag.of("slotName", slotName));
-    successfulChunkAssignments = meterRegistry.counter(SUCCESSFUL_CHUNK_ASSIGNMENT, meterTags);
-    successfulChunkEvictions = meterRegistry.counter(SUCCESSFUL_CHUNK_EVICTION, meterTags);
-    failedChunkAssignments = meterRegistry.counter(FAILED_CHUNK_ASSIGNMENT, meterTags);
-    failedChunkEvictions = meterRegistry.counter(FAILED_CHUNK_EVICTION, meterTags);
+    chunkAssignmentTimerSuccess =
+        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "true");
+    chunkAssignmentTimerFailure =
+        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "false");
+    chunkEvictionTimerSuccess =
+        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "true");
+    chunkEvictionTimerFailure =
+        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "false");
 
     LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
   }
@@ -173,6 +174,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   // We synchronize access when manipulating the chunk, as the close() can
   // run concurrently with an assignment
   private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
+    Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     try {
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
@@ -202,14 +204,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       registerSearchMetadata(snapshotMetadata.name);
-      successfulChunkAssignments.increment();
+      assignmentTimer.stop(chunkAssignmentTimerSuccess);
     } catch (Exception e) {
-      failedChunkAssignments.increment();
-
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
       setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.FREE);
       LOG.error("Error handling chunk assignment", e);
+      assignmentTimer.stop(chunkAssignmentTimerFailure);
     }
   }
 
@@ -225,6 +226,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   // We synchronize access when manipulating the chunk, as the close()
   // can run concurrently with an eviction
   private synchronized void handleChunkEviction() {
+    Timer.Sample evictionTimer = Timer.start(meterRegistry);
     try {
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
@@ -245,12 +247,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new InterruptedException("Failed to set chunk metadata state to free");
       }
 
-      successfulChunkEvictions.increment();
+      evictionTimer.stop(chunkEvictionTimerSuccess);
     } catch (Exception e) {
       // leave the slot state stuck in evicting, as something is broken, and we don't want a
       // re-assignment or queries hitting this slot
-      failedChunkEvictions.increment();
       LOG.error("Error handling chunk eviction", e);
+      evictionTimer.stop(chunkEvictionTimerFailure);
     }
   }
 
