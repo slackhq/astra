@@ -637,11 +637,9 @@ public class RecoveryTaskFactoryTest {
     Optional<RecoveryTaskMetadata> newRecoveryTask =
         recoveryTasks.stream().filter(r -> !r.equals(recoveryTask1)).findFirst();
     assertThat(newRecoveryTask).isNotEmpty();
-    if (newRecoveryTask.isPresent()) {
-      RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
-      assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 2);
-      assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
-    }
+    RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
+    assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 2);
+    assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
   }
 
   @Test
@@ -685,11 +683,9 @@ public class RecoveryTaskFactoryTest {
     Optional<RecoveryTaskMetadata> newRecoveryTask =
         recoveryTasks.stream().filter(r -> !r.name.contains(recoveryTaskName)).findFirst();
     assertThat(newRecoveryTask).isNotEmpty();
-    if (newRecoveryTask.isPresent()) {
-      RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
-      assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
-      assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
-    }
+    RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
+    assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
+    assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
   }
 
   @Test
@@ -746,11 +742,9 @@ public class RecoveryTaskFactoryTest {
     Optional<RecoveryTaskMetadata> newRecoveryTask =
         recoveryTasks.stream().filter(r -> !r.name.contains(recoveryTaskName)).findFirst();
     assertThat(newRecoveryTask).isNotEmpty();
-    if (newRecoveryTask.isPresent()) {
-      RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
-      assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
-      assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
-    }
+    RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
+    assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3);
+    assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset);
   }
 
   @Test
