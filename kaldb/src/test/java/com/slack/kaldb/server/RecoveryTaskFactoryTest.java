@@ -1023,7 +1023,6 @@ public class RecoveryTaskFactoryTest {
   }
 
   // TODO: Test determine start offset.
-  // only snapshots, no recovery.
   // only snapshots, multiple recoveries.
 
   // Test with delay of zero.
