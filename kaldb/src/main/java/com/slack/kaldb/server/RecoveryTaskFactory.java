@@ -111,7 +111,7 @@ public class RecoveryTaskFactory {
    * the configured delay, we can't catch up indexing. So, instead of trying to catch up, create a
    * recovery task and start indexing at the current head. This strategy achieves 2 goals: we start
    * indexing fresh data when we are behind and we add more indexing capacity when needed. The
-   * recovery task offsets are [startOffset, endOffset). If a recovery task is created, we start
+   * recovery task offsets are [startOffset, endOffset]. If a recovery task is created, we start
    * indexing at the offset after the recovery task.
    *
    * <p>When there is no offset data for a partition, return -1. In that case, the consumer would
@@ -173,8 +173,8 @@ public class RecoveryTaskFactory {
           new RecoveryTaskMetadata(
               recoveryTaskName,
               partitionId,
-              highestDurableOffsetForPartition,
-              currentHeadOffsetForPartition,
+              highestDurableOffsetForPartition + 1,
+              currentHeadOffsetForPartition - 1,
               creationTimeEpochMs));
       LOG.info(
           "Created recovery task {} to catchup. Moving the starting offset to head at {}",
@@ -182,13 +182,15 @@ public class RecoveryTaskFactory {
           currentHeadOffsetForPartition);
       return currentHeadOffsetForPartition;
     } else {
+      long newOffset = highestDurableOffsetForPartition + 1;
       LOG.info(
-          "The current position {} and head location {} are lower than max offset {}. Using "
-              + "current position as start offset",
+          "The difference between the last indexed position {} and head location {} is lower "
+              + "than max offset {}. So, using {} position as the start offset",
           highestDurableOffsetForPartition,
           currentHeadOffsetForPartition,
-          maxOffsetDelay);
-      return highestDurableOffsetForPartition;
+          maxOffsetDelay,
+          newOffset);
+      return newOffset;
     }
   }
 }
