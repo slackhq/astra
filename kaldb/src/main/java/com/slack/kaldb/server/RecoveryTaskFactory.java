@@ -42,13 +42,9 @@ public class RecoveryTaskFactory {
 
   @VisibleForTesting
   public List<SnapshotMetadata> getStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
-    List<SnapshotMetadata> snapshotsForPartition =
-        snapshots
-            .stream()
-            .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
-            .collect(Collectors.toUnmodifiableList());
-    return snapshotsForPartition
+    return snapshots
         .stream()
+        .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
         .filter(SnapshotMetadata::isLive)
         .collect(Collectors.toUnmodifiableList());
   }
