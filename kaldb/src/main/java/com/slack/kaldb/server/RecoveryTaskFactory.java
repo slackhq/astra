@@ -89,8 +89,6 @@ public class RecoveryTaskFactory {
             .max()
             .orElse(-1);
 
-    // TODO: Return the next offset.
-    // return Math.max(maxRecoveryOffset, maxSnapshotOffset) + 1;
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
   }
 
