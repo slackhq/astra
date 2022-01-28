@@ -168,31 +168,39 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                   ListenableFuture<?> future =
                       Futures.submit(
                           () -> {
-                            // These futures are rate-limited so that we can more evenly distribute
-                            // the load to the downstream services (metadata, s3). There is no
-                            // urgency to complete the deletes, so limiting the maximum rate allows
-                            // us to avoid unnecessary spikes.
-                            rateLimiter.acquire();
+                            try {
+                              // These futures are rate-limited so that we can more evenly
+                              // distribute
+                              // the load to the downstream services (metadata, s3). There is no
+                              // urgency to complete the deletes, so limiting the maximum rate
+                              // allows
+                              // us to avoid unnecessary spikes.
+                              rateLimiter.acquire();
 
-                            // First try to delete the object from S3, then delete from metadata
-                            // store. If for some reason the object delete fails, it will leave the
-                            // metadata and try again on the next run.
-                            URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
-                            if (s3BlobFs.exists(snapshotUri)) {
-                              // Ensure that the file exists before attempting to delete, in case
-                              // the previous run successfully deleted the object but failed the
-                              // metadata delete. Otherwise, this would be expected to perpetually
-                              // fail deleting a non-existing file.
-                              if (s3BlobFs.delete(snapshotUri, true)) {
-                                snapshotMetadataStore.deleteSync(snapshotMetadata);
+                              // First try to delete the object from S3, then delete from metadata
+                              // store. If for some reason the object delete fails, it will leave
+                              // the
+                              // metadata and try again on the next run.
+                              URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
+                              if (s3BlobFs.exists(snapshotUri)) {
+                                // Ensure that the file exists before attempting to delete, in case
+                                // the previous run successfully deleted the object but failed the
+                                // metadata delete. Otherwise, this would be expected to perpetually
+                                // fail deleting a non-existing file.
+                                if (s3BlobFs.delete(snapshotUri, true)) {
+                                  snapshotMetadataStore.deleteSync(snapshotMetadata);
+                                } else {
+                                  throw new IOException(
+                                      String.format(
+                                          "Failed to delete '%s' from object store",
+                                          snapshotMetadata.snapshotPath));
+                                }
                               } else {
-                                throw new IOException(
-                                    String.format(
-                                        "Failed to delete '%s' from object store",
-                                        snapshotMetadata.snapshotPath));
+                                snapshotMetadataStore.deleteSync(snapshotMetadata);
                               }
-                            } else {
-                              snapshotMetadataStore.deleteSync(snapshotMetadata);
+                            } catch (Exception e) {
+                              LOG.error("Exception deleting snapshot", e);
+                              throw e;
                             }
                             return null;
                           },
