@@ -2,7 +2,6 @@ package com.slack.kaldb.clusterManager;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -55,7 +54,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   private final MeterRegistry meterRegistry;
   private final S3BlobFs s3BlobFs;
 
-  @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
+  @VisibleForTesting protected int futuresListTimeoutSecs;
 
   public static final String SNAPSHOT_DELETE_SUCCESS = "snapshot_delete_success";
   public static final String SNAPSHOT_DELETE_FAILED = "snapshot_delete_failed";
@@ -89,6 +88,12 @@ public class SnapshotDeletionService extends AbstractScheduledService {
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.s3BlobFs = s3BlobFs;
     this.meterRegistry = meterRegistry;
+
+    // This functions as the overall "timeout" for deleteExpiredSnapshotsWithoutReplicas, and should
+    // not exceed that of the schedule period. This ensures that we never enter a situation where
+    // we are queuing faster than we are draining.
+    this.futuresListTimeoutSecs =
+        managerConfig.getSnapshotDeletionServiceConfig().getSchedulePeriodMins() * 60;
 
     this.snapshotDeleteSuccess = meterRegistry.counter(SNAPSHOT_DELETE_SUCCESS);
     this.snapshotDeleteFailed = meterRegistry.counter(SNAPSHOT_DELETE_FAILED);
