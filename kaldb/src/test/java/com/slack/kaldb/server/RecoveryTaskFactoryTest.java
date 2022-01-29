@@ -1,6 +1,8 @@
 package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.server.RecoveryTaskFactory.SNAPSHOT_DELETE_SUCCESS;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -810,6 +812,7 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(150));
     assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(getCount(SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
 
     // Live partition is cleaned up, no delay.
     SnapshotMetadata livePartition1 =
@@ -820,6 +823,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(getCount(SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
 
     // Multiple live partitions for the same partition are cleaned up, no delay.
     snapshotMetadataStore.createSync(livePartition1);
@@ -832,6 +836,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(getCount(SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
 
     // Live partitions from multiple stores exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -846,6 +851,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
+    assertThat(getCount(SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(5);
 
     // Live and non-live partitions for different partitions exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -859,6 +865,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
+    assertThat(getCount(SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(7);
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
