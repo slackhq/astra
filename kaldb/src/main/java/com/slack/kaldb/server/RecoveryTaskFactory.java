@@ -155,8 +155,13 @@ public class RecoveryTaskFactory {
       throw new IllegalStateException(message);
     }
 
-    // Create a recovery task if needed.
+    // The head offset for Kafka partition is the offset of the next message to be indexed. We
+    // assume that offset is passed into this function. The highest durable offset is the partition
+    // offset of the message that is indexed. Hence, the offset is incremented by 1 to get the
+    // next message.
     long nextOffsetForPartition = highestDurableOffsetForPartition + 1;
+
+    // Create a recovery task if needed.
     if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       final long creationTimeEpochMs = Instant.now().toEpochMilli();
       final String recoveryTaskName = "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
