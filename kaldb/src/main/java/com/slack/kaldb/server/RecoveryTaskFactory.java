@@ -146,11 +146,13 @@ public class RecoveryTaskFactory {
     // offset handling mechanism or the kafka partition has rolled over. We throw an exception
     // for now so we can investigate.
     if (currentHeadOffsetForPartition < highestDurableOffsetForPartition) {
-      throw new IllegalStateException(
+      final String message =
           String.format(
               "The current head for the partition %d can't "
                   + "be lower than the highest durable offset for that partition %d",
-              currentHeadOffsetForPartition, highestDurableOffsetForPartition));
+              currentHeadOffsetForPartition, highestDurableOffsetForPartition);
+      LOG.error(message);
+      throw new IllegalStateException(message);
     }
 
     // Create a recovery task if needed.
