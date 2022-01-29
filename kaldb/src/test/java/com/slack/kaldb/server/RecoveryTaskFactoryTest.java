@@ -1152,16 +1152,4 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
   }
-
-  // TODO: Test determine start offset.
-  // only snapshots, multiple recoveries.
-
-
-  // Throw exception in these cases.
-  // only snapshots, no recovery, behind.
-  // only snapshots, no recovery, not behind.
-  // only snapshots, multiple recoveries, behind
-  // only snapshots, multiple recoveries, not behind.
-
-  //  Double recovery task creation.
 }
