@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class is responsible for the indexer startup operations like stale live snapshot cleanup.
- * determining the start indexing offset from metadata and optionally creating a recovery task etc..
+ * determining the start indexing offset from metadata and optionally creating a recovery task etc.
  */
 public class RecoveryTaskFactory {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskFactory.class);
@@ -69,7 +69,7 @@ public class RecoveryTaskFactory {
   }
 
   @VisibleForTesting
-  public List<SnapshotMetadata> deleteStaleLiveSnapsnots(List<SnapshotMetadata> snapshots) {
+  public List<SnapshotMetadata> deleteStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
     List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots);
     LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
     int deletedSnapshotCount = deleteSnapshots(snapshotMetadataStore, staleSnapshots);
@@ -85,7 +85,7 @@ public class RecoveryTaskFactory {
 
   // Get the highest offset for which data is durable for a partition.
   @VisibleForTesting
-  public long getHigestDurableOffsetForPartition(
+  public long getHighestDurableOffsetForPartition(
       List<SnapshotMetadata> snapshots, List<RecoveryTaskMetadata> recoveryTasks) {
 
     long maxSnapshotOffset =
@@ -111,19 +111,19 @@ public class RecoveryTaskFactory {
    * To determine the start offset, an indexer performs multiple tasks. First, we clean up all the
    * stale live nodes for this partition so there is only 1 live node per indexer.
    *
-   * <p>In Kaldb, the durability of unindexed data is ensured by Kafka and the durability of indexed
-   * data is ensured by S3. So, once the indexer restarts, we need to determine the highest offset
-   * that was indexed. To get the latest indexed offset, we get the latest indexed offset from a
-   * snapshots for that partition. Since there could also be a recovery task queued up for this
-   * partition, we also need to skip the offsets picked up by the recovery task. So, the highest
-   * durable offset is the highest offset for a partition among the snapshots and recovery tasks for
-   * a partition.
+   * <p>In Kaldb, the durability of un-indexed data is ensured by Kafka and the durability of
+   * indexed data is ensured by S3. So, once the indexer restarts, we need to determine the highest
+   * offset that was indexed. To get the latest indexed offset, we get the latest indexed offset
+   * from a snapshots for that partition. Since there could also be a recovery task queued up for
+   * this partition, we also need to skip the offsets picked up by the recovery task. So, the
+   * highest durable offset is the highest offset for a partition among the snapshots and recovery
+   * tasks for a partition.
    *
    * <p>The highest durable offset is the start offset for the indexer. If this offset is with in
    * the max start delay of the head, we start indexing. If the current index offset is more than
    * the configured delay, we can't catch up indexing. So, instead of trying to catch up, create a
    * recovery task and start indexing at the current head. This strategy achieves 2 goals: we start
-   * indexing fresh data when we are behind and we add more indexing capacity when needed. The
+   * indexing fresh data when we are behind, and we add more indexing capacity when needed. The
    * recovery task offsets are [startOffset, endOffset]. If a recovery task is created, we start
    * indexing at the offset after the recovery task.
    *
@@ -138,7 +138,7 @@ public class RecoveryTaskFactory {
             .stream()
             .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
             .collect(Collectors.toUnmodifiableList());
-    List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapsnots(snapshotsForPartition);
+    List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
     List<SnapshotMetadata> nonLiveSnapshotsForPartition =
         snapshotsForPartition
@@ -149,7 +149,7 @@ public class RecoveryTaskFactory {
     // Get the highest offset that is indexed in durable store.
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
     long highestDurableOffsetForPartition =
-        getHigestDurableOffsetForPartition(nonLiveSnapshotsForPartition, recoveryTasks);
+        getHighestDurableOffsetForPartition(nonLiveSnapshotsForPartition, recoveryTasks);
     LOG.info(
         "The highest durable offset for partition {} is {}",
         partitionId,
@@ -163,7 +163,7 @@ public class RecoveryTaskFactory {
     // The current head offset shouldn't be lower than the highest durable offset. If it is it
     // means that we indexed more data than the current head offset. This is either a bug in the
     // offset handling mechanism or the kafka partition has rolled over. We throw an exception
-    // for now so we can investigate.
+    // for now, so we can investigate.
     if (currentHeadOffsetForPartition < highestDurableOffsetForPartition) {
       final String message =
           String.format(
@@ -233,6 +233,7 @@ public class RecoveryTaskFactory {
                 })
             .collect(Collectors.toUnmodifiableList());
 
+    //noinspection UnstableApiUsage
     ListenableFuture<?> futureList = Futures.successfulAsList(deletionFutures);
     try {
       futureList.get(SNAPSHOT_OPERATION_TIMEOUT_SECS, TimeUnit.SECONDS);
