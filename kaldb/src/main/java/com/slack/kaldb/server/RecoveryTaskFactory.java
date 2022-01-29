@@ -1,15 +1,23 @@
 package com.slack.kaldb.server;
 
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.util.SnapshotsUtil;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,17 +28,25 @@ import org.slf4j.LoggerFactory;
  */
 public class RecoveryTaskFactory {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskFactory.class);
+  private static final int SNAPSHOT_OPERATION_TIMEOUT_SECS = 10;
 
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private final String partitionId;
   private final long maxOffsetDelay;
 
+  public static final String SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
+  public static final String SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
+
+  private final Counter snapshotDeleteSuccess;
+  private final Counter snapshotDeleteFailed;
+
   public RecoveryTaskFactory(
       SnapshotMetadataStore snapshotMetadataStore,
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       String partitionId,
-      long maxOffsetDelay) {
+      long maxOffsetDelay,
+      MeterRegistry meterRegistry) {
     checkState(
         partitionId != null && !partitionId.isEmpty(), "partitionId shouldn't be null or empty");
     checkState(maxOffsetDelay > 0, "maxOffsetDelay should be a positive number");
@@ -38,6 +54,9 @@ public class RecoveryTaskFactory {
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.partitionId = partitionId;
     this.maxOffsetDelay = maxOffsetDelay;
+
+    snapshotDeleteSuccess = meterRegistry.counter(SNAPSHOT_DELETE_SUCCESS);
+    snapshotDeleteFailed = meterRegistry.counter(SNAPSHOT_DELETE_FAILED);
   }
 
   @VisibleForTesting
@@ -53,7 +72,7 @@ public class RecoveryTaskFactory {
   public List<SnapshotMetadata> deleteStaleLiveSnapsnots(List<SnapshotMetadata> snapshots) {
     List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots);
     LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
-    int deletedSnapshotCount = SnapshotsUtil.deleteSnapshots(snapshotMetadataStore, staleSnapshots);
+    int deletedSnapshotCount = deleteSnapshots(snapshotMetadataStore, staleSnapshots);
 
     int failedDeletes = staleSnapshots.size() - deletedSnapshotCount;
     if (failedDeletes > 0) {
@@ -193,5 +212,48 @@ public class RecoveryTaskFactory {
           nextOffsetForPartition);
       return nextOffsetForPartition;
     }
+  }
+
+  private int deleteSnapshots(
+      SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshotsToBeDeleted) {
+    LOG.info("Deleting {} snapshots: {}", snapshotsToBeDeleted.size(), snapshotsToBeDeleted);
+
+    AtomicInteger successCounter = new AtomicInteger(0);
+    List<? extends ListenableFuture<?>> deletionFutures =
+        snapshotsToBeDeleted
+            .stream()
+            .map(
+                snapshot -> {
+                  ListenableFuture<?> future = snapshotMetadataStore.delete(snapshot);
+                  addCallback(
+                      future,
+                      successCountingCallback(successCounter),
+                      MoreExecutors.directExecutor());
+                  return future;
+                })
+            .collect(Collectors.toUnmodifiableList());
+
+    ListenableFuture<?> futureList = Futures.successfulAsList(deletionFutures);
+    try {
+      futureList.get(SNAPSHOT_OPERATION_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      futureList.cancel(true);
+    }
+
+    final int successfulDeletions = successCounter.get();
+    int failedDeletions = snapshotsToBeDeleted.size() - successfulDeletions;
+
+    snapshotDeleteSuccess.increment(successfulDeletions);
+    snapshotDeleteFailed.increment(failedDeletions);
+
+    if (successfulDeletions == snapshotsToBeDeleted.size()) {
+      LOG.info("Successfully deleted all {} snapshots.", successfulDeletions);
+    } else {
+      LOG.warn(
+          "Failed to delete {} snapshots within {} secs.",
+          SNAPSHOT_OPERATION_TIMEOUT_SECS,
+          snapshotsToBeDeleted.size() - successfulDeletions);
+    }
+    return successfulDeletions;
   }
 }

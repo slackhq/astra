@@ -91,7 +91,8 @@ public class RecoveryTaskFactoryTest {
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
     assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
@@ -171,7 +172,8 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
     assertThat(recoveryTaskFactory.deleteStaleLiveSnapsnots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
@@ -229,7 +231,8 @@ public class RecoveryTaskFactoryTest {
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
@@ -279,7 +282,8 @@ public class RecoveryTaskFactoryTest {
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
 
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -319,7 +323,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testMaxOffset() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -509,17 +514,21 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalStateException()
         .isThrownBy(
             () ->
-                new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 0));
+                new RecoveryTaskFactory(
+                    snapshotMetadataStore, recoveryTaskStore, partitionId, 0, meterRegistry));
 
     assertThatIllegalStateException()
         .isThrownBy(
-            () -> new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, "", 100));
+            () ->
+                new RecoveryTaskFactory(
+                    snapshotMetadataStore, recoveryTaskStore, "", 100, meterRegistry));
   }
 
   @Test
   public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 1);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -566,7 +575,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testDetermineStartingOffsetOnlyRecoveryNotBehind() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -613,7 +623,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testDetermineStartingOffsetOnlyRecoveryBehind() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -651,7 +662,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testDetermineStartingOffsetOnlyMultipleRecoveryBehind() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -696,9 +708,10 @@ public class RecoveryTaskFactoryTest {
   }
 
   @Test
-  public void testDetermineStartingOffsetMultiplePartitionRecoveiesBehind() {
+  public void testDetermineStartingOffsetMultiplePartitionRecoveriesBehind() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -759,7 +772,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testDetermineStartingOffsetOnlySnapshotsNoDelay() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -851,7 +865,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1028,7 +1043,8 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testRecoveryTaskCreationFailureFailsDetermineStartOffset() {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1071,7 +1087,8 @@ public class RecoveryTaskFactoryTest {
   public void testSnapshotListFailureFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1114,7 +1131,8 @@ public class RecoveryTaskFactoryTest {
   public void testRecoveryListFailureFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1157,7 +1175,8 @@ public class RecoveryTaskFactoryTest {
   public void testFailureToDeleteStaleSnapshotsFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
     RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+        new RecoveryTaskFactory(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
