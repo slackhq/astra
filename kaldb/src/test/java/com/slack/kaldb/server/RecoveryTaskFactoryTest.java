@@ -1152,4 +1152,58 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
   }
+
+  @Test
+  public void testFailureToDeleteStaleSnapshotsFailsDetermineStartOffset()
+      throws ExecutionException, InterruptedException {
+    RecoveryTaskFactory recoveryTaskFactory =
+        new RecoveryTaskFactory(snapshotMetadataStore, recoveryTaskStore, partitionId, 100);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    // When there is no data return -1.
+    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(
+            recoveryTaskFactory.getHigestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList()))
+        .isEqualTo(100);
+    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks1.size()).isEqualTo(1);
+    assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
+    assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
+    assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+
+    // Add a live partition to be deleted.
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(snapshotMetadataStore.list().get())
+        .containsExactlyInAnyOrder(partition1, livePartition1);
+    // Fail deletion on snapshot metadata store.
+    doThrow(new IllegalStateException())
+        .when(snapshotMetadataStore)
+        .delete(any(SnapshotMetadata.class));
+    doThrow(new IllegalStateException()).when(snapshotMetadataStore).delete(any(String.class));
+
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1350));
+    assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.list().get())
+        .containsExactlyInAnyOrder(partition1, livePartition1);
+  }
 }

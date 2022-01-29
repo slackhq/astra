@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class is responsible for the indexer startup operations like stale live snapshot cleanup.
- * determining the start indexing offset and create Recovery task etc..
+ * determining the start indexing offset from metadata and optionally creating a recovery task etc..
  */
 public class RecoveryTaskFactory {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskFactory.class);
