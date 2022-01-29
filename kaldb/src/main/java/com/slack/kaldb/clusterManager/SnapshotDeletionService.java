@@ -2,7 +2,6 @@ package com.slack.kaldb.clusterManager;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -55,7 +54,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   private final MeterRegistry meterRegistry;
   private final S3BlobFs s3BlobFs;
 
-  @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
+  @VisibleForTesting protected int futuresListTimeoutSecs;
 
   public static final String SNAPSHOT_DELETE_SUCCESS = "snapshot_delete_success";
   public static final String SNAPSHOT_DELETE_FAILED = "snapshot_delete_failed";
@@ -89,6 +88,12 @@ public class SnapshotDeletionService extends AbstractScheduledService {
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.s3BlobFs = s3BlobFs;
     this.meterRegistry = meterRegistry;
+
+    // This functions as the overall "timeout" for deleteExpiredSnapshotsWithoutReplicas, and should
+    // not exceed that of the schedule period. This ensures that we never enter a situation where
+    // we are queuing faster than we are draining.
+    this.futuresListTimeoutSecs =
+        managerConfig.getSnapshotDeletionServiceConfig().getSchedulePeriodMins() * 60;
 
     this.snapshotDeleteSuccess = meterRegistry.counter(SNAPSHOT_DELETE_SUCCESS);
     this.snapshotDeleteFailed = meterRegistry.counter(SNAPSHOT_DELETE_FAILED);
@@ -168,31 +173,39 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                   ListenableFuture<?> future =
                       Futures.submit(
                           () -> {
-                            // These futures are rate-limited so that we can more evenly distribute
-                            // the load to the downstream services (metadata, s3). There is no
-                            // urgency to complete the deletes, so limiting the maximum rate allows
-                            // us to avoid unnecessary spikes.
-                            rateLimiter.acquire();
+                            try {
+                              // These futures are rate-limited so that we can more evenly
+                              // distribute
+                              // the load to the downstream services (metadata, s3). There is no
+                              // urgency to complete the deletes, so limiting the maximum rate
+                              // allows
+                              // us to avoid unnecessary spikes.
+                              rateLimiter.acquire();
 
-                            // First try to delete the object from S3, then delete from metadata
-                            // store. If for some reason the object delete fails, it will leave the
-                            // metadata and try again on the next run.
-                            URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
-                            if (s3BlobFs.exists(snapshotUri)) {
-                              // Ensure that the file exists before attempting to delete, in case
-                              // the previous run successfully deleted the object but failed the
-                              // metadata delete. Otherwise, this would be expected to perpetually
-                              // fail deleting a non-existing file.
-                              if (s3BlobFs.delete(snapshotUri, true)) {
-                                snapshotMetadataStore.deleteSync(snapshotMetadata);
+                              // First try to delete the object from S3, then delete from metadata
+                              // store. If for some reason the object delete fails, it will leave
+                              // the
+                              // metadata and try again on the next run.
+                              URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
+                              if (s3BlobFs.exists(snapshotUri)) {
+                                // Ensure that the file exists before attempting to delete, in case
+                                // the previous run successfully deleted the object but failed the
+                                // metadata delete. Otherwise, this would be expected to perpetually
+                                // fail deleting a non-existing file.
+                                if (s3BlobFs.delete(snapshotUri, true)) {
+                                  snapshotMetadataStore.deleteSync(snapshotMetadata);
+                                } else {
+                                  throw new IOException(
+                                      String.format(
+                                          "Failed to delete '%s' from object store",
+                                          snapshotMetadata.snapshotPath));
+                                }
                               } else {
-                                throw new IOException(
-                                    String.format(
-                                        "Failed to delete '%s' from object store",
-                                        snapshotMetadata.snapshotPath));
+                                snapshotMetadataStore.deleteSync(snapshotMetadata);
                               }
-                            } else {
-                              snapshotMetadataStore.deleteSync(snapshotMetadata);
+                            } catch (Exception e) {
+                              LOG.error("Exception deleting snapshot", e);
+                              throw e;
                             }
                             return null;
                           },
