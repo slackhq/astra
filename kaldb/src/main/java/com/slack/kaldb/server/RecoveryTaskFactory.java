@@ -35,8 +35,8 @@ public class RecoveryTaskFactory {
   private final String partitionId;
   private final long maxOffsetDelay;
 
-  public static final String SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
-  public static final String SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
+  public static final String STALE_SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
+  public static final String STALE_SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
 
   private final Counter snapshotDeleteSuccess;
   private final Counter snapshotDeleteFailed;
@@ -55,8 +55,8 @@ public class RecoveryTaskFactory {
     this.partitionId = partitionId;
     this.maxOffsetDelay = maxOffsetDelay;
 
-    snapshotDeleteSuccess = meterRegistry.counter(SNAPSHOT_DELETE_SUCCESS);
-    snapshotDeleteFailed = meterRegistry.counter(SNAPSHOT_DELETE_FAILED);
+    snapshotDeleteSuccess = meterRegistry.counter(STALE_SNAPSHOT_DELETE_SUCCESS);
+    snapshotDeleteFailed = meterRegistry.counter(STALE_SNAPSHOT_DELETE_FAILED);
   }
 
   @VisibleForTesting
