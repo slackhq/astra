@@ -1101,7 +1101,7 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
 
-    // Fail a recovery store task creation.
+    // Fail snapshot store list creation.
     doThrow(new RuntimeException()).when(snapshotMetadataStore).listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
@@ -1144,7 +1144,7 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
 
-    // Fail a recovery store task creation.
+    // Fail a recovery store list.
     doThrow(new RuntimeException()).when(recoveryTaskStore).listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
@@ -1156,7 +1156,6 @@ public class RecoveryTaskFactoryTest {
   // TODO: Test determine start offset.
   // only snapshots, multiple recoveries.
 
-  // Test with delay of zero.
 
   // Throw exception in these cases.
   // only snapshots, no recovery, behind.
@@ -1164,5 +1163,5 @@ public class RecoveryTaskFactoryTest {
   // only snapshots, multiple recoveries, behind
   // only snapshots, multiple recoveries, not behind.
 
-  //  Double //  recovery task creation.
+  //  Double recovery task creation.
 }

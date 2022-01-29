@@ -154,6 +154,7 @@ public class RecoveryTaskFactory {
     }
 
     // Create a recovery task if needed.
+    long nextOffsetForPartition = highestDurableOffsetForPartition + 1;
     if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       final long creationTimeEpochMs = Instant.now().toEpochMilli();
       final String recoveryTaskName = "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
@@ -167,7 +168,7 @@ public class RecoveryTaskFactory {
           new RecoveryTaskMetadata(
               recoveryTaskName,
               partitionId,
-              highestDurableOffsetForPartition + 1,
+              nextOffsetForPartition,
               currentHeadOffsetForPartition - 1,
               creationTimeEpochMs));
       LOG.info(
@@ -176,15 +177,14 @@ public class RecoveryTaskFactory {
           currentHeadOffsetForPartition);
       return currentHeadOffsetForPartition;
     } else {
-      long newOffset = highestDurableOffsetForPartition + 1;
       LOG.info(
           "The difference between the last indexed position {} and head location {} is lower "
               + "than max offset {}. So, using {} position as the start offset",
           highestDurableOffsetForPartition,
           currentHeadOffsetForPartition,
           maxOffsetDelay,
-          newOffset);
-      return newOffset;
+          nextOffsetForPartition);
+      return nextOffsetForPartition;
     }
   }
 }
