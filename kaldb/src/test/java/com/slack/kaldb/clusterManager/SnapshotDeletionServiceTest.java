@@ -754,6 +754,55 @@ public class SnapshotDeletionServiceTest {
   }
 
   @Test
+  public void shouldDeleteLiveExpiredSnapshots() {
+    // this is an exceptional case, where we have snapshots that were rolled over but the assets
+    // were never uploaded to S3 and have reached expiration
+    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+            .setReplicaLifespanMins(1440)
+            .build();
+
+    KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
+        KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig.newBuilder()
+            .setSchedulePeriodMins(10)
+            .setSnapshotLifespanMins(10080)
+            .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
+            .setSnapshotDeletionServiceConfig(snapshotDeletionServiceConfig)
+            .setScheduleInitialDelayMins(0)
+            .build();
+
+    SnapshotMetadata snapshotMetadata =
+        new SnapshotMetadata(
+            UUID.randomUUID().toString(),
+            SnapshotMetadata.LIVE_SNAPSHOT_PATH,
+            Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
+            Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
+            0,
+            "1");
+    snapshotMetadataStore.create(snapshotMetadata);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 1);
+
+    SnapshotDeletionService snapshotDeletionService =
+        new SnapshotDeletionService(
+            replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
+
+    int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
+    assertThat(deletes).isEqualTo(1);
+
+    assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_FAILED, meterRegistry))
+        .isEqualTo(0);
+    assertThat(
+            MetricsUtil.getTimerCount(SnapshotDeletionService.SNAPSHOT_DELETE_TIMER, meterRegistry))
+        .isEqualTo(1);
+  }
+
+  @Test
   public void shouldHandleSnapshotDeleteLifecycle() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()

@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
@@ -184,11 +185,11 @@ public class SnapshotDeletionService extends AbstractScheduledService {
 
                               // First try to delete the object from S3, then delete from metadata
                               // store. If for some reason the object delete fails, it will leave
-                              // the
-                              // metadata and try again on the next run.
+                              // the metadata and try again on the next run.
                               URI snapshotUri = URI.create(snapshotMetadata.snapshotPath);
                               LOG.info("Starting delete of snapshot {}", snapshotMetadata);
-                              if (s3BlobFs.exists(snapshotUri)) {
+                              if (!SnapshotMetadata.isLive(snapshotMetadata)
+                                  && s3BlobFs.exists(snapshotUri)) {
                                 // Ensure that the file exists before attempting to delete, in case
                                 // the previous run successfully deleted the object but failed the
                                 // metadata delete. Otherwise, this would be expected to perpetually
@@ -202,6 +203,10 @@ public class SnapshotDeletionService extends AbstractScheduledService {
                                           snapshotMetadata.snapshotPath));
                                 }
                               } else {
+                                // If the asset on S3 doesn't exist, or this is a live node that has
+                                // reached expiration go ahead and delete it. We would only expect
+                                // LIVE nodes to reach expiration if they were for some reason
+                                // malformed (failed uploads and were not retried).
                                 snapshotMetadataStore.deleteSync(snapshotMetadata);
                               }
                             } catch (Exception e) {
