@@ -20,12 +20,14 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -52,6 +54,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private static final Logger LOG = LoggerFactory.getLogger(LogIndexSearcherImpl.class);
+  public static UniqueFieldTrackingSearcherFactory uniqueFieldTrackingSearcherFactory;
 
   private final SearcherManager searcherManager;
   private final StandardAnalyzer analyzer;
@@ -59,7 +62,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     NIOFSDirectory directory = new NIOFSDirectory(path);
-    return new SearcherManager(directory, null);
+    uniqueFieldTrackingSearcherFactory = new UniqueFieldTrackingSearcherFactory();
+    return new SearcherManager(directory, uniqueFieldTrackingSearcherFactory);
   }
 
   // todo - this is not needed once this data is on the snapshot
@@ -193,6 +197,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private Query buildQuery(
       String indexName, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
       throws ParseException {
+    Set<FieldInfos> fieldInfos = uniqueFieldTrackingSearcherFactory.allFields;
+    // use fieldInfos to form OR query like field1:abc OR field2:abc if queryStr has no field name.
     Builder queryBuilder = new Builder();
     queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)), Occur.MUST);
     queryBuilder.add(
