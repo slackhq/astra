@@ -5,6 +5,7 @@ import static com.slack.kaldb.server.RecoveryTaskFactory.STALE_SNAPSHOT_DELETE_S
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -239,7 +240,7 @@ public class RecoveryTaskFactoryTest {
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
         .when(snapshotMetadataStore)
-        .delete((any(SnapshotMetadata.class)));
+        .delete(any(SnapshotMetadata.class));
 
     if (hasException) {
       assertThatIllegalStateException()
@@ -513,13 +514,13 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testInit() {
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 new RecoveryTaskFactory(
                     snapshotMetadataStore, recoveryTaskStore, partitionId, 0, meterRegistry));
 
-    assertThatIllegalStateException()
+    assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 new RecoveryTaskFactory(

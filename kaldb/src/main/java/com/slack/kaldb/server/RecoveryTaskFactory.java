@@ -2,7 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkState;
+import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
@@ -47,9 +47,9 @@ public class RecoveryTaskFactory {
       String partitionId,
       long maxOffsetDelay,
       MeterRegistry meterRegistry) {
-    checkState(
+    checkArgument(
         partitionId != null && !partitionId.isEmpty(), "partitionId shouldn't be null or empty");
-    checkState(maxOffsetDelay > 0, "maxOffsetDelay should be a positive number");
+    checkArgument(maxOffsetDelay > 0, "maxOffsetDelay should be a positive number");
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.partitionId = partitionId;
