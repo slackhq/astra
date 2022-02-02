@@ -26,8 +26,8 @@ import org.slf4j.LoggerFactory;
  * This class is responsible for the indexer startup operations like stale live snapshot cleanup.
  * determining the start indexing offset from metadata and optionally creating a recovery task etc.
  */
-public class RecoveryTaskFactory {
-  private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskFactory.class);
+public class RecoveryTaskCreator {
+  private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskCreator.class);
   private static final int SNAPSHOT_OPERATION_TIMEOUT_SECS = 10;
 
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -41,7 +41,7 @@ public class RecoveryTaskFactory {
   private final Counter snapshotDeleteSuccess;
   private final Counter snapshotDeleteFailed;
 
-  public RecoveryTaskFactory(
+  public RecoveryTaskCreator(
       SnapshotMetadataStore snapshotMetadataStore,
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       String partitionId,
@@ -183,7 +183,7 @@ public class RecoveryTaskFactory {
     // Create a recovery task if needed.
     if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
       final long creationTimeEpochMs = Instant.now().toEpochMilli();
-      final String recoveryTaskName = "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
+      final String recoveryTaskName = getRecoveryTaskName(creationTimeEpochMs, partitionId);
       LOG.info(
           "Recovery task needed. The current position {} and head location {} are higher than max"
               + " offset {}",
@@ -212,6 +212,10 @@ public class RecoveryTaskFactory {
           nextOffsetForPartition);
       return nextOffsetForPartition;
     }
+  }
+
+  private static String getRecoveryTaskName(long creationTimeEpochMs, String partitionId) {
+    return "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
   }
 
   private int deleteSnapshots(

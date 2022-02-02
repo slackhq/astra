@@ -1,7 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
-import static com.slack.kaldb.server.RecoveryTaskFactory.STALE_SNAPSHOT_DELETE_SUCCESS;
+import static com.slack.kaldb.server.RecoveryTaskCreator.STALE_SNAPSHOT_DELETE_SUCCESS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -37,7 +37,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 @SuppressWarnings("UnstableApiUsage")
-public class RecoveryTaskFactoryTest {
+public class RecoveryTaskCreatorTest {
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
@@ -93,32 +93,32 @@ public class RecoveryTaskFactoryTest {
     SnapshotMetadata partition2 =
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition2))).isEmpty();
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition1)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition2))).isEmpty();
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition1)))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition1, livePartition11)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition1, livePartition11)))
         .containsExactly(livePartition1, livePartition11);
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1, livePartition1)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1, livePartition1)))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition2, livePartition1)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition2, livePartition1)))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(livePartition2, livePartition1)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition2, livePartition1)))
         .containsExactly(livePartition1);
     assertThat(
-            recoveryTaskFactory.getStaleLiveSnapshots(
+            recoveryTaskCreator.getStaleLiveSnapshots(
                 List.of(livePartition2, livePartition1, partition1, partition2)))
         .containsExactly(livePartition1);
     assertThat(
-            recoveryTaskFactory.getStaleLiveSnapshots(
+            recoveryTaskCreator.getStaleLiveSnapshots(
                 List.of(livePartition2, livePartition1, livePartition11, partition1, partition2)))
         .containsExactly(livePartition1, livePartition11);
-    assertThat(recoveryTaskFactory.getStaleLiveSnapshots(List.of(partition1, partition2)))
+    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1, partition2)))
         .isEmpty();
   }
 
@@ -174,10 +174,10 @@ public class RecoveryTaskFactoryTest {
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
-    assertThat(recoveryTaskFactory.deleteStaleLiveSnapshots(actualSnapshots).size())
+    assertThat(recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
@@ -233,8 +233,8 @@ public class RecoveryTaskFactoryTest {
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     // Throw exceptions on delete.
@@ -244,9 +244,9 @@ public class RecoveryTaskFactoryTest {
 
     if (hasException) {
       assertThatIllegalStateException()
-          .isThrownBy(() -> recoveryTaskFactory.deleteStaleLiveSnapshots(actualSnapshots));
+          .isThrownBy(() -> recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots));
     } else {
-      assertThat(recoveryTaskFactory.deleteStaleLiveSnapshots(actualSnapshots)).isEmpty();
+      assertThat(recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots)).isEmpty();
     }
 
     assertThat(snapshotMetadataStore.listSync())
@@ -284,8 +284,8 @@ public class RecoveryTaskFactoryTest {
     snapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
 
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     // Pass first call, fail second call.
@@ -310,7 +310,7 @@ public class RecoveryTaskFactoryTest {
         .delete((SnapshotMetadata) any());
 
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.deleteStaleLiveSnapshots(snapshots));
+        .isThrownBy(() -> recoveryTaskCreator.deleteStaleLiveSnapshots(snapshots));
 
     // Either liveSnapshot1 or liveSnapshot11 remain but not both.
     List<SnapshotMetadata> actualSnapshots = snapshotMetadataStore.listSync();
@@ -325,8 +325,8 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testMaxOffset() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     final String name = "testSnapshotId";
@@ -357,47 +357,47 @@ public class RecoveryTaskFactoryTest {
 
     // empty results
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), Collections.emptyList()))
         .isNegative();
 
     // Some snapshots, no recovery tasks.
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1), Collections.emptyList()))
         .isEqualTo(maxOffset);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition2), Collections.emptyList()))
         .isEqualTo(maxOffset);
 
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11), Collections.emptyList()))
         .isEqualTo(maxOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12), Collections.emptyList()))
         .isEqualTo(maxOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition2, partition21), Collections.emptyList()))
         .isEqualTo(maxOffset);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition12, partition2, partition21, partition22),
                 Collections.emptyList()))
         .isEqualTo(maxOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition2), Collections.emptyList()))
         .isNegative();
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition2, partition21, partition22), Collections.emptyList()))
         .isNegative();
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(
                     partition1,
                     partition11,
@@ -444,69 +444,69 @@ public class RecoveryTaskFactoryTest {
             createdTimeUtc);
 
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), List.of(recoveryTask1)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), List.of(recoveryTask1, recoveryTask22)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), List.of(recoveryTask1, recoveryTask11)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), List.of(recoveryTask11, recoveryTask21)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(), List.of(recoveryTask1, recoveryTask11, recoveryTask21)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 Collections.emptyList(),
                 List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
         .isEqualTo(recoveryStartOffset * 3);
 
     //  snapshots and recovery tasks for same partition
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1), List.of(recoveryTask1)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11), List.of(recoveryTask1)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12), List.of(recoveryTask1)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12),
                 List.of(recoveryTask1, recoveryTask11)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition2), List.of(recoveryTask21)))
         .isNegative();
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition2, partition21), List.of(recoveryTask21, recoveryTask22)))
         .isNegative();
 
     //  snapshots for diff partitions, recovery tasks for diff partitions.
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition2, partition12), List.of(recoveryTask1)))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition2, partition12), List.of(recoveryTask11)))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12, partition2, partition21, partition22),
                 List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
         .isEqualTo(recoveryStartOffset * 3);
@@ -517,28 +517,28 @@ public class RecoveryTaskFactoryTest {
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
-                new RecoveryTaskFactory(
+                new RecoveryTaskCreator(
                     snapshotMetadataStore, recoveryTaskStore, partitionId, 0, meterRegistry));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
-                new RecoveryTaskFactory(
+                new RecoveryTaskCreator(
                     snapshotMetadataStore, recoveryTaskStore, "", 100, meterRegistry));
   }
 
   @Test
   public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
-    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     // Data exists for not for this partition.
     final String name = "testSnapshotId";
@@ -551,13 +551,13 @@ public class RecoveryTaskFactoryTest {
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2");
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
-    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, "2");
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
@@ -572,20 +572,20 @@ public class RecoveryTaskFactoryTest {
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
-    assertThat(recoveryTaskFactory.determineStartingOffset(0)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
   }
 
   @Test
   public void testDetermineStartingOffsetOnlyRecoveryNotBehind() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -599,10 +599,10 @@ public class RecoveryTaskFactoryTest {
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
-    assertThat(recoveryTaskFactory.determineStartingOffset(850))
+    assertThat(recoveryTaskCreator.determineStartingOffset(850))
         .isEqualTo((recoveryStartOffset * 2) + 1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(750));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(750));
 
     final RecoveryTaskMetadata recoveryTask11 =
         new RecoveryTaskMetadata(
@@ -613,27 +613,27 @@ public class RecoveryTaskFactoryTest {
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1201))
+    assertThat(recoveryTaskCreator.determineStartingOffset(1201))
         .isEqualTo((recoveryStartOffset * 3) + 1);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1200))
+    assertThat(recoveryTaskCreator.determineStartingOffset(1200))
         .isEqualTo((recoveryStartOffset * 3) + 1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1150));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1150));
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
   @Test
   public void testDetermineStartingOffsetOnlyRecoveryBehind() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
     final String recoveryTaskName = "recoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -648,7 +648,7 @@ public class RecoveryTaskFactoryTest {
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskFactory.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
     assertThat(recoveryTasks.size()).isEqualTo(2);
@@ -664,15 +664,15 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testDetermineStartingOffsetOnlyMultipleRecoveryBehind() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
     final String recoveryTaskName = "BasicRecoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -696,7 +696,7 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
 
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskFactory.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
     assertThat(recoveryTasks.size()).isEqualTo(3);
@@ -712,15 +712,15 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testDetermineStartingOffsetMultiplePartitionRecoveriesBehind() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
     final String recoveryTaskName = "BasicRecoveryTask";
     final long recoveryStartOffset = 400;
     final long createdTimeUtc = Instant.now().toEpochMilli();
@@ -757,7 +757,7 @@ public class RecoveryTaskFactoryTest {
         .contains(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21);
 
     final long currentHeadOffset = 4000;
-    assertThat(recoveryTaskFactory.determineStartingOffset(currentHeadOffset))
+    assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
     assertThat(recoveryTasks.size()).isEqualTo(5);
@@ -774,14 +774,14 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testDetermineStartingOffsetOnlySnapshotsNoDelay() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -794,13 +794,13 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(150)).isEqualTo(101);
+    assertThat(recoveryTaskCreator.determineStartingOffset(150)).isEqualTo(101);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
@@ -808,10 +808,10 @@ public class RecoveryTaskFactoryTest {
 
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskFactory.determineStartingOffset(201)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(201)).isEqualTo(201);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(150));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(150));
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
 
@@ -821,7 +821,7 @@ public class RecoveryTaskFactoryTest {
             name + "live1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
-    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
@@ -834,7 +834,7 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(livePartition11);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
@@ -848,7 +848,7 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(livePartition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
@@ -862,7 +862,7 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(250)).isEqualTo(201);
+    assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
@@ -872,14 +872,14 @@ public class RecoveryTaskFactoryTest {
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   @Test
   public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -892,17 +892,17 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
     // clean up recovery task.
     recoveryTaskStore.deleteSync(recoveryTasks1.get(0).name);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -913,17 +913,17 @@ public class RecoveryTaskFactoryTest {
 
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1250)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
     assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
     RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSync().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(201);
     assertThat(recoveryTask1.endOffset).isEqualTo(1249);
     assertThat(recoveryTask1.partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1248));
-    assertThat(recoveryTaskFactory.determineStartingOffset(1249)).isEqualTo(1250);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1250)).isEqualTo(1250);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1251)).isEqualTo(1250);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1248));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1249)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1251)).isEqualTo(1250);
     assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
 
     // Live partition is cleaned up, new recovery task is created.
@@ -934,8 +934,8 @@ public class RecoveryTaskFactoryTest {
     assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTask1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(250));
-    assertThat(recoveryTaskFactory.determineStartingOffset(1450)).isEqualTo(1450);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(250));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1450)).isEqualTo(1450);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     List<RecoveryTaskMetadata> recoveryTasks2 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks2.size()).isEqualTo(2);
@@ -955,10 +955,10 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(livePartition11);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition11);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1500)).isEqualTo(1450);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1500)).isEqualTo(1450);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1650)).isEqualTo(1650);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1650)).isEqualTo(1650);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     List<RecoveryTaskMetadata> recoveryTasks3 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks3.size()).isEqualTo(3);
@@ -984,12 +984,12 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(livePartition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1660)).isEqualTo(1650);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1660)).isEqualTo(1650);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1850)).isEqualTo(1850);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1850)).isEqualTo(1850);
     List<RecoveryTaskMetadata> recoveryTasks4 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks4.size()).isEqualTo(4);
     RecoveryTaskMetadata recoveryTask4 =
@@ -1019,12 +1019,12 @@ public class RecoveryTaskFactoryTest {
         new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, 1000);
     recoveryTaskStore.createSync(recoveryTaskPartition2);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1650));
-    assertThat(recoveryTaskFactory.determineStartingOffset(1900)).isEqualTo(1850);
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1650));
+    assertThat(recoveryTaskCreator.determineStartingOffset(1900)).isEqualTo(1850);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(
             recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTaskPartition2);
-    assertThat(recoveryTaskFactory.determineStartingOffset(2050)).isEqualTo(2050);
+    assertThat(recoveryTaskCreator.determineStartingOffset(2050)).isEqualTo(2050);
     assertThat(recoveryTaskStore.listSync().size()).isEqualTo(6);
     RecoveryTaskMetadata recoveryTask5 =
         recoveryTaskStore
@@ -1050,14 +1050,14 @@ public class RecoveryTaskFactoryTest {
 
   @Test
   public void testRecoveryTaskCreationFailureFailsDetermineStartOffset() {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1070,23 +1070,23 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail a recovery store task creation.
     doThrow(new RuntimeException()).when(recoveryTaskStore).createSync(any());
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
     assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
   }
@@ -1094,14 +1094,14 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testSnapshotListFailureFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1114,23 +1114,23 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail snapshot store list creation.
     doThrow(new RuntimeException()).when(snapshotMetadataStore).listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
     assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
   }
@@ -1138,14 +1138,14 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testRecoveryListFailureFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1158,23 +1158,23 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail a recovery store list.
     doThrow(new RuntimeException()).when(recoveryTaskStore).listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
     assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
   }
@@ -1182,14 +1182,14 @@ public class RecoveryTaskFactoryTest {
   @Test
   public void testFailureToDeleteStaleSnapshotsFailsDetermineStartOffset()
       throws ExecutionException, InterruptedException {
-    RecoveryTaskFactory recoveryTaskFactory =
-        new RecoveryTaskFactory(
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    assertThat(recoveryTaskFactory.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1202,17 +1202,17 @@ public class RecoveryTaskFactoryTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskFactory.getHighestDurableOffsetForPartition(
+            recoveryTaskCreator.getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSync(), Collections.emptyList()))
         .isEqualTo(100);
-    assertThat(recoveryTaskFactory.determineStartingOffset(1150)).isEqualTo(1150);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(50));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Add a live partition to be deleted.
     SnapshotMetadata livePartition1 =
@@ -1228,7 +1228,7 @@ public class RecoveryTaskFactoryTest {
     doThrow(new IllegalStateException()).when(snapshotMetadataStore).delete(any(String.class));
 
     assertThatIllegalStateException()
-        .isThrownBy(() -> recoveryTaskFactory.determineStartingOffset(1350));
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
     assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get())
         .containsExactlyInAnyOrder(partition1, livePartition1);
