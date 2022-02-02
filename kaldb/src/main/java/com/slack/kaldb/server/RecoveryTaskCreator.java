@@ -86,8 +86,10 @@ public class RecoveryTaskCreator {
 
   // Get the highest offset for which data is durable for a partition.
   @VisibleForTesting
-  public long getHighestDurableOffsetForPartition(
-      List<SnapshotMetadata> snapshots, List<RecoveryTaskMetadata> recoveryTasks) {
+  public static long getHighestDurableOffsetForPartition(
+      List<SnapshotMetadata> snapshots,
+      List<RecoveryTaskMetadata> recoveryTasks,
+      String partitionId) {
 
     long maxSnapshotOffset =
         snapshots
@@ -150,7 +152,8 @@ public class RecoveryTaskCreator {
     // Get the highest offset that is indexed in durable store.
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
     long highestDurableOffsetForPartition =
-        getHighestDurableOffsetForPartition(nonLiveSnapshotsForPartition, recoveryTasks);
+        getHighestDurableOffsetForPartition(
+            nonLiveSnapshotsForPartition, recoveryTasks, partitionId);
     LOG.info(
         "The highest durable offset for partition {} is {}",
         partitionId,

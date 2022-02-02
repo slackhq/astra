@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.RecoveryTaskCreator.STALE_SNAPSHOT_DELETE_SUCCESS;
+import static com.slack.kaldb.server.RecoveryTaskCreator.getHighestDurableOffsetForPartition;
 import static com.slack.kaldb.server.RecoveryTaskCreator.getStaleLiveSnapshots;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -322,10 +323,6 @@ public class RecoveryTaskCreatorTest {
 
   @Test
   public void testMaxOffset() {
-    RecoveryTaskCreator recoveryTaskCreator =
-        new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
-
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
     final long startTime = 1;
@@ -354,47 +351,52 @@ public class RecoveryTaskCreatorTest {
 
     // empty results
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(), Collections.emptyList(), partitionId))
         .isNegative();
 
     // Some snapshots, no recovery tasks.
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1), Collections.emptyList(), partitionId))
         .isEqualTo(maxOffset);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition2), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition2), Collections.emptyList(), partitionId))
         .isEqualTo(maxOffset);
 
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition11), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition11), Collections.emptyList(), partitionId))
         .isEqualTo(maxOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition11, partition12), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition11, partition12),
+                Collections.emptyList(),
+                partitionId))
         .isEqualTo(maxOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition2, partition21), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition2, partition21), Collections.emptyList(), partitionId))
         .isEqualTo(maxOffset);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
+            getHighestDurableOffsetForPartition(
                 List.of(partition12, partition2, partition21, partition22),
-                Collections.emptyList()))
+                Collections.emptyList(),
+                partitionId))
         .isEqualTo(maxOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition2), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition2), Collections.emptyList(), partitionId))
         .isNegative();
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition2, partition21, partition22), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                List.of(partition2, partition21, partition22),
+                Collections.emptyList(),
+                partitionId))
         .isNegative();
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
+            getHighestDurableOffsetForPartition(
                 List.of(
                     partition1,
                     partition11,
@@ -403,7 +405,8 @@ public class RecoveryTaskCreatorTest {
                     partition2,
                     partition21,
                     partition22),
-                Collections.emptyList()))
+                Collections.emptyList(),
+                partitionId))
         .isEqualTo(maxOffset * 3);
 
     // Only recovery tasks, no snapshots.
@@ -441,71 +444,78 @@ public class RecoveryTaskCreatorTest {
             createdTimeUtc);
 
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), List.of(recoveryTask1)))
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(), List.of(recoveryTask1), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), List.of(recoveryTask1, recoveryTask22)))
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(), List.of(recoveryTask1, recoveryTask22), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), List.of(recoveryTask1, recoveryTask11)))
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(), List.of(recoveryTask1, recoveryTask11), partitionId))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), List.of(recoveryTask11, recoveryTask21)))
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(), List.of(recoveryTask11, recoveryTask21), partitionId))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                Collections.emptyList(), List.of(recoveryTask1, recoveryTask11, recoveryTask21)))
-        .isEqualTo(recoveryStartOffset * 3);
-    assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
+            getHighestDurableOffsetForPartition(
                 Collections.emptyList(),
-                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
+                List.of(recoveryTask1, recoveryTask11, recoveryTask21),
+                partitionId))
+        .isEqualTo(recoveryStartOffset * 3);
+    assertThat(
+            getHighestDurableOffsetForPartition(
+                Collections.emptyList(),
+                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22),
+                partitionId))
         .isEqualTo(recoveryStartOffset * 3);
 
     //  snapshots and recovery tasks for same partition
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1), List.of(recoveryTask1)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1), List.of(recoveryTask1), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition11), List.of(recoveryTask1)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition11), List.of(recoveryTask1), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition11, partition12), List.of(recoveryTask1)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition11, partition12), List.of(recoveryTask1), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
+            getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12),
-                List.of(recoveryTask1, recoveryTask11)))
+                List.of(recoveryTask1, recoveryTask11),
+                partitionId))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition2), List.of(recoveryTask21)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition2), List.of(recoveryTask21), partitionId))
         .isNegative();
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition2, partition21), List.of(recoveryTask21, recoveryTask22)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition2, partition21),
+                List.of(recoveryTask21, recoveryTask22),
+                partitionId))
         .isNegative();
 
     //  snapshots for diff partitions, recovery tasks for diff partitions.
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition2, partition12), List.of(recoveryTask1)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition2, partition12), List.of(recoveryTask1), partitionId))
         .isEqualTo(recoveryStartOffset * 2);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                List.of(partition1, partition2, partition12), List.of(recoveryTask11)))
+            getHighestDurableOffsetForPartition(
+                List.of(partition1, partition2, partition12), List.of(recoveryTask11), partitionId))
         .isEqualTo(recoveryStartOffset * 3);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
+            getHighestDurableOffsetForPartition(
                 List.of(partition1, partition11, partition12, partition2, partition21, partition22),
-                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22)))
+                List.of(recoveryTask1, recoveryTask11, recoveryTask21, recoveryTask22),
+                partitionId))
         .isEqualTo(recoveryStartOffset * 3);
   }
 
@@ -791,8 +801,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(150)).isEqualTo(101);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -889,8 +899,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
@@ -1067,8 +1077,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
@@ -1111,8 +1121,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
@@ -1155,8 +1165,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
@@ -1199,8 +1209,8 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
-            recoveryTaskCreator.getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList()))
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
