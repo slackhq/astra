@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.RecoveryTaskCreator.STALE_SNAPSHOT_DELETE_SUCCESS;
+import static com.slack.kaldb.server.RecoveryTaskCreator.getStaleLiveSnapshots;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -93,33 +94,29 @@ public class RecoveryTaskCreatorTest {
     SnapshotMetadata partition2 =
         new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
 
-    RecoveryTaskCreator recoveryTaskCreator =
-        new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
-
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1))).isEmpty();
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition2))).isEmpty();
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition2))).isEmpty();
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition1)))
+    assertThat(getStaleLiveSnapshots(List.of(partition1), partitionId)).isEmpty();
+    assertThat(getStaleLiveSnapshots(List.of(partition2), partitionId)).isEmpty();
+    assertThat(getStaleLiveSnapshots(List.of(livePartition2), partitionId)).isEmpty();
+    assertThat(getStaleLiveSnapshots(List.of(livePartition1), partitionId))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition1, livePartition11)))
+    assertThat(getStaleLiveSnapshots(List.of(livePartition1, livePartition11), partitionId))
         .containsExactly(livePartition1, livePartition11);
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1, livePartition1)))
+    assertThat(getStaleLiveSnapshots(List.of(partition1, livePartition1), partitionId))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition2, livePartition1)))
+    assertThat(getStaleLiveSnapshots(List.of(partition2, livePartition1), partitionId))
         .containsExactly(livePartition1);
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(livePartition2, livePartition1)))
+    assertThat(getStaleLiveSnapshots(List.of(livePartition2, livePartition1), partitionId))
         .containsExactly(livePartition1);
     assertThat(
-            recoveryTaskCreator.getStaleLiveSnapshots(
-                List.of(livePartition2, livePartition1, partition1, partition2)))
+            getStaleLiveSnapshots(
+                List.of(livePartition2, livePartition1, partition1, partition2), partitionId))
         .containsExactly(livePartition1);
     assertThat(
-            recoveryTaskCreator.getStaleLiveSnapshots(
-                List.of(livePartition2, livePartition1, livePartition11, partition1, partition2)))
+            getStaleLiveSnapshots(
+                List.of(livePartition2, livePartition1, livePartition11, partition1, partition2),
+                partitionId))
         .containsExactly(livePartition1, livePartition11);
-    assertThat(recoveryTaskCreator.getStaleLiveSnapshots(List.of(partition1, partition2)))
-        .isEmpty();
+    assertThat(getStaleLiveSnapshots(List.of(partition1, partition2), partitionId)).isEmpty();
   }
 
   @Test

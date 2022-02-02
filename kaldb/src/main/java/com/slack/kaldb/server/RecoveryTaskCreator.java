@@ -60,7 +60,8 @@ public class RecoveryTaskCreator {
   }
 
   @VisibleForTesting
-  public List<SnapshotMetadata> getStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
+  public static List<SnapshotMetadata> getStaleLiveSnapshots(
+      List<SnapshotMetadata> snapshots, String partitionId) {
     return snapshots
         .stream()
         .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
@@ -70,7 +71,7 @@ public class RecoveryTaskCreator {
 
   @VisibleForTesting
   public List<SnapshotMetadata> deleteStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
-    List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots);
+    List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots, partitionId);
     LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
     int deletedSnapshotCount = deleteSnapshots(snapshotMetadataStore, staleSnapshots);
 
