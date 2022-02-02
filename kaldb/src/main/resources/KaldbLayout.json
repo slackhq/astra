@@ -22,38 +22,40 @@
     "$resolver": "logger",
     "field": "name"
   },
-  "labels": {
+  "traceId": {
     "$resolver": "mdc",
-    "flatten": true,
+    "key": "traceId",
     "stringified": true
   },
-  "tags": {
-    "$resolver": "ndc"
+  "spanId": {
+    "$resolver": "mdc",
+    "key": "spanId",
+    "stringified": true
   },
-  "error.type": {
+  "error_type": {
     "$resolver": "exception",
     "field": "className"
   },
-  "error.message": {
+  "error_message": {
     "$resolver": "exception",
     "field": "message"
   },
-  "error.stack_trace": {
+  "error_stack_trace": {
     "$resolver": "exception",
     "field": "stackTrace",
     "stackTrace": {
       "stringified": true
     }
   },
-  "error.root_cause.class_name": {
+  "error_root_cause_class_name": {
     "$resolver": "exceptionRootCause",
     "field": "className"
   },
-  "error.root_cause.message": {
+  "error_root_cause_message": {
     "$resolver": "exceptionRootCause",
     "field": "message"
   },
-  "error.root_cause.stack_trace": {
+  "error_root_cause_stack_trace": {
     "$resolver": "exceptionRootCause",
     "field": "stackTrace",
     "stackTrace": {
