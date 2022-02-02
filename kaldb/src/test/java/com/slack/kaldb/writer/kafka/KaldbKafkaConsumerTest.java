@@ -60,6 +60,7 @@ public class KaldbKafkaConsumerTest {
     private TestKafkaServer kafkaServer;
     private TestKaldbKafkaConsumer testConsumer;
 
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Before
     public void setUp() throws Exception {
       kafkaServer = new TestKafkaServer();
@@ -99,6 +100,7 @@ public class KaldbKafkaConsumerTest {
     private TestKafkaServer kafkaServer;
     private TestKaldbKafkaConsumer testConsumer;
 
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Before
     public void setUp() throws Exception {
       kafkaServer = new TestKafkaServer();
