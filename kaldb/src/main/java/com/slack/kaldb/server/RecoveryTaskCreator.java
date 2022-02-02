@@ -69,21 +69,6 @@ public class RecoveryTaskCreator {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  @VisibleForTesting
-  public List<SnapshotMetadata> deleteStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
-    List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots, partitionId);
-    LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
-    int deletedSnapshotCount = deleteSnapshots(snapshotMetadataStore, staleSnapshots);
-
-    int failedDeletes = staleSnapshots.size() - deletedSnapshotCount;
-    if (failedDeletes > 0) {
-      LOG.warn("Failed to delete {} live snapshots", failedDeletes);
-      throw new IllegalStateException("Failed to delete stale live snapshots");
-    }
-
-    return staleSnapshots;
-  }
-
   // Get the highest offset for which data is durable for a partition.
   @VisibleForTesting
   public static long getHighestDurableOffsetForPartition(
@@ -108,6 +93,25 @@ public class RecoveryTaskCreator {
             .orElse(-1);
 
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
+  }
+
+  private static String getRecoveryTaskName(long creationTimeEpochMs, String partitionId) {
+    return "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
+  }
+
+  @VisibleForTesting
+  public List<SnapshotMetadata> deleteStaleLiveSnapshots(List<SnapshotMetadata> snapshots) {
+    List<SnapshotMetadata> staleSnapshots = getStaleLiveSnapshots(snapshots, partitionId);
+    LOG.info("Deleting {} stale snapshots: {}", staleSnapshots.size(), staleSnapshots);
+    int deletedSnapshotCount = deleteSnapshots(snapshotMetadataStore, staleSnapshots);
+
+    int failedDeletes = staleSnapshots.size() - deletedSnapshotCount;
+    if (failedDeletes > 0) {
+      LOG.warn("Failed to delete {} live snapshots", failedDeletes);
+      throw new IllegalStateException("Failed to delete stale live snapshots");
+    }
+
+    return staleSnapshots;
   }
 
   /**
@@ -216,10 +220,6 @@ public class RecoveryTaskCreator {
           nextOffsetForPartition);
       return nextOffsetForPartition;
     }
-  }
-
-  private static String getRecoveryTaskName(long creationTimeEpochMs, String partitionId) {
-    return "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
   }
 
   private int deleteSnapshots(
