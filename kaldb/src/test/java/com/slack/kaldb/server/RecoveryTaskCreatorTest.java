@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.server.RecoveryTaskCreator.RECOVERY_TASKS_CREATED;
 import static com.slack.kaldb.server.RecoveryTaskCreator.STALE_SNAPSHOT_DELETE_SUCCESS;
 import static com.slack.kaldb.server.RecoveryTaskCreator.getHighestDurableOffsetForPartition;
 import static com.slack.kaldb.server.RecoveryTaskCreator.getStaleLiveSnapshots;
@@ -821,6 +822,7 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(150));
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
     // Live partition is cleaned up, no delay.
     SnapshotMetadata livePartition1 =
@@ -832,6 +834,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
     // Multiple live partitions for the same partition are cleaned up, no delay.
     snapshotMetadataStore.createSync(livePartition1);
@@ -845,6 +848,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
     // Live partitions from multiple stores exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -860,6 +864,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(5);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
     // Live and non-live partitions for different partitions exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -874,6 +879,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(7);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -910,6 +916,8 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.get(0).partitionId).isEqualTo(partitionId);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
     // clean up recovery task.
     recoveryTaskStore.deleteSync(recoveryTasks1.get(0).name);
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -932,6 +940,8 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
     assertThat(recoveryTaskCreator.determineStartingOffset(1251)).isEqualTo(1250);
     assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(2);
 
     // Live partition is cleaned up, new recovery task is created.
     SnapshotMetadata livePartition1 =
@@ -953,6 +963,8 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTask2.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2);
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
 
     // Multiple live partitions for the same partition are cleaned up.
     snapshotMetadataStore.createSync(livePartition1);
@@ -981,6 +993,8 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTask3.endOffset).isEqualTo(1649);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(4);
 
     // Live partitions from multiple partitions exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -1013,6 +1027,8 @@ public class RecoveryTaskCreatorTest {
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
     assertThat(recoveryTaskStore.listSync())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4);
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(5);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(5);
 
     // Live and non-live partitions for different partitions exist.
     snapshotMetadataStore.createSync(livePartition1);
@@ -1053,6 +1069,8 @@ public class RecoveryTaskCreatorTest {
             recoveryTask4,
             recoveryTask5,
             recoveryTaskPartition2);
+    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(7);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(6);
   }
 
   @Test

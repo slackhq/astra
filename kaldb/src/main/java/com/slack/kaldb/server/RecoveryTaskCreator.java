@@ -37,9 +37,11 @@ public class RecoveryTaskCreator {
 
   public static final String STALE_SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
   public static final String STALE_SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
+  public static final String RECOVERY_TASKS_CREATED = "recovery_tasks_created";
 
   private final Counter snapshotDeleteSuccess;
   private final Counter snapshotDeleteFailed;
+  private final Counter recoveryTasksCreated;
 
   public RecoveryTaskCreator(
       SnapshotMetadataStore snapshotMetadataStore,
@@ -57,6 +59,7 @@ public class RecoveryTaskCreator {
 
     snapshotDeleteSuccess = meterRegistry.counter(STALE_SNAPSHOT_DELETE_SUCCESS);
     snapshotDeleteFailed = meterRegistry.counter(STALE_SNAPSHOT_DELETE_FAILED);
+    recoveryTasksCreated = meterRegistry.counter(RECOVERY_TASKS_CREATED);
   }
 
   @VisibleForTesting
@@ -209,6 +212,7 @@ public class RecoveryTaskCreator {
           "Created recovery task {} to catchup. Moving the starting offset to head at {}",
           recoveryTaskName,
           currentHeadOffsetForPartition);
+      recoveryTasksCreated.increment();
       return currentHeadOffsetForPartition;
     } else {
       LOG.info(
