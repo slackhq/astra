@@ -4,148 +4,127 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.config";
 
-// NodeRole is an enum that defines the various roles of KalDb components.
 enum NodeRole {
-  INDEX = 0;
-  QUERY = 1;
-  CACHE = 2;
-  MANAGER = 3;
-  RECOVERY = 4;
+    INDEX = 0;
+    QUERY = 1;
+    CACHE = 2;
+    MANAGER = 3;
+    RECOVERY = 4;
 };
 
-// KalDb is a single binary consisting of multiple components.
-// KaldbConfig is the uber config object for all of Kaldb.
-// This config object controls the role a node plays and it's config.
 message KaldbConfig {
-  KafkaConfig kafkaConfig = 1;
-  S3Config s3Config = 2;
-  IndexerConfig indexerConfig = 3;
-  QueryServiceConfig queryConfig = 4;
-  MetadataStoreConfig metadataStoreConfig = 5;
-  repeated NodeRole nodeRoles = 6;
-  TracingConfig tracingConfig = 7;
-  CacheConfig cacheConfig = 8;
-  ManagerConfig managerConfig = 9;
-  RecoveryConfig recoveryConfig = 10;
+    KafkaConfig kafkaConfig = 1;
+    S3Config s3Config = 2;
+    IndexerConfig indexerConfig = 3;
+    QueryServiceConfig queryConfig = 4;
+    MetadataStoreConfig metadataStoreConfig = 5;
+    repeated NodeRole nodeRoles = 6;
+    TracingConfig tracingConfig = 7;
+    CacheConfig cacheConfig = 8;
+    ManagerConfig managerConfig = 9;
+    RecoveryConfig recoveryConfig = 10;
 }
 
-// Configuration for Kafka producer and consumer.
 message KafkaConfig {
-  string kafkaTopic = 1;
-  string kafkaTopicPartition = 2;
-  string kafkaBootStrapServers = 3;
-  string kafkaClientGroup = 4;
-  string enableKafkaAutoCommit = 5;
-  string kafkaAutoCommitInterval = 6;
-  string kafkaSessionTimeout = 7;
+    string kafkaTopic = 1;
+    string kafkaTopicPartition = 2;
+    string kafkaBootStrapServers = 3;
+    string kafkaClientGroup = 4;
+    string enableKafkaAutoCommit = 5;
+    string kafkaAutoCommitInterval = 6;
+    string kafkaSessionTimeout = 7;
 }
 
 message MetadataStoreConfig {
-  ZookeeperConfig zookeeperConfig = 1;
+    ZookeeperConfig zookeeperConfig = 1;
 }
 
-// Configuration for Zookeeper metadata store.
 message ZookeeperConfig {
-  string zkConnectString = 1;
-  string zkPathPrefix = 2;
-  int32 zkSessionTimeoutMs = 3;
-  int32 zkConnectionTimeoutMs = 4;
-  int32 sleepBetweenRetriesMs = 5;
+    string zkConnectString = 1;
+    string zkPathPrefix = 2;
+    int32 zkSessionTimeoutMs = 3;
+    int32 zkConnectionTimeoutMs = 4;
+    int32 sleepBetweenRetriesMs = 5;
 }
 
-// S3 Configuration.
 message S3Config {
-  string s3AccessKey = 1;
-  string s3SecretKey = 2;
-  string s3Region = 3;
-  string s3EndPoint = 4;
-  string s3Bucket = 5;
+    string s3AccessKey = 1;
+    string s3SecretKey = 2;
+    string s3Region = 3;
+    string s3EndPoint = 4;
+    string s3Bucket = 5;
 }
 
 message TracingConfig {
-  string zipkinEndpoint = 1;
+    string zipkinEndpoint = 1;
 }
 
-// Configuration for the query service.
 message QueryServiceConfig {
-  ServerConfig serverConfig = 1;
+    ServerConfig serverConfig = 1;
 }
 
-// Configuration for the indexer.
 message IndexerConfig {
-  // Chunk config
-  int64 maxMessagesPerChunk = 1;
-  int64 maxBytesPerChunk = 2;
-  // Lucene config
-  int64 commitDurationSecs = 3;
-  int64 refreshDurationSecs = 4;
-  // Unused?
-  int64 staleDurationSecs= 5;
-  // Name of the data transformation pipeline to use when ingesting the data.
-  string dataTransformer = 6;
-  // Folder where data is persisted locally on disk.
-  string dataDirectory = 7;
-  // Indexer server config.
-  ServerConfig serverConfig = 8;
-  // MaxOffsetDelay is the maximum delay between the current Kafka head and the current position the indexer can catch up on.
-  int64 maxOffsetDelay = 9;
+    int64 maxMessagesPerChunk = 1;
+    int64 maxBytesPerChunk = 2;
+    int64 commitDurationSecs = 3;
+    int64 refreshDurationSecs = 4;
+    int64 staleDurationSecs= 5;
+    string dataTransformer = 6;
+    string dataDirectory = 7;
+    ServerConfig serverConfig = 8;
 }
 
-// ServerConfig contains the address and port info of a Kaldb service.
 message ServerConfig {
-  int32 serverPort = 1;
-  string serverAddress = 2;
+    int32 serverPort = 1;
+    string serverAddress = 2;
 }
 
-// Configuration for cache node.
 message CacheConfig {
-  int32 slotsPerInstance = 1;
-  string dataDirectory = 2;
-  ServerConfig serverConfig = 3;
+    int32 slotsPerInstance = 1;
+    string dataDirectory = 2;
+    ServerConfig serverConfig = 3;
 }
 
-// Cluster manager config. As a convention we define a config struct for every service in the cluster manager.
 message ManagerConfig {
-  message ReplicaCreationServiceConfig {
-    int32 replicasPerSnapshot = 1;
-    int32 schedulePeriodMins = 2;
-    int32 replicaLifespanMins = 3;
-  }
+    message ReplicaCreationServiceConfig {
+        int32 replicasPerSnapshot = 1;
+        int32 schedulePeriodMins = 2;
+        int32 replicaLifespanMins = 3;
+    }
 
-  message ReplicaAssignmentServiceConfig {
-    int32 schedulePeriodMins = 1;
-  }
+    message ReplicaAssignmentServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
 
-  message ReplicaEvictionServiceConfig {
-      int32 schedulePeriodMins = 1;
-  }
+    message ReplicaEvictionServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
 
-  message ReplicaDeletionServiceConfig {
-      int32 schedulePeriodMins = 1;
-  }
+    message ReplicaDeletionServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
 
-  message RecoveryTaskAssignmentServiceConfig {
-      int32 schedulePeriodMins = 1;
-  }
+    message RecoveryTaskAssignmentServiceConfig {
+        int32 schedulePeriodMins = 1;
+    }
 
-  message SnapshotDeletionServiceConfig {
-      int32 schedulePeriodMins = 1;
-      int32 snapshotLifespanMins = 2;
-  }
+    message SnapshotDeletionServiceConfig {
+        int32 schedulePeriodMins = 1;
+        int32 snapshotLifespanMins = 2;
+    }
 
-  int32 eventAggregationSecs = 1;
-  int32 scheduleInitialDelayMins = 2;
-  ServerConfig serverConfig = 3;
+    int32 eventAggregationSecs = 1;
+    int32 scheduleInitialDelayMins = 2;
+    ServerConfig serverConfig = 3;
 
-  ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
-  ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig = 5;
-  ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 6;
-  ReplicaDeletionServiceConfig replicaDeletionServiceConfig = 7;
-  RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 8;
-  SnapshotDeletionServiceConfig snapshotDeletionServiceConfig = 9;
+    ReplicaCreationServiceConfig replicaCreationServiceConfig = 4;
+    ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig = 5;
+    ReplicaEvictionServiceConfig replicaEvictionServiceConfig = 6;
+    ReplicaDeletionServiceConfig replicaDeletionServiceConfig = 7;
+    RecoveryTaskAssignmentServiceConfig recoveryTaskAssignmentServiceConfig = 8;
+    SnapshotDeletionServiceConfig snapshotDeletionServiceConfig = 9;
 }
 
-// Config for the recovery service.
 message RecoveryConfig {
-   ServerConfig serverConfig = 1;
+    ServerConfig serverConfig = 1;
 }
