@@ -79,7 +79,8 @@ message IndexerConfig {
   // Lucene config
   int64 commitDurationSecs = 3;
   int64 refreshDurationSecs = 4;
-  // Unused?
+  // Chunk cleaner task removes a chunk from indexer after a certain time.
+  // Duration after which a chunk is removed from indexer and no longer served by indexer.
   int64 staleDurationSecs= 5;
   // Name of the data transformation pipeline to use when ingesting the data.
   string dataTransformer = 6;
