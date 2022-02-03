@@ -87,30 +87,7 @@ public class Kaldb {
             prometheusMeterRegistry,
             KaldbConfig.get().getMetadataStoreConfig().getZookeeperConfig());
 
-    HashSet<KaldbConfigs.NodeRole> nodeRoles = getNodeRoles();
-
-    // Clean up stale indexer tasks and optionally create a recovery task
-    if (nodeRoles.contains(KaldbConfigs.NodeRole.INDEX)) {
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-          new RecoveryTaskMetadataStore(metadataStore, false);
-      String partitionId = KaldbConfig.get().getKafkaConfig().getKafkaTopicPartition();
-      // TODO: Make this a config.
-      long maxOffsetDelay = 1000;
-      RecoveryTaskCreator recoveryTaskCreator =
-          new RecoveryTaskCreator(
-              snapshotMetadataStore,
-              recoveryTaskMetadataStore,
-              partitionId,
-              maxOffsetDelay,
-              prometheusMeterRegistry);
-      // TODO: Fetch this info from Kafka consumer.
-      long currentHeadOffsetForPartition = 100;
-      long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
-      // TODO: Set this value as the starting offset for Kafka consumer.
-    }
-
-    Set<Service> services = getServices(metadataStore, nodeRoles);
+    Set<Service> services = getServices(metadataStore);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -118,13 +95,10 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  private static HashSet<KaldbConfigs.NodeRole> getNodeRoles() {
-    return new HashSet<>(KaldbConfig.get().getNodeRolesList());
-  }
-
-  public static Set<Service> getServices(
-      MetadataStore metadataStore, Set<KaldbConfigs.NodeRole> roles) throws Exception {
+  public static Set<Service> getServices(MetadataStore metadataStore) throws Exception {
     Set<Service> services = new HashSet<>();
+
+    HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(KaldbConfig.get().getNodeRolesList());
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
