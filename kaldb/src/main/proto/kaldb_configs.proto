@@ -136,8 +136,13 @@ message ManagerConfig {
     int32 snapshot_lifespan_mins = 2;
   }
 
+  // Event aggregation secs is a de-bounce setting. It's the time
+  // a service waits to take an action after a zk notification.
   int32 event_aggregation_secs = 1;
+  // Initial delay is the time a cluster manager service waits
+  // before the first run.
   int32 schedule_initial_delay_mins = 2;
+  // Cluster manager server config.
   ServerConfig server_config = 3;
 
   ReplicaCreationServiceConfig replica_creation_service_config = 4;
