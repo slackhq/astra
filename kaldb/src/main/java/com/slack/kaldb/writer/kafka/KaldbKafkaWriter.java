@@ -1,6 +1,5 @@
 package com.slack.kaldb.writer.kafka;
 
-import com.google.common.base.Stopwatch;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.MessageWriter;
@@ -9,7 +8,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -18,8 +16,6 @@ import org.slf4j.LoggerFactory;
 
 /** This class consumes the data from Kafka and indexes it into Kaldb using a message writer. */
 public class KaldbKafkaWriter extends KaldbKafkaConsumer {
-
-  public static long END_OFFSET_STALE_DELAY_SECS = 10;
 
   public static KaldbKafkaWriter fromConfig(
       MessageWriter messageWriter, MeterRegistry meterRegistry) {
@@ -38,15 +34,11 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
         kafkaCfg.getEnableKafkaAutoCommit(),
         kafkaCfg.getKafkaAutoCommitInterval(),
         kafkaCfg.getKafkaSessionTimeout(),
-        messageWriter,
-        END_OFFSET_STALE_DELAY_SECS);
+        messageWriter);
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaWriter.class);
   private final MessageWriter messageWriter;
-  private final Stopwatch endOffsetTimer;
-  private final long endOffsetStaleSecs;
-  private long cachedPartitionEndOffset;
 
   public static final String RECORDS_RECEIVED_COUNTER = "records_received";
   public static final String RECORDS_FAILED_COUNTER = "records_failed";
@@ -63,8 +55,7 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
       String kafkaSessionTimeout,
-      MessageWriter messageWriter,
-      long endOffsetStaleSecs) {
+      MessageWriter messageWriter) {
     super(
         kafkaTopic,
         kafkaTopicPartitionStr,
@@ -74,9 +65,6 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
         kafkaAutoCommitInterval,
         kafkaSessionTimeout);
     this.messageWriter = messageWriter;
-    this.endOffsetTimer = Stopwatch.createStarted();
-    this.endOffsetStaleSecs = endOffsetStaleSecs;
-    this.cachedPartitionEndOffset = 0;
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
   }
@@ -85,16 +73,6 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
     return getConsumer()
         .endOffsets(Collections.singletonList(getTopicPartition()))
         .get(getTopicPartition());
-  }
-
-  // TODO: Move offset catch up into a separate class?
-  private long getCachedLatestOffset() {
-    if (cachedPartitionEndOffset == 0
-        || endOffsetTimer.elapsed(TimeUnit.SECONDS) >= endOffsetStaleSecs) {
-      cachedPartitionEndOffset = getLatestOffSet();
-      endOffsetTimer.reset().start();
-    }
-    return cachedPartitionEndOffset;
   }
 
   @Override
