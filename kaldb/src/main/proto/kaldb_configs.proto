@@ -88,9 +88,6 @@ message IndexerConfig {
   string data_directory = 7;
   // Indexer server config.
   ServerConfig server_config = 8;
-  // MaxOffsetDelay is the maximum delay between the current Kafka
-  // head and the current position the indexer can catch up on.
-  int64 max_offset_delay = 9;
 }
 
 // ServerConfig contains the address and port info of a Kaldb service.
