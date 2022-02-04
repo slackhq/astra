@@ -26,7 +26,6 @@ import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -40,7 +39,6 @@ import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
-import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.slf4j.Logger;
@@ -194,7 +192,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       String indexName, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
       throws ParseException {
     Builder queryBuilder = new Builder();
-    queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)), Occur.MUST);
+
+    // todo - we currently do not enforce searching against an index name, as we do not support
+    //  multi-tenancy yet - see https://github.com/slackhq/kaldb/issues/223. Once index filtering
+    //  is support at snapshot/query layer this should be re-enabled as appropriate.
+    // queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)),
+    // Occur.MUST);
     queryBuilder.add(
         LongPoint.newRangeQuery(
             SystemField.TIME_SINCE_EPOCH.fieldName, startTimeMsEpoch, endTimeMsEpoch),
