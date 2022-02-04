@@ -95,8 +95,7 @@ public class Kaldb {
       RecoveryTaskMetadataStore recoveryTaskMetadataStore =
           new RecoveryTaskMetadataStore(metadataStore, false);
       String partitionId = KaldbConfig.get().getKafkaConfig().getKafkaTopicPartition();
-      // TODO: Make this a config.
-      long maxOffsetDelay = 1000;
+      long maxOffsetDelay = KaldbConfig.get().getIndexerConfig().getMaxOffsetDelay();
       RecoveryTaskCreator recoveryTaskCreator =
           new RecoveryTaskCreator(
               snapshotMetadataStore,

@@ -8,6 +8,7 @@ indexerConfig:
   staleDurationSecs: 7200
   dataTransformer: "api_log"
   dataDirectory: "/tmp"
+  maxOffsetDelay: 10001
   serverConfig:
     serverPort: 8080
     serverAddress: "localhost"

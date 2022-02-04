@@ -29,6 +29,7 @@
     "staleDurationSecs": 7200,
     "dataTransformer": "api_log",
     "dataDirectory": "/tmp",
+    "maxOffsetDelay" : 10002,
     "serverConfig": {
       "serverPort": 8080,
       "serverAddress": "localhost"

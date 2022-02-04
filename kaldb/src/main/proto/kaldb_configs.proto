@@ -72,6 +72,9 @@ message IndexerConfig {
     string dataTransformer = 6;
     string dataDirectory = 7;
     ServerConfig serverConfig = 8;
+    // The max_offset_delay controls by how much the indexer can be behind
+    // before it needs to create a recovery task to catch up.
+    int64 max_offset_delay = 10;
 }
 
 message ServerConfig {
