@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.RejectedExecutionException;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -34,6 +35,29 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
   private final String enableKafkaAutoCommit;
   private final String kafkaAutoCommitInterval;
   private final String kafkaSessionTimeout;
+
+  private static KafkaConsumer<String, byte[]> buildKafkaConsumer(
+      String kafkaBootStrapServers,
+      String kafkaClientGroup,
+      String enableKafkaAutoCommit,
+      String kafkaAutoCommitInterval) {
+
+    Properties props = new Properties();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootStrapServers);
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaClientGroup);
+    // TODO: Consider committing manual consumer offset?
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableKafkaAutoCommit);
+    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafkaAutoCommitInterval);
+    props.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringDeserializer");
+    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
+    // not.
+    props.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+    return new KafkaConsumer<>(props);
+  }
 
   public KaldbKafkaConsumer(
       String kafkaTopic,
@@ -79,25 +103,6 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
     this.enableKafkaAutoCommit = enableKafkaAutoCommit;
     this.kafkaAutoCommitInterval = kafkaAutoCommitInterval;
     this.kafkaSessionTimeout = kafkaSessionTimeout;
-  }
-
-  private KafkaConsumer<String, byte[]> buildKafkaConsumer(
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval) {
-
-    Properties props = new Properties();
-    props.put("bootstrap.servers", kafkaBootStrapServers);
-    props.put("group.id", kafkaClientGroup);
-    // TODO: Consider committing manual consumer offset?
-    props.put("enable.auto.commit", enableKafkaAutoCommit);
-    props.put("auto.commit.interval.ms", kafkaAutoCommitInterval);
-    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
-    // not.
-    props.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    return new KafkaConsumer<>(props);
   }
 
   @Override
