@@ -1,6 +1,9 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.*;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -18,6 +21,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -37,8 +41,10 @@ public class LogIndexSearcherImplTest {
   private void loadTestData(Instant time) {
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(1, "apple", TEST_INDEX_NAME, time));
-    strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(2, "baby", "new" + TEST_INDEX_NAME, time.plusSeconds(1)));
+
+    // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
+    // strictLogStore.logStore.addMessage(
+    // makeMessageWithIndexAndTimestamp(2, "baby", "new" + TEST_INDEX_NAME, time.plusSeconds(1)));
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(3, "apple baby", TEST_INDEX_NAME, time.plusSeconds(2)));
     strictLogStore.logStore.addMessage(
@@ -128,6 +134,7 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  @Ignore // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
   public void testIndexBoundSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx", time));
@@ -357,6 +364,7 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  @Ignore // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
   public void testMissingIndexSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
