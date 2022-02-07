@@ -18,13 +18,13 @@ message CacheSlotMetadata {
   string name = 1;
 
   // Unique ID of the replica
-  string replicaId = 2;
+  string replica_id = 2;
 
   // State of the cache slot
-  CacheSlotState cacheSlotState = 3;
+  CacheSlotState cache_slot_state = 3;
 
   // Last updated timestamp
-  int64 updatedTimeEpochMs = 4;
+  int64 updated_time_epoch_ms = 4;
 }
 
 message ReplicaMetadata {
@@ -32,33 +32,34 @@ message ReplicaMetadata {
   string name = 1;
 
   // Unique ID for the snapshot blob
-  string snapshotId = 2;
+  string snapshot_id = 2;
 
   // Last updated timestamp
-  int64 createdTimeEpochMs = 4;
+  int64 created_time_epoch_ms = 4;
 
   // Timestamp after which this replica can be deleted
-  int64 expireAfterEpochMs = 5;
+  int64 expire_after_epoch_ms = 5;
 }
 
 message SnapshotMetadata {
   // Name of the snapshot
   string name = 1;
-  // Permanent id for a blob. This id is used to uniquely identify the blob incase it get's copied around.
+  // Permanent id for a blob. This id is used to uniquely identify
+  // the blob incase it get's copied around.
   // If not, should be same as name
-  string snapshotId = 2;
+  string snapshot_id = 2;
 
   // Path of the file stored in blobstore.
-  string snapshotPath = 3;
+  string snapshot_path = 3;
   // earliest timestamp of the event in the snapshot file.
-  int64 startTimeEpochMs = 4;
+  int64 start_time_epoch_ms = 4;
   // End or latest timestamp of the event in the snapshot file.
-  int64 endTimeEpochMs = 5;
+  int64 end_time_epoch_ms = 5;
 
   // Kafka partitionId.
-  string partitionId = 7;
+  string partition_id = 7;
   // Kafka offset when this snapshot was taken for that partition.
-  int64 maxOffset = 6;
+  int64 max_offset = 6;
 }
 
 message SearchMetadata {
@@ -66,7 +67,7 @@ message SearchMetadata {
   string name = 1;
 
   // snapshot name
-  string snapshotName = 2;
+  string snapshot_name = 2;
 
   // url
   string url = 3;
@@ -83,13 +84,13 @@ message RecoveryNodeMetadata {
   string name = 1;
 
   // Name of the recovery task
-  string recoveryTaskName = 2;
+  string recovery_task_name = 2;
 
   // State of the recovery node
-  RecoveryNodeState recoveryNodeState = 3;
+  RecoveryNodeState recovery_node_state = 3;
 
   // Last updated timestamp
-  int64 updatedTimeEpochMs = 4;
+  int64 updated_time_epoch_ms = 4;
 }
 
 message RecoveryTaskMetadata {
@@ -97,14 +98,14 @@ message RecoveryTaskMetadata {
   string name = 1;
 
   // Kafka partitionId.
-  string partitionId = 2;
+  string partition_id = 2;
 
   // Kafka offset (inclusive) to start at
-  int64 startOffset = 3;
+  int64 start_offset = 3;
 
   // Kafka offset (inclusive) to end at
-  int64 endOffset = 4;
+  int64 end_offset = 4;
 
   // Created timestamp
-  int64 createdTimeEpochMs = 5;
+  int64 created_time_epoch_ms = 5;
 }
