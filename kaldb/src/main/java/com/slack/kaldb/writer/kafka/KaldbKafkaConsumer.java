@@ -166,5 +166,11 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
     return new TopicPartition(this.kafkaTopic, this.kafkaTopicPartition);
   }
 
+  private long getLatestOffSet() {
+    return getConsumer()
+        .endOffsets(Collections.singletonList(getTopicPartition()))
+        .get(getTopicPartition());
+  }
+
   abstract void consumeMessages(long kafkaPollTimeoutMs) throws IOException;
 }

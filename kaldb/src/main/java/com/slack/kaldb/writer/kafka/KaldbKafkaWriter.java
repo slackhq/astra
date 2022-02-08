@@ -7,7 +7,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collections;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -67,12 +66,6 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
     this.messageWriter = messageWriter;
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
-  }
-
-  private long getLatestOffSet() {
-    return getConsumer()
-        .endOffsets(Collections.singletonList(getTopicPartition()))
-        .get(getTopicPartition());
   }
 
   @Override
