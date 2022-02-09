@@ -8,6 +8,7 @@ import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
@@ -57,6 +58,7 @@ public class ElasticsearchApiService {
    *     doc</a>
    */
   @Post
+  @Blocking
   @Path("/_msearch")
   public HttpResponse multiSearch(String postBody) throws IOException {
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
