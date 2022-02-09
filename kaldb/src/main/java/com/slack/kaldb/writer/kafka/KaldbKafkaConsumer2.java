@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A simple wrapper class for Kafka Consumer. A kafka consumer is an infinite loop. So, it needs to
- * be run in a separate thread. Further, it is also important to shutdown the consumer cleanly so
+ * be run in a separate thread. Further, it is also important to shut down the consumer cleanly so
  * that we can guarantee that the data is indexed only once.
  */
 public class KaldbKafkaConsumer2 {
@@ -124,13 +124,16 @@ public class KaldbKafkaConsumer2 {
     consumer = new KafkaConsumer<>(consumerProps);
   }
 
-  public void prepConsumerForConsumption() {
+  public void prepConsumerForConsumption(long startOffset) {
     LOG.info("Starting kafka consumer.");
 
     // Consume from a partition.
     // TODO: Use a sticky consumer instead of assign?
-    LOG.info("Assigned to kafka topic {} and partition {}", topicPartition);
     consumer.assign(Collections.singletonList(topicPartition));
+    LOG.info("Assigned to topicPartition: {}", topicPartition);
+    // TODO: Only when statOffset is positive. Also, consumer group exists.
+    consumer.seek(topicPartition, startOffset);
+    LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffset);
   }
 
   public void close() {

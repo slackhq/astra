@@ -48,6 +48,8 @@ import org.slf4j.LoggerFactory;
  * <p>KaldbGuavaServices.shutdown();
  *
  * <p>TODO: Run in it's own thread?
+ *
+ * <p>TODO: Rewrite all class and method docs.
  */
 public class KaldbIndexer2 extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2.class);
@@ -114,7 +116,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
   @Override
   protected void startUp() throws Exception {
     // Indexer start
-    LOG.info("Starting indexing into Kaldb.");
+    LOG.info("Starting Kaldb indexer.");
 
     // Run indexer pre-start operation like determining start offset and optionally create a
     // recovery task.
@@ -126,6 +128,12 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
     // TODO: Wait for other services to be ready before we start consuming?
     // kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Need to wait for chunk manager?
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Set the Kafka offset and pre consumer for consumption.
+    kafkaConsumer.prepConsumerForConsumption(startOffset);
+    LOG.info("Started Kaldb indexer.");
   }
 
   // Indexer pre-start
@@ -154,6 +162,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     // Close these stores since we don't need them after preStart.
     snapshotMetadataStore.close();
     recoveryTaskMetadataStore.close();
+
     return startOffset;
   }
 
@@ -213,23 +222,11 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
 
     // Shutdown kafka consumer cleanly and then the chunkmanager so we can be sure, we have indexed
     // the data we ingested.
-    kafkaConsumer.close();
-
-    //    kafkaWriter.stopAsync();
-    //    try {
-    //      LOG.info("Waiting for Kafka consumer to close.");
-    //      // Use a more configurable timeout value.
-    //      kafkaWriter.awaitTerminated(2, TimeUnit.SECONDS);
-    //      if (!kafkaWriter.isRunning()) {
-    //        LOG.info("Closed Kafka consumer cleanly");
-    //      } else {
-    //        LOG.warn("Kafka consumer was not closed cleanly");
-    //      }
-    //    } catch (TimeoutException e) {
-    //      LOG.warn("Failed to close kafka consumer cleanly because of a timeout.", e);
-    //    } catch (Exception e) {
-    //      LOG.warn("Failed to close kafka consumer cleanly because of an exception.", e);
-    //    }
+    try {
+      kafkaConsumer.close();
+    } catch (Exception e) {
+      LOG.warn("Failed to close kafka consumer cleanly because of an exception.", e);
+    }
 
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
