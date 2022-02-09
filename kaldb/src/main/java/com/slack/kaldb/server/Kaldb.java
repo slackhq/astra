@@ -29,9 +29,6 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -86,8 +83,7 @@ public class Kaldb {
 
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
-            prometheusMeterRegistry,
-            kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
+            prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
     Set<Service> services = getServices(metadataStore, kaldbConfig);
     serviceManager = new ServiceManager(services);
@@ -97,7 +93,8 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices(MetadataStore metadataStore, KaldbConfigs.KaldbConfig kaldbConfig) throws Exception {
+  public static Set<Service> getServices(
+      MetadataStore metadataStore, KaldbConfigs.KaldbConfig kaldbConfig) throws Exception {
     Set<Service> services = new HashSet<>();
     List<KaldbConfigs.NodeRole> roles = kaldbConfig.getNodeRolesList();
 
@@ -115,13 +112,16 @@ public class Kaldb {
               Duration.ofSeconds(kaldbConfig.getIndexerConfig().getStaleDurationSecs()));
       services.add(chunkCleanerService);
 
-     KaldbIndexer2 indexer = new KaldbIndexer2(chunkManager, metadataStore,
-             kaldbConfig.getIndexerConfig(), kaldbConfig.getKafkaConfig(),
-             prometheusMeterRegistry);
+      KaldbIndexer2 indexer =
+          new KaldbIndexer2(
+              chunkManager,
+              metadataStore,
+              kaldbConfig.getIndexerConfig(),
+              kaldbConfig.getKafkaConfig(),
+              prometheusMeterRegistry);
       services.add(indexer);
 
-      KaldbLocalQueryService<LogMessage> searcher =
-          new KaldbLocalQueryService<>(indexer.getChunkManager());
+      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService(serverPort, prometheusMeterRegistry, searcher, "kalDbIndex");
