@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.apache.commons.text.StringSubstitutor;
 
@@ -24,6 +25,16 @@ public class KaldbConfig {
   // Default start/stop duration for guava services.
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
   public static final int DEFAULT_ZK_TIMEOUT_SECS = 15;
+
+  // Timeouts are structured such that we always attempt to return a successful response, as we
+  // include metadata that should always be present. The Armeria timeout is used at the top request,
+  // distributed query is used as a deadline for all nodes to return, and the local query timeout
+  // is used for controlling lucene future timeouts.
+  public static final Duration ARMERIA_TIMEOUT_DURATION = Duration.of(15, ChronoUnit.SECONDS);
+  public static Duration DISTRIBUTED_QUERY_TIMEOUT_DURATION =
+      ARMERIA_TIMEOUT_DURATION.minus(Duration.of(2, ChronoUnit.SECONDS));
+  public static Duration LOCAL_QUERY_TIMEOUT_DURATION =
+      DISTRIBUTED_QUERY_TIMEOUT_DURATION.minus(Duration.of(2, ChronoUnit.SECONDS));
 
   private static KaldbConfig _instance = null;
 

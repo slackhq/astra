@@ -1,8 +1,11 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.config.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
+
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -20,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -49,10 +53,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
-  // public so that we can override in tests
-  // TODO: In the future expose this as a config in the proto
-  // TODO: ChunkManager#QUERY_TIMEOUT_SECONDS and this could be unified?
-  public static int READ_TIMEOUT_MS = 15000;
+  @VisibleForTesting
+  public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -126,25 +128,26 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
+    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+    span.tag("queryServerCount", String.valueOf(stubs.size()));
+
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
+      ListenableFuture<KaldbSearch.SearchResult> searchRequest =
+          stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+              .withInterceptors(
+                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
+              .search(request);
+      Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
+          SearchResultUtils::fromSearchResultProtoOrEmpty;
+      queryServers.add(
+          Futures.transform(
+              searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
+    }
+
+    Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
-      List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-      span.tag("queryServerCount", String.valueOf(stubs.size()));
-
-      for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
-        ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-            stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .withInterceptors(
-                    GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-                .search(request);
-        Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
-            SearchResultUtils::fromSearchResultProtoOrEmpty;
-        queryServers.add(
-            Futures.transform(
-                searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
-      }
-
       List<SearchResult<LogMessage>> searchResults =
-          Futures.successfulAsList(queryServers).get(30, TimeUnit.SECONDS);
+          searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return searchResults
           .stream()
           .map(searchResult -> searchResult == null ? SearchResult.empty() : searchResult)
@@ -154,6 +157,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       span.error(e);
       return List.of(SearchResult.empty());
     } finally {
+      // always request future cancellation, so that any exceptions or incomplete futures don't
+      // continue to consume CPU on work that will not be used
+      searchFuture.cancel(false);
       LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
