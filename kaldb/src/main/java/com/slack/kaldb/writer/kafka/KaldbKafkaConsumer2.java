@@ -142,7 +142,11 @@ public class KaldbKafkaConsumer2 {
     LOG.info("Closed kafka consumer.");
   }
 
-  public long getLatestOffSet() {
+  public long getHeadOffSetForPartition() {
+    return getHeadOffSetForPartition(topicPartition);
+  }
+
+  public long getHeadOffSetForPartition(TopicPartition topicPartition) {
     return consumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
   }
 }

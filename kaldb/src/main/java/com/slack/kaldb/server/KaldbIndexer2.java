@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.config.KaldbConfig.dataTransformerMap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -58,6 +59,12 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
   private final MeterRegistry meterRegistry;
   private final KaldbConfigs.IndexerConfig indexerConfig;
   private final KaldbConfigs.KafkaConfig kafkaConfig;
+
+  @VisibleForTesting
+  public KaldbKafkaConsumer2 getKafkaConsumer() {
+    return kafkaConsumer;
+  }
+
   private final KaldbKafkaConsumer2 kafkaConsumer;
 
   private final IndexingChunkManager<LogMessage> chunkManager;
@@ -156,7 +163,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
             meterRegistry);
     // TODO: Pass this valve in?
     // TODO: Check consumer group exists.
-    long currentHeadOffsetForPartition = kafkaConsumer.getLatestOffSet();
+    long currentHeadOffsetForPartition = kafkaConsumer.getHeadOffSetForPartition();
     long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
 
     // Close these stores since we don't need them after preStart.
