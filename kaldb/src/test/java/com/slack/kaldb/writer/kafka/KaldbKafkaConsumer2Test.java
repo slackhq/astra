@@ -41,7 +41,7 @@ public class KaldbKafkaConsumer2Test {
     }
 
     @Test
-    public void testGetHeadOffsetForPartition() throws Exception {
+    public void testGetEndOffsetForPartition() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
       final Instant startTime =
@@ -49,9 +49,9 @@ public class KaldbKafkaConsumer2Test {
 
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 
-      await().until(() -> testConsumer.getHeadOffSetForPartition() == 0);
+      await().until(() -> testConsumer.getEndOffSetForPartition() == 0);
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
-      await().until(() -> testConsumer.getHeadOffSetForPartition() == 100);
+      await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
     }
   }
 }

@@ -163,7 +163,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
             meterRegistry);
     // TODO: Pass this valve in?
     // TODO: Check consumer group exists.
-    long currentHeadOffsetForPartition = kafkaConsumer.getHeadOffSetForPartition();
+    long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
     long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
 
     // Close these stores since we don't need them after preStart.
