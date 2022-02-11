@@ -23,8 +23,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.doSearch");
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
     span.tag("query", query.toString());
-    SearchResult<T> searchResult;
-    searchResult = chunkManager.query(query);
+    SearchResult<T> searchResult = chunkManager.query(query);
     KaldbSearch.SearchResult result = SearchResultUtils.toSearchResultProto(searchResult);
     span.tag("totalNodes", String.valueOf(result.getTotalNodes()));
     span.tag("failedNodes", String.valueOf(result.getFailedNodes()));

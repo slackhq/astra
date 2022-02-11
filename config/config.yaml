@@ -29,7 +29,7 @@ s3Config:
   s3Bucket: ${S3_BUCKET:-test-s3-bucket}
 
 tracingConfig:
-  zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-}
+  zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-http://localhost:9411/api/v2/spans}
 
 queryConfig:
   serverConfig:

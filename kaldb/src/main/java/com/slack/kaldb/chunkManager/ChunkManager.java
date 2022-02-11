@@ -2,6 +2,9 @@ package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.config.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
 
+import brave.Span;
+import brave.Tracing;
+import brave.propagation.TraceContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -36,7 +39,8 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   // to the amount of reads, and it must be a threadsafe implementation
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  private static final ExecutorService queryExecutorService = queryThreadPool();
+  private static final ExecutorService queryExecutorService =
+      RequestContext.makeContextPropagating(queryThreadPool());
 
   /*
    * Use an unbounded cached thread pool to service the read requests, so we can saturate the CPU.
@@ -59,6 +63,9 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
+    // https://stackoverflow.com/questions/69647913/how-to-propagate-brave-trace-in-lettuce-client-async-command
+    Span currentSpan = Tracing.currentTracer().currentSpan();
+    TraceContext context = currentSpan != null ? currentSpan.context() : null;
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkList
             .stream()
@@ -68,7 +75,10 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(
-                            () -> chunk.query(query),
+                            () -> {
+                              Tracing.current().currentTraceContext().maybeScope(context);
+                              return chunk.query(query);
+                            },
                             RequestContext.makeContextPropagating(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
                         // the future and pass this timeout

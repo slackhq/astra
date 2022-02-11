@@ -111,7 +111,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
       IndexSearcher searcher = searcherManager.acquire();
-      span.annotate("searchManager.acquire complete");
       try {
         TopFieldCollector topFieldCollector = buildTopFieldCollector(howMany);
         StatsCollector statsCollector =
@@ -119,7 +118,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         Collector collectorChain = MultiCollector.wrap(topFieldCollector, statsCollector);
 
         searcher.search(query, collectorChain);
-        span.annotate("searcher.search complete");
         List<LogMessage> results;
         if (howMany > 0) {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
