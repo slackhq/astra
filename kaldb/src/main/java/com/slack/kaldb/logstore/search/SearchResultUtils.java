@@ -27,15 +27,10 @@ public class SearchResultUtils {
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(
       KaldbSearch.SearchResult protoSearchResult) {
-    ScopedSpan span =
-        Tracing.currentTracer().startScopedSpan("SearchResultUtils.fromSearchResultProtoOrEmpty");
     try {
       return fromSearchResultProto(protoSearchResult);
     } catch (IOException e) {
-      span.error(e);
       return SearchResult.empty();
-    } finally {
-      span.finish();
     }
   }
 
