@@ -5,10 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.BlobFsConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -19,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -27,7 +25,6 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkSystemSetting;
 import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
@@ -429,7 +426,21 @@ public class S3BlobFs extends BlobFs {
     GetObjectRequest getObjectRequest =
         GetObjectRequest.builder().bucket(srcUri.getHost()).key(prefix).build();
 
-    _s3Client.getObject(getObjectRequest, ResponseTransformer.toFile(dstFile));
+    InputStream inputStream = _s3Client.getObjectAsBytes(getObjectRequest).asInputStream();
+    RateLimitingDelegatingInputStream rateLimitingDelegatingInputStream =
+        new RateLimitingDelegatingInputStream(inputStream);
+
+    OutputStream outStream = new FileOutputStream(dstFile);
+
+    byte[] buffer = new byte[8 * 1024];
+    int bytesRead;
+    while ((bytesRead = rateLimitingDelegatingInputStream.read(buffer)) != -1) {
+      outStream.write(buffer, 0, bytesRead);
+    }
+    IOUtils.closeQuietly(rateLimitingDelegatingInputStream);
+    IOUtils.closeQuietly(outStream);
+
+    //    _s3Client.getObject(getObjectRequest, ResponseTransformer.toFile(dstFile));
   }
 
   @Override
