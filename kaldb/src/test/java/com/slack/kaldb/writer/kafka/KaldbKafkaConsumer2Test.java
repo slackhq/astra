@@ -1,6 +1,7 @@
 package com.slack.kaldb.writer.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
 
 import com.github.charithe.kafka.EphemeralKafkaBroker;
@@ -50,6 +51,21 @@ public class KaldbKafkaConsumer2Test {
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 
       await().until(() -> testConsumer.getEndOffSetForPartition() == 0);
+      TestKafkaServer.produceMessagesToKafka(broker, startTime);
+      await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
+    }
+
+    @Test
+    public void testGetConsumerPositionForPartition() throws Exception {
+      EphemeralKafkaBroker broker = kafkaServer.getBroker();
+      assertThat(broker.isRunning()).isTrue();
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+      assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
+
+      assertThatIllegalStateException()
+          .isThrownBy(() -> testConsumer.getConsumerPositionForPartition());
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
       await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
     }

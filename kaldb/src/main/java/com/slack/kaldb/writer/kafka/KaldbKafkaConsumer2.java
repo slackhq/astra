@@ -149,4 +149,12 @@ public class KaldbKafkaConsumer2 {
   public long getEndOffSetForPartition(TopicPartition topicPartition) {
     return consumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
   }
+
+  public long getConsumerPositionForPartition() {
+    return getConsumerPositionForPartition(topicPartition);
+  }
+
+  public long getConsumerPositionForPartition(TopicPartition topicPartition) {
+    return consumer.position(topicPartition);
+  }
 }
