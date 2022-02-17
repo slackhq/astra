@@ -1,5 +1,7 @@
 package com.slack.kaldb.server;
 
+import static com.slack.kaldb.config.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
+
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
 import brave.handler.SpanHandler;
@@ -77,6 +79,7 @@ public class ArmeriaService extends AbstractIdleService {
     addSearchServices(sb, searcher);
     initializeEventLoop(sb);
     addCompression(sb);
+    setTimeout(sb);
     addManagementEndpoints(sb);
     addTracing(sb);
     this.server = sb.build();
@@ -100,6 +103,13 @@ public class ArmeriaService extends AbstractIdleService {
 
   private void addCompression(ServerBuilder sb) {
     sb.decorator(EncodingService.builder().newDecorator());
+  }
+
+  private void setTimeout(ServerBuilder sb) {
+    sb.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+    // todo - on timeout explore including a retry-after header via exception handler
+    //  https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503
+    // sb.exceptionHandler()
   }
 
   private void addTracing(ServerBuilder sb) {

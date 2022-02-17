@@ -1,9 +1,12 @@
 package com.slack.kaldb.chunkManager;
 
+import static com.slack.kaldb.config.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
+
+import brave.Tracing;
+import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
@@ -12,7 +15,11 @@ import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.spotify.futures.CompletableFutures;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +36,6 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
   // we use a CopyOnWriteArrayList as we expect to have very few edits to this list compared
   // to the amount of reads, and it must be a threadsafe implementation
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
-
-  // TODO: Move this config to Kaldb config.
-  // Less than KaldbDistributedQueryService#READ_TIMEOUT_MS
-  public static final int QUERY_TIMEOUT_SECONDS = 10;
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
@@ -57,6 +60,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
+    CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
     List<CompletableFuture<SearchResult<T>>> queries =
         chunkList
             .stream()
@@ -67,10 +71,10 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
                 (chunk) ->
                     CompletableFuture.supplyAsync(
                             () -> chunk.query(query),
-                            RequestContext.makeContextPropagating(queryExecutorService))
-                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader in
-                        // the future and pass this timeout
-                        .orTimeout(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                            currentTraceContext.executorService(queryExecutorService))
+                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader
+                        //  in the future and pass this timeout
+                        .orTimeout(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
@@ -91,16 +95,24 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
     // Using the spotify library ( this method is much easier to operate then using
     // CompletableFuture.allOf and converting the CompletableFuture<Void> to
     // CompletableFuture<List<SearchResult>>
-    CompletableFuture<List<SearchResult<T>>> searchResults = CompletableFutures.allAsList(queries);
+    CompletableFuture<List<SearchResult<T>>> searchResultFuture =
+        CompletableFutures.allAsList(queries);
     try {
+      List<SearchResult<T>> searchResults =
+          searchResultFuture.get(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-              .aggregate(searchResults.get(30, TimeUnit.SECONDS));
+              .aggregate(searchResults);
       return incrementNodeCount(aggregatedResults);
     } catch (Exception e) {
       LOG.error("Error searching across chunks ", e);
       throw new RuntimeException(e);
+    } finally {
+      // always request future cancellation. This won't interrupt I/O or downstream futures,
+      // but is good practice. Since this is backed by a CompletableFuture
+      // mayInterruptIfRunning has no effect
+      searchResultFuture.cancel(true);
     }
   }
 

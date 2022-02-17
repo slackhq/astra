@@ -51,3 +51,9 @@ services:
       - 9090:9090
     environment:
       - initialBuckets=test-s3-bucket
+
+  openzipkin:
+    image: 'openzipkin/zipkin-slim'
+    container_name: openzipkin
+    ports:
+      - 9411:9411

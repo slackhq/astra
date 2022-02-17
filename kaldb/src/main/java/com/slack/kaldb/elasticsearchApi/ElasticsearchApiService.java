@@ -8,6 +8,7 @@ import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
@@ -57,11 +58,16 @@ public class ElasticsearchApiService {
    *     doc</a>
    */
   @Post
+  @Blocking
   @Path("/_msearch")
   public HttpResponse multiSearch(String postBody) throws IOException {
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
     List<EsSearchResponse> responses = new ArrayList<>();
-    Tracing.current().tracer().currentSpanCustomizer().tag("postBody", postBody);
+    Tracing.current()
+        .tracer()
+        .currentSpanCustomizer()
+        .tag("postBody", postBody)
+        .tag("multiSearchRequests", String.valueOf(requests.size()));
 
     for (EsSearchRequest request : requests) {
       responses.add(doSearch(request));
@@ -75,10 +81,11 @@ public class ElasticsearchApiService {
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
-    span.tag("indexName", searchRequest.getIndexName());
-    span.tag("queryString", searchRequest.getQueryString());
-    span.tag("queryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
-    span.tag("queryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
+    span.tag("requestIndexName", searchRequest.getIndexName());
+    span.tag("requestQueryString", searchRequest.getQueryString());
+    span.tag("requestQueryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
+    span.tag("requestQueryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
+    span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
 
     // TODO remove join when we move to query service
     List<SearchResponseHit> responseHits = new ArrayList<>();
@@ -104,11 +111,19 @@ public class ElasticsearchApiService {
           }
         };
 
-    span.annotate("initiating search");
     searcher.search(searchRequest, responseObserver);
     KaldbSearch.SearchResult searchResult = searchResultFuture.join();
 
-    span.annotate("building response");
+    span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
+    span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
+    span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
+    span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
+    span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
+    span.tag("resultTotalNodes", String.valueOf(searchResult.getTotalNodes()));
+    span.tag("resultTotalSnapshots", String.valueOf(searchResult.getTotalNodes()));
+    span.tag(
+        "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
+
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     for (ByteString bytes : hitsByteList) {
       responseHits.add(SearchResponseHit.fromByteString(bytes));
