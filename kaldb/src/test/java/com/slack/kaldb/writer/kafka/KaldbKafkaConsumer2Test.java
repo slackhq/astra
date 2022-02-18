@@ -64,6 +64,7 @@ public class KaldbKafkaConsumer2Test {
 
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 
+      // Missing consumer throws an IllegalStateException.
       assertThatIllegalStateException()
           .isThrownBy(() -> testConsumer.getConsumerPositionForPartition());
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
