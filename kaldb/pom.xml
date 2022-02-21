@@ -22,7 +22,7 @@
         <!-- remove special databind version when jackson.version is the same -->
         <jackson.databind.version>${jackson.version}.1</jackson.databind.version>
         <lucene.version>8.4.1</lucene.version>
-        <curator.version>5.1.0</curator.version>
+        <curator.version>5.2.0</curator.version>
         <log4j.version>2.17.1</log4j.version>
         <aws.sdk.version>2.16.72</aws.sdk.version>
     </properties>
@@ -104,16 +104,34 @@
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-framework</artifactId>
             <version>${curator.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-client</artifactId>
             <version>${curator.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
             <version>${curator.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Lucene dependencies -->
