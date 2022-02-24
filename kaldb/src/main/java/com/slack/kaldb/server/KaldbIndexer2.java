@@ -20,10 +20,7 @@ import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.concurrent.RejectedExecutionException;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,12 +106,19 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
       KaldbConfigs.KafkaConfig kafkaConfig,
       MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
-    this.chunkManager = chunkManager;
     this.metadataStore = metadataStore;
     this.indexerConfig = indexerConfig;
     this.kafkaConfig = kafkaConfig;
     this.meterRegistry = meterRegistry;
-    this.kafkaConsumer = KaldbKafkaConsumer2.fromConfig(kafkaConfig);
+
+    // Create a chunk manager
+    this.chunkManager = chunkManager;
+    // set up indexing pipelne
+    LogMessageTransformer messageTransformer =
+        dataTransformerMap.get(indexerConfig.getDataTransformer());
+    logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
+    this.kafkaConsumer =
+        KaldbKafkaConsumer2.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
 
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
@@ -130,9 +134,6 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     long startOffset = indexerPreStart();
 
     // TODO: Set this value as the starting offset for Kafka consumer.
-    LogMessageTransformer messageTransformer =
-        dataTransformerMap.get(indexerConfig.getDataTransformer());
-    logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
     // TODO: Wait for other services to be ready before we start consuming?
     // kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
     // TODO: Need to wait for chunk manager?
@@ -173,13 +174,10 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     return startOffset;
   }
 
-  @Override
   protected void run() throws Exception {
     while (isRunning()) {
-      // TODO: Refactor as a function into KaldbKafkaConsumer2?
       try {
-        long kafkaPollTimeoutMs = 100;
-        consumeMessages(kafkaPollTimeoutMs);
+        kafkaConsumer.consumeMessages();
       } catch (RejectedExecutionException e) {
         // This case shouldn't happen since there is only one thread queuing tasks here and we check
         // that the queue is empty before polling kafka.
@@ -194,28 +192,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
         new RuntimeHalterImpl().handleFatal(e);
       }
     }
-
     kafkaConsumer.close();
-  }
-
-  void consumeMessages(long kafkaPollTimeoutMs) throws IOException {
-    ConsumerRecords<String, byte[]> records =
-        kafkaConsumer.getConsumer().poll(Duration.ofMillis(kafkaPollTimeoutMs));
-    int recordCount = records.count();
-    LOG.debug("Fetched records={}", recordCount);
-    if (recordCount > 0) {
-      recordsReceivedCounter.increment(recordCount);
-      int recordFailures = 0;
-      for (ConsumerRecord<String, byte[]> record : records) {
-        if (!logMessageWriterImpl.insertRecord(record)) recordFailures++;
-      }
-      recordsFailedCounter.increment(recordFailures);
-      LOG.debug(
-          "Processed {} records. Success: {}, Failed: {}",
-          recordCount,
-          recordCount - recordFailures,
-          recordFailures);
-    }
   }
 
   /**

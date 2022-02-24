@@ -3,11 +3,19 @@ package com.slack.kaldb.writer.kafka;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -20,8 +28,13 @@ import org.slf4j.LoggerFactory;
  */
 public class KaldbKafkaConsumer2 {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer2.class);
+  private static final int KAFKA_POLL_TIMEOUT_MS = 100;
+  private final LogMessageWriterImpl logMessageWriterImpl;
 
-  public static KaldbKafkaConsumer2 fromConfig(KaldbConfigs.KafkaConfig kafkaCfg) {
+  public static KaldbKafkaConsumer2 fromConfig(
+      KaldbConfigs.KafkaConfig kafkaCfg,
+      LogMessageWriterImpl logMessageWriter,
+      MeterRegistry meterRegistry) {
     return new KaldbKafkaConsumer2(
         kafkaCfg.getKafkaTopic(),
         kafkaCfg.getKafkaTopicPartition(),
@@ -29,7 +42,9 @@ public class KaldbKafkaConsumer2 {
         kafkaCfg.getKafkaClientGroup(),
         kafkaCfg.getEnableKafkaAutoCommit(),
         kafkaCfg.getKafkaAutoCommitInterval(),
-        kafkaCfg.getKafkaSessionTimeout());
+        kafkaCfg.getKafkaSessionTimeout(),
+        logMessageWriter,
+        meterRegistry);
   }
 
   private static Properties makeKafkaConsumerProps(
@@ -58,14 +73,14 @@ public class KaldbKafkaConsumer2 {
     return props;
   }
 
-  // TODO: Keep this private?
-  public KafkaConsumer<String, byte[]> getConsumer() {
-    return consumer;
-  }
-
-  private final KafkaConsumer<String, byte[]> consumer;
+  private final KafkaConsumer<String, byte[]> kafkaConsumer;
   private final TopicPartition topicPartition;
   private final Properties consumerProps;
+
+  public static final String RECORDS_RECEIVED_COUNTER = "records_received";
+  public static final String RECORDS_FAILED_COUNTER = "records_failed";
+  private final Counter recordsReceivedCounter;
+  private final Counter recordsFailedCounter;
 
   // TODO: Instead of passing each property as a field, consider defining props in config file.
   public KaldbKafkaConsumer2(
@@ -75,7 +90,9 @@ public class KaldbKafkaConsumer2 {
       String kafkaClientGroup,
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout) {
+      String kafkaSessionTimeout,
+      LogMessageWriterImpl logMessageWriterImpl,
+      MeterRegistry meterRegistry) {
 
     checkArgument(
         kafkaTopic != null && !kafkaTopic.isEmpty(), "Kafka topic can't be null or " + "empty");
@@ -113,6 +130,11 @@ public class KaldbKafkaConsumer2 {
     int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
     topicPartition = new TopicPartition(kafkaTopic, kafkaTopicPartition);
 
+    recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
+    recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
+
+    this.logMessageWriterImpl = logMessageWriterImpl;
+
     // Create kafka consumer
     consumerProps =
         makeKafkaConsumerProps(
@@ -121,7 +143,7 @@ public class KaldbKafkaConsumer2 {
             enableKafkaAutoCommit,
             kafkaAutoCommitInterval,
             kafkaSessionTimeout);
-    consumer = new KafkaConsumer<>(consumerProps);
+    kafkaConsumer = new KafkaConsumer<>(consumerProps);
   }
 
   public void prepConsumerForConsumption(long startOffset) {
@@ -129,16 +151,18 @@ public class KaldbKafkaConsumer2 {
 
     // Consume from a partition.
     // TODO: Use a sticky consumer instead of assign?
-    consumer.assign(Collections.singletonList(topicPartition));
+    kafkaConsumer.assign(Collections.singletonList(topicPartition));
     LOG.info("Assigned to topicPartition: {}", topicPartition);
     // TODO: Only when statOffset is positive. Also, consumer group exists.
-    consumer.seek(topicPartition, startOffset);
+    if (startOffset > 0) {
+      kafkaConsumer.seek(topicPartition, startOffset);
+    }
     LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffset);
   }
 
   public void close() {
     LOG.info("Closing kafka consumer.");
-    consumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
+    kafkaConsumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
     LOG.info("Closed kafka consumer.");
   }
 
@@ -147,7 +171,7 @@ public class KaldbKafkaConsumer2 {
   }
 
   public long getEndOffSetForPartition(TopicPartition topicPartition) {
-    return consumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+    return kafkaConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
   }
 
   public long getConsumerPositionForPartition() {
@@ -155,6 +179,35 @@ public class KaldbKafkaConsumer2 {
   }
 
   public long getConsumerPositionForPartition(TopicPartition topicPartition) {
-    return consumer.position(topicPartition);
+    return kafkaConsumer.position(topicPartition);
+  }
+
+  public void consumeMessages() throws IOException {
+    consumeMessages(KAFKA_POLL_TIMEOUT_MS);
+  }
+
+  public void consumeMessages(long kafkaPollTimeoutMs) throws IOException {
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+    int recordCount = records.count();
+    LOG.debug("Fetched records={}", recordCount);
+    if (recordCount > 0) {
+      recordsReceivedCounter.increment(recordCount);
+      int recordFailures = 0;
+      for (ConsumerRecord<String, byte[]> record : records) {
+        if (!logMessageWriterImpl.insertRecord(record)) recordFailures++;
+      }
+      recordsFailedCounter.increment(recordFailures);
+      LOG.debug(
+          "Processed {} records. Success: {}, Failed: {}",
+          recordCount,
+          recordCount - recordFailures,
+          recordFailures);
+    }
+  }
+
+  @VisibleForTesting
+  public KafkaConsumer<String, byte[]> getKafkaConsumer() {
+    return kafkaConsumer;
   }
 }
