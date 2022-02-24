@@ -19,6 +19,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -27,6 +28,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
@@ -62,7 +64,7 @@ public class KaldbIndexer2Test {
 
   // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
   private static final int TEST_KAFKA_PARTITION = 0;
-
+  private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
@@ -79,6 +81,21 @@ public class KaldbIndexer2Test {
 
   @Before
   public void setUp() throws Exception {
+    // TODO: Remove config initialization once we no longer use KaldbConfig directly.
+    // Initialize kaldb config.
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        KaldbConfigUtil.makeKaldbConfig(
+            "localhost:90901",
+            0,
+            TEST_KAFKA_TOPIC,
+            TEST_KAFKA_PARTITION,
+            KALDB_TEST_CLIENT,
+            TEST_S3_BUCKET,
+            8081,
+            "",
+            "");
+    KaldbConfig.initFromConfigObject(kaldbCfg);
+
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =

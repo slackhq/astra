@@ -17,7 +17,6 @@ import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.RejectedExecutionException;
@@ -68,8 +67,6 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
 
   public static final String RECORDS_RECEIVED_COUNTER = "records_received";
   public static final String RECORDS_FAILED_COUNTER = "records_failed";
-  private final Counter recordsReceivedCounter;
-  private final Counter recordsFailedCounter;
   private LogMessageWriterImpl logMessageWriterImpl;
 
   /**
@@ -119,9 +116,6 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
     this.kafkaConsumer =
         KaldbKafkaConsumer2.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
-
-    recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
-    recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
   }
 
   @Override
@@ -162,7 +156,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
             partitionId,
             maxOffsetDelay,
             meterRegistry);
-    // TODO: Pass this valve in?
+    // TODO: Pass this value in?
     // TODO: Check consumer group exists.
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
     long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
