@@ -109,3 +109,25 @@ message RecoveryTaskMetadata {
   // Created timestamp
   int64 created_time_epoch_ms = 5;
 }
+
+message ServiceMetadata {
+  // Unique ID for service record
+  string name = 1;
+
+  // List of configured partitions
+  repeated ServicePartitionMetadata partitions = 2;
+}
+
+message ServicePartitionMetadata {
+  // Name of the partition
+  string name = 1;
+
+  // Partition throughput max
+  int64 throughput_bytes = 2;
+
+  // Start time this partition received traffic
+  int64 start_time_epoch_ms = 3;
+
+  // End time this partition received traffic
+  int64 end_time_epoch_ms = 4;
+}
