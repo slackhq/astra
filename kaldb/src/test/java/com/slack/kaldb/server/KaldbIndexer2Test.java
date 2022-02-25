@@ -31,6 +31,7 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -44,8 +45,11 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbIndexer2Test {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2Test.class);
 
   // TODO: Test indexer start when no consumer group exists. Should start from earliest offset.
   // TODO: Test start indexing at an existing offset.
@@ -143,6 +147,7 @@ public class KaldbIndexer2Test {
     if (server != null) {
       server.stop().get(30, TimeUnit.SECONDS);
     }
+    chunkManagerUtil.close();
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
       kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -193,6 +198,7 @@ public class KaldbIndexer2Test {
             chunkManager, metadataStore, makeIndexerConfig(), makeKafkaConfig(), metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     GrpcServiceBuilder searchBuilder =
@@ -230,9 +236,6 @@ public class KaldbIndexer2Test {
     assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
     assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
-
-    chunkManager.stopAsync();
-    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     // TODO: delete expired data cleanly.
   }
