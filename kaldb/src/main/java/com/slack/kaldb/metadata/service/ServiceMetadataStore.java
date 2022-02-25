@@ -13,7 +13,7 @@ public class ServiceMetadataStore extends PersistentMutableMetadataStore<Service
   public ServiceMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
     super(
         shouldCache,
-        false,
+        true,
         SERVICE_METADATA_STORE_ZK_PATH,
         metadataStore,
         new ServiceMetadataSerializer(),

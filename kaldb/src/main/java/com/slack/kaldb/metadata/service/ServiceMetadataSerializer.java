@@ -10,12 +10,11 @@ import java.util.stream.Collectors;
 public class ServiceMetadataSerializer implements MetadataSerializer<ServiceMetadata> {
   private static ServiceMetadata fromServiceMetadataProto(
       Metadata.ServiceMetadata serviceMetadataProto) {
-
     List<ServicePartitionMetadata> servicePartitionMetadata =
         serviceMetadataProto
             .getPartitionsList()
             .stream()
-            .map(ServicePartitionMetadataSerializer::fromServicePartitionMetadataProto)
+            .map(ServicePartitionMetadata::fromServicePartitionMetadataProto)
             .collect(Collectors.toList());
 
     return new ServiceMetadata(serviceMetadataProto.getName(), servicePartitionMetadata);
@@ -26,7 +25,7 @@ public class ServiceMetadataSerializer implements MetadataSerializer<ServiceMeta
         metadata
             .partitionList
             .stream()
-            .map(ServicePartitionMetadataSerializer::toServicePartitionMetadataProto)
+            .map(ServicePartitionMetadata::toServicePartitionMetadataProto)
             .collect(Collectors.toList());
 
     return Metadata.ServiceMetadata.newBuilder()
