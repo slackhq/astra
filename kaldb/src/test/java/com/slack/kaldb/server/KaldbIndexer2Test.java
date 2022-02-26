@@ -19,6 +19,7 @@ import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
+import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.config.KaldbConfig;
@@ -205,7 +206,7 @@ public class KaldbIndexer2Test {
     // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
-    consumeMessagesAndSearchMessagesTest();
+    consumeMessagesAndSearchMessagesTest(100, 1);
   }
 
   @Test
@@ -238,7 +239,7 @@ public class KaldbIndexer2Test {
     // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
-    consumeMessagesAndSearchMessagesTest();
+    consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted.
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
@@ -278,10 +279,56 @@ public class KaldbIndexer2Test {
     // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
-    consumeMessagesAndSearchMessagesTest();
+    consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted.
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
+  }
+
+  @Test
+  public void testIndexerStartsWithPreviousOffset() throws Exception {
+    startKafkaAndSearchServer();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 50;
+    SnapshotMetadata livePartition0 =
+        new SnapshotMetadata(
+            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition0);
+
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+    snapshotMetadataStore.createSync(livePartition1);
+
+    final SnapshotMetadata partition0 =
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(partition0);
+
+    assertThat(snapshotMetadataStore.listSync())
+        .containsOnly(livePartition1, livePartition0, partition0);
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer2(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(),
+            makeKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Should be 0?
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    consumeMessagesAndSearchMessagesTest(49, 0);
+
+    // Live snapshot is deleted.
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
   }
 
   private void startKafkaAndSearchServer() throws Exception {
@@ -307,21 +354,35 @@ public class KaldbIndexer2Test {
     armeriaServer.start().get(10, TimeUnit.SECONDS);
   }
 
-  private void consumeMessagesAndSearchMessagesTest() {
-    // No need to commit the active chunk since the last chunk is already closed.
-    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
+  private void consumeMessagesAndSearchMessagesTest(
+      int messagesReceived, double rolloversCompleted) {
+    // commit the active chunk if it exists, else it was rolled over.
+    final ReadWriteChunk<LogMessage> activeChunk = chunkManagerUtil.chunkManager.getActiveChunk();
+    if (activeChunk != null) {
+      activeChunk.commit();
+    }
+
+    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
     assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
+    if (rolloversCompleted > 0) {
+      assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry))
+          .isEqualTo(rolloversCompleted);
+      await()
+          .until(
+              () ->
+                  getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)
+                      == rolloversCompleted);
+      assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    }
+    assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry))
+        .isEqualTo(messagesReceived);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     KaldbSearch.SearchResult searchResponse =
-        searchUsingGrpcApi("Message1", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
+        searchUsingGrpcApi("Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
 
     // Validate search response
     assertThat(searchResponse.getHitsCount()).isEqualTo(1);
