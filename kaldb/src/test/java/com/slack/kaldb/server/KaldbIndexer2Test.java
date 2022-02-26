@@ -193,6 +193,14 @@ public class KaldbIndexer2Test {
     // Produce messages to kafka, so the indexer can consume them.
     produceMessagesToKafka(broker, startTime);
 
+    GrpcServiceBuilder searchBuilder =
+        GrpcService.builder()
+            .addService(new KaldbLocalQueryService<>(chunkManager))
+            .enableUnframedRequests(true);
+    server = sb.service(searchBuilder.build()).build();
+    // wait at most 10 seconds to start before throwing an exception
+    server.start().get(10, TimeUnit.SECONDS);
+
     // Empty consumer offser since there is no prior consumer.
     kaldbIndexer =
         new KaldbIndexer2(
@@ -202,21 +210,13 @@ public class KaldbIndexer2Test {
     // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
-    GrpcServiceBuilder searchBuilder =
-        GrpcService.builder()
-            .addService(new KaldbLocalQueryService<>(chunkManager))
-            .enableUnframedRequests(true);
-    server = sb.service(searchBuilder.build()).build();
-    // wait at most 10 seconds to start before throwing an exception
-    server.start().get(10, TimeUnit.SECONDS);
-
     // No need to commit the active chunk since the last chunk is already closed.
-    await().until(() -> chunkManager.getChunkList().size() == 1);
     await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry) == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(100);
     assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
