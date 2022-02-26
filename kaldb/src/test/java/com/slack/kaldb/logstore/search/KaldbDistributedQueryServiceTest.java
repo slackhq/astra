@@ -43,8 +43,8 @@ import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -91,9 +91,9 @@ public class KaldbDistributedQueryServiceTest {
   private static EphemeralKafkaBroker broker;
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
-  @BeforeClass
+  @Before
   // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
-  public static void initialize() throws Exception {
+  public void initialize() throws Exception {
     Tracing.newBuilder().build();
 
     kafkaServer = new TestKafkaServer();
@@ -141,6 +141,12 @@ public class KaldbDistributedQueryServiceTest {
             100,
             searchContext1,
             metadataStore);
+
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    int indexed1Count = produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1);
+
     indexingServiceManager1 =
         newIndexingServer(
             chunkManagerUtil1,
@@ -154,11 +160,6 @@ public class KaldbDistributedQueryServiceTest {
                 kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed1Count = produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1);
     await()
         .until(
             () -> {
@@ -196,6 +197,11 @@ public class KaldbDistributedQueryServiceTest {
             100,
             searchContext2,
             metadataStore);
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime2 =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    int indexed2Count = produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2);
+
     indexingServiceManager2 =
         newIndexingServer(
             chunkManagerUtil2,
@@ -209,11 +215,6 @@ public class KaldbDistributedQueryServiceTest {
                 kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime2 =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed2Count = produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2);
     await()
         .until(
             () -> {
@@ -304,8 +305,8 @@ public class KaldbDistributedQueryServiceTest {
     return serviceManager;
   }
 
-  @AfterClass
-  public static void shutdownServer() throws Exception {
+  @After
+  public void shutdownServer() throws Exception {
     if (indexingServiceManager1 != null) {
       indexingServiceManager1.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     }
@@ -384,6 +385,11 @@ public class KaldbDistributedQueryServiceTest {
             100,
             searchContext3,
             metadataStore);
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime3 =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    int indexed3Count = produceMessagesToKafka(broker, startTime3, TEST_KAFKA_TOPIC_3);
+
     indexingServiceManager3 =
         newIndexingServer(
             chunkManagerUtil3,
@@ -397,11 +403,6 @@ public class KaldbDistributedQueryServiceTest {
                 kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime3 =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed3Count = produceMessagesToKafka(broker, startTime3, TEST_KAFKA_TOPIC_3);
     await()
         .until(
             () -> {
