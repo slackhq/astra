@@ -56,16 +56,13 @@ import org.slf4j.LoggerFactory;
 public class KaldbIndexer2Test {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2Test.class);
 
-  // TODO: Test start indexing at an existing offset.
   // TODO: Test recovery task creation and indexing from a head offset.
   // TODO: Test exception in pre-startup
   // TODO: Test exception in actual start up method.
   // TODO: Ensure clean shutdown happens on indexer shutdown.
   // TODO: Ensure end to end query API with indexer and query:
-  // testIndexFromKafkaSearchViaGrpcSearchApi
   // TODO: Ensure snapshots are uploaded when indexer shut down happens.
   // TODO: Ensure Closing the kafka consumer twice is ok.
-  // TODO: Ensure live node is cleaned up also.
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
 
   private static final String TEST_KAFKA_TOPIC = "test-topic";
@@ -146,9 +143,9 @@ public class KaldbIndexer2Test {
         .build();
   }
 
-  private KaldbConfigs.IndexerConfig makeIndexerConfig() {
+  private KaldbConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
     return KaldbConfigs.IndexerConfig.newBuilder()
-        .setMaxOffsetDelay(1000)
+        .setMaxOffsetDelay(maxOffsetDelay)
         .setDataTransformer("api_log")
         .build();
   }
@@ -199,7 +196,11 @@ public class KaldbIndexer2Test {
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
         new KaldbIndexer2(
-            chunkManager, zkMetadataStore, makeIndexerConfig(), makeKafkaConfig(), metricsRegistry);
+            chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(1000),
+            makeKafkaConfig(),
+            metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -231,7 +232,7 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(),
+            makeIndexerConfig(1000),
             makeKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -271,7 +272,7 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(),
+            makeIndexerConfig(1000),
             makeKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -317,7 +318,7 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(),
+            makeIndexerConfig(1000),
             makeKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
