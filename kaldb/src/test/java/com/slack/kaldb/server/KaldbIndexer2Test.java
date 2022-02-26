@@ -25,6 +25,7 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -191,12 +192,13 @@ public class KaldbIndexer2Test {
   public void testIndexFreshConsumerKafkaSearchViaGrpcSearchApi() throws Exception {
     // Start kafka, produce messages to it and start a search server.
     startKafkaAndSearchServer();
-    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
         new KaldbIndexer2(
-            chunkManager,
+            chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(1000),
             makeKafkaConfig(),
@@ -208,12 +210,16 @@ public class KaldbIndexer2Test {
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
   }
 
   @Test
   public void testDeleteStaleSnapshotAndStartConsumerKafkaSearchViaGrpcSearchApi()
       throws Exception {
     startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -244,11 +250,14 @@ public class KaldbIndexer2Test {
 
     // Live snapshot is deleted.
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
   }
 
   @Test
   public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
     startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -284,11 +293,14 @@ public class KaldbIndexer2Test {
 
     // Live snapshot is deleted.
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
   }
 
   @Test
   public void testIndexerStartsWithPreviousOffset() throws Exception {
     startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -330,6 +342,63 @@ public class KaldbIndexer2Test {
 
     // Live snapshot is deleted.
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+  }
+
+  @Test
+  public void testIndexerCreatesRecoveryTask() throws Exception {
+    startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 30;
+    SnapshotMetadata livePartition0 =
+        new SnapshotMetadata(
+            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition0);
+
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+    snapshotMetadataStore.createSync(livePartition1);
+
+    final SnapshotMetadata partition0 =
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(partition0);
+
+    assertThat(snapshotMetadataStore.listSync())
+        .containsOnly(livePartition1, livePartition0, partition0);
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer2(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(50),
+            makeKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Should be 0?
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // Produce more messages since the recovery task is created for head.
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime);
+
+    consumeMessagesAndSearchMessagesTest(100, 1);
+
+    // Live snapshot is deleted, recovery task is created.
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
+    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
+    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSync().get(0);
+    assertThat(recoveryTask1.startOffset).isEqualTo(31);
+    assertThat(recoveryTask1.endOffset).isEqualTo(99);
+    assertThat(recoveryTask1.partitionId).isEqualTo("0");
   }
 
   private void startKafkaAndSearchServer() throws Exception {
