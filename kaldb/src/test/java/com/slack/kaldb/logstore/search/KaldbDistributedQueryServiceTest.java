@@ -2,6 +2,8 @@ package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,16 +27,13 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
-import com.slack.kaldb.server.KaldbIndexer;
+import com.slack.kaldb.server.KaldbIndexer2;
 import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
 import com.slack.kaldb.server.TestingArmeriaServer;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -143,7 +142,16 @@ public class KaldbDistributedQueryServiceTest {
             searchContext1,
             metadataStore);
     indexingServiceManager1 =
-        newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
+        newIndexingServer(
+            chunkManagerUtil1,
+            kaldbConfig1,
+            indexerMetricsRegistry1,
+            0,
+            makeKafkaConfig(
+                TEST_KAFKA_TOPIC_1,
+                0,
+                KALDB_TEST_CLIENT_1,
+                kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
@@ -189,7 +197,16 @@ public class KaldbDistributedQueryServiceTest {
             searchContext2,
             metadataStore);
     indexingServiceManager2 =
-        newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
+        newIndexingServer(
+            chunkManagerUtil2,
+            kaldbConfig2,
+            indexerMetricsRegistry2,
+            3000,
+            makeKafkaConfig(
+                TEST_KAFKA_TOPIC_2,
+                0,
+                KALDB_TEST_CLIENT_2,
+                kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
 
@@ -237,24 +254,25 @@ public class KaldbDistributedQueryServiceTest {
       ChunkManagerUtil<LogMessage> chunkManagerUtil,
       KaldbConfigs.KaldbConfig kaldbConfig,
       SimpleMeterRegistry meterRegistry,
-      int waitForSearchMs)
+      int waitForSearchMs,
+      KaldbConfigs.KafkaConfig kafkaConfig)
       throws TimeoutException {
 
     HashSet<Service> services = new HashSet<>();
 
-    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
-    LogMessageWriterImpl logMessageWriterImpl =
-        new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
-    KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
-
-    KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
+    KaldbIndexer2 indexer =
+        new KaldbIndexer2(
+            chunkManagerUtil.chunkManager,
+            metadataStore,
+            makeIndexerConfig(1000, "api_log"),
+            kafkaConfig,
+            meterRegistry);
 
     services.add(chunkManagerUtil.chunkManager);
-    services.add(kafkaWriter);
     services.add(indexer);
 
     KaldbLocalQueryService<LogMessage> service =
-        new KaldbLocalQueryService<>(indexer.getChunkManager());
+        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
     Server server;
     if (waitForSearchMs > 0) {
       KaldbTimeoutLocalQueryService wrapperService =
@@ -367,7 +385,16 @@ public class KaldbDistributedQueryServiceTest {
             searchContext3,
             metadataStore);
     indexingServiceManager3 =
-        newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
+        newIndexingServer(
+            chunkManagerUtil3,
+            kaldbConfig3,
+            indexerMetricsRegistry3,
+            0,
+            makeKafkaConfig(
+                TEST_KAFKA_TOPIC_3,
+                0,
+                KALDB_TEST_CLIENT_3,
+                kafkaServer.getBroker().getBrokerList().get()));
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
 

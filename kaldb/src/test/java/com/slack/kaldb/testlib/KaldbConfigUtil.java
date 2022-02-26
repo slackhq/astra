@@ -88,4 +88,25 @@ public class KaldbConfigUtil {
         .setMetadataStoreConfig(metadataStoreConfig)
         .build();
   }
+
+  public static KaldbConfigs.KafkaConfig makeKafkaConfig(
+      String kafkaTopic, int topicPartition, String kafkaClient, String brokerList) {
+    return KaldbConfigs.KafkaConfig.newBuilder()
+        .setKafkaTopic(kafkaTopic)
+        .setKafkaTopicPartition(String.valueOf(topicPartition))
+        .setKafkaBootStrapServers(brokerList)
+        .setKafkaClientGroup(kafkaClient)
+        .setEnableKafkaAutoCommit("true")
+        .setKafkaAutoCommitInterval("5000")
+        .setKafkaSessionTimeout("30000")
+        .build();
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int maxOffsetDelay, String dataTransformer) {
+    return KaldbConfigs.IndexerConfig.newBuilder()
+        .setMaxOffsetDelay(maxOffsetDelay)
+        .setDataTransformer(dataTransformer)
+        .build();
+  }
 }

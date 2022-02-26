@@ -4,6 +4,8 @@ import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +40,7 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -126,23 +128,12 @@ public class KaldbIndexer2Test {
     kafkaServer = new TestKafkaServer();
   }
 
-  private KaldbConfigs.KafkaConfig makeKafkaConfig() {
-    return KaldbConfigs.KafkaConfig.newBuilder()
-        .setKafkaTopic(TEST_KAFKA_TOPIC)
-        .setKafkaTopicPartition(String.valueOf(TEST_KAFKA_PARTITION))
-        .setKafkaBootStrapServers(kafkaServer.getBroker().getBrokerList().get())
-        .setKafkaClientGroup(KALDB_TEST_CLIENT)
-        .setEnableKafkaAutoCommit("true")
-        .setKafkaAutoCommitInterval("5000")
-        .setKafkaSessionTimeout("30000")
-        .build();
-  }
-
-  private KaldbConfigs.IndexerConfig makeIndexerConfig(int maxOffsetDelay) {
-    return KaldbConfigs.IndexerConfig.newBuilder()
-        .setMaxOffsetDelay(maxOffsetDelay)
-        .setDataTransformer("api_log")
-        .build();
+  private KaldbConfigs.KafkaConfig getKafkaConfig() {
+    return makeKafkaConfig(
+        TEST_KAFKA_TOPIC,
+        TEST_KAFKA_PARTITION,
+        KALDB_TEST_CLIENT,
+        kafkaServer.getBroker().getBrokerList().get());
   }
 
   @After
@@ -194,8 +185,8 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000),
-            makeKafkaConfig(),
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -232,8 +223,8 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000),
-            makeKafkaConfig(),
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -275,8 +266,8 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000),
-            makeKafkaConfig(),
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -324,8 +315,8 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000),
-            makeKafkaConfig(),
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -373,8 +364,8 @@ public class KaldbIndexer2Test {
         new KaldbIndexer2(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(50),
-            makeKafkaConfig(),
+            makeIndexerConfig(50, "api_log"),
+            getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -439,9 +430,9 @@ public class KaldbIndexer2Test {
                       == rolloversCompleted);
       assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     }
-    assertThat(getCount(KaldbKafkaWriter.RECORDS_RECEIVED_COUNTER, metricsRegistry))
+    assertThat(getCount(KaldbKafkaConsumer2.RECORDS_RECEIVED_COUNTER, metricsRegistry))
         .isEqualTo(messagesReceived);
-    assertThat(getCount(KaldbKafkaWriter.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(KaldbKafkaConsumer2.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toEpochMilli();

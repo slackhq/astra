@@ -65,8 +65,6 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
 
   private final IndexingChunkManager<LogMessage> chunkManager;
 
-  public static final String RECORDS_RECEIVED_COUNTER = "records_received";
-  public static final String RECORDS_FAILED_COUNTER = "records_failed";
   private LogMessageWriterImpl logMessageWriterImpl;
 
   /**
