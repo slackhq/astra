@@ -51,13 +51,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class KaldbIndexer2Test {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2Test.class);
-
-  // TODO: Test recovery task creation and indexing from a head offset.
   // TODO: Test exception in pre-startup
   // TODO: Test exception in actual start up method.
   // TODO: Ensure clean shutdown happens on indexer shutdown.
@@ -67,7 +62,6 @@ public class KaldbIndexer2Test {
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
 
   private static final String TEST_KAFKA_TOPIC = "test-topic";
-
   // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
   private static final int TEST_KAFKA_PARTITION = 0;
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
