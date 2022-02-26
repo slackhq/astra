@@ -244,6 +244,46 @@ public class KaldbIndexer2Test {
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
   }
 
+  @Test
+  public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
+    startKafkaAndSearchServer();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 50;
+    SnapshotMetadata livePartition0 =
+        new SnapshotMetadata(
+            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition0);
+
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer2(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(),
+            makeKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Should be 0?
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    consumeMessagesAndSearchMessagesTest();
+
+    // Live snapshot is deleted.
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
+  }
+
   private void startKafkaAndSearchServer() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
