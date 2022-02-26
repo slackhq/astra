@@ -228,8 +228,6 @@ public class RecoveryTaskCreator {
 
   private int deleteSnapshots(
       SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshotsToBeDeleted) {
-    LOG.info("Deleting {} snapshots: {}", snapshotsToBeDeleted.size(), snapshotsToBeDeleted);
-
     AtomicInteger successCounter = new AtomicInteger(0);
     List<? extends ListenableFuture<?>> deletionFutures =
         snapshotsToBeDeleted

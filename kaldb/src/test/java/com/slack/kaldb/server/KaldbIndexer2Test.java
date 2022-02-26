@@ -31,7 +31,6 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -177,7 +176,7 @@ public class KaldbIndexer2Test {
   }
 
   @Test
-  public void testIndexFromKafkaSearchViaGrpcSearchApi() throws Exception {
+  public void testIndexFreshConsumerKafkaSearchViaGrpcSearchApi() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
@@ -191,8 +190,10 @@ public class KaldbIndexer2Test {
     sb.http(8081);
     sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
 
-    // Returns -1. So, set some metadata so we don't throw any errors.
+    // Produce messages to kafka, so the indexer can consume them.
+    produceMessagesToKafka(broker, startTime);
 
+    // Empty consumer offser since there is no prior consumer.
     kaldbIndexer =
         new KaldbIndexer2(
             chunkManager, metadataStore, makeIndexerConfig(), makeKafkaConfig(), metricsRegistry);
@@ -206,12 +207,8 @@ public class KaldbIndexer2Test {
             .addService(new KaldbLocalQueryService<>(chunkManager))
             .enableUnframedRequests(true);
     server = sb.service(searchBuilder.build()).build();
-
     // wait at most 10 seconds to start before throwing an exception
     server.start().get(10, TimeUnit.SECONDS);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    produceMessagesToKafka(broker, startTime);
 
     // No need to commit the active chunk since the last chunk is already closed.
     await().until(() -> chunkManager.getChunkList().size() == 1);

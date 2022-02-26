@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -146,16 +147,20 @@ public class KaldbKafkaConsumer2 {
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
   }
 
+  /** Start consuming the partition from an offset. */
   public void prepConsumerForConsumption(long startOffset) {
     LOG.info("Starting kafka consumer.");
 
     // Consume from a partition.
-    // TODO: Use a sticky consumer instead of assign?
     kafkaConsumer.assign(Collections.singletonList(topicPartition));
     LOG.info("Assigned to topicPartition: {}", topicPartition);
-    // TODO: Only when statOffset is positive. Also, consumer group exists.
+    // Offset is negative when the partition was not consumed before, so start consumption from
+    // beginning of the stream. If the offset is positive, start consuming from there.
+    // TODO: What happens when that offset doesn't exist?
     if (startOffset > 0) {
       kafkaConsumer.seek(topicPartition, startOffset);
+    } else {
+      kafkaConsumer.seekToBeginning(List.of(topicPartition));
     }
     LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffset);
   }

@@ -148,7 +148,7 @@ public class KaldbKafkaConsumer2Test {
     }
 
     @Test
-    public void testTimeoutConsumer() throws Exception {
+    public void testThrowingConsumer() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
       final Instant startTime =
