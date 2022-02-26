@@ -3,10 +3,12 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -22,6 +24,9 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -50,7 +55,6 @@ import org.slf4j.LoggerFactory;
 public class KaldbIndexer2Test {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2Test.class);
 
-  // TODO: Test indexer start when no consumer group exists. Should start from earliest offset.
   // TODO: Test start indexing at an existing offset.
   // TODO: Test recovery task creation and indexing from a head offset.
   // TODO: Test exception in pre-startup
@@ -74,13 +78,18 @@ public class KaldbIndexer2Test {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private static final Instant startTime =
+      LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private KaldbIndexer2 kaldbIndexer;
   private SimpleMeterRegistry metricsRegistry;
-  private Server server;
+  private Server armeriaServer;
   private TestKafkaServer kafkaServer;
   private TestingServer testZKServer;
-  private MetadataStore metadataStore;
+  private MetadataStore zkMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private RecoveryTaskMetadataStore recoveryTaskStore;
 
   @Before
   public void setUp() throws Exception {
@@ -117,7 +126,9 @@ public class KaldbIndexer2Test {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
+    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
 
     kafkaServer = new TestKafkaServer();
   }
@@ -143,8 +154,8 @@ public class KaldbIndexer2Test {
 
   @After
   public void tearDown() throws Exception {
-    if (server != null) {
-      server.stop().get(30, TimeUnit.SECONDS);
+    if (armeriaServer != null) {
+      armeriaServer.stop().get(30, TimeUnit.SECONDS);
     }
     chunkManagerUtil.close();
     if (kaldbIndexer != null) {
@@ -152,6 +163,9 @@ public class KaldbIndexer2Test {
       kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     kafkaServer.close();
+    snapshotMetadataStore.close();
+    recoveryTaskStore.close();
+    zkMetadataStore.close();
     testZKServer.close();
   }
 
@@ -172,17 +186,68 @@ public class KaldbIndexer2Test {
   }
 
   private String uri() {
-    return "gproto+http://127.0.0.1:" + server.activeLocalPort() + '/';
+    return "gproto+http://127.0.0.1:" + armeriaServer.activeLocalPort() + '/';
   }
 
   @Test
   public void testIndexFreshConsumerKafkaSearchViaGrpcSearchApi() throws Exception {
+    // Start kafka, produce messages to it and start a search server.
+    startKafkaAndSearchServer();
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer2(
+            chunkManager, zkMetadataStore, makeIndexerConfig(), makeKafkaConfig(), metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // TODO: Should be 0?
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    consumeMessagesAndSearchMessagesTest();
+  }
+
+  @Test
+  public void testDeleteStaleSnapshotAndStartConsumerKafkaSearchViaGrpcSearchApi()
+      throws Exception {
+    startKafkaAndSearchServer();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 50;
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer2(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(),
+            makeKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    // TODO: Should be 0?
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    consumeMessagesAndSearchMessagesTest();
+
+    // Live snapshot is deleted.
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+  }
+
+  private void startKafkaAndSearchServer() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
     // Create an indexer, an armeria server and register the grpc service.
     ServerBuilder sb = Server.builder();
@@ -197,22 +262,15 @@ public class KaldbIndexer2Test {
         GrpcService.builder()
             .addService(new KaldbLocalQueryService<>(chunkManager))
             .enableUnframedRequests(true);
-    server = sb.service(searchBuilder.build()).build();
+    armeriaServer = sb.service(searchBuilder.build()).build();
     // wait at most 10 seconds to start before throwing an exception
-    server.start().get(10, TimeUnit.SECONDS);
+    armeriaServer.start().get(10, TimeUnit.SECONDS);
+  }
 
-    // Empty consumer offser since there is no prior consumer.
-    kaldbIndexer =
-        new KaldbIndexer2(
-            chunkManager, metadataStore, makeIndexerConfig(), makeKafkaConfig(), metricsRegistry);
-    kaldbIndexer.startAsync();
-    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Should be 0?
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
-
+  private void consumeMessagesAndSearchMessagesTest() {
     // No need to commit the active chunk since the last chunk is already closed.
     await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == 100);
-    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -233,7 +291,5 @@ public class KaldbIndexer2Test {
     assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
     assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
-
-    // TODO: delete expired data cleanly.
   }
 }
