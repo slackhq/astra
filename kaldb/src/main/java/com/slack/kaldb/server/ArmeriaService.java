@@ -21,7 +21,6 @@ import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -51,24 +50,35 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
+    private SpanHandler spanHandler = new SpanHandler() {};
 
     public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      // initialize event loop
+      initializeEventLoop();
+      initializeTimeouts();
+      initializeCompression();
+      initializeLogging();
+      initializeManagementEndpoints(prometheusMeterRegistry);
+    }
+
+    private void initializeEventLoop() {
       EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
       EventLoopGroups.warmUp(eventLoopGroup);
-      this.serverBuilder.workerGroup(eventLoopGroup, true);
+      serverBuilder.workerGroup(eventLoopGroup, true);
+    }
 
-      // timeout
-      this.serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+    private void initializeTimeouts() {
+      serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+    }
 
-      // compression
-      this.serverBuilder.decorator(EncodingService.builder().newDecorator());
+    private void initializeCompression() {
+      serverBuilder.decorator(EncodingService.builder().newDecorator());
+    }
 
-      // logging
-      this.serverBuilder.decorator(
+    private void initializeLogging() {
+      serverBuilder.decorator(
           LoggingService.builder()
               // Not logging any successful response, say prom scraping /metrics every 30 seconds at
               // INFO
@@ -79,40 +89,26 @@ public class ArmeriaService extends AbstractIdleService {
               // Remove all headers to be sure we aren't leaking any auth/cookie info
               .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS)
               .newDecorator());
+    }
 
-      // management endpoints
-      this.serverBuilder
+    private void initializeManagementEndpoints(PrometheusMeterRegistry prometheusMeterRegistry) {
+      serverBuilder
           .service("/health", HealthCheckService.builder().build())
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
           .serviceUnder("/docs", new DocService());
+    }
 
-      // tracing
-      String endpoint = KaldbConfig.get().getTracingConfig().getZipkinEndpoint();
-      SpanHandler spanHandler = new SpanHandler() {};
-
-      if (!endpoint.isBlank()) {
+    public Builder withTracingEndpoint(String endpoint) {
+      if (endpoint != null && !endpoint.isBlank()) {
         LOG.info(String.format("Trace reporting enabled: %s", endpoint));
         Sender sender = URLConnectionSender.create(endpoint);
         spanHandler = AsyncZipkinSpanHandler.create(sender);
-      } else {
-        LOG.info("Trace reporting disabled");
       }
-
-      // always add a tracer, even if we're not reporting
-      Tracing tracing =
-          Tracing.newBuilder()
-              .localServiceName(this.serviceName)
-              .currentTraceContext(
-                  RequestContextCurrentTraceContext.builder()
-                      .addScopeDecorator(ThreadContextScopeDecorator.get())
-                      .build())
-              .addSpanHandler(spanHandler)
-              .build();
-      this.serverBuilder.decorator(BraveService.newDecorator(tracing));
+      return this;
     }
 
     public Builder withElasticsearchApi(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
-      this.serverBuilder.annotatedService(new ElasticsearchApiService(searcher));
+      serverBuilder.annotatedService(new ElasticsearchApiService(searcher));
       return this;
     }
 
@@ -122,13 +118,25 @@ public class ArmeriaService extends AbstractIdleService {
               .addService(searcher)
               .enableUnframedRequests(true)
               .useBlockingTaskExecutor(true);
-      this.serverBuilder.decorator(
+      serverBuilder.decorator(
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-      this.serverBuilder.service(searchBuilder.build());
+      serverBuilder.service(searchBuilder.build());
       return this;
     }
 
     public ArmeriaService build() {
+      // always add tracing, even if it's not being reported to an endpoint
+      serverBuilder.decorator(
+          BraveService.newDecorator(
+              Tracing.newBuilder()
+                  .localServiceName(serviceName)
+                  .currentTraceContext(
+                      RequestContextCurrentTraceContext.builder()
+                          .addScopeDecorator(ThreadContextScopeDecorator.get())
+                          .build())
+                  .addSpanHandler(spanHandler)
+                  .build()));
+
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }
   }
