@@ -1,6 +1,5 @@
 package com.slack.kaldb.testlib;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
@@ -13,12 +12,23 @@ public class KaldbConfigUtil {
    * chunk manager So, we need to delete this method.
    *
    * <p>TODO: Drop this method since we can no longer initialize the chunk manager using this.
-   *
-   * @throws InvalidProtocolBufferException
    */
   @Deprecated
-  public static void initEmptyIndexerConfig() throws InvalidProtocolBufferException {
-    KaldbConfig.initFromJsonStr("{\"nodeRoles\": [INDEX]}");
+  public static void initEmptyIndexerConfig() {
+    KaldbConfigs.IndexerConfig indexerConfig =
+        KaldbConfigs.IndexerConfig.newBuilder()
+            .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
+            .setMaxMessagesPerChunk(100)
+            .setCommitDurationSecs(10)
+            .setRefreshDurationSecs(10)
+            .setStaleDurationSecs(7200)
+            .setDataTransformer("log_message")
+            .build();
+
+    KaldbConfigs.KaldbConfig config =
+        KaldbConfigs.KaldbConfig.newBuilder().setIndexerConfig(indexerConfig).build();
+
+    KaldbConfig.initFromConfigObject(config);
   }
 
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(
