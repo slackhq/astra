@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
@@ -50,8 +51,14 @@ public class KaldbIndexer extends AbstractIdleService {
 
   private final IndexingChunkManager<LogMessage> chunkManager;
 
+  @Deprecated
   public static LogMessageTransformer getLogMessageTransformer() {
-    String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
+    return getLogMessageTransformer(KaldbConfig.get().getIndexerConfig());
+  }
+
+  public static LogMessageTransformer getLogMessageTransformer(
+      KaldbConfigs.IndexerConfig indexerConfig) {
+    String dataTransformerConfig = indexerConfig.getDataTransformer();
     if (dataTransformerConfig.isEmpty()) {
       throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
     }
