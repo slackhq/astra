@@ -12,25 +12,31 @@ public class ServiceMetadataSerializer implements MetadataSerializer<ServiceMeta
       Metadata.ServiceMetadata serviceMetadataProto) {
     List<ServicePartitionMetadata> servicePartitionMetadata =
         serviceMetadataProto
-            .getPartitionsList()
+            .getPartitionConfigsList()
             .stream()
             .map(ServicePartitionMetadata::fromServicePartitionMetadataProto)
             .collect(Collectors.toList());
 
-    return new ServiceMetadata(serviceMetadataProto.getName(), servicePartitionMetadata);
+    return new ServiceMetadata(
+        serviceMetadataProto.getName(),
+        serviceMetadataProto.getOwner(),
+        serviceMetadataProto.getThroughputBytes(),
+        servicePartitionMetadata);
   }
 
   private static Metadata.ServiceMetadata toServiceMetadataProto(ServiceMetadata metadata) {
     List<Metadata.ServicePartitionMetadata> servicePartitionMetadata =
         metadata
-            .partitionList
+            .partitionConfigs
             .stream()
             .map(ServicePartitionMetadata::toServicePartitionMetadataProto)
             .collect(Collectors.toList());
 
     return Metadata.ServiceMetadata.newBuilder()
         .setName(metadata.name)
-        .addAllPartitions(servicePartitionMetadata)
+        .setOwner(metadata.owner)
+        .setThroughputBytes(metadata.throughputBytes)
+        .addAllPartitionConfigs(servicePartitionMetadata)
         .build();
   }
 

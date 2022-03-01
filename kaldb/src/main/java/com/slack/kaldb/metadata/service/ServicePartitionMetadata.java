@@ -2,7 +2,9 @@ package com.slack.kaldb.metadata.service;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.proto.metadata.Metadata;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -11,28 +13,21 @@ import java.util.Objects;
  */
 public class ServicePartitionMetadata {
 
-  public final String name;
-  public final long throughputBytes;
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
+  public final ImmutableList<String> partitions;
 
   public ServicePartitionMetadata(
-      String name, long throughputBytes, long startTimeEpochMs, long endTimeEpochMs) {
-    checkArgument(name != null && !name.isEmpty(), "name can't be null or empty.");
-    checkArgument(throughputBytes > 0, "throughputBytes must be greater than 0");
+      long startTimeEpochMs, long endTimeEpochMs, List<String> partitions) {
     checkArgument(startTimeEpochMs > 0, "startTimeEpochMs must be greater than 0");
     checkArgument(
         endTimeEpochMs > startTimeEpochMs,
         "endTimeEpochMs must be greater than the startTimeEpochMs");
+    checkArgument(partitions != null, "partitions must be non-null");
 
-    this.name = name;
-    this.throughputBytes = throughputBytes;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
-  }
-
-  public String getName() {
-    return name;
+    this.partitions = ImmutableList.copyOf(partitions);
   }
 
   public long getStartTimeEpochMs() {
@@ -43,53 +38,51 @@ public class ServicePartitionMetadata {
     return endTimeEpochMs;
   }
 
+  public ImmutableList<String> getPartitions() {
+    return partitions;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     ServicePartitionMetadata that = (ServicePartitionMetadata) o;
-    return throughputBytes == that.throughputBytes
-        && startTimeEpochMs == that.startTimeEpochMs
+    return startTimeEpochMs == that.startTimeEpochMs
         && endTimeEpochMs == that.endTimeEpochMs
-        && name.equals(that.name);
+        && partitions.equals(that.partitions);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, throughputBytes, startTimeEpochMs, endTimeEpochMs);
+    return Objects.hash(startTimeEpochMs, endTimeEpochMs, partitions);
   }
 
   @Override
   public String toString() {
     return "ServicePartitionMetadata{"
-        + "name='"
-        + name
-        + '\''
-        + ", throughputBytes="
-        + throughputBytes
-        + ", startTimeEpochMs="
+        + "startTimeEpochMs="
         + startTimeEpochMs
         + ", endTimeEpochMs="
         + endTimeEpochMs
+        + ", partitions="
+        + partitions
         + '}';
   }
 
   public static ServicePartitionMetadata fromServicePartitionMetadataProto(
       Metadata.ServicePartitionMetadata servicePartitionMetadata) {
     return new ServicePartitionMetadata(
-        servicePartitionMetadata.getName(),
-        servicePartitionMetadata.getThroughputBytes(),
         servicePartitionMetadata.getStartTimeEpochMs(),
-        servicePartitionMetadata.getEndTimeEpochMs());
+        servicePartitionMetadata.getEndTimeEpochMs(),
+        servicePartitionMetadata.getPartitionsList());
   }
 
   public static Metadata.ServicePartitionMetadata toServicePartitionMetadataProto(
       ServicePartitionMetadata metadata) {
     return Metadata.ServicePartitionMetadata.newBuilder()
-        .setName(metadata.name)
-        .setThroughputBytes(metadata.throughputBytes)
         .setStartTimeEpochMs(metadata.startTimeEpochMs)
         .setEndTimeEpochMs(metadata.endTimeEpochMs)
+        .addAllPartitions(metadata.partitions)
         .build();
   }
 }

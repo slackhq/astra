@@ -111,23 +111,26 @@ message RecoveryTaskMetadata {
 }
 
 message ServiceMetadata {
-  // Unique ID for service record
+  // Unique name for provisioned service
   string name = 1;
 
+  // Service owner information (ie team name)
+  string owner = 2;
+
+  // Service throughput max
+  int64 throughput_bytes = 3;
+
   // List of configured partitions
-  repeated ServicePartitionMetadata partitions = 2;
+  repeated ServicePartitionMetadata partition_configs = 4;
 }
 
 message ServicePartitionMetadata {
-  // Name of the partition
-  string name = 1;
-
-  // Partition throughput max
-  int64 throughput_bytes = 2;
-
   // Start time this partition received traffic
-  int64 start_time_epoch_ms = 3;
+  int64 start_time_epoch_ms = 1;
 
   // End time this partition received traffic
-  int64 end_time_epoch_ms = 4;
+  int64 end_time_epoch_ms = 2;
+
+  // List of Kafka partition ids
+  repeated string partitions = 3;
 }

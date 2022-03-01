@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 
@@ -16,15 +18,14 @@ public class ServicePartitionMetadataTest {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";
-    final long throughput = 2000;
+    final List<String> list = List.of(name);
 
     final ServicePartitionMetadata servicePartitionMetadata =
-        new ServicePartitionMetadata(name, throughput, start.toEpochMilli(), end.toEpochMilli());
+        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
 
-    assertThat(servicePartitionMetadata.name).isEqualTo(name);
     assertThat(servicePartitionMetadata.startTimeEpochMs).isEqualTo(start.toEpochMilli());
     assertThat(servicePartitionMetadata.endTimeEpochMs).isEqualTo(end.toEpochMilli());
-    assertThat(servicePartitionMetadata.throughputBytes).isEqualTo(throughput);
+    assertThat(servicePartitionMetadata.getPartitions()).isEqualTo(list);
   }
 
   @Test
@@ -32,43 +33,35 @@ public class ServicePartitionMetadataTest {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";
-    final long throughput = 2000;
+    final List<String> list = List.of(name);
 
     final ServicePartitionMetadata servicePartitionMetadata1 =
-        new ServicePartitionMetadata(name, throughput, start.toEpochMilli(), end.toEpochMilli());
+        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
     final ServicePartitionMetadata servicePartitionMetadata2 =
-        new ServicePartitionMetadata(
-            name + "2", throughput, start.toEpochMilli(), end.toEpochMilli());
+        new ServicePartitionMetadata(start.toEpochMilli() + 2, end.toEpochMilli(), list);
     final ServicePartitionMetadata servicePartitionMetadata3 =
-        new ServicePartitionMetadata(
-            name, throughput + 3, start.toEpochMilli(), end.toEpochMilli());
+        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli() + 3, list);
     final ServicePartitionMetadata servicePartitionMetadata4 =
         new ServicePartitionMetadata(
-            name, throughput, start.toEpochMilli() + 4, end.toEpochMilli());
-    final ServicePartitionMetadata servicePartitionMetadata5 =
-        new ServicePartitionMetadata(
-            name, throughput, start.toEpochMilli(), end.toEpochMilli() + 5);
+            start.toEpochMilli(), end.toEpochMilli(), Collections.emptyList());
 
     assertThat(servicePartitionMetadata1).isEqualTo(servicePartitionMetadata1);
     assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata2);
     assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata3);
     assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata4);
-    assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata5);
 
     Set<ServicePartitionMetadata> set = new HashSet<>();
     set.add(servicePartitionMetadata1);
     set.add(servicePartitionMetadata2);
     set.add(servicePartitionMetadata3);
     set.add(servicePartitionMetadata4);
-    set.add(servicePartitionMetadata5);
-    assertThat(set.size()).isEqualTo(5);
+    assertThat(set.size()).isEqualTo(4);
     assertThat(set)
         .containsOnly(
             servicePartitionMetadata1,
             servicePartitionMetadata2,
             servicePartitionMetadata3,
-            servicePartitionMetadata4,
-            servicePartitionMetadata5);
+            servicePartitionMetadata4);
   }
 
   @Test
@@ -76,27 +69,14 @@ public class ServicePartitionMetadataTest {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";
-    final long throughput = 2000;
+    final List<String> list = List.of(name);
 
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ServicePartitionMetadata(
-                    "", throughput, start.toEpochMilli(), end.toEpochMilli()));
+        .isThrownBy(() -> new ServicePartitionMetadata(0, end.toEpochMilli(), list));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ServicePartitionMetadata(start.toEpochMilli(), 0, list));
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () ->
-                new ServicePartitionMetadata(
-                    null, throughput, start.toEpochMilli(), end.toEpochMilli()));
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () -> new ServicePartitionMetadata(name, 0, start.toEpochMilli(), end.toEpochMilli()));
-    assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ServicePartitionMetadata(name, throughput, 0, end.toEpochMilli()));
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new ServicePartitionMetadata(
-                    name, throughput, start.toEpochMilli(), start.toEpochMilli()));
+            () -> new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), null));
   }
 }

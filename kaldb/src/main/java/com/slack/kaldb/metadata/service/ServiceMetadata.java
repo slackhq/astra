@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -16,14 +15,24 @@ import java.util.stream.Collectors;
  */
 public class ServiceMetadata extends KaldbMetadata {
 
-  public final ImmutableList<ServicePartitionMetadata> partitionList;
+  public final String owner;
+  public final long throughputBytes;
+  public final ImmutableList<ServicePartitionMetadata> partitionConfigs;
 
-  public ServiceMetadata(String name, List<ServicePartitionMetadata> partitionList) {
+  public ServiceMetadata(
+      String name,
+      String owner,
+      long throughputBytes,
+      List<ServicePartitionMetadata> partitionConfigs) {
     super(name);
-    checkArgument(partitionList != null, "partitionList must not be null");
-    checkPartitions(name, partitionList);
+    checkArgument(partitionConfigs != null, "partitionConfigs must not be null");
+    checkArgument(owner != null && !owner.isBlank(), "owner must not be null or blank");
+    checkArgument(throughputBytes > 0, "throughputBytes must be greater than 0");
+    checkPartitions(partitionConfigs, "partitionConfigs must not overlap start and end times");
 
-    this.partitionList = ImmutableList.copyOf(partitionList);
+    this.owner = owner;
+    this.throughputBytes = throughputBytes;
+    this.partitionConfigs = ImmutableList.copyOf(partitionConfigs);
   }
 
   @Override
@@ -32,42 +41,51 @@ public class ServiceMetadata extends KaldbMetadata {
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
     ServiceMetadata that = (ServiceMetadata) o;
-    return partitionList.equals(that.partitionList);
+    return throughputBytes == that.throughputBytes
+        && owner.equals(that.owner)
+        && partitionConfigs.equals(that.partitionConfigs);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), partitionList);
+    return Objects.hash(super.hashCode(), owner, throughputBytes, partitionConfigs);
   }
 
   @Override
   public String toString() {
-    return "ServiceMetadata{" + "name='" + name + '\'' + ", partitionList=" + partitionList + '}';
+    return "ServiceMetadata{"
+        + "name='"
+        + name
+        + '\''
+        + ", owner='"
+        + owner
+        + '\''
+        + ", throughputBytes="
+        + throughputBytes
+        + ", partitionConfigs="
+        + partitionConfigs
+        + '}';
   }
 
-  /** Ensures the provided partition list contains a valid configuration */
-  private void checkPartitions(String name, List<ServicePartitionMetadata> partitionList) {
-    Map<String, List<ServicePartitionMetadata>> groupedPartitionsByServiceName =
-        partitionList.stream().collect(Collectors.groupingBy(ServicePartitionMetadata::getName));
+  /**
+   * Check that the list of partitionConfigs do not overlap start and end times. This sorts the list
+   * by start of partitions by start time, and then ensures that the end of a given item does not
+   * overlap with the start of the next item in the list.
+   */
+  private void checkPartitions(
+      List<ServicePartitionMetadata> partitionConfig, String errorMessage) {
+    List<ServicePartitionMetadata> sortedConfigsByStartTime =
+        partitionConfig
+            .stream()
+            .sorted(Comparator.comparingLong(ServicePartitionMetadata::getStartTimeEpochMs))
+            .collect(Collectors.toList());
 
-    for (Map.Entry<String, List<ServicePartitionMetadata>> entry :
-        groupedPartitionsByServiceName.entrySet()) {
-      List<ServicePartitionMetadata> sortedPartitionsByStartTime =
-          entry
-              .getValue()
-              .stream()
-              .sorted(Comparator.comparingLong(ServicePartitionMetadata::getStartTimeEpochMs))
-              .collect(Collectors.toList());
-
-      for (int i = 0; i < sortedPartitionsByStartTime.size(); i++) {
-        if (i + 1 != sortedPartitionsByStartTime.size()) {
-          checkArgument(
-              sortedPartitionsByStartTime.get(i).endTimeEpochMs
-                  < sortedPartitionsByStartTime.get(i + 1).startTimeEpochMs,
-              String.format(
-                  "Service '%s' has an invalid partition configuration for partition '%s' - there is an overlap in partition times [%s]",
-                  name, entry.getKey(), entry.getValue().toString()));
-        }
+    for (int i = 0; i < sortedConfigsByStartTime.size(); i++) {
+      if (i + 1 != sortedConfigsByStartTime.size()) {
+        checkArgument(
+            sortedConfigsByStartTime.get(i).endTimeEpochMs
+                < sortedConfigsByStartTime.get(i + 1).startTimeEpochMs,
+            errorMessage);
       }
     }
   }
