@@ -20,10 +20,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
-import com.linecorp.armeria.server.logging.LoggingServiceBuilder;
-import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -38,130 +35,115 @@ import zipkin2.reporter.brave.AsyncZipkinSpanHandler;
 import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 public class ArmeriaService extends AbstractIdleService {
-  private final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
 
   private static final int WORKER_EVENT_LOOP_THREADS = 16;
 
-  private final PrometheusMeterRegistry prometheusMeterRegistry;
   private final String serviceName;
   private final Server server;
-  private final int serverPort;
 
-  public ArmeriaService(
-      int serverPort, PrometheusMeterRegistry prometheusMeterRegistry, String serviceName) {
-    this.serverPort = serverPort;
-    this.prometheusMeterRegistry = prometheusMeterRegistry;
+  private ArmeriaService(Server server, String serviceName) {
+    this.server = server;
     this.serviceName = serviceName;
-
-    ServerBuilder sb = Server.builder();
-    initializeEventLoop(sb);
-    addCompression(sb);
-    addManagementEndpoints(sb);
-    addTracing(sb);
-    this.server = sb.build();
   }
 
-  @Override
-  public String toString() {
-    return "ArmeriaService{" + "serviceName='" + serviceName + '\'' + '}';
-  }
+  public static class Builder {
+    private final String serviceName;
+    private final ServerBuilder serverBuilder;
+    private SpanHandler spanHandler = new SpanHandler() {};
 
-  public ArmeriaService(
-      int serverPort,
-      PrometheusMeterRegistry prometheusMeterRegistry,
-      KaldbServiceGrpc.KaldbServiceImplBase searcher,
-      String serviceName) {
-    this.serverPort = serverPort;
-    this.prometheusMeterRegistry = prometheusMeterRegistry;
-    this.serviceName = serviceName;
+    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
+      this.serviceName = serviceName;
+      this.serverBuilder = Server.builder().http(port);
 
-    ServerBuilder sb = Server.builder();
-    addSearchServices(sb, searcher);
-    initializeEventLoop(sb);
-    addCompression(sb);
-    setTimeout(sb);
-    addManagementEndpoints(sb);
-    addTracing(sb);
-    this.server = sb.build();
-  }
-
-  private void addSearchServices(ServerBuilder sb, KaldbServiceGrpc.KaldbServiceImplBase searcher) {
-    GrpcServiceBuilder searchBuilder =
-        GrpcService.builder()
-            .addService(searcher)
-            .enableUnframedRequests(true)
-            .useBlockingTaskExecutor(true);
-    sb.service(searchBuilder.build());
-    sb.annotatedService(new ElasticsearchApiService(searcher));
-  }
-
-  private void initializeEventLoop(ServerBuilder sb) {
-    EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
-    EventLoopGroups.warmUp(eventLoopGroup);
-    sb.workerGroup(eventLoopGroup, true);
-  }
-
-  private void addCompression(ServerBuilder sb) {
-    sb.decorator(EncodingService.builder().newDecorator());
-  }
-
-  private void setTimeout(ServerBuilder sb) {
-    sb.requestTimeout(ARMERIA_TIMEOUT_DURATION);
-    // todo - on timeout explore including a retry-after header via exception handler
-    //  https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503
-    // sb.exceptionHandler()
-  }
-
-  private void addTracing(ServerBuilder sb) {
-    String endpoint = KaldbConfig.get().getTracingConfig().getZipkinEndpoint();
-    SpanHandler spanHandler = new SpanHandler() {};
-
-    if (!endpoint.isBlank()) {
-      LOG.info(String.format("Trace reporting enabled: %s", endpoint));
-      Sender sender = URLConnectionSender.create(endpoint);
-      spanHandler = AsyncZipkinSpanHandler.create(sender);
-    } else {
-      LOG.info("Trace reporting disabled");
+      initializeEventLoop();
+      initializeTimeouts();
+      initializeCompression();
+      initializeLogging();
+      initializeManagementEndpoints(prometheusMeterRegistry);
     }
 
-    // always add a tracer, even if we're not reporting
-    Tracing tracing =
-        Tracing.newBuilder()
-            .localServiceName(this.serviceName)
-            .currentTraceContext(
-                RequestContextCurrentTraceContext.builder()
-                    .addScopeDecorator(ThreadContextScopeDecorator.get())
-                    .build())
-            .addSpanHandler(spanHandler)
-            .build();
-    sb.decorator(BraveService.newDecorator(tracing));
-  }
+    private void initializeEventLoop() {
+      EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
+      EventLoopGroups.warmUp(eventLoopGroup);
+      serverBuilder.workerGroup(eventLoopGroup, true);
+    }
 
-  private void addManagementEndpoints(ServerBuilder sb) {
-    sb.decorator(
-        MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-    sb.decorator(getLoggingServiceBuilder().newDecorator());
-    sb.http(serverPort);
-    sb.service("/health", HealthCheckService.builder().build());
-    sb.service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()));
-    sb.serviceUnder("/docs", new DocService());
-    sb.serviceUnder("/internal/management/", ManagementService.of());
-  }
+    private void initializeTimeouts() {
+      serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+    }
 
-  private LoggingServiceBuilder getLoggingServiceBuilder() {
-    return LoggingService.builder()
-        // Not logging any successful response, say prom scraping /metrics every 30 seconds at INFO
-        .successfulResponseLogLevel(LogLevel.DEBUG)
-        .failureResponseLogLevel(LogLevel.ERROR)
-        // Remove the content to prevent blowing up the logs
-        .responseContentSanitizer((ctx, content) -> "truncated")
-        // Remove all headers to be sure we aren't leaking any auth/cookie info
-        .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS);
+    private void initializeCompression() {
+      serverBuilder.decorator(EncodingService.builder().newDecorator());
+    }
+
+    private void initializeLogging() {
+      serverBuilder.decorator(
+          LoggingService.builder()
+              // Not logging any successful response, say prom scraping /metrics every 30 seconds at
+              // INFO
+              .successfulResponseLogLevel(LogLevel.DEBUG)
+              .failureResponseLogLevel(LogLevel.ERROR)
+              // Remove the content to prevent blowing up the logs
+              .responseContentSanitizer((ctx, content) -> "truncated")
+              // Remove all headers to be sure we aren't leaking any auth/cookie info
+              .requestHeadersSanitizer((ctx, headers) -> DefaultHttpHeaders.EMPTY_HEADERS)
+              .newDecorator());
+    }
+
+    private void initializeManagementEndpoints(PrometheusMeterRegistry prometheusMeterRegistry) {
+      serverBuilder
+          .service("/health", HealthCheckService.builder().build())
+          .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
+          .serviceUnder("/docs", new DocService());
+    }
+
+    public Builder withTracingEndpoint(String endpoint) {
+      if (endpoint != null && !endpoint.isBlank()) {
+        LOG.info(String.format("Trace reporting enabled: %s", endpoint));
+        Sender sender = URLConnectionSender.create(endpoint);
+        spanHandler = AsyncZipkinSpanHandler.create(sender);
+      }
+      return this;
+    }
+
+    public Builder withElasticsearchApi(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
+      serverBuilder.annotatedService(new ElasticsearchApiService(searcher));
+      return this;
+    }
+
+    public Builder withGrpcSearchApi(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
+      GrpcServiceBuilder searchBuilder =
+          GrpcService.builder()
+              .addService(searcher)
+              .enableUnframedRequests(true)
+              .useBlockingTaskExecutor(true);
+      serverBuilder.decorator(
+          MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
+      serverBuilder.service(searchBuilder.build());
+      return this;
+    }
+
+    public ArmeriaService build() {
+      // always add tracing, even if it's not being reported to an endpoint
+      serverBuilder.decorator(
+          BraveService.newDecorator(
+              Tracing.newBuilder()
+                  .localServiceName(serviceName)
+                  .currentTraceContext(
+                      RequestContextCurrentTraceContext.builder()
+                          .addScopeDecorator(ThreadContextScopeDecorator.get())
+                          .build())
+                  .addSpanHandler(spanHandler)
+                  .build()));
+
+      return new ArmeriaService(serverBuilder.build(), serviceName);
+    }
   }
 
   @Override
   protected void startUp() throws Exception {
-    LOG.info("Starting {} on port {}", serviceName, serverPort);
+    LOG.info("Starting {} on ports {}", serviceName, server.config().ports());
     CompletableFuture<Void> serverFuture = server.start();
     serverFuture.get(15, TimeUnit.SECONDS);
   }
@@ -178,5 +160,10 @@ public class ArmeriaService extends AbstractIdleService {
       return this.serviceName;
     }
     return super.serviceName();
+  }
+
+  @Override
+  public String toString() {
+    return "ArmeriaService{" + "serviceName='" + serviceName() + '\'' + '}';
   }
 }
