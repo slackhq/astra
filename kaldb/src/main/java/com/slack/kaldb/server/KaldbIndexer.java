@@ -7,7 +7,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -50,11 +49,6 @@ public class KaldbIndexer extends AbstractIdleService {
   }
 
   private final IndexingChunkManager<LogMessage> chunkManager;
-
-  @Deprecated
-  public static LogMessageTransformer getLogMessageTransformer() {
-    return getLogMessageTransformer(KaldbConfig.get().getIndexerConfig());
-  }
 
   public static LogMessageTransformer getLogMessageTransformer(
       KaldbConfigs.IndexerConfig indexerConfig) {
