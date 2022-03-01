@@ -84,7 +84,7 @@ public class ReadOnlyChunkImplTest {
 
   @Test
   public void shouldHandleChunkLivecycle() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.KaldbConfig kaldbConfig = makeCacheConfig();
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
@@ -204,7 +204,7 @@ public class ReadOnlyChunkImplTest {
 
   @Test
   public void shouldHandleMissingS3Assets() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.KaldbConfig kaldbConfig = makeCacheConfig();
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
@@ -271,7 +271,7 @@ public class ReadOnlyChunkImplTest {
 
   @Test
   public void shouldHandleMissingZkData() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.KaldbConfig kaldbConfig = makeCacheConfig();
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
@@ -338,7 +338,7 @@ public class ReadOnlyChunkImplTest {
 
   @Test
   public void closeShouldCleanupLiveChunkCorrectly() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbConfig = getKaldbConfig();
+    KaldbConfigs.KaldbConfig kaldbConfig = makeCacheConfig();
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
@@ -501,7 +501,7 @@ public class ReadOnlyChunkImplTest {
     copyToS3(dirPath, activeFiles, TEST_S3_BUCKET, snapshotId, s3BlobFs);
   }
 
-  private KaldbConfigs.KaldbConfig getKaldbConfig() {
+  private KaldbConfigs.KaldbConfig makeCacheConfig() {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
