@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.logstore.index.KalDBMergeScheduler;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -59,12 +60,13 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final Counter commitsCounter;
   private final Counter refreshesCounter;
 
-  public static LuceneIndexStoreImpl makeLogStore(File dataDirectory, MeterRegistry metricsRegistry)
+  public static LuceneIndexStoreImpl makeLogStore(
+      File dataDirectory, KaldbConfigs.IndexerConfig indexerConfig, MeterRegistry metricsRegistry)
       throws IOException {
     return makeLogStore(
         dataDirectory,
-        LuceneIndexStoreConfig.getCommitDuration(),
-        LuceneIndexStoreConfig.getRefreshDuration(),
+        LuceneIndexStoreConfig.getCommitDuration(indexerConfig),
+        LuceneIndexStoreConfig.getRefreshDuration(indexerConfig),
         metricsRegistry);
   }
 

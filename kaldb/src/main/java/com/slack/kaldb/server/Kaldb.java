@@ -104,9 +104,7 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
           IndexingChunkManager.fromConfig(
-              prometheusMeterRegistry,
-              metadataStore,
-              kaldbConfig.getIndexerConfig().getServerConfig());
+              prometheusMeterRegistry, metadataStore, kaldbConfig.getIndexerConfig());
       services.add(chunkManager);
 
       ChunkCleanerService<LogMessage> chunkCleanerService =

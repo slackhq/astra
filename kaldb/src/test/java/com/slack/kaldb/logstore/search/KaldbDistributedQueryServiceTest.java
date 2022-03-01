@@ -141,7 +141,8 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext1,
-            metadataStore);
+            metadataStore,
+            kaldbConfig1.getIndexerConfig());
     indexingServiceManager1 =
         newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
 
@@ -187,7 +188,8 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext2,
-            metadataStore);
+            metadataStore,
+            kaldbConfig2.getIndexerConfig());
     indexingServiceManager2 =
         newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
 
@@ -365,7 +367,8 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext3,
-            metadataStore);
+            metadataStore,
+            kaldbConfig3.getIndexerConfig());
     indexingServiceManager3 =
         newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
 
