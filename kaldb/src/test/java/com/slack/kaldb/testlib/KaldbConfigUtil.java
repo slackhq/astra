@@ -1,26 +1,8 @@
 package com.slack.kaldb.testlib;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
 public class KaldbConfigUtil {
-  /**
-   * Initialize an empty KaldbConfig for tests.
-   *
-   * <p>Initializing emptyConfig was a hack to initialize a chunk manager with default values.
-   * However, as the code has gotten more complex, this method is no longer a good way to initialize
-   * chunk manager So, we need to delete this method.
-   *
-   * <p>TODO: Drop this method since we can no longer initialize the chunk manager using this.
-   *
-   * @throws InvalidProtocolBufferException
-   */
-  @Deprecated
-  public static void initEmptyIndexerConfig() throws InvalidProtocolBufferException {
-    KaldbConfig.initFromJsonStr("{\"nodeRoles\": [INDEX]}");
-  }
-
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(
       String bootstrapServers,
       int indexerPort,
@@ -86,6 +68,28 @@ public class KaldbConfigUtil {
         .setIndexerConfig(indexerConfig)
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
+        .build();
+  }
+
+  public static int TEST_INDEXER_PORT = 10000;
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
+    return makeIndexerConfig(TEST_INDEXER_PORT);
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(int indexerPort) {
+    return KaldbConfigs.IndexerConfig.newBuilder()
+        .setServerConfig(
+            KaldbConfigs.ServerConfig.newBuilder()
+                .setServerPort(indexerPort)
+                .setServerAddress("localhost")
+                .build())
+        .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
+        .setMaxMessagesPerChunk(100)
+        .setCommitDurationSecs(10)
+        .setRefreshDurationSecs(10)
+        .setStaleDurationSecs(7200)
+        .setDataTransformer("log_message")
         .build();
   }
 }

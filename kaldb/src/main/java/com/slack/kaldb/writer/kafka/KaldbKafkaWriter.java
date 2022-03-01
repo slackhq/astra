@@ -1,7 +1,6 @@
 package com.slack.kaldb.writer.kafka;
 
 import com.google.common.base.Stopwatch;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.writer.MessageWriter;
 import io.micrometer.core.instrument.Counter;
@@ -22,9 +21,10 @@ public class KaldbKafkaWriter extends KaldbKafkaConsumer {
   public static long END_OFFSET_STALE_DELAY_SECS = 10;
 
   public static KaldbKafkaWriter fromConfig(
-      MessageWriter messageWriter, MeterRegistry meterRegistry) {
-    KaldbConfigs.KafkaConfig kafkaCfg = KaldbConfig.get().getKafkaConfig();
-    return fromConfig(kafkaCfg, messageWriter, meterRegistry);
+      MessageWriter messageWriter,
+      KaldbConfigs.KafkaConfig kafkaConfig,
+      MeterRegistry meterRegistry) {
+    return fromConfig(kafkaConfig, messageWriter, meterRegistry);
   }
 
   public static KaldbKafkaWriter fromConfig(

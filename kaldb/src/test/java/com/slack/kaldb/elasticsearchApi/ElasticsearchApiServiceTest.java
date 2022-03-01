@@ -44,10 +44,14 @@ public class ElasticsearchApiServiceTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 1000000L);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            1000000L,
+            KaldbConfigUtil.makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     KaldbLocalQueryService<LogMessage> searcher =

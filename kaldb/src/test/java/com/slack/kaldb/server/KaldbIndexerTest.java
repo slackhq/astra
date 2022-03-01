@@ -69,7 +69,12 @@ public class KaldbIndexerTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            100,
+            KaldbConfigUtil.makeIndexerConfig(10000));
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -137,7 +142,8 @@ public class KaldbIndexerTest {
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
     KaldbKafkaWriter kafkaWriter =
-        KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
+        KaldbKafkaWriter.fromConfig(
+            logMessageWriterImpl, kaldbCfg.getKafkaConfig(), metricsRegistry);
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 

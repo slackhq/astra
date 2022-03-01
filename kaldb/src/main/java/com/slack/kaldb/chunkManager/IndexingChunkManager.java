@@ -1,6 +1,8 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
+import static com.slack.kaldb.config.KaldbConfig.CHUNK_DATA_PREFIX;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -15,7 +17,6 @@ import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
@@ -47,7 +48,6 @@ import org.slf4j.LoggerFactory;
  */
 public class IndexingChunkManager<T> extends ChunkManager<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);
-  public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
 
   private final File dataDirectory;
 
@@ -60,6 +60,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStore metadataStore;
   private final SearchContext searchContext;
+  private final KaldbConfigs.IndexerConfig indexerConfig;
   private ReadWriteChunk<T> activeChunk;
 
   private final MeterRegistry meterRegistry;
@@ -73,9 +74,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
-
-  // TODO: Pass this in via config file.
-  private static final String CHUNK_DATA_PREFIX = "log";
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
@@ -119,7 +117,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       ListeningExecutorService rollOverExecutorService,
       long rollOverFutureTimeoutMs,
       MetadataStore metadataStore,
-      SearchContext searchContext) {
+      SearchContext searchContext,
+      KaldbConfigs.IndexerConfig indexerConfig) {
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
@@ -138,6 +137,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
     this.metadataStore = metadataStore;
     this.searchContext = searchContext;
+    this.indexerConfig = indexerConfig;
     stopIngestion = true;
     activeChunk = null;
 
@@ -171,7 +171,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     }
 
     // find the active chunk and add a message to it
-    ReadWriteChunk<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId);
+    ReadWriteChunk<T> currentChunk = getOrCreateActiveChunk(kafkaPartitionId, indexerConfig);
     currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
@@ -254,13 +254,15 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
    * data in the chunk is set as system time. However, this assumption may not be true always. In
    * future, set the start time of the chunk based on the timestamp from the message.
    */
-  private ReadWriteChunk<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
+  private ReadWriteChunk<T> getOrCreateActiveChunk(
+      String kafkaPartitionId, KaldbConfigs.IndexerConfig indexerConfig) throws IOException {
     if (activeChunk == null) {
       // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
       //  complicates unit tests.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
-          (LogStore<T>) LuceneIndexStoreImpl.makeLogStore(dataDirectory, meterRegistry);
+          (LogStore<T>)
+              LuceneIndexStoreImpl.makeLogStore(dataDirectory, indexerConfig, meterRegistry);
 
       ReadWriteChunk<T> newChunk =
           new IndexingChunkImpl<>(
@@ -387,21 +389,24 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   public static IndexingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
-      KaldbConfigs.ServerConfig serverConfig) {
-    ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
+      KaldbConfigs.IndexerConfig indexerConfig,
+      KaldbConfigs.S3Config s3Config) {
 
-    // TODO: Read the config values for chunk manager from config file.
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        ChunkRollOverStrategyImpl.fromConfig(indexerConfig);
+
     return new IndexingChunkManager<>(
         CHUNK_DATA_PREFIX,
-        KaldbConfig.get().getIndexerConfig().getDataDirectory(),
+        indexerConfig.getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        getS3BlobFsClient(KaldbConfig.get().getS3Config()),
-        KaldbConfig.get().getS3Config().getS3Bucket(),
+        getS3BlobFsClient(s3Config),
+        s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
         DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
         metadataStore,
-        SearchContext.fromConfig(serverConfig));
+        SearchContext.fromConfig(indexerConfig.getServerConfig()),
+        indexerConfig);
   }
 
   @VisibleForTesting
