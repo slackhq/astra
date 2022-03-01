@@ -1,6 +1,8 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
+import static com.slack.kaldb.config.KaldbConfig.CHUNK_DATA_PREFIX;
+import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -15,7 +17,6 @@ import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
@@ -47,7 +48,6 @@ import org.slf4j.LoggerFactory;
  */
 public class IndexingChunkManager<T> extends ChunkManager<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);
-  public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
 
   private final File dataDirectory;
 
@@ -74,9 +74,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
-
-  // TODO: Pass this in via config file.
-  private static final String CHUNK_DATA_PREFIX = "log";
 
   /**
    * A flag to indicate that ingestion should be stopped. Currently, we only stop ingestion when a
@@ -392,17 +389,19 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   public static IndexingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
-      KaldbConfigs.IndexerConfig indexerConfig) {
-    ChunkRollOverStrategy chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
+      KaldbConfigs.IndexerConfig indexerConfig,
+      KaldbConfigs.S3Config s3Config) {
 
-    // TODO: Read the config values for chunk manager from config file.
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        ChunkRollOverStrategyImpl.fromConfig(indexerConfig);
+
     return new IndexingChunkManager<>(
         CHUNK_DATA_PREFIX,
-        KaldbConfig.get().getIndexerConfig().getDataDirectory(),
+        indexerConfig.getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        getS3BlobFsClient(KaldbConfig.get().getS3Config()),
-        KaldbConfig.get().getS3Config().getS3Bucket(),
+        getS3BlobFsClient(s3Config),
+        s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
         DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
         metadataStore,

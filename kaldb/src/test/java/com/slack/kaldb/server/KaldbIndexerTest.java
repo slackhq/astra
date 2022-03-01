@@ -142,7 +142,8 @@ public class KaldbIndexerTest {
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
     KaldbKafkaWriter kafkaWriter =
-        KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
+        KaldbKafkaWriter.fromConfig(
+            logMessageWriterImpl, kaldbCfg.getKafkaConfig(), metricsRegistry);
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 

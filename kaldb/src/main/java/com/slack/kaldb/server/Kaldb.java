@@ -104,7 +104,10 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
           IndexingChunkManager.fromConfig(
-              prometheusMeterRegistry, metadataStore, kaldbConfig.getIndexerConfig());
+              prometheusMeterRegistry,
+              metadataStore,
+              kaldbConfig.getIndexerConfig(),
+              kaldbConfig.getS3Config());
       services.add(chunkManager);
 
       ChunkCleanerService<LogMessage> chunkCleanerService =
@@ -118,7 +121,8 @@ public class Kaldb {
       LogMessageWriterImpl logMessageWriterImpl =
           new LogMessageWriterImpl(chunkManager, messageTransformer);
       KaldbKafkaWriter kafkaWriter =
-          KaldbKafkaWriter.fromConfig(logMessageWriterImpl, prometheusMeterRegistry);
+          KaldbKafkaWriter.fromConfig(
+              logMessageWriterImpl, kaldbConfig.getKafkaConfig(), prometheusMeterRegistry);
       services.add(kafkaWriter);
       KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter);
       services.add(indexer);
@@ -128,7 +132,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbIndex", prometheusMeterRegistry)
-              .withTracingEndpoint(KaldbConfig.get().getTracingConfig().getZipkinEndpoint())
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcSearchApi(searcher)
               .build();
       services.add(armeriaService);
@@ -145,7 +149,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
-              .withTracingEndpoint(KaldbConfig.get().getTracingConfig().getZipkinEndpoint())
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withElasticsearchApi(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
@@ -165,7 +169,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbCache", prometheusMeterRegistry)
-              .withTracingEndpoint(KaldbConfig.get().getTracingConfig().getZipkinEndpoint())
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcSearchApi(searcher)
               .build();
       services.add(armeriaService);
@@ -177,7 +181,7 @@ public class Kaldb {
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbManager", prometheusMeterRegistry)
-              .withTracingEndpoint(KaldbConfig.get().getTracingConfig().getZipkinEndpoint())
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
 
@@ -245,7 +249,7 @@ public class Kaldb {
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbRecovery", prometheusMeterRegistry)
-              .withTracingEndpoint(KaldbConfig.get().getTracingConfig().getZipkinEndpoint())
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
 

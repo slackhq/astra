@@ -101,6 +101,7 @@ public class KaldbDistributedQueryServiceTest {
     zkServer = new TestingServer();
     zkServer.start();
 
+    // TODO: Remove this additional config and use the bottom config instead?
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -247,7 +248,9 @@ public class KaldbDistributedQueryServiceTest {
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
-    KaldbKafkaWriter kafkaWriter = KaldbKafkaWriter.fromConfig(logMessageWriterImpl, meterRegistry);
+    KaldbKafkaWriter kafkaWriter =
+        KaldbKafkaWriter.fromConfig(
+            logMessageWriterImpl, kaldbConfig.getKafkaConfig(), meterRegistry);
 
     KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
 
