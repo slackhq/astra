@@ -44,7 +44,6 @@ public class KaldbLocalQueryServiceTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    // KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         new ChunkManagerUtil<>(
