@@ -100,7 +100,6 @@ public class IndexingChunkManagerTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
     s3Client = S3_MOCK_RULE.createS3ClientV2();
@@ -154,7 +153,8 @@ public class IndexingChunkManagerTest {
             listeningExecutorService,
             rollOverFutureTimeoutMs,
             metadataStore,
-            searchContext);
+            searchContext,
+            KaldbConfigUtil.makeIndexerConfig(TEST_PORT));
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }

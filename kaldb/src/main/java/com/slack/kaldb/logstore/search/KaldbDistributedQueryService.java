@@ -57,8 +57,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   @VisibleForTesting
   public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
 
-  private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
-
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
   // So this should be replaced cache/index metadata store when that info is present in ZK
@@ -135,10 +133,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(stubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
-      // make sure all underlying futures finish executing (successful/cancelled/failed/other)
-      // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(READ_TIMEOUT_MS - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
+          stub.withDeadlineAfter(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .search(request);
@@ -155,8 +151,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     try {
       List<SearchResult<LogMessage>> searchResults =
           searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
-
       return searchResults
           .stream()
           .map(searchResult -> searchResult == null ? SearchResult.empty() : searchResult)
@@ -181,8 +175,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           ((SearchResultAggregator<LogMessage>)
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
               .aggregate(searchResults);
-
-      LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
     } catch (Exception e) {
       LOG.error("Distributed search failed", e);

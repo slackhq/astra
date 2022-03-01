@@ -2,45 +2,23 @@ package com.slack.kaldb.chunk;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
 import org.junit.Test;
 
 public class ChunkRollOverStrategyImplTest {
 
   @Test
-  public void testInitViaConfig() throws InvalidProtocolBufferException {
-    /*
-     {
-       "indexerConfig": {
-         "maxMessagesPerChunk": 1,
-         "maxBytesPerChunk": 100
-       },
-       nodeRoles: [INDEX]
-     }
-    */
-    // Need https://openjdk.java.net/jeps/355
-    final String testIndexerCfg =
-        "{\n"
-            + "  \"indexerConfig\": {\n"
-            + "    \"maxMessagesPerChunk\": 1,\n"
-            + "    \"maxBytesPerChunk\": 100\n"
-            + "  },\n"
-            + "  nodeRoles: [INDEX]\n"
-            + "}";
-
-    KaldbConfig.initFromJsonStr(testIndexerCfg);
-
-    final KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
-    assertThat(indexerCfg.getMaxMessagesPerChunk()).isEqualTo(1);
-    assertThat(indexerCfg.getMaxBytesPerChunk()).isEqualTo(100);
-
-    ChunkRollOverStrategyImpl chunkRollOverStrategy = ChunkRollOverStrategyImpl.fromConfig();
-    assertThat(chunkRollOverStrategy.getMaxBytesPerChunk()).isEqualTo(100);
-    assertThat(chunkRollOverStrategy.getMaxMessagesPerChunk()).isEqualTo(1);
+  public void testInitViaConfig() {
+    KaldbConfigs.IndexerConfig indexerCfg = KaldbConfigUtil.makeIndexerConfig();
+    assertThat(indexerCfg.getMaxMessagesPerChunk()).isEqualTo(100);
+    assertThat(indexerCfg.getMaxBytesPerChunk()).isEqualTo(10737418240L);
+    ChunkRollOverStrategyImpl chunkRollOverStrategy =
+        ChunkRollOverStrategyImpl.fromConfig(indexerCfg);
+    assertThat(chunkRollOverStrategy.getMaxBytesPerChunk()).isEqualTo(10737418240L);
+    assertThat(chunkRollOverStrategy.getMaxMessagesPerChunk()).isEqualTo(100);
   }
 
   @Test(expected = IllegalArgumentException.class)

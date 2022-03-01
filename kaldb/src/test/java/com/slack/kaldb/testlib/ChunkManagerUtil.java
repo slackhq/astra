@@ -53,7 +53,8 @@ public class ChunkManagerUtil<T> {
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
-      long maxMessagesPerChunk)
+      long maxMessagesPerChunk,
+      KaldbConfigs.IndexerConfig indexerConfig)
       throws Exception {
     this(
         s3MockRule,
@@ -62,7 +63,8 @@ public class ChunkManagerUtil<T> {
         maxBytesPerChunk,
         maxMessagesPerChunk,
         new SearchContext(TEST_HOST, TEST_PORT),
-        null);
+        null,
+        indexerConfig);
   }
 
   public ChunkManagerUtil(
@@ -72,7 +74,8 @@ public class ChunkManagerUtil<T> {
       long maxBytesPerChunk,
       long maxMessagesPerChunk,
       SearchContext searchContext,
-      MetadataStore metadataStore)
+      MetadataStore metadataStore,
+      KaldbConfigs.IndexerConfig indexerConfig)
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -117,7 +120,8 @@ public class ChunkManagerUtil<T> {
             MoreExecutors.newDirectExecutorService(),
             10000,
             metadataStore,
-            searchContext);
+            searchContext,
+            indexerConfig);
   }
 
   public void close() throws IOException, TimeoutException {
@@ -135,7 +139,7 @@ public class ChunkManagerUtil<T> {
   }
 
   public static List<SnapshotMetadata> fetchLiveSnapshot(List<SnapshotMetadata> snapshots) {
-    Predicate<SnapshotMetadata> liveSnapshotPredicate = s -> SnapshotMetadata.isLive(s);
+    Predicate<SnapshotMetadata> liveSnapshotPredicate = SnapshotMetadata::isLive;
     return fetchSnapshotMatching(snapshots, liveSnapshotPredicate);
   }
 
