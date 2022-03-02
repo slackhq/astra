@@ -90,4 +90,26 @@ public class SearchResult<T> {
   public static SearchResult<LogMessage> empty() {
     return EMPTY;
   }
+
+  @Override
+  public String toString() {
+    return "SearchResult{"
+        + "totalCount="
+        + totalCount
+        + ", hits="
+        + hits
+        + ", tookMicros="
+        + tookMicros
+        + ", buckets="
+        + buckets
+        + ", failedNodes="
+        + failedNodes
+        + ", totalNodes="
+        + totalNodes
+        + ", totalSnapshots="
+        + totalSnapshots
+        + ", snapshotsWithReplicas="
+        + snapshotsWithReplicas
+        + '}';
+  }
 }
