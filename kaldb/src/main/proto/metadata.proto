@@ -110,6 +110,7 @@ message RecoveryTaskMetadata {
   int64 created_time_epoch_ms = 5;
 }
 
+// Describes ownership, throughput, and partition mapping for a given service
 message ServiceMetadata {
   // Unique name for provisioned service
   string name = 1;
@@ -120,10 +121,11 @@ message ServiceMetadata {
   // Service throughput max
   int64 throughput_bytes = 3;
 
-  // List of configured partitions
+  // List of partitions assigned to this service, and their effective times
   repeated ServicePartitionMetadata partition_configs = 4;
 }
 
+// Describes a set of partitions along with their effective start and end times
 message ServicePartitionMetadata {
   // Start time this partition received traffic
   int64 start_time_epoch_ms = 1;

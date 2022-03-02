@@ -10,8 +10,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Configurations for an upstream service for use in the pre-processor - including rate limits, and
- * partition mapping.
+ * Contains configurations for use in the pre-processor and query service - including rate limits,
+ * and partition mapping.
  */
 public class ServiceMetadata extends KaldbMetadata {
 
