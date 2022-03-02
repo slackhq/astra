@@ -6,7 +6,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.slack.kaldb.config.KaldbConfig;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
@@ -31,26 +33,27 @@ public class KalDbIntegrationTest {
   private TestingServer testingServer;
   private EphemeralKafkaBroker broker;
   private final ObjectMapper om = new ObjectMapper();
+  private KaldbConfigs.KaldbConfig kaldbConfig;
 
   @Before
-  public void start() throws Exception {
+  public void setUp() throws Exception {
     testingServer = new TestingServer(2181);
     broker = EphemeralKafkaBroker.create(9092);
     broker.start().get(10, TimeUnit.SECONDS);
 
-    KaldbConfig.reset();
-    kaldb = new Kaldb(Path.of("../config/config.yaml"));
-    LOG.info("Starting kalDb with the resolved configs: {}", KaldbConfig.get().toString());
+    kaldbConfig = KaldbConfig.fromYamlConfig(Files.readString(Path.of("../config/config.yaml")));
+    kaldb = new Kaldb(kaldbConfig);
+    LOG.info("Starting kalDb with the resolved configs: {}", kaldbConfig.toString());
     kaldb.start();
     kaldb.serviceManager.awaitHealthy();
   }
 
   @After
-  public void shutdown() throws IOException, ExecutionException, InterruptedException {
+  public void tearDown() throws IOException, ExecutionException, InterruptedException {
     kaldb.shutdown();
     testingServer.close();
     broker.stop();
-    KaldbConfig.reset();
+    kaldbConfig = null;
   }
 
   private String getResponse(String url) {
@@ -74,7 +77,7 @@ public class KalDbIntegrationTest {
         getResponse(
             String.format(
                 "http://localhost:%s/health",
-                KaldbConfig.get().getIndexerConfig().getServerConfig().getServerPort()));
+                kaldbConfig.getIndexerConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -87,7 +90,7 @@ public class KalDbIntegrationTest {
         getResponse(
             String.format(
                 "http://localhost:%s/health",
-                KaldbConfig.get().getQueryConfig().getServerConfig().getServerPort()));
+                kaldbConfig.getQueryConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -100,7 +103,7 @@ public class KalDbIntegrationTest {
         getResponse(
             String.format(
                 "http://localhost:%s/health",
-                KaldbConfig.get().getCacheConfig().getServerConfig().getServerPort()));
+                kaldbConfig.getCacheConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -113,7 +116,7 @@ public class KalDbIntegrationTest {
         getResponse(
             String.format(
                 "http://localhost:%s/health",
-                KaldbConfig.get().getRecoveryConfig().getServerConfig().getServerPort()));
+                kaldbConfig.getRecoveryConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -126,7 +129,7 @@ public class KalDbIntegrationTest {
         getResponse(
             String.format(
                 "http://localhost:%s/health",
-                KaldbConfig.get().getManagerConfig().getServerConfig().getServerPort()));
+                kaldbConfig.getManagerConfig().getServerConfig().getServerPort()));
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));

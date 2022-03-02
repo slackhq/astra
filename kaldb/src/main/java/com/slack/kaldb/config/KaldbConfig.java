@@ -63,7 +63,7 @@ public class KaldbConfig {
 
   // Parse a yaml string as a KaldbConfig proto struct
   @VisibleForTesting
-  static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
+  public static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
       throws InvalidProtocolBufferException, JsonProcessingException {
     StringSubstitutor substitute = new StringSubstitutor(System::getenv);
     ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
@@ -74,7 +74,7 @@ public class KaldbConfig {
   }
 
   @VisibleForTesting
-  public static void reset() {
+  static void reset() {
     _instance = null;
   }
 

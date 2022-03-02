@@ -61,12 +61,13 @@ public class Kaldb {
 
   private static final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+  private final KaldbConfigs.KaldbConfig kaldbConfig;
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  public Kaldb(Path configFilePath) throws IOException {
+  public Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
     Metrics.addRegistry(prometheusMeterRegistry);
-    KaldbConfig.initFromFile(configFilePath);
+    this.kaldbConfig = kaldbConfig;
   }
 
   public static void main(String[] args) throws Exception {
@@ -75,7 +76,8 @@ public class Kaldb {
     }
     Path configFilePath = Path.of(args[0]);
 
-    Kaldb kalDb = new Kaldb(configFilePath);
+    KaldbConfig.initFromFile(configFilePath);
+    Kaldb kalDb = new Kaldb(KaldbConfig.get());
     kalDb.start();
   }
 
@@ -84,10 +86,9 @@ public class Kaldb {
 
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
-            prometheusMeterRegistry,
-            KaldbConfig.get().getMetadataStoreConfig().getZookeeperConfig());
+            prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
-    Set<Service> services = getServices(metadataStore);
+    Set<Service> services = getServices(metadataStore, kaldbConfig);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -95,10 +96,10 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices(MetadataStore metadataStore) throws Exception {
+  public static Set<Service> getServices(
+      MetadataStore metadataStore, KaldbConfigs.KaldbConfig kaldbConfig) throws Exception {
     Set<Service> services = new HashSet<>();
 
-    final KaldbConfigs.KaldbConfig kaldbConfig = KaldbConfig.get();
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(kaldbConfig.getNodeRolesList());
 
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
