@@ -1,8 +1,8 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +19,6 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -69,7 +68,12 @@ public class KaldbIndexerTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            100,
+            KaldbConfigUtil.makeIndexerConfig(10000));
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -131,13 +135,13 @@ public class KaldbIndexerTest {
             8081,
             "",
             "");
-    KaldbConfig.initFromConfigObject(kaldbCfg);
 
     LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
     KaldbKafkaWriter kafkaWriter =
-        KaldbKafkaWriter.fromConfig(logMessageWriterImpl, metricsRegistry);
+        KaldbKafkaWriter.fromConfig(
+            logMessageWriterImpl, kaldbCfg.getKafkaConfig(), metricsRegistry);
     kafkaWriter.startAsync();
     kafkaWriter.awaitRunning(15, TimeUnit.SECONDS);
 

@@ -1,6 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.config.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
+import static com.slack.kaldb.server.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
 
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;

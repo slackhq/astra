@@ -1,9 +1,9 @@
 package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
@@ -18,7 +18,6 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -50,10 +49,14 @@ public class ChunkCleanerServiceTest {
 
   @Before
   public void setUp() throws Exception {
-    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            10L,
+            KaldbConfigUtil.makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -64,7 +67,6 @@ public class ChunkCleanerServiceTest {
       chunkManagerUtil.close();
     }
     metricsRegistry.close();
-    KaldbConfig.reset();
   }
 
   @Test

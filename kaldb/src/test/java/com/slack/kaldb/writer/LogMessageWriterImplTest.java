@@ -1,8 +1,8 @@
 package com.slack.kaldb.writer;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.getCurrentLogDate;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -54,10 +54,14 @@ public class LogMessageWriterImplTest {
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
-    KaldbConfigUtil.initEmptyIndexerConfig();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            100,
+            KaldbConfigUtil.makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
@@ -460,7 +464,8 @@ public class LogMessageWriterImplTest {
 
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, localMetricsRegistry, 1000L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE, localMetricsRegistry, 1000L, 100, KaldbConfigUtil.makeIndexerConfig());
     localChunkManagerUtil.chunkManager.startAsync();
     localChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

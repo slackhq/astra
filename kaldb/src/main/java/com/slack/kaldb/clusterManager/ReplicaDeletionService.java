@@ -1,7 +1,7 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
