@@ -37,15 +37,15 @@ public class LuceneIndexStoreConfig {
   static final Duration defaultCommitDuration = Duration.ofSeconds(15);
   static final Duration defaultRefreshDuration = Duration.ofSeconds(15);
 
-  public static Duration getCommitDuration(KaldbConfigs.IndexerConfig indexerConfig) {
-    return indexerConfig.getCommitDurationSecs() != 0
-        ? Duration.ofSeconds(indexerConfig.getCommitDurationSecs())
-        : defaultCommitDuration;
+  public static Duration getCommitDuration(KaldbConfigs.LuceneConfig luceneConfig) {
+    final long commitDurationSecs = luceneConfig.getCommitDurationSecs();
+    return commitDurationSecs != 0 ? Duration.ofSeconds(commitDurationSecs) : defaultCommitDuration;
   }
 
-  public static Duration getRefreshDuration(KaldbConfigs.IndexerConfig indexerConfig) {
-    return indexerConfig.getRefreshDurationSecs() != 0
-        ? Duration.ofSeconds(indexerConfig.getRefreshDurationSecs())
+  public static Duration getRefreshDuration(KaldbConfigs.LuceneConfig luceneConfig) {
+    final long refreshDurationSecs = luceneConfig.getRefreshDurationSecs();
+    return refreshDurationSecs != 0
+        ? Duration.ofSeconds(refreshDurationSecs)
         : defaultRefreshDuration;
   }
 

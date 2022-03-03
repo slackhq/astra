@@ -65,8 +65,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       throws IOException {
     return makeLogStore(
         dataDirectory,
-        LuceneIndexStoreConfig.getCommitDuration(indexerConfig),
-        LuceneIndexStoreConfig.getRefreshDuration(indexerConfig),
+        LuceneIndexStoreConfig.getCommitDuration(indexerConfig.getLuceneConfig()),
+        LuceneIndexStoreConfig.getRefreshDuration(indexerConfig.getLuceneConfig()),
         metricsRegistry);
   }
 

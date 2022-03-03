@@ -175,8 +175,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(1000);
     assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(100000);
-    assertThat(indexerConfig.getCommitDurationSecs()).isEqualTo(10);
-    assertThat(indexerConfig.getRefreshDurationSecs()).isEqualTo(11);
+    assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
+    assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
@@ -285,8 +285,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(100);
     assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(100000);
-    assertThat(indexerConfig.getCommitDurationSecs()).isEqualTo(10);
-    assertThat(indexerConfig.getRefreshDurationSecs()).isEqualTo(11);
+    assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
+    assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
@@ -389,8 +389,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
     assertThat(indexerConfig.getMaxBytesPerChunk()).isZero();
-    assertThat(indexerConfig.getCommitDurationSecs()).isZero();
-    assertThat(indexerConfig.getRefreshDurationSecs()).isZero();
+    assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isZero();
+    assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
@@ -483,8 +483,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
     assertThat(indexerConfig.getMaxBytesPerChunk()).isZero();
-    assertThat(indexerConfig.getCommitDurationSecs()).isZero();
-    assertThat(indexerConfig.getRefreshDurationSecs()).isZero();
+    assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isZero();
+    assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();

@@ -36,8 +36,11 @@ public class KaldbConfigUtil {
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(100)
-            .setCommitDurationSecs(10)
-            .setRefreshDurationSecs(10)
+            .setLuceneConfig(
+                KaldbConfigs.LuceneConfig.newBuilder()
+                    .setCommitDurationSecs(10)
+                    .setRefreshDurationSecs(10)
+                    .build())
             .setStaleDurationSecs(7200)
             .setDataTransformer("log_message")
             .build();
@@ -86,8 +89,11 @@ public class KaldbConfigUtil {
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
         .setMaxMessagesPerChunk(100)
-        .setCommitDurationSecs(10)
-        .setRefreshDurationSecs(10)
+        .setLuceneConfig(
+            KaldbConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .build())
         .setStaleDurationSecs(7200)
         .setDataTransformer("log_message")
         .build();

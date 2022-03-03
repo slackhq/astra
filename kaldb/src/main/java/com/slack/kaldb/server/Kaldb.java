@@ -117,7 +117,8 @@ public class Kaldb {
       services.add(chunkCleanerService);
 
       LogMessageTransformer messageTransformer =
-          KaldbIndexer.getLogMessageTransformer(kaldbConfig.getIndexerConfig());
+          KaldbIndexer.getLogMessageTransformer(
+              kaldbConfig.getIndexerConfig().getDataTransformer());
       LogMessageWriterImpl logMessageWriterImpl =
           new LogMessageWriterImpl(chunkManager, messageTransformer);
       KaldbKafkaWriter kafkaWriter =

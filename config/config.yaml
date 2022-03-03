@@ -3,8 +3,9 @@ nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY}]
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
   maxBytesPerChunk: ${INDEXER_MAX_BYTES_PER_CHUNK:-1000000}
-  commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
-  refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
+  luceneConfig:
+    commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
+    refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
