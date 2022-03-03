@@ -45,10 +45,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   public static final String REFRESHES_COUNTER = "refreshes";
 
   private final SearcherManager searcherManager;
-  private final LuceneIndexStoreConfig config;
   private final DocumentBuilder<LogMessage> documentBuilder;
-  private final Analyzer analyzer;
-  private final IndexWriterConfig indexWriterConfig;
   private final FSDirectory indexDirectory;
   private final Timer timer;
   private final SnapshotDeletionPolicy snapshotDeletionPolicy;
@@ -61,12 +58,12 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final Counter refreshesCounter;
 
   public static LuceneIndexStoreImpl makeLogStore(
-      File dataDirectory, KaldbConfigs.IndexerConfig indexerConfig, MeterRegistry metricsRegistry)
+      File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
       throws IOException {
     return makeLogStore(
         dataDirectory,
-        LuceneIndexStoreConfig.getCommitDuration(indexerConfig.getLuceneConfig()),
-        LuceneIndexStoreConfig.getRefreshDuration(indexerConfig.getLuceneConfig()),
+        LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
+        LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         metricsRegistry);
   }
 
@@ -93,14 +90,13 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       MeterRegistry registry)
       throws IOException {
 
-    this.config = config;
     this.documentBuilder = documentBuilder;
 
-    this.analyzer = new StandardAnalyzer();
+    Analyzer analyzer = new StandardAnalyzer();
     this.snapshotDeletionPolicy =
         new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-    indexWriterConfig =
-        buildIndexWriterConfig(this.analyzer, this.snapshotDeletionPolicy, this.config, registry);
+    IndexWriterConfig indexWriterConfig =
+        buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
     indexDirectory = new NIOFSDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
     this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
@@ -240,7 +236,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         + id
         + '\''
         + ", at="
-        + getDirectory().toAbsolutePath().toString()
+        + getDirectory().toAbsolutePath()
         + '}';
   }
 

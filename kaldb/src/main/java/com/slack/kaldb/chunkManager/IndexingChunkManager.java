@@ -262,7 +262,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>)
-              LuceneIndexStoreImpl.makeLogStore(dataDirectory, indexerConfig, meterRegistry);
+              LuceneIndexStoreImpl.makeLogStore(
+                  dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
 
       ReadWriteChunk<T> newChunk =
           new IndexingChunkImpl<>(
