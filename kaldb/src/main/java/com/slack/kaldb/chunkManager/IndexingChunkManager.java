@@ -1,8 +1,8 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
-import static com.slack.kaldb.config.KaldbConfig.CHUNK_DATA_PREFIX;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
+import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

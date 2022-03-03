@@ -1,4 +1,4 @@
-package com.slack.kaldb.config;
+package com.slack.kaldb.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,7 +52,7 @@ public class KaldbConfig {
     return kaldbConfig;
   }
 
-  public static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
+  private static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
     // We don't need further checks for node roles since JSON parsing will throw away roles not part
     // of the enum
     Preconditions.checkArgument(
@@ -63,7 +63,7 @@ public class KaldbConfig {
 
   // Parse a yaml string as a KaldbConfig proto struct
   @VisibleForTesting
-  public static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
+  static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
       throws InvalidProtocolBufferException, JsonProcessingException {
     StringSubstitutor substitute = new StringSubstitutor(System::getenv);
     ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
@@ -97,20 +97,20 @@ public class KaldbConfig {
     }
   }
 
-  public static void initFromJsonStr(String jsonCfgString) throws InvalidProtocolBufferException {
+  private static void initFromJsonStr(String jsonCfgString) throws InvalidProtocolBufferException {
     initFromConfigObject(fromJsonConfig(jsonCfgString));
   }
 
-  public static void initFromYamlStr(String yamlString)
+  private static void initFromYamlStr(String yamlString)
       throws InvalidProtocolBufferException, JsonProcessingException {
     initFromConfigObject(fromYamlConfig(yamlString));
   }
 
-  public static void initFromConfigObject(KaldbConfigs.KaldbConfig config) {
+  private static void initFromConfigObject(KaldbConfigs.KaldbConfig config) {
     _instance = new KaldbConfig(config);
   }
 
-  public static KaldbConfigs.KaldbConfig get() {
+  static KaldbConfigs.KaldbConfig get() {
     return _instance.config;
   }
 

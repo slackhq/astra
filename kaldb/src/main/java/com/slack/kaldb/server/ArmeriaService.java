@@ -1,6 +1,6 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.config.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
+import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
 
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;

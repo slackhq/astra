@@ -1,4 +1,4 @@
-package com.slack.kaldb.config;
+package com.slack.kaldb.server;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,7 +33,7 @@ public class KaldbConfigTest {
 
   @Test(expected = InvalidProtocolBufferException.class)
   public void testEmptyJsonCfgFile() throws InvalidProtocolBufferException {
-    KaldbConfig.initFromJsonStr("");
+    KaldbConfig.fromJsonConfig("");
   }
 
   @Test
@@ -362,7 +362,7 @@ public class KaldbConfigTest {
 
   @Test(expected = InvalidProtocolBufferException.class)
   public void testMalformedYaml() throws InvalidProtocolBufferException, JsonProcessingException {
-    KaldbConfig.initFromYamlStr(":test");
+    KaldbConfig.fromYamlConfig(":test");
   }
 
   @Test

@@ -6,9 +6,9 @@ import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_IN
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;

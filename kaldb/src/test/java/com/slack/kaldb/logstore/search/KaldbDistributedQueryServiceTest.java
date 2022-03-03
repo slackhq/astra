@@ -1,7 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,7 +17,6 @@ import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -130,10 +129,6 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "");
 
-    // Needed to set refresh/commit interval etc
-    // Will be same for both indexing servers
-    KaldbConfig.initFromConfigObject(kaldbConfig1);
-
     ChunkManagerUtil<LogMessage> chunkManagerUtil1 =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
@@ -180,7 +175,7 @@ public class KaldbDistributedQueryServiceTest {
             "");
 
     // Set it to the new config so that the new kafka writer picks up this config
-    KaldbConfig.initFromConfigObject(kaldbConfig2);
+    // KaldbConfig.initFromConfigObject(kaldbConfig2);
     ChunkManagerUtil<LogMessage> chunkManagerUtil2 =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
@@ -357,10 +352,6 @@ public class KaldbDistributedQueryServiceTest {
             indexServer3Port,
             "",
             "");
-
-    // Needed to set refresh/commit interval etc
-    // Will be same for both indexing servers
-    KaldbConfig.initFromConfigObject(kaldbConfig3);
 
     ChunkManagerUtil<LogMessage> chunkManagerUtil3 =
         new ChunkManagerUtil<>(
