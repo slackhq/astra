@@ -94,7 +94,6 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
-      KaldbConfigs.ServerConfig serverConfig,
       KaldbConfigs.S3Config s3Config,
       KaldbConfigs.CacheConfig cacheConfig)
       throws Exception {
@@ -102,7 +101,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
         meterRegistry,
         metadataStore,
         getS3BlobFsClient(s3Config),
-        SearchContext.fromConfig(serverConfig),
+        SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
         cacheConfig.getSlotsPerInstance());

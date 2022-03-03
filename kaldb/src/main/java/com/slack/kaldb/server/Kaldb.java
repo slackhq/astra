@@ -160,7 +160,6 @@ public class Kaldb {
           CachingChunkManager.fromConfig(
               prometheusMeterRegistry,
               metadataStore,
-              kaldbConfig.getCacheConfig().getServerConfig(),
               kaldbConfig.getS3Config(),
               kaldbConfig.getCacheConfig());
       services.add(chunkManager);
