@@ -1,13 +1,12 @@
 package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
@@ -50,8 +49,7 @@ public class KaldbIndexer extends AbstractIdleService {
 
   private final IndexingChunkManager<LogMessage> chunkManager;
 
-  public static LogMessageTransformer getLogMessageTransformer() {
-    String dataTransformerConfig = KaldbConfig.get().getIndexerConfig().getDataTransformer();
+  public static LogMessageTransformer getLogMessageTransformer(String dataTransformerConfig) {
     if (dataTransformerConfig.isEmpty()) {
       throw new RuntimeException("IndexerConfig can't have an empty dataTransformer config.");
     }

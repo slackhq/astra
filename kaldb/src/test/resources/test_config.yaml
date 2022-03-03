@@ -3,8 +3,9 @@ nodeRoles: [ INDEX,QUERY,CACHE,MANAGER ]
 indexerConfig:
   maxMessagesPerChunk: 100
   maxBytesPerChunk: 100000
-  commitDurationSecs: 10
-  refreshDurationSecs: 11
+  luceneConfig:
+    commitDurationSecs: 10
+    refreshDurationSecs: 11
   staleDurationSecs: 7200
   dataTransformer: "api_log"
   dataDirectory: "/tmp"

@@ -1,4 +1,4 @@
-package com.slack.kaldb.config;
+package com.slack.kaldb.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +26,9 @@ public class KaldbConfig {
   public static Duration DEFAULT_START_STOP_DURATION = Duration.ofSeconds(15);
   public static final int DEFAULT_ZK_TIMEOUT_SECS = 15;
 
+  public static final String CHUNK_DATA_PREFIX = "log";
+  public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
+
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -49,7 +52,7 @@ public class KaldbConfig {
     return kaldbConfig;
   }
 
-  public static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
+  private static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
     // We don't need further checks for node roles since JSON parsing will throw away roles not part
     // of the enum
     Preconditions.checkArgument(
@@ -71,7 +74,7 @@ public class KaldbConfig {
   }
 
   @VisibleForTesting
-  public static void reset() {
+  static void reset() {
     _instance = null;
   }
 
@@ -94,20 +97,20 @@ public class KaldbConfig {
     }
   }
 
-  public static void initFromJsonStr(String jsonCfgString) throws InvalidProtocolBufferException {
+  private static void initFromJsonStr(String jsonCfgString) throws InvalidProtocolBufferException {
     initFromConfigObject(fromJsonConfig(jsonCfgString));
   }
 
-  public static void initFromYamlStr(String yamlString)
+  private static void initFromYamlStr(String yamlString)
       throws InvalidProtocolBufferException, JsonProcessingException {
     initFromConfigObject(fromYamlConfig(yamlString));
   }
 
-  public static void initFromConfigObject(KaldbConfigs.KaldbConfig config) {
+  private static void initFromConfigObject(KaldbConfigs.KaldbConfig config) {
     _instance = new KaldbConfig(config);
   }
 
-  public static KaldbConfigs.KaldbConfig get() {
+  static KaldbConfigs.KaldbConfig get() {
     return _instance.config;
   }
 

@@ -2,8 +2,6 @@ package com.slack.kaldb.logstore;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.slack.kaldb.config.KaldbConfig;
-import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.time.Duration;
 
@@ -38,17 +36,13 @@ public class LuceneIndexStoreConfig {
   static final Duration defaultCommitDuration = Duration.ofSeconds(15);
   static final Duration defaultRefreshDuration = Duration.ofSeconds(15);
 
-  public static Duration getCommitDuration() {
-    KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
-    return indexerCfg.getCommitDurationSecs() != 0
-        ? Duration.ofSeconds(indexerCfg.getCommitDurationSecs())
-        : defaultCommitDuration;
+  public static Duration getCommitDuration(long commitDurationSecs) {
+    return commitDurationSecs != 0 ? Duration.ofSeconds(commitDurationSecs) : defaultCommitDuration;
   }
 
-  public static Duration getRefreshDuration() {
-    KaldbConfigs.IndexerConfig indexerCfg = KaldbConfig.get().getIndexerConfig();
-    return indexerCfg.getRefreshDurationSecs() != 0
-        ? Duration.ofSeconds(indexerCfg.getRefreshDurationSecs())
+  public static Duration getRefreshDuration(final long refreshDurationSecs) {
+    return refreshDurationSecs != 0
+        ? Duration.ofSeconds(refreshDurationSecs)
         : defaultRefreshDuration;
   }
 
@@ -96,9 +90,5 @@ public class LuceneIndexStoreConfig {
   public File logFolder(String id) {
     File logsFolder = new File(indexRoot, DEFAULT_LOGS_FOLDER_NAME);
     return new File(logsFolder, id);
-  }
-
-  public File logFile(String id) {
-    return new File(logFolder(id), logFileName);
   }
 }

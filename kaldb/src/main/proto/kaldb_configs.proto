@@ -76,18 +76,24 @@ message IndexerConfig {
   // Chunk config
   int64 max_messages_per_chunk = 1;
   int64 max_bytes_per_chunk = 2;
+
   // Lucene config
-  int64 commit_duration_secs = 3;
-  int64 refresh_duration_secs = 4;
+  LuceneConfig lucene_config = 3;
   // Chunk cleaner task removes a chunk from indexer after a certain time.
   // Duration after which a chunk no longer served by the indexer.
-  int64 stale_duration_secs= 5;
+  int64 stale_duration_secs= 4;
   // Name of the data transformation pipeline to use when ingesting the data.
-  string data_transformer = 6;
+  string data_transformer = 5;
   // Folder where data is persisted locally on disk.
-  string data_directory = 7;
+  string data_directory = 6;
   // Indexer server config.
-  ServerConfig server_config = 8;
+  ServerConfig server_config = 7;
+}
+
+// A config object containing all the lucene configs.
+message LuceneConfig {
+  int64 commit_duration_secs = 1;
+  int64 refresh_duration_secs = 2;
 }
 
 // ServerConfig contains the address and port info of a Kaldb service.

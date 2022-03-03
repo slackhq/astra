@@ -5,7 +5,6 @@ import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
@@ -95,15 +94,16 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
-      KaldbConfigs.ServerConfig serverConfig)
+      KaldbConfigs.S3Config s3Config,
+      KaldbConfigs.CacheConfig cacheConfig)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
         metadataStore,
-        getS3BlobFsClient(KaldbConfig.get().getS3Config()),
-        SearchContext.fromConfig(serverConfig),
-        KaldbConfig.get().getS3Config().getS3Bucket(),
-        KaldbConfig.get().getCacheConfig().getDataDirectory(),
-        KaldbConfig.get().getCacheConfig().getSlotsPerInstance());
+        getS3BlobFsClient(s3Config),
+        SearchContext.fromConfig(cacheConfig.getServerConfig()),
+        s3Config.getS3Bucket(),
+        cacheConfig.getDataDirectory(),
+        cacheConfig.getSlotsPerInstance());
   }
 }
