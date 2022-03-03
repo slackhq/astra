@@ -94,8 +94,4 @@ public class LuceneIndexStoreConfig {
     File logsFolder = new File(indexRoot, DEFAULT_LOGS_FOLDER_NAME);
     return new File(logsFolder, id);
   }
-
-  public File logFile(String id) {
-    return new File(logFolder(id), logFileName);
-  }
 }
