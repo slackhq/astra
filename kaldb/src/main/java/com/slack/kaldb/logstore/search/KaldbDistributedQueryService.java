@@ -1,6 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.config.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
+import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
 import brave.Tracing;

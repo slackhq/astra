@@ -1,9 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
-import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +17,6 @@ import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -100,6 +97,7 @@ public class KaldbDistributedQueryServiceTest {
     zkServer = new TestingServer();
     zkServer.start();
 
+    // TODO: Remove this additional config and use the bottom config instead?
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -128,10 +126,6 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "");
 
-    // Needed to set refresh/commit interval etc
-    // Will be same for both indexing servers
-    KaldbConfig.initFromConfigObject(kaldbConfig1);
-
     ChunkManagerUtil<LogMessage> chunkManagerUtil1 =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
@@ -140,7 +134,12 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext1,
-            metadataStore);
+            metadataStore,
+            kaldbConfig1.getIndexerConfig());
+    indexingServiceManager1 =
+        newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
+
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
@@ -187,7 +186,7 @@ public class KaldbDistributedQueryServiceTest {
             "");
 
     // Set it to the new config so that the new kafka writer picks up this config
-    KaldbConfig.initFromConfigObject(kaldbConfig2);
+    // KaldbConfig.initFromConfigObject(kaldbConfig2);
     ChunkManagerUtil<LogMessage> chunkManagerUtil2 =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
@@ -196,7 +195,13 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext2,
-            metadataStore);
+            metadataStore,
+            kaldbConfig2.getIndexerConfig());
+    indexingServiceManager2 =
+        newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
+
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
+
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime2 =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -372,10 +377,6 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "");
 
-    // Needed to set refresh/commit interval etc
-    // Will be same for both indexing servers
-    KaldbConfig.initFromConfigObject(kaldbConfig3);
-
     ChunkManagerUtil<LogMessage> chunkManagerUtil3 =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
@@ -384,7 +385,13 @@ public class KaldbDistributedQueryServiceTest {
             10 * 1024 * 1024 * 1024L,
             100,
             searchContext3,
-            metadataStore);
+            metadataStore,
+            kaldbConfig3.getIndexerConfig());
+    indexingServiceManager3 =
+        newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
+
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
+
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime3 =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();

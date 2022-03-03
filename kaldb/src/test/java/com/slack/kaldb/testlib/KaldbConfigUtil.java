@@ -1,36 +1,8 @@
 package com.slack.kaldb.testlib;
 
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
 public class KaldbConfigUtil {
-  /**
-   * Initialize an empty KaldbConfig for tests.
-   *
-   * <p>Initializing emptyConfig was a hack to initialize a chunk manager with default values.
-   * However, as the code has gotten more complex, this method is no longer a good way to initialize
-   * chunk manager So, we need to delete this method.
-   *
-   * <p>TODO: Drop this method since we can no longer initialize the chunk manager using this.
-   */
-  @Deprecated
-  public static void initEmptyIndexerConfig() {
-    KaldbConfigs.IndexerConfig indexerConfig =
-        KaldbConfigs.IndexerConfig.newBuilder()
-            .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-            .setMaxMessagesPerChunk(100)
-            .setCommitDurationSecs(10)
-            .setRefreshDurationSecs(10)
-            .setStaleDurationSecs(7200)
-            .setDataTransformer("log_message")
-            .build();
-
-    KaldbConfigs.KaldbConfig config =
-        KaldbConfigs.KaldbConfig.newBuilder().setIndexerConfig(indexerConfig).build();
-
-    KaldbConfig.initFromConfigObject(config);
-  }
-
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(
       String bootstrapServers,
       int indexerPort,
@@ -64,8 +36,11 @@ public class KaldbConfigUtil {
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(100)
-            .setCommitDurationSecs(10)
-            .setRefreshDurationSecs(10)
+            .setLuceneConfig(
+                KaldbConfigs.LuceneConfig.newBuilder()
+                    .setCommitDurationSecs(10)
+                    .setRefreshDurationSecs(10)
+                    .build())
             .setStaleDurationSecs(7200)
             .setDataTransformer("log_message")
             .build();
@@ -99,24 +74,36 @@ public class KaldbConfigUtil {
         .build();
   }
 
-  public static KaldbConfigs.KafkaConfig makeKafkaConfig(
-      String kafkaTopic, int topicPartition, String kafkaClient, String brokerList) {
-    return KaldbConfigs.KafkaConfig.newBuilder()
-        .setKafkaTopic(kafkaTopic)
-        .setKafkaTopicPartition(String.valueOf(topicPartition))
-        .setKafkaBootStrapServers(brokerList)
-        .setKafkaClientGroup(kafkaClient)
-        .setEnableKafkaAutoCommit("true")
-        .setKafkaAutoCommitInterval("5000")
-        .setKafkaSessionTimeout("30000")
-        .build();
-  }
-
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
       int maxOffsetDelay, String dataTransformer) {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setMaxOffsetDelay(maxOffsetDelay)
         .setDataTransformer(dataTransformer)
+        .build();
+  }
+
+  public static int TEST_INDEXER_PORT = 10000;
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
+    return makeIndexerConfig(TEST_INDEXER_PORT);
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(int indexerPort) {
+    return KaldbConfigs.IndexerConfig.newBuilder()
+        .setServerConfig(
+            KaldbConfigs.ServerConfig.newBuilder()
+                .setServerPort(indexerPort)
+                .setServerAddress("localhost")
+                .build())
+        .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
+        .setMaxMessagesPerChunk(100)
+        .setLuceneConfig(
+            KaldbConfigs.LuceneConfig.newBuilder()
+                .setCommitDurationSecs(10)
+                .setRefreshDurationSecs(10)
+                .build())
+        .setStaleDurationSecs(7200)
+        .setDataTransformer("log_message")
         .build();
   }
 }
