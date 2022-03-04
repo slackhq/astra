@@ -16,7 +16,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.RejectedExecutionException;
@@ -48,8 +48,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Rewrite all class and method docs.
  */
-public class KaldbIndexer2 extends AbstractExecutionThreadService {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer2.class);
+public class KaldbIndexer extends AbstractExecutionThreadService {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
   private final MetadataStore metadataStore;
   private final MeterRegistry meterRegistry;
@@ -57,11 +57,11 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
   private final KaldbConfigs.KafkaConfig kafkaConfig;
 
   @VisibleForTesting
-  public KaldbKafkaConsumer2 getKafkaConsumer() {
+  public KaldbKafkaConsumer getKafkaConsumer() {
     return kafkaConsumer;
   }
 
-  private final KaldbKafkaConsumer2 kafkaConsumer;
+  private final KaldbKafkaConsumer kafkaConsumer;
 
   private final IndexingChunkManager<LogMessage> chunkManager;
 
@@ -94,7 +94,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
    * messages, persist the indexed messages and metadata successfully and then close the
    * chunkManager and then the consumer,
    */
-  public KaldbIndexer2(
+  public KaldbIndexer(
       IndexingChunkManager<LogMessage> chunkManager,
       MetadataStore metadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
@@ -113,7 +113,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
         DATA_TRANSFORMER_MAP.get(indexerConfig.getDataTransformer());
     logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
     this.kafkaConsumer =
-        KaldbKafkaConsumer2.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
+        KaldbKafkaConsumer.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
   }
 
   @Override

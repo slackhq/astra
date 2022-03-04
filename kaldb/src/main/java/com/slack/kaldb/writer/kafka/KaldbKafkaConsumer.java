@@ -27,16 +27,16 @@ import org.slf4j.LoggerFactory;
  * be run in a separate thread. Further, it is also important to shut down the consumer cleanly so
  * that we can guarantee that the data is indexed only once.
  */
-public class KaldbKafkaConsumer2 {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer2.class);
+public class KaldbKafkaConsumer {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
   private static final int KAFKA_POLL_TIMEOUT_MS = 100;
   private final LogMessageWriterImpl logMessageWriterImpl;
 
-  public static KaldbKafkaConsumer2 fromConfig(
+  public static KaldbKafkaConsumer fromConfig(
       KaldbConfigs.KafkaConfig kafkaCfg,
       LogMessageWriterImpl logMessageWriter,
       MeterRegistry meterRegistry) {
-    return new KaldbKafkaConsumer2(
+    return new KaldbKafkaConsumer(
         kafkaCfg.getKafkaTopic(),
         kafkaCfg.getKafkaTopicPartition(),
         kafkaCfg.getKafkaBootStrapServers(),
@@ -83,7 +83,7 @@ public class KaldbKafkaConsumer2 {
   private final Counter recordsFailedCounter;
 
   // TODO: Instead of passing each property as a field, consider defining props in config file.
-  public KaldbKafkaConsumer2(
+  public KaldbKafkaConsumer(
       String kafkaTopic,
       String kafkaTopicPartitionStr,
       String kafkaBootStrapServers,

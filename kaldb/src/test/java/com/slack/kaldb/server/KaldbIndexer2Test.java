@@ -39,7 +39,7 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer2;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -76,7 +76,7 @@ public class KaldbIndexer2Test {
       LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
-  private KaldbIndexer2 kaldbIndexer;
+  private KaldbIndexer kaldbIndexer;
   private SimpleMeterRegistry metricsRegistry;
   private Server armeriaServer;
   private TestKafkaServer kafkaServer;
@@ -185,7 +185,7 @@ public class KaldbIndexer2Test {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-        new KaldbIndexer2(
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(1000, "api_log"),
@@ -222,7 +222,7 @@ public class KaldbIndexer2Test {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-        new KaldbIndexer2(
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(1000, "api_log"),
@@ -264,7 +264,7 @@ public class KaldbIndexer2Test {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-        new KaldbIndexer2(
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(1000, "api_log"),
@@ -313,7 +313,7 @@ public class KaldbIndexer2Test {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-        new KaldbIndexer2(
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(1000, "api_log"),
@@ -362,7 +362,7 @@ public class KaldbIndexer2Test {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-        new KaldbIndexer2(
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
             makeIndexerConfig(50, "api_log"),
@@ -431,9 +431,9 @@ public class KaldbIndexer2Test {
                       == rolloversCompleted);
       assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     }
-    assertThat(getCount(KaldbKafkaConsumer2.RECORDS_RECEIVED_COUNTER, metricsRegistry))
+    assertThat(getCount(KaldbKafkaConsumer.RECORDS_RECEIVED_COUNTER, metricsRegistry))
         .isEqualTo(messagesReceived);
-    assertThat(getCount(KaldbKafkaConsumer2.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(KaldbKafkaConsumer.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
 
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toEpochMilli();

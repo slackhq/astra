@@ -26,7 +26,7 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
-import com.slack.kaldb.server.KaldbIndexer2;
+import com.slack.kaldb.server.KaldbIndexer;
 import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
 import com.slack.kaldb.server.TestingArmeriaServer;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -278,8 +278,8 @@ public class KaldbDistributedQueryServiceTest {
 
     HashSet<Service> services = new HashSet<>();
 
-    KaldbIndexer2 indexer =
-        new KaldbIndexer2(
+    KaldbIndexer indexer =
+        new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             metadataStore,
             makeIndexerConfig(1000, "api_log"),

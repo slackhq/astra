@@ -26,14 +26,14 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-public class KaldbKafkaConsumer2Test {
+public class KaldbKafkaConsumerTest {
   private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
   public static class BasicTests {
     @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
     private TestKafkaServer kafkaServer;
-    private KaldbKafkaConsumer2 testConsumer;
+    private KaldbKafkaConsumer testConsumer;
     private SimpleMeterRegistry metricsRegistry;
     private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
@@ -57,7 +57,7 @@ public class KaldbKafkaConsumer2Test {
           new LogMessageWriterImpl(
               chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
       testConsumer =
-          new KaldbKafkaConsumer2(
+          new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
               "0",
               kafkaServer.getBroker().getBrokerList().get(),
@@ -120,7 +120,7 @@ public class KaldbKafkaConsumer2Test {
     @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
     private TestKafkaServer kafkaServer;
-    private KaldbKafkaConsumer2 testConsumer;
+    private KaldbKafkaConsumer testConsumer;
     private SimpleMeterRegistry metricsRegistry;
     private ChunkManagerUtil<LogMessage> chunkManagerUtil;
     private LogMessageWriterImpl logMessageWriter;
@@ -166,7 +166,7 @@ public class KaldbKafkaConsumer2Test {
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
 
       testConsumer =
-          new KaldbKafkaConsumer2(
+          new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
               "0",
               kafkaServer.getBroker().getBrokerList().get(),

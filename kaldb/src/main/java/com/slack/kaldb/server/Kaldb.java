@@ -113,8 +113,8 @@ public class Kaldb {
               Duration.ofSeconds(kaldbConfig.getIndexerConfig().getStaleDurationSecs()));
       services.add(chunkCleanerService);
 
-      KaldbIndexer2 indexer =
-          new KaldbIndexer2(
+      KaldbIndexer indexer =
+          new KaldbIndexer(
               chunkManager,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
