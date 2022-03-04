@@ -104,8 +104,12 @@ public class KaldbIndexer2Test {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<LogMessage>(
-            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE,
+            metricsRegistry,
+            10 * 1024 * 1024 * 1024L,
+            100,
+            kaldbCfg.getIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -207,7 +211,6 @@ public class KaldbIndexer2Test {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 50;
@@ -245,7 +248,6 @@ public class KaldbIndexer2Test {
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
-    final String path = "/testPath_" + name;
     final long startTimeMs = 1;
     final long endTimeMs = 100;
     final long maxOffset = 50;

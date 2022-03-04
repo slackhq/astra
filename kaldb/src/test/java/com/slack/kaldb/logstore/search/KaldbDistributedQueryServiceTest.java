@@ -139,7 +139,12 @@ public class KaldbDistributedQueryServiceTest {
             metadataStore,
             kaldbConfig1.getIndexerConfig());
     indexingServiceManager1 =
-        newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
+        newIndexingServer(
+            chunkManagerUtil1,
+            kaldbConfig1,
+            indexerMetricsRegistry1,
+            0,
+            kaldbConfig1.getKafkaConfig());
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
@@ -200,7 +205,12 @@ public class KaldbDistributedQueryServiceTest {
             metadataStore,
             kaldbConfig2.getIndexerConfig());
     indexingServiceManager2 =
-        newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
+        newIndexingServer(
+            chunkManagerUtil2,
+            kaldbConfig2,
+            indexerMetricsRegistry2,
+            3000,
+            kaldbConfig2.getKafkaConfig());
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
 
@@ -390,7 +400,12 @@ public class KaldbDistributedQueryServiceTest {
             metadataStore,
             kaldbConfig3.getIndexerConfig());
     indexingServiceManager3 =
-        newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
+        newIndexingServer(
+            chunkManagerUtil3,
+            kaldbConfig3,
+            indexerMetricsRegistry3,
+            0,
+            kaldbConfig3.getKafkaConfig());
 
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
 
