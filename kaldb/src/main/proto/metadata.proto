@@ -109,3 +109,30 @@ message RecoveryTaskMetadata {
   // Created timestamp
   int64 created_time_epoch_ms = 5;
 }
+
+// Describes ownership, throughput, and partition mapping for a given service
+message ServiceMetadata {
+  // Unique name for provisioned service
+  string name = 1;
+
+  // Service owner information (ie team name)
+  string owner = 2;
+
+  // Service throughput max
+  int64 throughput_bytes = 3;
+
+  // List of partitions assigned to this service, and their effective times
+  repeated ServicePartitionMetadata partition_configs = 4;
+}
+
+// Describes a set of partitions along with their effective start and end times
+message ServicePartitionMetadata {
+  // Start time this partition received traffic
+  int64 start_time_epoch_ms = 1;
+
+  // End time this partition received traffic
+  int64 end_time_epoch_ms = 2;
+
+  // List of Kafka partition ids
+  repeated string partitions = 3;
+}
