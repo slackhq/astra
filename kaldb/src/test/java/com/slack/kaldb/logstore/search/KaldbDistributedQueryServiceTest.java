@@ -2,6 +2,8 @@ package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;

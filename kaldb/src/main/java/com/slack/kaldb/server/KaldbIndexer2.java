@@ -1,8 +1,8 @@
 package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.dataTransformerMap;
+import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
@@ -110,7 +110,7 @@ public class KaldbIndexer2 extends AbstractExecutionThreadService {
     this.chunkManager = chunkManager;
     // set up indexing pipelne
     LogMessageTransformer messageTransformer =
-        dataTransformerMap.get(indexerConfig.getDataTransformer());
+        DATA_TRANSFORMER_MAP.get(indexerConfig.getDataTransformer());
     logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
     this.kafkaConsumer =
         KaldbKafkaConsumer2.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);

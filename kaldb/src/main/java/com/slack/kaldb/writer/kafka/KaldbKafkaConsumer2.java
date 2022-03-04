@@ -4,8 +4,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.KaldbConfig;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -76,7 +76,6 @@ public class KaldbKafkaConsumer2 {
 
   private final KafkaConsumer<String, byte[]> kafkaConsumer;
   private final TopicPartition topicPartition;
-  private final Properties consumerProps;
 
   public static final String RECORDS_RECEIVED_COUNTER = "records_received";
   public static final String RECORDS_FAILED_COUNTER = "records_failed";
@@ -137,7 +136,7 @@ public class KaldbKafkaConsumer2 {
     this.logMessageWriterImpl = logMessageWriterImpl;
 
     // Create kafka consumer
-    consumerProps =
+    Properties consumerProps =
         makeKafkaConsumerProps(
             kafkaBootStrapServers,
             kafkaClientGroup,

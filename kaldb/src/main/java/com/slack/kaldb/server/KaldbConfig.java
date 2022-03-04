@@ -56,15 +56,6 @@ public class KaldbConfig {
     return kaldbConfig;
   }
 
-  private static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
-    // We don't need further checks for node roles since JSON parsing will throw away roles not part
-    // of the enum
-    Preconditions.checkArgument(
-        !kaldbConfig.getNodeRolesList().isEmpty(),
-        "Kaldb must start with atleast 1 node role. Accepted roles are "
-            + Arrays.toString(KaldbConfigs.NodeRole.values()));
-  }
-
   // Parse a yaml string as a KaldbConfig proto struct
   @VisibleForTesting
   static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
@@ -98,7 +89,7 @@ public class KaldbConfig {
 
   // TODO: Private var?
   @VisibleForTesting
-  public static final Map<String, LogMessageTransformer> dataTransformerMap =
+  public static final Map<String, LogMessageTransformer> DATA_TRANSFORMER_MAP =
       ImmutableMap.of(
           "api_log",
           LogMessageWriterImpl.apiLogTransformer,
@@ -112,7 +103,7 @@ public class KaldbConfig {
         dataTransformerConfig.isEmpty(),
         "IndexerConfig can't have an empty dataTransformer config.");
     checkArgument(
-        !dataTransformerConfig.contains(dataTransformerConfig),
+        !DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
         "Invalid data transformer config: " + dataTransformerConfig);
   }
 

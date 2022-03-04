@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer.kafka;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.config.KaldbConfig.dataTransformerMap;
+import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
@@ -13,6 +13,7 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -24,12 +25,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class KaldbKafkaConsumer2Test {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer2Test.class);
-
   private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
   public static class BasicTests {
@@ -39,7 +36,6 @@ public class KaldbKafkaConsumer2Test {
     private KaldbKafkaConsumer2 testConsumer;
     private SimpleMeterRegistry metricsRegistry;
     private ChunkManagerUtil<LogMessage> chunkManagerUtil;
-    private LogMessageWriterImpl logMessageWriter;
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Before
@@ -48,12 +44,18 @@ public class KaldbKafkaConsumer2Test {
       metricsRegistry = new SimpleMeterRegistry();
 
       chunkManagerUtil =
-          new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+          new ChunkManagerUtil<>(
+              S3_MOCK_RULE,
+              metricsRegistry,
+              10 * 1024 * 1024 * 1024L,
+              100L,
+              KaldbConfigUtil.makeIndexerConfig());
       chunkManagerUtil.chunkManager.startAsync();
       chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-      logMessageWriter =
-          new LogMessageWriterImpl(chunkManagerUtil.chunkManager, dataTransformerMap.get("spans"));
+      LogMessageWriterImpl logMessageWriter =
+          new LogMessageWriterImpl(
+              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
       testConsumer =
           new KaldbKafkaConsumer2(
               TestKafkaServer.TEST_KAFKA_TOPIC,
@@ -129,12 +131,18 @@ public class KaldbKafkaConsumer2Test {
       metricsRegistry = new SimpleMeterRegistry();
 
       chunkManagerUtil =
-          new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+          new ChunkManagerUtil<>(
+              S3_MOCK_RULE,
+              metricsRegistry,
+              10 * 1024 * 1024 * 1024L,
+              100L,
+              KaldbConfigUtil.makeIndexerConfig());
       chunkManagerUtil.chunkManager.startAsync();
       chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
       logMessageWriter =
-          new LogMessageWriterImpl(chunkManagerUtil.chunkManager, dataTransformerMap.get("spans"));
+          new LogMessageWriterImpl(
+              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
     }
 
     @After

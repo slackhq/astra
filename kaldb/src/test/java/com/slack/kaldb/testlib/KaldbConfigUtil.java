@@ -74,11 +74,16 @@ public class KaldbConfigUtil {
         .build();
   }
 
-  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
-      int maxOffsetDelay, String dataTransformer) {
-    return KaldbConfigs.IndexerConfig.newBuilder()
-        .setMaxOffsetDelay(maxOffsetDelay)
-        .setDataTransformer(dataTransformer)
+  public static KaldbConfigs.KafkaConfig makeKafkaConfig(
+      String kafkaTopic, int topicPartition, String kafkaClient, String brokerList) {
+    return KaldbConfigs.KafkaConfig.newBuilder()
+        .setKafkaTopic(kafkaTopic)
+        .setKafkaTopicPartition(String.valueOf(topicPartition))
+        .setKafkaBootStrapServers(brokerList)
+        .setKafkaClientGroup(kafkaClient)
+        .setEnableKafkaAutoCommit("true")
+        .setKafkaAutoCommitInterval("5000")
+        .setKafkaSessionTimeout("30000")
         .build();
   }
 
@@ -86,6 +91,15 @@ public class KaldbConfigUtil {
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
     return makeIndexerConfig(TEST_INDEXER_PORT);
+  }
+
+  // TODO: Merge these makeIndexer config methods into a single method.
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int maxOffsetDelay, String dataTransformer) {
+    return KaldbConfigs.IndexerConfig.newBuilder()
+        .setMaxOffsetDelay(maxOffsetDelay)
+        .setDataTransformer(dataTransformer)
+        .build();
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(int indexerPort) {

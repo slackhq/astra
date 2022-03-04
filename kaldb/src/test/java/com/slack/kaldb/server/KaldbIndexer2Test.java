@@ -1,9 +1,9 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.config.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -24,7 +24,6 @@ import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
-import com.slack.kaldb.config.KaldbConfig;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
@@ -101,12 +100,12 @@ public class KaldbIndexer2Test {
             8081,
             "",
             "");
-    KaldbConfig.initFromConfigObject(kaldbCfg);
 
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
+        new ChunkManagerUtil<LogMessage>(
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100);
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
