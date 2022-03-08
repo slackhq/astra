@@ -100,10 +100,10 @@ public class KaldbConfig {
 
   public static void validateDataTransformerConfig(String dataTransformerConfig) {
     checkArgument(
-        dataTransformerConfig.isEmpty(),
+        dataTransformerConfig != null && !dataTransformerConfig.isEmpty(),
         "IndexerConfig can't have an empty dataTransformer config.");
     checkArgument(
-        !DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
+        DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
         "Invalid data transformer config: " + dataTransformerConfig);
   }
 
