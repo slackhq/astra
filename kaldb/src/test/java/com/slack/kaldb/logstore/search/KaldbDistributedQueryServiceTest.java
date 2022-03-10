@@ -138,15 +138,6 @@ public class KaldbDistributedQueryServiceTest {
             searchContext1,
             metadataStore,
             kaldbConfig1.getIndexerConfig());
-    indexingServiceManager1 =
-        newIndexingServer(
-            chunkManagerUtil1,
-            kaldbConfig1,
-            indexerMetricsRegistry1,
-            0,
-            kaldbConfig1.getKafkaConfig());
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
@@ -204,15 +195,6 @@ public class KaldbDistributedQueryServiceTest {
             searchContext2,
             metadataStore,
             kaldbConfig2.getIndexerConfig());
-    indexingServiceManager2 =
-        newIndexingServer(
-            chunkManagerUtil2,
-            kaldbConfig2,
-            indexerMetricsRegistry2,
-            3000,
-            kaldbConfig2.getKafkaConfig());
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime2 =
@@ -399,15 +381,6 @@ public class KaldbDistributedQueryServiceTest {
             searchContext3,
             metadataStore,
             kaldbConfig3.getIndexerConfig());
-    indexingServiceManager3 =
-        newIndexingServer(
-            chunkManagerUtil3,
-            kaldbConfig3,
-            indexerMetricsRegistry3,
-            0,
-            kaldbConfig3.getKafkaConfig());
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime3 =
