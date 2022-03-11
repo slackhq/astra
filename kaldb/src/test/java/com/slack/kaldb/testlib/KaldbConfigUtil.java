@@ -13,7 +13,8 @@ public class KaldbConfigUtil {
       int queryPort,
       String metadataZkConnectionString,
       String metadataZkPathPrefix,
-      KaldbConfigs.NodeRole nodeRole) {
+      KaldbConfigs.NodeRole nodeRole,
+      int maxOffsetDelay) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -44,6 +45,7 @@ public class KaldbConfigUtil {
                     .build())
             .setStaleDurationSecs(7200)
             .setDataTransformer("log_message")
+            .setMaxOffsetDelay(maxOffsetDelay)
             .build();
 
     KaldbConfigs.ZookeeperConfig zkConfig =
