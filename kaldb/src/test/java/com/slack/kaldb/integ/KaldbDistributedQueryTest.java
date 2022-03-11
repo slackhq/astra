@@ -7,9 +7,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.Kaldb;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
+import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import java.time.Instant;
@@ -122,6 +126,28 @@ public class KaldbDistributedQueryTest {
                 return false;
               }
             });
+
+    KaldbServiceGrpc.KaldbServiceBlockingStub queryServiceStub;
+    queryServiceStub =
+            Clients.newClient(
+                    String.format("gproto+http://127.0.0.1:%s/", queryServicePort),
+                    KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+
+    KaldbSearch.SearchResult searchResponse =
+            queryServiceStub.search(
+                    KaldbSearch.SearchRequest.newBuilder()
+                            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                            .setQueryString("*:*")
+                            .setStartTimeEpochMs(0L)
+                            .setEndTimeEpochMs(1601547099000L)
+                            .setHowMany(100)
+                            .setBucketCount(2)
+                            .build());
+
+    assertThat(searchResponse.getTotalNodes()).isEqualTo(3);
+    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(searchResponse.getTotalCount()).isEqualTo(300);
+    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
 
     // Add data to indexer.
     // Query from indexer.
