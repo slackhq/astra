@@ -12,7 +12,8 @@ public class KaldbConfigUtil {
       String s3Bucket,
       int queryPort,
       String metadataZkConnectionString,
-      String metadataZkPathPrefix) {
+      String metadataZkPathPrefix,
+      KaldbConfigs.NodeRole nodeRole) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -71,6 +72,7 @@ public class KaldbConfigUtil {
         .setIndexerConfig(indexerConfig)
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
+        .addNodeRoles(nodeRole)
         .build();
   }
 

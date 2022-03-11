@@ -99,7 +99,8 @@ public class KaldbIndexer2Test {
             TEST_S3_BUCKET,
             8081,
             "",
-            "");
+            "",
+            KaldbConfigs.NodeRole.INDEX);
 
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
