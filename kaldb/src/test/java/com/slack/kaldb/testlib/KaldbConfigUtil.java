@@ -28,7 +28,12 @@ public class KaldbConfigUtil {
             .build();
 
     KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder().setS3Bucket(s3Bucket).setS3Region("us-east-1").build();
+        KaldbConfigs.S3Config.newBuilder()
+            .setS3Bucket(s3Bucket)
+            .setS3Region("us-east-1")
+            .setS3AccessKey("")
+            .setS3SecretKey("")
+            .build();
 
     KaldbConfigs.IndexerConfig indexerConfig =
         KaldbConfigs.IndexerConfig.newBuilder()

@@ -25,8 +25,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KaldbDistributedQueryTest {
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryTest.class);
+public class KaldbTest {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbTest.class);
 
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
@@ -65,7 +65,7 @@ public class KaldbDistributedQueryTest {
         kafkaPartition,
         clientName,
         TEST_S3_BUCKET,
-        port,
+        port + 1,
         zkServer.getConnectString(),
         zkPathPrefix,
         nodeRole,
@@ -93,19 +93,6 @@ public class KaldbDistributedQueryTest {
     Kaldb indexer = new Kaldb(indexerConfig);
     indexer.start();
 
-    int queryServicePort = 10001;
-    KaldbConfigs.KaldbConfig queryServiceConfig =
-        makeKaldbConfig(
-            queryServicePort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
-            KaldbConfigs.NodeRole.QUERY,
-            1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
-    queryService.start();
-
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -125,14 +112,38 @@ public class KaldbDistributedQueryTest {
               }
             });
 
-    KaldbSearch.SearchResult searchResponse =
+    KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, queryServicePort);
+            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, indexerPort);
 
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(3);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(300);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
+
+    LOG.info("Starting query service");
+    int queryServicePort = 11000;
+    KaldbConfigs.KaldbConfig queryServiceConfig =
+        makeKaldbConfig(
+            queryServicePort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            KaldbConfigs.NodeRole.QUERY,
+            1000);
+    Kaldb queryService = new Kaldb(queryServiceConfig);
+    queryService.start();
+
+    //    KaldbSearch.SearchResult searchResponse =
+    //        searchUsingGrpcApi(
+    //            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2,
+    // queryServicePort+1);
+    //
+    //    assertThat(searchResponse.getTotalNodes()).isEqualTo(3);
+    //    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
+    //    assertThat(searchResponse.getTotalCount()).isEqualTo(300);
+    //    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
 
     // Add data to indexer.
     // Query from indexer.
