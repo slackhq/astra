@@ -53,7 +53,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class KaldbIndexer2Test {
+public class KaldbIndexerTest {
   // TODO: Test exception in pre-startup
   // TODO: Test exception in actual start up method.
   // TODO: Ensure clean shutdown happens on indexer shutdown.
