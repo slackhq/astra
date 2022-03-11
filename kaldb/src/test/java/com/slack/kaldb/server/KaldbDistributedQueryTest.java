@@ -1,4 +1,4 @@
-package com.slack.kaldb.integ;
+package com.slack.kaldb.server;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -11,7 +11,6 @@ import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
-import com.slack.kaldb.server.Kaldb;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
