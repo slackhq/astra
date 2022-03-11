@@ -128,7 +128,8 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "",
             KaldbConfigs.NodeRole.INDEX,
-            1000);
+            1000,
+            "log_message");
 
     ChunkManagerUtil<LogMessage> chunkManagerUtil1 =
         new ChunkManagerUtil<>(
@@ -185,7 +186,8 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "",
             KaldbConfigs.NodeRole.INDEX,
-            1000);
+            1000,
+            "log_message");
 
     // Set it to the new config so that the new kafka writer picks up this config
     // KaldbConfig.initFromConfigObject(kaldbConfig2);
@@ -375,7 +377,8 @@ public class KaldbDistributedQueryServiceTest {
             "",
             "",
             KaldbConfigs.NodeRole.INDEX,
-            1000);
+            1000,
+            "log_message");
 
     ChunkManagerUtil<LogMessage> chunkManagerUtil3 =
         new ChunkManagerUtil<>(

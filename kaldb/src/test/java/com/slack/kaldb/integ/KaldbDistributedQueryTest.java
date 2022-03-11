@@ -1,17 +1,31 @@
 package com.slack.kaldb.integ;
 
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.Kaldb;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryTest {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryTest.class);
+
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
@@ -22,9 +36,10 @@ public class KaldbDistributedQueryTest {
 
   @Before
   public void setUp() throws Exception {
-    kafkaServer = new TestKafkaServer();
     zkServer = new TestingServer();
     zkServer.start();
+
+    kafkaServer = new TestKafkaServer();
   }
 
   @After
@@ -52,11 +67,14 @@ public class KaldbDistributedQueryTest {
         zkServer.getConnectString(),
         zkPathPrefix,
         nodeRole,
-        maxOffsetDelay);
+        maxOffsetDelay,
+        "api_log");
   }
 
   @Test
   public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
+    assertThat(kafkaServer.getBroker().isRunning()).isTrue();
+
     int indexerPort = 10000;
     String indexerPathPrefix = "indexer1";
     // create a kaldb query server and indexer.
@@ -85,6 +103,25 @@ public class KaldbDistributedQueryTest {
             1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
+
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final int indexedMessagesCount =
+        produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1);
+
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexer.prometheusMeterRegistry);
+                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
+                return count == indexedMessagesCount;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
 
     // Add data to indexer.
     // Query from indexer.

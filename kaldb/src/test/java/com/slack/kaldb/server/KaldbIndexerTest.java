@@ -101,7 +101,8 @@ public class KaldbIndexerTest {
             "",
             "",
             KaldbConfigs.NodeRole.INDEX,
-            1000);
+            1000,
+            "log_message");
 
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();

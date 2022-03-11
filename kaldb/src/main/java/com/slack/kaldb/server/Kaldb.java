@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private static final PrometheusMeterRegistry prometheusMeterRegistry =
+  public final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
   private final KaldbConfigs.KaldbConfig kaldbConfig;
   protected ServiceManager serviceManager;
@@ -78,13 +78,13 @@ public class Kaldb {
   }
 
   public void start() throws Exception {
-    setupSystemMetrics();
+    setupSystemMetrics(prometheusMeterRegistry);
 
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
-    Set<Service> services = getServices(metadataStore, kaldbConfig);
+    Set<Service> services = getServices(metadataStore, kaldbConfig, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -92,8 +92,11 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices(
-      MetadataStore metadataStore, KaldbConfigs.KaldbConfig kaldbConfig) throws Exception {
+  private static Set<Service> getServices(
+      MetadataStore metadataStore,
+      KaldbConfigs.KaldbConfig kaldbConfig,
+      PrometheusMeterRegistry prometheusMeterRegistry)
+      throws Exception {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(kaldbConfig.getNodeRolesList());
@@ -289,7 +292,7 @@ public class Kaldb {
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
-  private static void setupSystemMetrics() {
+  private static void setupSystemMetrics(PrometheusMeterRegistry prometheusMeterRegistry) {
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
     new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);

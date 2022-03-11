@@ -14,7 +14,8 @@ public class KaldbConfigUtil {
       String metadataZkConnectionString,
       String metadataZkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
-      int maxOffsetDelay) {
+      int maxOffsetDelay,
+      String dataTransformerConfig) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -44,7 +45,7 @@ public class KaldbConfigUtil {
                     .setRefreshDurationSecs(10)
                     .build())
             .setStaleDurationSecs(7200)
-            .setDataTransformer("log_message")
+            .setDataTransformer(dataTransformerConfig)
             .setMaxOffsetDelay(maxOffsetDelay)
             .build();
 
