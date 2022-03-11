@@ -28,7 +28,7 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbIndexer;
 import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
-import com.slack.kaldb.server.TestingArmeriaServer;
+import com.slack.kaldb.testlib.TestingArmeriaServer;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
