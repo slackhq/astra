@@ -6,6 +6,7 @@ import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_P
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
+import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,7 +16,6 @@ import static org.mockito.Mockito.spy;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
-import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -34,7 +34,6 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
-import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -157,26 +156,6 @@ public class KaldbIndexerTest {
     recoveryTaskStore.close();
     zkMetadataStore.close();
     testZKServer.close();
-  }
-
-  private KaldbSearch.SearchResult searchUsingGrpcApi(
-      String queryString, long startTimeMs, long endTimeMs) {
-    KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
-        Clients.newClient(uri(), KaldbServiceGrpc.KaldbServiceBlockingStub.class);
-
-    return kaldbService.search(
-        KaldbSearch.SearchRequest.newBuilder()
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
-            .setQueryString(queryString)
-            .setStartTimeEpochMs(startTimeMs)
-            .setEndTimeEpochMs(endTimeMs)
-            .setHowMany(10)
-            .setBucketCount(2)
-            .build());
-  }
-
-  private String uri() {
-    return "gproto+http://127.0.0.1:" + armeriaServer.activeLocalPort() + '/';
   }
 
   @Test
@@ -441,7 +420,14 @@ public class KaldbIndexerTest {
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     KaldbSearch.SearchResult searchResponse =
-        searchUsingGrpcApi("Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000));
+        searchUsingGrpcApi(
+            "Message100",
+            chunk1StartTimeMs,
+            chunk1StartTimeMs + (100 * 1000),
+            MessageUtil.TEST_INDEX_NAME,
+            10,
+            2,
+            armeriaServer.activeLocalPort());
 
     // Validate search response
     assertThat(searchResponse.getHitsCount()).isEqualTo(1);
