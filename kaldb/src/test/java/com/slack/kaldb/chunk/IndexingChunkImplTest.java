@@ -467,8 +467,7 @@ public class IndexingChunkImplTest {
       // create an S3 client for test
       String bucket = "invalid-bucket";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs();
-      s3BlobFs.init(s3Client);
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
@@ -523,8 +522,7 @@ public class IndexingChunkImplTest {
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs();
-      s3BlobFs.init(s3Client);
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
