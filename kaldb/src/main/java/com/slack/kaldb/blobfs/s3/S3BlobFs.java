@@ -51,25 +51,26 @@ public class S3BlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
   private static final Logger LOG = LoggerFactory.getLogger(S3BlobFs.class);
   private static final String DELIMITER = "/";
-  private S3Client _s3Client;
+  private S3Client s3Client;
 
-  @Override
-  public void init(BlobFsConfig config) {
-    // Not sure if this interface works for a library. So on ice for now.
-    throw new UnsupportedOperationException(
-        "This class doesn't support initialization via blobfsconfig.");
+  public S3BlobFs(S3Client s3Client) {
+    this.s3Client = s3Client;
   }
 
-  public void init(S3BlobFsConfig config) {
-    Preconditions.checkArgument(!isNullOrEmpty(config.region));
-    String region = config.region;
+  static boolean isNullOrEmpty(String target) {
+    return target == null || "".equals(target);
+  }
+
+  public static S3Client initS3Client(KaldbConfigs.S3Config config) {
+    Preconditions.checkArgument(!isNullOrEmpty(config.getS3Region()));
+    String region = config.getS3Region();
 
     AwsCredentialsProvider awsCredentialsProvider;
     try {
 
-      if (!isNullOrEmpty(config.accessKey) && !isNullOrEmpty(config.secretKey)) {
-        String accessKey = config.accessKey;
-        String secretKey = config.secretKey;
+      if (!isNullOrEmpty(config.getS3AccessKey()) && !isNullOrEmpty(config.getS3AccessKey())) {
+        String accessKey = config.getS3AccessKey();
+        String secretKey = config.getS3SecretKey();
         AwsBasicCredentials awsBasicCredentials = AwsBasicCredentials.create(accessKey, secretKey);
         awsCredentialsProvider = StaticCredentialsProvider.create(awsBasicCredentials);
       } else {
@@ -83,26 +84,25 @@ public class S3BlobFs extends BlobFs {
           "software.amazon.awssdk.http.apache.ApacheSdkHttpService");
       S3ClientBuilder s3ClientBuilder =
           S3Client.builder().region(Region.of(region)).credentialsProvider(awsCredentialsProvider);
-      if (!isNullOrEmpty(config.endpoint)) {
-        String endpoint = config.endpoint;
+      if (!isNullOrEmpty(config.getS3EndPoint())) {
+        String endpoint = config.getS3EndPoint();
         try {
           s3ClientBuilder.endpointOverride(new URI(endpoint));
         } catch (URISyntaxException e) {
           throw new RuntimeException(e);
         }
       }
-      _s3Client = s3ClientBuilder.build();
+      return s3ClientBuilder.build();
     } catch (S3Exception e) {
       throw new RuntimeException("Could not initialize S3blobFs", e);
     }
   }
 
-  public void init(S3Client s3Client) {
-    _s3Client = s3Client;
-  }
-
-  boolean isNullOrEmpty(String target) {
-    return target == null || "".equals(target);
+  @Override
+  public void init(BlobFsConfig config) {
+    // Not sure if this interface works for a library. So on ice for now.
+    throw new UnsupportedOperationException(
+        "This class doesn't support initialization via blobfsconfig.");
   }
 
   private HeadObjectResponse getS3ObjectMetadata(URI uri) throws IOException {
@@ -111,7 +111,7 @@ public class S3BlobFs extends BlobFs {
     HeadObjectRequest headObjectRequest =
         HeadObjectRequest.builder().bucket(uri.getHost()).key(path).build();
 
-    return _s3Client.headObject(headObjectRequest);
+    return s3Client.headObject(headObjectRequest);
   }
 
   private boolean isPathTerminatedByDelimiter(URI uri) {
@@ -161,7 +161,7 @@ public class S3BlobFs extends BlobFs {
       HeadObjectRequest headObjectRequest =
           HeadObjectRequest.builder().bucket(uri.getHost()).key(path).build();
 
-      _s3Client.headObject(headObjectRequest);
+      s3Client.headObject(headObjectRequest);
       return true;
     } catch (NoSuchKeyException e) {
       return false;
@@ -185,7 +185,7 @@ public class S3BlobFs extends BlobFs {
     }
 
     ListObjectsV2Request listObjectsV2Request = listObjectsV2RequestBuilder.build();
-    listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+    listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
 
     for (S3Object s3Object : listObjectsV2Response.contents()) {
       if (s3Object.key().equals(prefix)) {
@@ -217,7 +217,7 @@ public class S3BlobFs extends BlobFs {
               .destinationKey(dstPath)
               .build();
 
-      CopyObjectResponse copyObjectResponse = _s3Client.copyObject(copyReq);
+      CopyObjectResponse copyObjectResponse = s3Client.copyObject(copyReq);
       return copyObjectResponse.sdkHttpResponse().isSuccessful();
     } catch (S3Exception e) {
       throw new IOException(e);
@@ -239,7 +239,7 @@ public class S3BlobFs extends BlobFs {
           PutObjectRequest.builder().bucket(uri.getHost()).key(path).build();
 
       PutObjectResponse putObjectResponse =
-          _s3Client.putObject(putObjectRequest, RequestBody.fromBytes(new byte[0]));
+          s3Client.putObject(putObjectRequest, RequestBody.fromBytes(new byte[0]));
 
       return putObjectResponse.sdkHttpResponse().isSuccessful();
     } catch (Throwable t) {
@@ -265,11 +265,11 @@ public class S3BlobFs extends BlobFs {
 
         if (prefix.equals(DELIMITER)) {
           ListObjectsV2Request listObjectsV2Request = listObjectsV2RequestBuilder.build();
-          listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+          listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
         } else {
           ListObjectsV2Request listObjectsV2Request =
               listObjectsV2RequestBuilder.prefix(prefix).build();
-          listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+          listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
         }
         boolean deleteSucceeded = true;
         for (S3Object s3Object : listObjectsV2Response.contents()) {
@@ -279,7 +279,7 @@ public class S3BlobFs extends BlobFs {
                   .key(s3Object.key())
                   .build();
 
-          DeleteObjectResponse deleteObjectResponse = _s3Client.deleteObject(deleteObjectRequest);
+          DeleteObjectResponse deleteObjectResponse = s3Client.deleteObject(deleteObjectRequest);
 
           deleteSucceeded &= deleteObjectResponse.sdkHttpResponse().isSuccessful();
         }
@@ -289,7 +289,7 @@ public class S3BlobFs extends BlobFs {
         DeleteObjectRequest deleteObjectRequest =
             DeleteObjectRequest.builder().bucket(segmentUri.getHost()).key(prefix).build();
 
-        DeleteObjectResponse deleteObjectResponse = _s3Client.deleteObject(deleteObjectRequest);
+        DeleteObjectResponse deleteObjectResponse = s3Client.deleteObject(deleteObjectRequest);
 
         return deleteObjectResponse.sdkHttpResponse().isSuccessful();
       }
@@ -391,7 +391,7 @@ public class S3BlobFs extends BlobFs {
         }
         ListObjectsV2Request listObjectsV2Request = listObjectsV2RequestBuilder.build();
         LOG.debug("Trying to send ListObjectsV2Request {}", listObjectsV2Request);
-        ListObjectsV2Response listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+        ListObjectsV2Response listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
         LOG.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
         List<S3Object> filesReturned = listObjectsV2Response.contents();
         filesReturned
@@ -429,7 +429,7 @@ public class S3BlobFs extends BlobFs {
     GetObjectRequest getObjectRequest =
         GetObjectRequest.builder().bucket(srcUri.getHost()).key(prefix).build();
 
-    _s3Client.getObject(getObjectRequest, ResponseTransformer.toFile(dstFile));
+    s3Client.getObject(getObjectRequest, ResponseTransformer.toFile(dstFile));
   }
 
   @Override
@@ -440,7 +440,7 @@ public class S3BlobFs extends BlobFs {
     PutObjectRequest putObjectRequest =
         PutObjectRequest.builder().bucket(dstUri.getHost()).key(prefix).build();
 
-    _s3Client.putObject(putObjectRequest, srcFile.toPath());
+    s3Client.putObject(putObjectRequest, srcFile.toPath());
   }
 
   @Override
@@ -453,7 +453,7 @@ public class S3BlobFs extends BlobFs {
 
       ListObjectsV2Request listObjectsV2Request =
           ListObjectsV2Request.builder().bucket(uri.getHost()).prefix(prefix).maxKeys(2).build();
-      ListObjectsV2Response listObjectsV2Response = _s3Client.listObjectsV2(listObjectsV2Request);
+      ListObjectsV2Response listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
       return listObjectsV2Response.hasContents();
     } catch (NoSuchKeyException e) {
       LOG.error("Could not get directory entry for {}", uri);
@@ -490,12 +490,12 @@ public class S3BlobFs extends BlobFs {
               .metadataDirective(MetadataDirective.REPLACE)
               .build();
 
-      _s3Client.copyObject(request);
+      s3Client.copyObject(request);
       long newUpdateTime = getS3ObjectMetadata(uri).lastModified().toEpochMilli();
       return newUpdateTime > s3ObjectMetadata.lastModified().toEpochMilli();
     } catch (NoSuchKeyException e) {
       String path = sanitizePath(uri.getPath());
-      _s3Client.putObject(
+      s3Client.putObject(
           PutObjectRequest.builder().bucket(uri.getHost()).key(path).build(),
           RequestBody.fromBytes(new byte[0]));
       return true;
@@ -511,7 +511,7 @@ public class S3BlobFs extends BlobFs {
       GetObjectRequest getObjectRequest =
           GetObjectRequest.builder().bucket(uri.getHost()).key(path).build();
 
-      return _s3Client.getObjectAsBytes(getObjectRequest).asInputStream();
+      return s3Client.getObjectAsBytes(getObjectRequest).asInputStream();
     } catch (S3Exception e) {
       throw e;
     }
@@ -520,17 +520,5 @@ public class S3BlobFs extends BlobFs {
   @Override
   public void close() throws IOException {
     super.close();
-  }
-
-  public static S3BlobFs getS3BlobFsClient(KaldbConfigs.S3Config s3Config) {
-    S3BlobFsConfig s3BlobFsConfig =
-        new S3BlobFsConfig(
-            s3Config.getS3AccessKey(),
-            s3Config.getS3SecretKey(),
-            s3Config.getS3Region(),
-            s3Config.getS3EndPoint());
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3BlobFsConfig);
-    return s3BlobFs;
   }
 }
