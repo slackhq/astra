@@ -42,8 +42,7 @@ public class CachingChunkManagerTest {
 
     S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
-    s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    s3BlobFs = new S3BlobFs(s3Client);
   }
 
   @After
