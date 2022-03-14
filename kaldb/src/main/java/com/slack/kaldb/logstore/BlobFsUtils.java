@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -21,7 +20,7 @@ public class BlobFsUtils {
   public static final String FILE_FORMAT = "%s://%s/%s";
 
   public static int copyToS3(
-      Path sourceDirPath, Collection<String> files, String bucket, String prefix, S3BlobFs blobFs)
+      Path sourceDirPath, Collection<String> files, String bucket, String prefix, BlobFs blobFs)
       throws Exception {
     int success = 0;
     for (String fileName : files) {
@@ -44,7 +43,7 @@ public class BlobFsUtils {
   // TODO: Can we copy files without list files and a prefix only?
   // TODO: Take a complete URI as this is the format stored in snapshot data
   public static String[] copyFromS3(
-      String bucket, String prefix, S3BlobFs s3BlobFs, Path localDirPath) throws Exception {
+      String bucket, String prefix, BlobFs s3BlobFs, Path localDirPath) throws Exception {
     String[] s3Files = s3BlobFs.listFiles(createURI(bucket, prefix, ""), true);
     LOG.info(
         "Copying files from bucket={} prefix={} filesToCopy={}", bucket, prefix, s3Files.length);
