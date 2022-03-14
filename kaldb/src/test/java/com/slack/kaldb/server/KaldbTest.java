@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -24,6 +25,8 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class KaldbTest {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbTest.class);
@@ -35,11 +38,14 @@ public class KaldbTest {
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
+  private S3Client s3Client;
 
   @Before
   public void setUp() throws Exception {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
+    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
   }
 
   @After
@@ -74,9 +80,24 @@ public class KaldbTest {
   @Test
   public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
     assertThat(kafkaServer.getBroker().isRunning()).isTrue();
-
-    int indexerPort = 10000;
     String indexerPathPrefix = "indexer1";
+
+    LOG.info("Starting query service");
+    int queryServicePort = 11000;
+    KaldbConfigs.KaldbConfig queryServiceConfig =
+            makeKaldbConfig(
+                    queryServicePort,
+                    TEST_KAFKA_TOPIC_1,
+                    0,
+                    KALDB_TEST_CLIENT_1,
+                    indexerPathPrefix,
+                    KaldbConfigs.NodeRole.QUERY,
+                    1000);
+    Kaldb queryService = new Kaldb(queryServiceConfig);
+    queryService.start();
+
+    LOG.info("Starting indexer service");
+    int indexerPort = 10000;
     // create a kaldb query server and indexer.
     KaldbConfigs.KaldbConfig indexerConfig =
         makeKaldbConfig(
@@ -88,7 +109,7 @@ public class KaldbTest {
             KaldbConfigs.NodeRole.INDEX,
             1000);
 
-    Kaldb indexer = new Kaldb(indexerConfig);
+    Kaldb indexer = new Kaldb(indexerConfig, s3Client);
     indexer.start();
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
@@ -110,39 +131,31 @@ public class KaldbTest {
               }
             });
 
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry) == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry)).isZero();
+
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi(
             "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, indexerPort);
-
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
-    LOG.info("Starting query service");
-    int queryServicePort = 11000;
-    KaldbConfigs.KaldbConfig queryServiceConfig =
-        makeKaldbConfig(
-            queryServicePort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
-            KaldbConfigs.NodeRole.QUERY,
-            1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
-    queryService.start();
-    // TODO: Remove sleep and use await.
-    Thread.sleep(3000);
-
     // Query from query service.
-    KaldbSearch.SearchResult searchResponse =
+    KaldbSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi(
             "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, queryServicePort + 1);
 
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    // Shutdown
+    LOG.info("Shutting down query service.");
+    queryService.shutdown();
+    LOG.info("Shutting down indexer.");
+    indexer.shutdown();
   }
 }

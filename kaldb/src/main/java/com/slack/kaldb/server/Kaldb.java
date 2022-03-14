@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
@@ -58,12 +60,18 @@ public class Kaldb {
   public final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
   private final KaldbConfigs.KaldbConfig kaldbConfig;
+  private final S3Client s3Client;
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  public Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) throws IOException {
     Metrics.addRegistry(prometheusMeterRegistry);
     this.kaldbConfig = kaldbConfig;
+    this.s3Client = s3Client;
+  }
+
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
+    this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()));
   }
 
   public static void main(String[] args) throws Exception {
@@ -84,7 +92,11 @@ public class Kaldb {
         ZookeeperMetadataStoreImpl.fromConfig(
             prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
-    Set<Service> services = getServices(metadataStore, kaldbConfig, prometheusMeterRegistry);
+    // Initialize blobfs. Only S3 is supported currently.
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+
+    Set<Service> services =
+        getServices(metadataStore, kaldbConfig, s3BlobFs, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -95,6 +107,7 @@ public class Kaldb {
   private static Set<Service> getServices(
       MetadataStore metadataStore,
       KaldbConfigs.KaldbConfig kaldbConfig,
+      BlobFs blobFs,
       PrometheusMeterRegistry prometheusMeterRegistry)
       throws Exception {
     Set<Service> services = new HashSet<>();
@@ -107,6 +120,7 @@ public class Kaldb {
               prometheusMeterRegistry,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
+              blobFs,
               kaldbConfig.getS3Config());
       services.add(chunkManager);
 
@@ -159,7 +173,8 @@ public class Kaldb {
               prometheusMeterRegistry,
               metadataStore,
               kaldbConfig.getS3Config(),
-              kaldbConfig.getCacheConfig());
+              kaldbConfig.getCacheConfig(),
+              blobFs);
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
@@ -229,12 +244,11 @@ public class Kaldb {
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaAssignmentService);
 
-      S3BlobFs s3BlobFs = S3BlobFs.getS3BlobFsClient(kaldbConfig.getS3Config());
       SnapshotDeletionService snapshotDeletionService =
           new SnapshotDeletionService(
               replicaMetadataStore,
               snapshotMetadataStore,
-              s3BlobFs,
+              blobFs,
               managerConfig,
               prometheusMeterRegistry);
       services.add(snapshotDeletionService);
@@ -258,7 +272,7 @@ public class Kaldb {
     return services;
   }
 
-  public static ServiceManager.Listener getServiceManagerListener() {
+  private static ServiceManager.Listener getServiceManagerListener() {
     return new ServiceManager.Listener() {
       @Override
       public void failure(Service service) {
@@ -273,7 +287,7 @@ public class Kaldb {
     };
   }
 
-  public void shutdown() {
+  void shutdown() {
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     } catch (Exception e) {
