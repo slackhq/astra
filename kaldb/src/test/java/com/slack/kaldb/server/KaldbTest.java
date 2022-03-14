@@ -85,14 +85,14 @@ public class KaldbTest {
     LOG.info("Starting query service");
     int queryServicePort = 11000;
     KaldbConfigs.KaldbConfig queryServiceConfig =
-            makeKaldbConfig(
-                    queryServicePort,
-                    TEST_KAFKA_TOPIC_1,
-                    0,
-                    KALDB_TEST_CLIENT_1,
-                    indexerPathPrefix,
-                    KaldbConfigs.NodeRole.QUERY,
-                    1000);
+        makeKaldbConfig(
+            queryServicePort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            KaldbConfigs.NodeRole.QUERY,
+            1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
 
@@ -131,8 +131,13 @@ public class KaldbTest {
               }
             });
 
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry) == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry)).isZero();
+    await()
+        .until(
+            () ->
+                getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry)
+                    == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry))
+        .isZero();
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi(
