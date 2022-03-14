@@ -380,8 +380,7 @@ public class LuceneIndexStoreImplTest {
 
       // create an S3 client
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs();
-      s3BlobFs.init(s3Client);
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Copy files to S3.

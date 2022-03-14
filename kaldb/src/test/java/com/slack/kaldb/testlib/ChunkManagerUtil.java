@@ -83,8 +83,7 @@ public class ChunkManagerUtil<T> {
     s3Client = s3MockRule.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
     this.zkServer.start();
