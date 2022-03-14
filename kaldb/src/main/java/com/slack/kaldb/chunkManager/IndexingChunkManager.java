@@ -1,6 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
 import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
@@ -12,7 +11,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
@@ -55,7 +54,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private final String chunkDataPrefix;
 
   // TODO: Pass a reference to BlobFS instead of S3BlobFS.
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStore metadataStore;
@@ -112,7 +111,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       String dataDirectory,
       ChunkRollOverStrategy chunkRollOverStrategy,
       MeterRegistry registry,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
       long rollOverFutureTimeoutMs,
@@ -130,7 +129,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
 
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
@@ -201,7 +200,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
     RollOverChunkTask<T> rollOverChunkTask =
         new RollOverChunkTask<>(
-            currentChunk, meterRegistry, s3BlobFs, s3Bucket, currentChunk.info().chunkId);
+            currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
 
     if ((rolloverFuture == null) || rolloverFuture.isDone()) {
       rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
@@ -391,6 +390,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
+      BlobFs blobFs,
       KaldbConfigs.S3Config s3Config) {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -401,7 +401,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         indexerConfig.getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        getS3BlobFsClient(s3Config),
+        blobFs,
         s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
         DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
