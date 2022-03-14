@@ -1,6 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,16 +29,16 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
   private final ReadWriteChunk<T> chunk;
   private final String s3Bucket;
   private final String s3BucketPrefix;
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
 
   public RollOverChunkTask(
       ReadWriteChunk<T> chunk,
       MeterRegistry meterRegistry,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       String s3Bucket,
       String s3BucketPrefix) {
     this.chunk = chunk;
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.s3BucketPrefix = s3BucketPrefix;
     rolloversInitiatedCounter = meterRegistry.counter(ROLLOVERS_INITIATED);
@@ -53,7 +53,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
-      if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, s3BlobFs)) {
+      if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, blobFs)) {
         LOG.warn("Failed to snapshot the chunk to S3");
         rolloversFailedCounter.increment();
         return false;
