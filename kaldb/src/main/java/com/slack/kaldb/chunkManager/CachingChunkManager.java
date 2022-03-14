@@ -1,8 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
-
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -26,7 +24,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStore metadataStore;
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
   private final SearchContext searchContext;
   private final String s3Bucket;
   private final String dataDirectoryPrefix;
@@ -35,14 +33,14 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   public CachingChunkManager(
       MeterRegistry registry,
       MetadataStore metadataStore,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
       int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.metadataStore = metadataStore;
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.searchContext = searchContext;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
@@ -64,7 +62,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
           new ReadOnlyChunkImpl<>(
               metadataStore,
               meterRegistry,
-              s3BlobFs,
+              blobFs,
               searchContext,
               s3Bucket,
               dataDirectoryPrefix,
@@ -95,12 +93,13 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
       KaldbConfigs.S3Config s3Config,
-      KaldbConfigs.CacheConfig cacheConfig)
+      KaldbConfigs.CacheConfig cacheConfig,
+      BlobFs blobFs)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
         metadataStore,
-        getS3BlobFsClient(s3Config),
+        blobFs,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
