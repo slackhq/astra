@@ -39,8 +39,6 @@ public class KaldbTest {
   @Before
   public void setUp() throws Exception {
     zkServer = new TestingServer();
-    zkServer.start();
-
     kafkaServer = new TestKafkaServer();
   }
 
@@ -92,6 +90,7 @@ public class KaldbTest {
 
     Kaldb indexer = new Kaldb(indexerConfig);
     indexer.start();
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce messages to kafka, so the indexer can consume them.
     final Instant startTime =
@@ -99,7 +98,6 @@ public class KaldbTest {
     final int indexedMessagesCount =
         produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1);
 
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
     await()
         .until(
             () -> {
@@ -134,19 +132,17 @@ public class KaldbTest {
             1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
+    // TODO: Remove sleep and use await.
+    Thread.sleep(3000);
 
-    //    KaldbSearch.SearchResult searchResponse =
-    //        searchUsingGrpcApi(
-    //            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2,
-    // queryServicePort+1);
-    //
-    //    assertThat(searchResponse.getTotalNodes()).isEqualTo(3);
-    //    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    //    assertThat(searchResponse.getTotalCount()).isEqualTo(300);
-    //    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
-
-    // Add data to indexer.
-    // Query from indexer.
     // Query from query service.
+    KaldbSearch.SearchResult searchResponse =
+        searchUsingGrpcApi(
+            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, queryServicePort + 1);
+
+    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
   }
 }

@@ -148,6 +148,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withElasticsearchApi(kaldbDistributedQueryService)
+              .withGrpcSearchApi(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
     }
