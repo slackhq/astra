@@ -4,7 +4,7 @@ import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -63,7 +63,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
   private final ExecutorService executorService;
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -76,7 +76,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       MetadataStore metadataStore,
       MeterRegistry meterRegistry,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
@@ -87,7 +87,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
 
@@ -189,7 +189,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, s3BlobFs, dataDirectory).length == 0) {
+      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory).length == 0) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
