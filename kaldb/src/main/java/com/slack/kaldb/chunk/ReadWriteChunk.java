@@ -5,7 +5,7 @@ import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
@@ -204,7 +204,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
    *
    * @return true on success, false on failure.
    */
-  public boolean snapshotToS3(String bucket, String prefix, S3BlobFs s3BlobFs) {
+  public boolean snapshotToS3(String bucket, String prefix, BlobFs blobFs) {
     logger.info("Started RW chunk snapshot to S3 {}", chunkInfo);
 
     IndexCommit indexCommit = null;
@@ -218,7 +218,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       }
       this.fileUploadAttempts.increment(activeFiles.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
-      final int success = copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
+      final int success = copyToS3(dirPath, activeFiles, bucket, prefix, blobFs);
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
       this.fileUploadFailures.increment(activeFiles.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
