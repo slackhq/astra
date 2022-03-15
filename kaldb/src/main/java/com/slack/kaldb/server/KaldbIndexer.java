@@ -115,7 +115,6 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(metadataStore, false);
 
-    // TODO: Pass these values in?
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelay();
 
@@ -126,7 +125,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
             partitionId,
             maxOffsetDelay,
             meterRegistry);
-    // TODO: Pass this value in?
+
     // TODO: Check consumer group exists.
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
     long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
