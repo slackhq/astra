@@ -101,10 +101,6 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     // recovery task.
     long startOffset = indexerPreStart();
 
-    // TODO: Set this value as the starting offset for Kafka consumer.
-    // TODO: Wait for other services to be ready before we start consuming?
-    // kafkaWriter.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Need to wait for chunk manager?
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Set the Kafka offset and pre consumer for consumption.
