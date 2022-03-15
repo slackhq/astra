@@ -10,7 +10,6 @@ import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.in;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
 
@@ -36,7 +35,6 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
@@ -90,13 +88,10 @@ public class KaldbIndexerTest {
     KaldbConfigs.IndexerConfig indexerConfig = makeIndexerConfig();
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
+
     chunkManagerUtil =
         new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
-            metricsRegistry,
-            10 * 1024 * 1024 * 1024L,
-            100,
-            indexerConfig);
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100, indexerConfig);
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

@@ -92,7 +92,7 @@ public class TestKafkaServer {
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
-    this(0);
+    this(-1);
   }
 
   public TestKafkaServer(int port) throws Exception {
