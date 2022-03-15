@@ -184,4 +184,7 @@ public class KaldbTest {
     LOG.info("Shutting down indexer.");
     indexer.shutdown();
   }
+
+  // TODO: Add a unit test with 2 indexers and a query service.
+  // TODO: Add a unit test where a shard times out.
 }
