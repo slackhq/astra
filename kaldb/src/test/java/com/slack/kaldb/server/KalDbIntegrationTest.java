@@ -70,68 +70,49 @@ public class KalDbIntegrationTest {
     }
   }
 
-  @Test
-  public void testIndexStartupHealthcheck() throws JsonProcessingException {
-    String response =
-        getResponse(
-            String.format(
-                "http://localhost:%s/health",
-                kaldbConfig.getIndexerConfig().getServerConfig().getServerPort()));
+  private String getResponse(int port) {
+    String url = String.format("http://localhost:%s/health", port);
+    return getResponse(url);
+  }
+
+  private boolean runHealthCheckOnPort(int port) throws JsonProcessingException {
+    String response = getResponse(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort());
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
-    assertThat(map.get("healthy")).isEqualTo(true);
+    return (boolean) map.get("healthy");
+  }
+
+  @Test
+  public void testIndexStartupHealthcheck() throws JsonProcessingException {
+    assertThat(
+            runHealthCheckOnPort(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort()))
+        .isEqualTo(true);
   }
 
   @Test
   public void testQueryStartupHealthcheck() throws JsonProcessingException {
-    String response =
-        getResponse(
-            String.format(
-                "http://localhost:%s/health",
-                kaldbConfig.getQueryConfig().getServerConfig().getServerPort()));
-    HashMap<String, Object> map = om.readValue(response, HashMap.class);
-
-    LOG.info(String.format("Response from healthcheck - '%s'", response));
-    assertThat(map.get("healthy")).isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getQueryConfig().getServerConfig().getServerPort()))
+        .isEqualTo(true);
   }
 
   @Test
   public void testCacheStartupHealthcheck() throws JsonProcessingException {
-    String response =
-        getResponse(
-            String.format(
-                "http://localhost:%s/health",
-                kaldbConfig.getCacheConfig().getServerConfig().getServerPort()));
-    HashMap<String, Object> map = om.readValue(response, HashMap.class);
-
-    LOG.info(String.format("Response from healthcheck - '%s'", response));
-    assertThat(map.get("healthy")).isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getCacheConfig().getServerConfig().getServerPort()))
+        .isEqualTo(true);
   }
 
   @Test
   public void testRecoveryStartupHealthcheck() throws JsonProcessingException {
-    String response =
-        getResponse(
-            String.format(
-                "http://localhost:%s/health",
-                kaldbConfig.getRecoveryConfig().getServerConfig().getServerPort()));
-    HashMap<String, Object> map = om.readValue(response, HashMap.class);
-
-    LOG.info(String.format("Response from healthcheck - '%s'", response));
-    assertThat(map.get("healthy")).isEqualTo(true);
+    assertThat(
+            runHealthCheckOnPort(kaldbConfig.getRecoveryConfig().getServerConfig().getServerPort()))
+        .isEqualTo(true);
   }
 
   @Test
   public void testManagerStartupHealthcheck() throws JsonProcessingException {
-    String response =
-        getResponse(
-            String.format(
-                "http://localhost:%s/health",
-                kaldbConfig.getManagerConfig().getServerConfig().getServerPort()));
-    HashMap<String, Object> map = om.readValue(response, HashMap.class);
-
-    LOG.info(String.format("Response from healthcheck - '%s'", response));
-    assertThat(map.get("healthy")).isEqualTo(true);
+    assertThat(
+            runHealthCheckOnPort(kaldbConfig.getManagerConfig().getServerConfig().getServerPort()))
+        .isEqualTo(true);
   }
 }
