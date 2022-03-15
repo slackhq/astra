@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -31,17 +30,8 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
   private final MeterRegistry meterRegistry;
   private final KaldbConfigs.IndexerConfig indexerConfig;
   private final KaldbConfigs.KafkaConfig kafkaConfig;
-
-  @VisibleForTesting
-  public KaldbKafkaConsumer getKafkaConsumer() {
-    return kafkaConsumer;
-  }
-
   private final KaldbKafkaConsumer kafkaConsumer;
-
   private final IndexingChunkManager<LogMessage> chunkManager;
-
-  private LogMessageWriterImpl logMessageWriterImpl;
 
   /**
    * This class contains the code to needed to run a single instance of an Kaldb indexer. A single
@@ -51,24 +41,14 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
    * <p>In addition, this class also contains the code to gracefully start and shutdown the server.
    *
    * <p>The only way we can ensure durability of data is when the data _and_ metadata are stored
-   * reliably. So, on a clean indexer shutdown we need to ensure that as much of indexed data and
-   * metadata is stored reliably. Otherwise, on an indexer shutdown we would end up re-indexing the
-   * data which would result in a lot of wasted work. *
+   * reliably. So, on a indexer shutdown we need to ensure that as much of indexed data and metadata
+   * is stored reliably. Otherwise, on an indexer shutdown we would end up re-indexing the data
+   * which would result in wasted work.
    *
    * <p>On an indexer restart, we should start indexing at a last known good offset for that
-   * partition. If a last known good offset doesn't exist since we are consuming for the first time
-   * then we start with head. If the offset exists but the offset expired, we are in a whole world
-   * of pain. The best option may to start indexing at oldest. Or we can also start indexing at
-   * head.
-   *
-   * <p>Currently, we don't have a durable metadata store and the kafka consumer offset acts as a
-   * weak place holder. On an indexer shutdown it is very important that we ensure that we persisted
-   * * the offset of the data correctly. So we can pick up from the same location and start from
-   * that place.
-   *
-   * <p>The best way to close an indexer is the following steps: stop ingestion, index the ingested
-   * messages, persist the indexed messages and metadata successfully and then close the
-   * chunkManager and then the consumer,
+   * partition. The indexer pre-start job, ensures that we choose the correct start offset and end
+   * offset for the indexer. Optionally, the pre start task also creates an recovery task if needed,
+   * since the indexer may not be able to catch up.
    */
   public KaldbIndexer(
       IndexingChunkManager<LogMessage> chunkManager,
@@ -87,29 +67,23 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     // set up indexing pipelne
     LogMessageTransformer messageTransformer =
         DATA_TRANSFORMER_MAP.get(indexerConfig.getDataTransformer());
-    logMessageWriterImpl = new LogMessageWriterImpl(chunkManager, messageTransformer);
+    LogMessageWriterImpl logMessageWriterImpl =
+        new LogMessageWriterImpl(chunkManager, messageTransformer);
     this.kafkaConsumer =
         KaldbKafkaConsumer.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
   }
 
   @Override
   protected void startUp() throws Exception {
-    // Indexer start
     LOG.info("Starting Kaldb indexer.");
-
-    // Run indexer pre-start operation like determining start offset and optionally create a
-    // recovery task.
     long startOffset = indexerPreStart();
-
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-
     // Set the Kafka offset and pre consumer for consumption.
     kafkaConsumer.prepConsumerForConsumption(startOffset);
     LOG.info("Started Kaldb indexer.");
   }
 
-  // Indexer pre-start
-  // Clean up stale indexer tasks and optionally create a recovery task
+  /** Indexer pre-start Clean up stale indexer tasks and optionally create a recovery task */
   private long indexerPreStart() throws Exception {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
@@ -159,9 +133,14 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
   }
 
   /**
-   * TODO: Currently, we close the consumer at the same time as stopping indexing. It may be better
-   * to separate those steps where we stop ingestion and then close the consumer separately. This
-   * will help with cleaner indexing.
+   * The only way we can ensure durability of data is when the data _and_ metadata are stored
+   * reliably. So, on a indexer shutdown we need to ensure that as much of indexed data and metadata
+   * is stored reliably. Otherwise, on an indexer shutdown we would end up re-indexing the data
+   * which would result in wasted work.
+   *
+   * <p>The best way to close an indexer is the following steps: stop ingestion, index the ingested
+   * messages, persist the indexed messages and metadata successfully and then close the
+   * chunkManager and then the consumer.
    */
   @Override
   protected void shutDown() throws Exception {
