@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.runHealthCheckOnPort;
 import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -15,6 +16,8 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -42,8 +45,8 @@ public class KaldbTest {
 
   @Before
   public void setUp() throws Exception {
-    zkServer = new TestingServer();
-    kafkaServer = new TestKafkaServer();
+    zkServer = new TestingServer(2181);
+    kafkaServer = new TestKafkaServer(9092);
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
   }
@@ -152,6 +155,7 @@ public class KaldbTest {
             1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
+    queryService.serviceManager.awaitHealthy();
 
     LOG.info("Starting indexer service");
     int indexerPort = 10000;
@@ -159,6 +163,7 @@ public class KaldbTest {
     Kaldb indexer =
         makeIndexerAndIndexMessages(
             indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
+    indexer.serviceManager.awaitHealthy();
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi(
@@ -183,6 +188,30 @@ public class KaldbTest {
     queryService.shutdown();
     LOG.info("Shutting down indexer.");
     indexer.shutdown();
+  }
+
+  @Test
+  public void testBootAllComponentsStartSuccessfullyFromConfig() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbConfig =
+        KaldbConfig.fromYamlConfig(Files.readString(Path.of("../config/config.yaml")));
+    Kaldb kaldb = new Kaldb(kaldbConfig);
+    LOG.info("Starting kalDb with the resolved configs: {}", kaldbConfig);
+    kaldb.start();
+
+    kaldb.serviceManager.awaitHealthy();
+    assertThat(runHealthCheckOnPort(kaldbConfig.getIndexerConfig().getServerConfig()))
+        .isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getQueryConfig().getServerConfig()))
+        .isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getCacheConfig().getServerConfig()))
+        .isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getRecoveryConfig().getServerConfig()))
+        .isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getManagerConfig().getServerConfig()))
+        .isEqualTo(true);
+
+    // shutdown
+    kaldb.shutdown();
   }
 
   // TODO: Add a unit test with 2 indexers and a query service.

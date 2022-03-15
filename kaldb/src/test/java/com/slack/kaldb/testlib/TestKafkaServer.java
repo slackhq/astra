@@ -92,8 +92,12 @@ public class TestKafkaServer {
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
+    this(0);
+  }
+
+  public TestKafkaServer(int port) throws Exception {
     // Create a kafka broker
-    broker = EphemeralKafkaBroker.create();
+    broker = EphemeralKafkaBroker.create(port);
     brokerStart = broker.start();
     Futures.getUnchecked(brokerStart);
 
