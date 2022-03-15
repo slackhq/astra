@@ -23,31 +23,7 @@ import java.util.concurrent.RejectedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * KaldbIndexer sets up an indexer that indexes the log messages.
- *
- * <p>This indexer should be testable via junit tests. So, it should have the least number of deps
- * in it's constructor.
- *
- * <p>Design should be extensible so we can run as separate components or all components in a single
- * binary.
- *
- * <p>queryService chunkCleaner chunkManager ingestionControlService (reads kafka, passes
- * chunkManager)
- *
- * <p>* encapsulate kafka consumer * offset logic * NOT chunk manager * start * math to determine
- * offsets * start consumer * stop * close consumer * shutdown chunk manager * shut down indexer
- * service.
- *
- * <p>indexer.shutdown(); queryService > pending queries chunkCleaner > immediate ingestionControl >
- * immediate chunkManager > close, flush everything
- *
- * <p>KaldbGuavaServices.shutdown();
- *
- * <p>TODO: Run in it's own thread?
- *
- * <p>TODO: Rewrite all class and method docs.
- */
+/** KaldbIndexer sets up an indexer that indexes the messages and a search api for search. */
 public class KaldbIndexer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
