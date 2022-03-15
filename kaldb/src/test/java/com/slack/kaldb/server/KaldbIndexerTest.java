@@ -10,6 +10,7 @@ import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.in;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
 
@@ -86,23 +87,7 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    // TODO: Remove config initialization once we no longer use KaldbConfig directly.
-    // Initialize kaldb config.
-    KaldbConfigs.KaldbConfig kaldbCfg =
-        KaldbConfigUtil.makeKaldbConfig(
-            "localhost:90901",
-            0,
-            TEST_KAFKA_TOPIC,
-            TEST_KAFKA_PARTITION,
-            KALDB_TEST_CLIENT,
-            TEST_S3_BUCKET,
-            8081,
-            "",
-            "",
-            KaldbConfigs.NodeRole.INDEX,
-            1000,
-            "log_message");
-
+    KaldbConfigs.IndexerConfig indexerConfig = makeIndexerConfig();
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
@@ -111,7 +96,7 @@ public class KaldbIndexerTest {
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             100,
-            kaldbCfg.getIndexerConfig());
+            indexerConfig);
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
