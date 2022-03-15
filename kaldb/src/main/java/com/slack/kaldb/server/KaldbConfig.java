@@ -87,7 +87,6 @@ public class KaldbConfig {
             + Arrays.toString(KaldbConfigs.NodeRole.values()));
   }
 
-  // TODO: Private var?
   @VisibleForTesting
   public static final Map<String, LogMessageTransformer> DATA_TRANSFORMER_MAP =
       ImmutableMap.of(
