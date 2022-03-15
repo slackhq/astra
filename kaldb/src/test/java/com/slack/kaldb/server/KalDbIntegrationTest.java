@@ -75,8 +75,9 @@ public class KalDbIntegrationTest {
     return getResponse(url);
   }
 
-  private boolean runHealthCheckOnPort(int port) throws JsonProcessingException {
-    String response = getResponse(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort());
+  private boolean runHealthCheckOnPort(KaldbConfigs.ServerConfig serverConfig)
+      throws JsonProcessingException {
+    String response = getResponse(serverConfig.getServerPort());
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -84,35 +85,16 @@ public class KalDbIntegrationTest {
   }
 
   @Test
-  public void testIndexStartupHealthcheck() throws JsonProcessingException {
-    assertThat(
-            runHealthCheckOnPort(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort()))
+  public void testAllComponentsStartSuccessfullyFromConfig() throws JsonProcessingException {
+    assertThat(runHealthCheckOnPort(kaldbConfig.getIndexerConfig().getServerConfig()))
         .isEqualTo(true);
-  }
-
-  @Test
-  public void testQueryStartupHealthcheck() throws JsonProcessingException {
-    assertThat(runHealthCheckOnPort(kaldbConfig.getQueryConfig().getServerConfig().getServerPort()))
+    assertThat(runHealthCheckOnPort(kaldbConfig.getQueryConfig().getServerConfig()))
         .isEqualTo(true);
-  }
-
-  @Test
-  public void testCacheStartupHealthcheck() throws JsonProcessingException {
-    assertThat(runHealthCheckOnPort(kaldbConfig.getCacheConfig().getServerConfig().getServerPort()))
+    assertThat(runHealthCheckOnPort(kaldbConfig.getCacheConfig().getServerConfig()))
         .isEqualTo(true);
-  }
-
-  @Test
-  public void testRecoveryStartupHealthcheck() throws JsonProcessingException {
-    assertThat(
-            runHealthCheckOnPort(kaldbConfig.getRecoveryConfig().getServerConfig().getServerPort()))
+    assertThat(runHealthCheckOnPort(kaldbConfig.getRecoveryConfig().getServerConfig()))
         .isEqualTo(true);
-  }
-
-  @Test
-  public void testManagerStartupHealthcheck() throws JsonProcessingException {
-    assertThat(
-            runHealthCheckOnPort(kaldbConfig.getManagerConfig().getServerConfig().getServerPort()))
+    assertThat(runHealthCheckOnPort(kaldbConfig.getManagerConfig().getServerConfig()))
         .isEqualTo(true);
   }
 }
