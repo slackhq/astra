@@ -54,7 +54,7 @@ public class KaldbTest {
     zkServer.close();
   }
 
-  public KaldbConfigs.KaldbConfig makeKaldbConfig(
+  private KaldbConfigs.KaldbConfig makeKaldbConfig(
       int port,
       String kafkaTopic,
       int kafkaPartition,
@@ -75,6 +75,63 @@ public class KaldbTest {
         nodeRole,
         maxOffsetDelay,
         "api_log");
+  }
+
+  private Kaldb makeIndexerAndIndexMessages(
+      int indexerPort,
+      String kafkaTopic,
+      int kafkaPartition,
+      String kafkaClient,
+      String indexerPathPrefix,
+      int indexerCount)
+      throws Exception {
+    LOG.info(
+        "Creating indexer service at port {}, topic: {} and partition {}",
+        indexerPort,
+        kafkaTopic,
+        kafkaPartition);
+    // create a kaldb query server and indexer.
+    KaldbConfigs.KaldbConfig indexerConfig =
+        makeKaldbConfig(
+            indexerPort,
+            kafkaTopic,
+            kafkaPartition,
+            kafkaClient,
+            indexerPathPrefix,
+            KaldbConfigs.NodeRole.INDEX,
+            1000);
+
+    Kaldb indexer = new Kaldb(indexerConfig, s3Client);
+    indexer.start();
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == indexerCount);
+
+    // Produce messages to kafka, so the indexer can consume them.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final int indexedMessagesCount =
+        produceMessagesToKafka(kafkaServer.getBroker(), startTime, kafkaTopic);
+
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexer.prometheusMeterRegistry);
+                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
+                return count == indexedMessagesCount;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
+
+    await()
+        .until(
+            () ->
+                getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry)
+                    == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry))
+        .isZero();
+
+    return indexer;
   }
 
   @Test
@@ -98,46 +155,10 @@ public class KaldbTest {
 
     LOG.info("Starting indexer service");
     int indexerPort = 10000;
-    // create a kaldb query server and indexer.
-    KaldbConfigs.KaldbConfig indexerConfig =
-        makeKaldbConfig(
-            indexerPort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
-            KaldbConfigs.NodeRole.INDEX,
-            1000);
 
-    Kaldb indexer = new Kaldb(indexerConfig, s3Client);
-    indexer.start();
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    final int indexedMessagesCount =
-        produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1);
-
-    await()
-        .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexer.prometheusMeterRegistry);
-                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
-                return count == indexedMessagesCount;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
-
-    await()
-        .until(
-            () ->
-                getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry)
-                    == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry))
-        .isZero();
+    Kaldb indexer =
+        makeIndexerAndIndexMessages(
+            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi(
