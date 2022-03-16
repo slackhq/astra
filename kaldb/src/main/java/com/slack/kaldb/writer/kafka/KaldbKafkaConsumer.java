@@ -215,7 +215,7 @@ public class KaldbKafkaConsumer {
   }
 
   @VisibleForTesting
-  void setKafkaConsumer(KafkaConsumer kafkaConsumer) {
+  void setKafkaConsumer(KafkaConsumer<String, byte[]> kafkaConsumer) {
     this.kafkaConsumer = kafkaConsumer;
   }
 }
