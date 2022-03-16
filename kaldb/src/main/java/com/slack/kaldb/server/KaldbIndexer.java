@@ -100,7 +100,6 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
             maxOffsetDelay,
             meterRegistry);
 
-    // TODO: Check consumer group exists.
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
     long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
 
