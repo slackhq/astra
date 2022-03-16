@@ -254,8 +254,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private ReadWriteChunk<T> getOrCreateActiveChunk(
       String kafkaPartitionId, KaldbConfigs.IndexerConfig indexerConfig) throws IOException {
     if (activeChunk == null) {
-      // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
-      //  complicates unit tests.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>)
