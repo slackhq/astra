@@ -187,10 +187,7 @@ public class KaldbKafkaConsumerTest {
       testConsumer.prepConsumerForConsumption(0);
 
       assertThatExceptionOfType(RuntimeException.class)
-          .isThrownBy(
-              () -> {
-                testConsumer.consumeMessages();
-              });
+          .isThrownBy(() -> testConsumer.consumeMessages());
 
       testConsumer.close();
     }
