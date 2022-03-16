@@ -155,7 +155,6 @@ public class KaldbKafkaConsumer {
     LOG.info("Assigned to topicPartition: {}", topicPartition);
     // Offset is negative when the partition was not consumed before, so start consumption from
     // beginning of the stream. If the offset is positive, start consuming from there.
-    // TODO: What happens when that offset doesn't exist?
     if (startOffset > 0) {
       kafkaConsumer.seek(topicPartition, startOffset);
     } else {
