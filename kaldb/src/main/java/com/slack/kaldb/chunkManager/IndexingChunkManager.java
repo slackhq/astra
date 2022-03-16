@@ -50,10 +50,8 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
   private final File dataDirectory;
 
-  // TODO: ChunkDataPrefix can be moved to KaldbConfig?
   private final String chunkDataPrefix;
 
-  // TODO: Pass a reference to BlobFS instead of S3BlobFS.
   private final BlobFs blobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
