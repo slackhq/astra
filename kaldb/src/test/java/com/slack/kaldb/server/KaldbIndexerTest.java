@@ -10,12 +10,16 @@ import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.google.common.util.concurrent.Service;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -52,8 +56,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class KaldbIndexerTest {
-  // TODO: Test exception in pre-startup
-  // TODO: Test exception in actual start up method.
   // TODO: Ensure clean shutdown happens on indexer shutdown.
   // TODO: Ensure snapshots are uploaded when indexer shut down happens.
   // TODO: Ensure Closing the kafka consumer twice is ok.
@@ -104,7 +106,7 @@ public class KaldbIndexerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
+    zkMetadataStore = spy(ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig));
     snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
 
@@ -201,6 +203,45 @@ public class KaldbIndexerTest {
   }
 
   @Test
+  public void testExceptionOnIndexerStartup() throws Exception {
+    startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 50;
+    SnapshotMetadata livePartition0 =
+            new SnapshotMetadata(
+                    name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition0);
+
+    SnapshotMetadata livePartition1 =
+            new SnapshotMetadata(
+                    name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+    snapshotMetadataStore.createSync(livePartition1);
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
+
+    // Throw exception on a list call.
+    doThrow(new RuntimeException()).when(zkMetadataStore).get(any());
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+            new KaldbIndexer(
+                    chunkManagerUtil.chunkManager,
+                    zkMetadataStore,
+                    makeIndexerConfig(1000, "api_log"),
+                    getKafkaConfig(),
+                    metricsRegistry);
+    kaldbIndexer.startAsync();
+    await().until(() -> kaldbIndexer.state()  == Service.State.FAILED);
+    assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> kaldbIndexer.startUp());
+    kaldbIndexer = null;
+  }
+
+    @Test
   public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
     startKafkaAndSearchServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
