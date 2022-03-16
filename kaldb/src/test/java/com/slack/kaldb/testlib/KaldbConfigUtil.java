@@ -105,7 +105,7 @@ public class KaldbConfigUtil {
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
       int maxOffsetDelay, String dataTransformer) {
-    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, "log_message");
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, dataTransformer);
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
