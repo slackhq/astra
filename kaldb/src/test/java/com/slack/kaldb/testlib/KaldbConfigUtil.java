@@ -100,19 +100,16 @@ public class KaldbConfigUtil {
   public static int TEST_INDEXER_PORT = 10000;
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
-    return makeIndexerConfig(TEST_INDEXER_PORT);
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, "log_message");
   }
 
-  // TODO: Merge these makeIndexer config methods into a single method.
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
       int maxOffsetDelay, String dataTransformer) {
-    return KaldbConfigs.IndexerConfig.newBuilder()
-        .setMaxOffsetDelay(maxOffsetDelay)
-        .setDataTransformer(dataTransformer)
-        .build();
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, "log_message");
   }
 
-  public static KaldbConfigs.IndexerConfig makeIndexerConfig(int indexerPort) {
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort, int maxOffsetDelay, String dataTransformer) {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             KaldbConfigs.ServerConfig.newBuilder()
@@ -127,7 +124,8 @@ public class KaldbConfigUtil {
                 .setRefreshDurationSecs(10)
                 .build())
         .setStaleDurationSecs(7200)
-        .setDataTransformer("log_message")
+        .setMaxOffsetDelay(maxOffsetDelay)
+        .setDataTransformer(dataTransformer)
         .build();
   }
 }

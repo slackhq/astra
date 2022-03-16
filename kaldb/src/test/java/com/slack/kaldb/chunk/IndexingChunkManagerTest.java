@@ -153,7 +153,7 @@ public class IndexingChunkManagerTest {
             rollOverFutureTimeoutMs,
             metadataStore,
             searchContext,
-            KaldbConfigUtil.makeIndexerConfig(TEST_PORT));
+            KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message"));
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
