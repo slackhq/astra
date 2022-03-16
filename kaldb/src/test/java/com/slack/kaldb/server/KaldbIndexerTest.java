@@ -55,7 +55,6 @@ public class KaldbIndexerTest {
   // TODO: Test exception in pre-startup
   // TODO: Test exception in actual start up method.
   // TODO: Ensure clean shutdown happens on indexer shutdown.
-  // TODO: Ensure end to end query API with indexer and query:
   // TODO: Ensure snapshots are uploaded when indexer shut down happens.
   // TODO: Ensure Closing the kafka consumer twice is ok.
   // TODO: Add a test to ensure Indexer can be shut down cleanly.
