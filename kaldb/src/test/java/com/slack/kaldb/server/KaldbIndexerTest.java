@@ -63,7 +63,6 @@ public class KaldbIndexerTest {
   private static final String TEST_KAFKA_TOPIC = "test-topic";
   // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
   private static final int TEST_KAFKA_PARTITION = 0;
-  private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();

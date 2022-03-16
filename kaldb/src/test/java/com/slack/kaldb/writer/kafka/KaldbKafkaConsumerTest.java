@@ -3,6 +3,7 @@ package com.slack.kaldb.writer.kafka;
 import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
@@ -176,24 +177,20 @@ public class KaldbKafkaConsumerTest {
               "5000",
               logMessageWriter,
               metricsRegistry);
-      KafkaConsumer<String, byte[]> consumer = spy(testConsumer.getKafkaConsumer());
+      KafkaConsumer<String, byte[]> spyConsumer = spy(testConsumer.getKafkaConsumer());
+      testConsumer.setKafkaConsumer(spyConsumer);
       await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
 
       // Throw a run time exception when calling poll.
-      doThrow(new RuntimeException("Runtime exception from test")).when(consumer).poll(any());
+      doThrow(new RuntimeException("Runtime exception from test")).when(spyConsumer).poll(any());
 
       testConsumer.prepConsumerForConsumption(0);
-      // TODO: Throw an exception?
-      //      await()
-      //          .until(
-      //              () -> {
-      //                testConsumer.consumeMessages();
-      //                double recordCount = getCount(RECORDS_RECEIVED_COUNTER, metricsRegistry);
-      //                if (recordCount != 100) {
-      //                  LOG.warn(String.format("Current record count %s", recordCount));
-      //                }
-      //                return recordCount == 100;
-      //              });
+
+      assertThatExceptionOfType(RuntimeException.class)
+          .isThrownBy(
+              () -> {
+                testConsumer.consumeMessages();
+              });
 
       testConsumer.close();
     }

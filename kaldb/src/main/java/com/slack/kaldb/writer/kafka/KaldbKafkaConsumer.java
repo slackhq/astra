@@ -74,7 +74,7 @@ public class KaldbKafkaConsumer {
     return props;
   }
 
-  private final KafkaConsumer<String, byte[]> kafkaConsumer;
+  private KafkaConsumer<String, byte[]> kafkaConsumer;
   private final TopicPartition topicPartition;
 
   public static final String RECORDS_RECEIVED_COUNTER = "records_received";
@@ -213,5 +213,10 @@ public class KaldbKafkaConsumer {
   @VisibleForTesting
   public KafkaConsumer<String, byte[]> getKafkaConsumer() {
     return kafkaConsumer;
+  }
+
+  @VisibleForTesting
+  void setKafkaConsumer(KafkaConsumer kafkaConsumer) {
+    this.kafkaConsumer = kafkaConsumer;
   }
 }
