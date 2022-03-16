@@ -37,7 +37,7 @@ public class TestKafkaServer {
 
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
-      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic)
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
 
@@ -53,7 +53,7 @@ public class TestKafkaServer {
             producer.send(
                 new ProducerRecord<>(
                     kafkaTopic,
-                    0,
+                    partitionId,
                     String.valueOf(indexedCount),
                     fromLogMessage(msg, indexedCount).toByteArray()));
 
@@ -70,7 +70,7 @@ public class TestKafkaServer {
 
   public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC);
+    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
   }
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)

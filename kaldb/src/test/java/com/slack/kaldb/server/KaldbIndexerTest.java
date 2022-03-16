@@ -214,13 +214,13 @@ public class KaldbIndexerTest {
     final long endTimeMs = 100;
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
-            new SnapshotMetadata(
-                    name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+        new SnapshotMetadata(
+            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
-            new SnapshotMetadata(
-                    name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
@@ -229,19 +229,19 @@ public class KaldbIndexerTest {
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
-            new KaldbIndexer(
-                    chunkManagerUtil.chunkManager,
-                    zkMetadataStore,
-                    makeIndexerConfig(1000, "api_log"),
-                    getKafkaConfig(),
-                    metricsRegistry);
+        new KaldbIndexer(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
+            metricsRegistry);
     kaldbIndexer.startAsync();
-    await().until(() -> kaldbIndexer.state()  == Service.State.FAILED);
+    await().until(() -> kaldbIndexer.state() == Service.State.FAILED);
     assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> kaldbIndexer.startUp());
     kaldbIndexer = null;
   }
 
-    @Test
+  @Test
   public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
     startKafkaAndSearchServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();

@@ -112,7 +112,7 @@ public class KaldbTest {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final int indexedMessagesCount =
-        produceMessagesToKafka(kafkaServer.getBroker(), startTime, kafkaTopic);
+        produceMessagesToKafka(kafkaServer.getBroker(), startTime, kafkaTopic, 0);
 
     await()
         .until(
