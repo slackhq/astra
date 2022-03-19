@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,7 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error completing search request", e);
-      responseObserver.onError(e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 

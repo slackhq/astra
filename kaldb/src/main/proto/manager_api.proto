@@ -1,0 +1,96 @@
+syntax = "proto3";
+package slack.proto.kaldb;
+option java_package = "com.slack.kaldb.proto.manager_api";
+
+// ManagerApiService is the administration API for operating on services and their partition assignments
+service ManagerApiService {
+  // CreateService initializes a new service in the metadata store
+  rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse) {}
+  // GetService returns a single service from the metadata store by name
+  rpc GetService(GetServiceRequest) returns (GetServiceResponse) {}
+  // AddServicePartition appends a new partition assignment to an existing service
+  rpc AddServicePartition(AddServicePartitionRequest) returns (AddServicePartitionResponse) {}
+  // GetServicePartitions lists all available partition assignments for an existing service
+  rpc GetServicePartitions(GetServicePartitionsRequest) returns (GetServicePartitionsResponse) {}
+  // GetServices returns all available services from the metadata store
+  rpc GetServices(GetServicesRequest) returns (GetServicesResponse) {}
+}
+
+// CreateServiceRequest represents a new service with uninitialized partition assignments
+message CreateServiceRequest {
+  // Name of the service, must be unique
+  string name = 1;
+  // Owner information, maybe be any string
+  string owner = 2;
+  // Desired maximum throughput of the service across all partitions
+  int64 throughput_bytes = 3;
+}
+
+// CreateServiceResponse represents the result of a newly created service
+message CreateServiceResponse {}
+
+// GetServiceRequest represents a request to fetch an existing service
+message GetServiceRequest {
+  // Must be an exact string name match
+  string name = 1;
+}
+
+// GetServiceResponse represents the response when fetching a single available service
+message GetServiceResponse {
+  // Unique name of the service
+  string name = 1;
+  // Owner information
+  string owner = 2;
+  // Configured maximum throughput of the service
+  int64 throughput_bytes = 3;
+}
+
+// AddServicePartitionRequest represents a request to append a new partition assignment to an existing service
+message AddServicePartitionRequest {
+  // Unique name of the existing service
+  string name = 1;
+  // List of assigned partition IDs
+  repeated string partition_ids = 2;
+}
+
+// AddServicePartitionResponse represents the result of a newly appended service partition
+message AddServicePartitionResponse {}
+
+// GetServicePartitionsRequest represents a request to list all partitions for the matching service
+message GetServicePartitionsRequest {
+  // Must be an exact string name match
+  string name = 1;
+}
+
+// GetServicePartitionsResponse represents the response when listing all available partitions on a single service
+message GetServicePartitionsResponse {
+  // Partition assignment information for a single service
+  message ServicePartition {
+    // Time in epoch milliseconds that this assignment was in affect
+    int64 start_time_epoch_ms = 1;
+    // Time in epoch milliseconds that this assignment was no longer in affect
+    int64 end_time_epoch_ms = 2;
+    // List of assigned partition IDs
+    repeated string partition_ids = 3;
+  }
+  // List of all configured partitions assignments
+  repeated ServicePartition service_partitions = 1;
+}
+
+// GetServicesRequest represents a request to list all existing services
+message GetServicesRequest {}
+
+// GetServicesResponse represents the response when listing all available services
+message GetServicesResponse {
+  // Overall service information, excluding partition assignments
+  message ServiceResponse {
+    // Unique name of the service
+    string name = 1;
+    // Owner information
+    string owner = 2;
+    // Configured maximum throughput of the service
+    int64 throughput_bytes = 3;
+  }
+  // List of services, excluding partition assignments
+  repeated ServiceResponse service_list = 1;
+}

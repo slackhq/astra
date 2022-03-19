@@ -35,6 +35,18 @@ public class ServiceMetadata extends KaldbMetadata {
     this.partitionConfigs = ImmutableList.copyOf(partitionConfigs);
   }
 
+  public String getOwner() {
+    return owner;
+  }
+
+  public long getThroughputBytes() {
+    return throughputBytes;
+  }
+
+  public ImmutableList<ServicePartitionMetadata> getPartitionConfigs() {
+    return partitionConfigs;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
