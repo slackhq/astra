@@ -100,16 +100,16 @@ public class KaldbConfigUtil {
   public static int TEST_INDEXER_PORT = 10000;
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
-    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, "log_message");
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, "log_message", 100);
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
       int maxOffsetDelay, String dataTransformer) {
-    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, dataTransformer);
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, dataTransformer, 100);
   }
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig(
-      int indexerPort, int maxOffsetDelay, String dataTransformer) {
+      int indexerPort, int maxOffsetDelay, String dataTransformer, int maxMessagesPerChunk) {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             KaldbConfigs.ServerConfig.newBuilder()
@@ -117,7 +117,7 @@ public class KaldbConfigUtil {
                 .setServerAddress("localhost")
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-        .setMaxMessagesPerChunk(100)
+        .setMaxMessagesPerChunk(maxMessagesPerChunk)
         .setLuceneConfig(
             KaldbConfigs.LuceneConfig.newBuilder()
                 .setCommitDurationSecs(10)

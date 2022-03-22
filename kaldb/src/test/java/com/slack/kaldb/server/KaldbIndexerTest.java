@@ -4,13 +4,11 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.KaldbConfigUtil.makeIndexerConfig;
-import static com.slack.kaldb.testlib.KaldbConfigUtil.makeKafkaConfig;
+import static com.slack.kaldb.testlib.KaldbConfigUtil.*;
 import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -56,10 +54,8 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class KaldbIndexerTest {
-  // TODO: Ensure clean shutdown happens on indexer shutdown.
-  // TODO: Ensure snapshots are uploaded when indexer shut down happens.
-  // TODO: Ensure Closing the kafka consumer twice is ok.
-  // TODO: Add a test to ensure Indexer can be shut down cleanly.
+  // TODO: Ensure snapshots are uploaded when indexer shut down happens and shutdown is clean.
+  // TODO: Start indexer again and see it works as expected.
 
   private static final String TEST_KAFKA_TOPIC = "test-topic";
   // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
