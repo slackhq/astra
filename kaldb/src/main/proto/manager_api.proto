@@ -6,6 +6,8 @@ option java_package = "com.slack.kaldb.proto.manager_api";
 service ManagerApiService {
   // CreateService initializes a new service in the metadata store
   rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse) {}
+  // UpdateService updates an existing service with new metadata
+  rpc UpdateService(UpdateServiceRequest) returns (UpdateServiceResponse) {}
   // GetService returns a single service from the metadata store by name
   rpc GetService(GetServiceRequest) returns (GetServiceResponse) {}
   // AddServicePartition appends a new partition assignment to an existing service
@@ -28,6 +30,19 @@ message CreateServiceRequest {
 
 // CreateServiceResponse represents the result of a newly created service
 message CreateServiceResponse {}
+
+// UpdateServiceRequest represents a request to update an existing service
+message UpdateServiceRequest {
+  // Unique name of the existing service
+  string name = 1;
+  // Owner information, maybe be any string
+  string owner = 2;
+  // Desired maximum throughput of the service across all partitions
+  int64 throughput_bytes = 3;
+}
+
+// UpdateServiceResponse represents the result of a recently updated service
+message UpdateServiceResponse {}
 
 // GetServiceRequest represents a request to fetch an existing service
 message GetServiceRequest {
