@@ -283,6 +283,6 @@ public class KaldbTest {
     indexer1.shutdown();
     indexer2.shutdown();
   }
-  // TODO: Add a unit test with 2 indexers and a query service.
+
   // TODO: Add a unit test where a shard times out.
 }
