@@ -42,7 +42,14 @@ message UpdateServiceRequest {
 }
 
 // UpdateServiceResponse represents the result of a recently updated service
-message UpdateServiceResponse {}
+message UpdateServiceResponse {
+  // Unique name of the service
+  string name = 1;
+  // Updated owner information
+  string owner = 2;
+  // Updated maximum throughput of the service
+  int64 throughput_bytes = 3;
+}
 
 // GetServiceRequest represents a request to fetch an existing service
 message GetServiceRequest {

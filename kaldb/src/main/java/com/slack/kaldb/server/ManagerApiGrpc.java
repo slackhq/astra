@@ -65,7 +65,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               existingServiceMetadata.getPartitionConfigs());
       serviceMetadataStore.updateSync(updatedServiceMetadata);
 
-      responseObserver.onNext(ManagerApi.UpdateServiceResponse.newBuilder().build());
+      responseObserver.onNext(
+          ManagerApi.UpdateServiceResponse.newBuilder()
+              .setName(updatedServiceMetadata.getName())
+              .setOwner(updatedServiceMetadata.getOwner())
+              .setThroughputBytes(updatedServiceMetadata.getThroughputBytes())
+              .build());
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error updating existing service", e);
