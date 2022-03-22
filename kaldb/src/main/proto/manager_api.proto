@@ -76,7 +76,12 @@ message AddServicePartitionRequest {
 }
 
 // AddServicePartitionResponse represents the result of a newly appended service partition
-message AddServicePartitionResponse {}
+message AddServicePartitionResponse {
+  // Time in epoch milliseconds that this assignment takes effect
+  int64 start_time_epoch_ms = 1;
+  // List of assigned partition IDs
+  repeated string partition_ids = 2;
+}
 
 // GetServicePartitionsRequest represents a request to list all partitions for the matching service
 message GetServicePartitionsRequest {
