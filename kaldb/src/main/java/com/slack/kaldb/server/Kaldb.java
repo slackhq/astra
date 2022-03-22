@@ -64,10 +64,11 @@ public class Kaldb {
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) throws IOException {
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) {
     Metrics.addRegistry(prometheusMeterRegistry);
     this.kaldbConfig = kaldbConfig;
     this.s3Client = s3Client;
+    LOG.info("Started Kaldb process with config: {}", kaldbConfig);
   }
 
   Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
@@ -279,7 +280,6 @@ public class Kaldb {
         LOG.error(
             String.format("Service %s failed with cause ", service.getClass().toString()),
             service.failureCause());
-
         // shutdown if any services enters failure state
         new RuntimeHalterImpl()
             .handleFatal(new Throwable("Shutting down Kaldb due to failed service"));

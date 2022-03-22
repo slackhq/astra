@@ -148,7 +148,7 @@ public class KaldbKafkaConsumer {
 
   /** Start consuming the partition from an offset. */
   public void prepConsumerForConsumption(long startOffset) {
-    LOG.info("Starting kafka consumer.");
+    LOG.info("Starting kafka consumer for partition:{}.", topicPartition.partition());
 
     // Consume from a partition.
     kafkaConsumer.assign(Collections.singletonList(topicPartition));
@@ -164,9 +164,9 @@ public class KaldbKafkaConsumer {
   }
 
   public void close() {
-    LOG.info("Closing kafka consumer.");
+    LOG.info("Closing kafka consumer for partition:{}", topicPartition);
     kafkaConsumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
-    LOG.info("Closed kafka consumer.");
+    LOG.info("Closed kafka consumer for partition:{}", topicPartition);
   }
 
   public long getEndOffSetForPartition() {
@@ -193,7 +193,7 @@ public class KaldbKafkaConsumer {
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
     int recordCount = records.count();
-    LOG.debug("Fetched records={}", recordCount);
+    LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
     if (recordCount > 0) {
       recordsReceivedCounter.increment(recordCount);
       int recordFailures = 0;
