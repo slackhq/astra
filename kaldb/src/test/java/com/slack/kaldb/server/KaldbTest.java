@@ -276,6 +276,22 @@ public class KaldbTest {
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
+    // Query from query service.
+    KaldbSearch.SearchResult queryServiceSearchResponse2 =
+        searchUsingGrpcApi(
+            "Message100",
+            0L,
+            1601547099000L,
+            MessageUtil.TEST_INDEX_NAME,
+            100,
+            2,
+            queryServicePort + 1);
+
+    assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse2.getTotalCount()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse2.getHitsCount()).isEqualTo(2);
+
     // Shutdown
     LOG.info("Shutting down query service.");
     queryService.shutdown();
