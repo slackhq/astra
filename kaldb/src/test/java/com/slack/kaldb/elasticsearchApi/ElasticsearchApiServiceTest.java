@@ -46,7 +46,7 @@ public class ElasticsearchApiServiceTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(
+        ChunkManagerUtil.makeChunkManagerUtil(
             S3_MOCK_RULE,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,

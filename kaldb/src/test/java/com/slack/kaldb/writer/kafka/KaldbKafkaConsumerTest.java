@@ -2,6 +2,7 @@ package com.slack.kaldb.writer.kafka;
 
 import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -45,7 +46,7 @@ public class KaldbKafkaConsumerTest {
       metricsRegistry = new SimpleMeterRegistry();
 
       chunkManagerUtil =
-          new ChunkManagerUtil<>(
+          makeChunkManagerUtil(
               S3_MOCK_RULE,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
@@ -132,7 +133,7 @@ public class KaldbKafkaConsumerTest {
       metricsRegistry = new SimpleMeterRegistry();
 
       chunkManagerUtil =
-          new ChunkManagerUtil<>(
+          makeChunkManagerUtil(
               S3_MOCK_RULE,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
