@@ -5,7 +5,6 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.*;
-import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.*;
@@ -18,16 +17,11 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.util.concurrent.Service;
-import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.server.Server;
-import com.linecorp.armeria.server.ServerBuilder;
-import com.linecorp.armeria.server.grpc.GrpcService;
-import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.slack.kaldb.chunk.ReadWriteChunk;
-import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.logstore.search.SearchQuery;
+import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -35,16 +29,13 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -59,10 +50,9 @@ public class KaldbIndexerTest {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexerTest.class);
 
   // TODO: Ensure snapshots are uploaded when indexer shut down happens and shutdown is clean.
-  // TODO: Start indexer again and see it works as expected.
+  // TODO: Start indexer again and see it works as expected with roll over.
 
   private static final String TEST_KAFKA_TOPIC = "test-topic";
-  // Kafka producer creates only a partition 0 on first message. So, set the partition to 0 always.
   private static final int TEST_KAFKA_PARTITION = 0;
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
 
@@ -76,7 +66,6 @@ public class KaldbIndexerTest {
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private KaldbIndexer kaldbIndexer;
   private SimpleMeterRegistry metricsRegistry;
-  private Server armeriaServer;
   private TestKafkaServer kafkaServer;
   private TestingServer testZKServer;
   private MetadataStore zkMetadataStore;
@@ -123,9 +112,6 @@ public class KaldbIndexerTest {
 
   @After
   public void tearDown() throws Exception {
-    if (armeriaServer != null) {
-      armeriaServer.stop().get(30, TimeUnit.SECONDS);
-    }
     chunkManagerUtil.close();
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
@@ -141,7 +127,7 @@ public class KaldbIndexerTest {
   @Test
   public void testIndexFreshConsumerKafkaSearchViaGrpcSearchApi() throws Exception {
     // Start kafka, produce messages to it and start a search server.
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -167,7 +153,7 @@ public class KaldbIndexerTest {
   @Test
   public void testDeleteStaleSnapshotAndStartConsumerKafkaSearchViaGrpcSearchApi()
       throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -204,7 +190,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testExceptionOnIndexerStartup() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -243,7 +229,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -285,7 +271,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerStartsWithPreviousOffset() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -334,7 +320,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerCreatesRecoveryTask() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -390,7 +376,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerShutdownTwice() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -450,7 +436,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerRestart() throws Exception {
-    startKafkaAndSearchServer();
+    startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -526,7 +512,6 @@ public class KaldbIndexerTest {
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
-    // TODO: Fix the query API.
     consumeMessagesAndSearchMessagesTest(138, 0);
 
     // Live snapshot is deleted, recovery task is created.
@@ -534,27 +519,12 @@ public class KaldbIndexerTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
   }
 
-  private void startKafkaAndSearchServer() throws Exception {
+  private void startKafkaServer() throws Exception {
     EphemeralKafkaBroker broker = kafkaServer.getBroker();
     assertThat(broker.isRunning()).isTrue();
 
     // Produce messages to kafka, so the indexer can consume them.
     produceMessagesToKafka(broker, startTime);
-
-    // Create an indexer, an armeria server and register the grpc service.
-    ServerBuilder sb = Server.builder();
-    // sb.http(kaldbCfg.getIndexerConfig().getServerConfig().getServerPort());
-    sb.http(8081);
-    sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-
-    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-    GrpcServiceBuilder searchBuilder =
-        GrpcService.builder()
-            .addService(new KaldbLocalQueryService<>(chunkManager))
-            .enableUnframedRequests(true);
-    armeriaServer = sb.service(searchBuilder.build()).build();
-    // wait at most 10 seconds to start before throwing an exception
-    armeriaServer.start().get(10, TimeUnit.SECONDS);
   }
 
   private void consumeMessagesAndSearchMessagesTest(
@@ -584,23 +554,18 @@ public class KaldbIndexerTest {
 
     // Search for the messages via the grpc API
     final long chunk1StartTimeMs = startTime.toEpochMilli();
-    KaldbSearch.SearchResult searchResponse =
-        searchUsingGrpcApi(
-            "Message100",
-            chunk1StartTimeMs,
-            chunk1StartTimeMs + (100 * 1000),
-            MessageUtil.TEST_INDEX_NAME,
-            10,
-            2,
-            armeriaServer.activeLocalPort());
+    SearchResult<LogMessage> searchResult =
+        chunkManagerUtil.chunkManager.query(
+            new SearchQuery(
+                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2));
 
     // Validate search response
-    assertThat(searchResponse.getHitsCount()).isEqualTo(1);
-    assertThat(searchResponse.getTookMicros()).isNotZero();
-    assertThat(searchResponse.getTotalCount()).isEqualTo(1);
-    assertThat(searchResponse.getFailedNodes()).isZero();
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
-    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(searchResult.hits.size()).isEqualTo(1);
+    assertThat(searchResult.tookMicros).isNotZero();
+    assertThat(searchResult.totalCount).isEqualTo(1);
+    assertThat(searchResult.failedNodes).isZero();
+    assertThat(searchResult.totalNodes).isEqualTo(1);
+    assertThat(searchResult.totalSnapshots).isEqualTo(1);
+    assertThat(searchResult.snapshotsWithReplicas).isEqualTo(1);
   }
 }
