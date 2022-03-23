@@ -49,6 +49,7 @@ public class ChunkManagerUtil<T> {
   private final TestingServer zkServer;
   private final MetadataStore metadataStore;
 
+  // TODO: Make this a static method.
   public ChunkManagerUtil(
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
@@ -91,9 +92,7 @@ public class ChunkManagerUtil<T> {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
 
-    zkServer = new TestingServer();
-    zkServer.start();
-
+    // TODO: Remove this initialization.
     if (metadataStore == null) {
       KaldbConfigs.ZookeeperConfig zkConfig =
           KaldbConfigs.ZookeeperConfig.newBuilder()

@@ -52,8 +52,12 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbIndexerTest {
+  private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexerTest.class);
+
   // TODO: Ensure snapshots are uploaded when indexer shut down happens and shutdown is clean.
   // TODO: Start indexer again and see it works as expected.
 
@@ -384,76 +388,6 @@ public class KaldbIndexerTest {
     assertThat(recoveryTask1.partitionId).isEqualTo("0");
   }
 
-  private void startKafkaAndSearchServer() throws Exception {
-    EphemeralKafkaBroker broker = kafkaServer.getBroker();
-    assertThat(broker.isRunning()).isTrue();
-    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-
-    // Create an indexer, an armeria server and register the grpc service.
-    ServerBuilder sb = Server.builder();
-    // sb.http(kaldbCfg.getIndexerConfig().getServerConfig().getServerPort());
-    sb.http(8081);
-    sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
-
-    // Produce messages to kafka, so the indexer can consume them.
-    produceMessagesToKafka(broker, startTime);
-
-    GrpcServiceBuilder searchBuilder =
-        GrpcService.builder()
-            .addService(new KaldbLocalQueryService<>(chunkManager))
-            .enableUnframedRequests(true);
-    armeriaServer = sb.service(searchBuilder.build()).build();
-    // wait at most 10 seconds to start before throwing an exception
-    armeriaServer.start().get(10, TimeUnit.SECONDS);
-  }
-
-  private void consumeMessagesAndSearchMessagesTest(
-      int messagesReceived, double rolloversCompleted) {
-    // commit the active chunk if it exists, else it was rolled over.
-    final ReadWriteChunk<LogMessage> activeChunk = chunkManagerUtil.chunkManager.getActiveChunk();
-    if (activeChunk != null) {
-      activeChunk.commit();
-    }
-
-    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
-    assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    if (rolloversCompleted > 0) {
-      assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry))
-          .isEqualTo(rolloversCompleted);
-      await()
-          .until(
-              () ->
-                  getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)
-                      == rolloversCompleted);
-      assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    }
-    assertThat(getCount(KaldbKafkaConsumer.RECORDS_RECEIVED_COUNTER, metricsRegistry))
-        .isEqualTo(messagesReceived);
-    assertThat(getCount(KaldbKafkaConsumer.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-
-    // Search for the messages via the grpc API
-    final long chunk1StartTimeMs = startTime.toEpochMilli();
-    KaldbSearch.SearchResult searchResponse =
-        searchUsingGrpcApi(
-            "Message100",
-            chunk1StartTimeMs,
-            chunk1StartTimeMs + (100 * 1000),
-            MessageUtil.TEST_INDEX_NAME,
-            10,
-            2,
-            armeriaServer.activeLocalPort());
-
-    // Validate search response
-    assertThat(searchResponse.getHitsCount()).isEqualTo(1);
-    assertThat(searchResponse.getTookMicros()).isNotZero();
-    assertThat(searchResponse.getTotalCount()).isEqualTo(1);
-    assertThat(searchResponse.getFailedNodes()).isZero();
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
-    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
-  }
-
   @Test
   public void testIndexerShutdownTwice() throws Exception {
     startKafkaAndSearchServer();
@@ -512,5 +446,161 @@ public class KaldbIndexerTest {
     kaldbIndexer.shutDown();
     kaldbIndexer.shutDown();
     kaldbIndexer = null;
+  }
+
+  @Test
+  public void testIndexerRestart() throws Exception {
+    startKafkaAndSearchServer();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    // Create a live partition for this partiton
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTimeMs = 1;
+    final long endTimeMs = 100;
+    final long maxOffset = 30;
+    SnapshotMetadata livePartition0 =
+        new SnapshotMetadata(
+            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(livePartition0);
+
+    SnapshotMetadata livePartition1 =
+        new SnapshotMetadata(
+            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+    snapshotMetadataStore.createSync(livePartition1);
+
+    final SnapshotMetadata partition0 =
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+    snapshotMetadataStore.createSync(partition0);
+
+    assertThat(snapshotMetadataStore.listSync())
+        .containsOnly(livePartition1, livePartition0, partition0);
+
+    // Empty consumer offset since there is no prior consumer.
+    kaldbIndexer =
+        new KaldbIndexer(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // Consume messages from offset 31 to 100.
+    consumeMessagesAndSearchMessagesTest(69, 0);
+
+    // Live snapshot is deleted, no recovery task is created.
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
+    // TODO: Why is live snapshot not here?
+    // TODO: Test search metadata store?
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(recoveryTaskStore.listSync().size()).isZero();
+
+    // Shutting down is idempotent. So, doing it twice shouldn't throw an error.
+    kaldbIndexer.stopAsync();
+    kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    chunkManagerUtil.chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+
+    // await().until(() -> kafkaServer.getConnectedConsumerGroups() == 0);
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
+
+    // start indexer again. The indexer should index the same data again.
+    LOG.info("Starting the indexer again");
+    chunkManagerUtil =
+        new ChunkManagerUtil<>(
+            S3_MOCK_RULE, metricsRegistry, 10 * 1024 * 1024 * 1024L, 100, makeIndexerConfig());
+    chunkManagerUtil.chunkManager.startAsync();
+    chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    kaldbIndexer =
+        new KaldbIndexer(
+            chunkManagerUtil.chunkManager,
+            zkMetadataStore,
+            makeIndexerConfig(1000, "api_log"),
+            getKafkaConfig(),
+            metricsRegistry);
+    kaldbIndexer.startAsync();
+    kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // TODO: Fix the query API.
+    consumeMessagesAndSearchMessagesTest(138, 0);
+
+    // Live snapshot is deleted, recovery task is created.
+    assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, partition0);
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+  }
+
+  private void startKafkaAndSearchServer() throws Exception {
+    EphemeralKafkaBroker broker = kafkaServer.getBroker();
+    assertThat(broker.isRunning()).isTrue();
+
+    // Produce messages to kafka, so the indexer can consume them.
+    produceMessagesToKafka(broker, startTime);
+
+    // Create an indexer, an armeria server and register the grpc service.
+    ServerBuilder sb = Server.builder();
+    // sb.http(kaldbCfg.getIndexerConfig().getServerConfig().getServerPort());
+    sb.http(8081);
+    sb.service("/ping", (ctx, req) -> HttpResponse.of("pong!"));
+
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+    GrpcServiceBuilder searchBuilder =
+        GrpcService.builder()
+            .addService(new KaldbLocalQueryService<>(chunkManager))
+            .enableUnframedRequests(true);
+    armeriaServer = sb.service(searchBuilder.build()).build();
+    // wait at most 10 seconds to start before throwing an exception
+    armeriaServer.start().get(10, TimeUnit.SECONDS);
+  }
+
+  private void consumeMessagesAndSearchMessagesTest(
+      int messagesReceived, double rolloversCompleted) {
+    // commit the active chunk if it exists, else it was rolled over.
+    final ReadWriteChunk<LogMessage> activeChunk = chunkManagerUtil.chunkManager.getActiveChunk();
+    if (activeChunk != null) {
+      activeChunk.commit();
+    }
+
+    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
+    assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    if (rolloversCompleted > 0) {
+      assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry))
+          .isEqualTo(rolloversCompleted);
+      await()
+          .until(
+              () ->
+                  getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)
+                      == rolloversCompleted);
+      assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    }
+    assertThat(getCount(KaldbKafkaConsumer.RECORDS_RECEIVED_COUNTER, metricsRegistry))
+        .isEqualTo(messagesReceived);
+    assertThat(getCount(KaldbKafkaConsumer.RECORDS_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+
+    // Search for the messages via the grpc API
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
+    KaldbSearch.SearchResult searchResponse =
+        searchUsingGrpcApi(
+            "Message100",
+            chunk1StartTimeMs,
+            chunk1StartTimeMs + (100 * 1000),
+            MessageUtil.TEST_INDEX_NAME,
+            10,
+            2,
+            armeriaServer.activeLocalPort());
+
+    // Validate search response
+    assertThat(searchResponse.getHitsCount()).isEqualTo(1);
+    assertThat(searchResponse.getTookMicros()).isNotZero();
+    assertThat(searchResponse.getTotalCount()).isEqualTo(1);
+    assertThat(searchResponse.getFailedNodes()).isZero();
+    assertThat(searchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(searchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(searchResponse.getSnapshotsWithReplicas()).isEqualTo(1);
   }
 }
