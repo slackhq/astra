@@ -142,7 +142,6 @@ public class KaldbIndexerTest {
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
@@ -178,7 +177,6 @@ public class KaldbIndexerTest {
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
@@ -259,7 +257,6 @@ public class KaldbIndexerTest {
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
@@ -308,7 +305,6 @@ public class KaldbIndexerTest {
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(49, 0);
@@ -357,7 +353,6 @@ public class KaldbIndexerTest {
             metricsRegistry);
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
-    // TODO: Should be 0?
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce more messages since the recovery task is created for head.
