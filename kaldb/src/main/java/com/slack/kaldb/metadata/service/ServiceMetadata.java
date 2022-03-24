@@ -27,7 +27,7 @@ public class ServiceMetadata extends KaldbMetadata {
     super(name);
     checkArgument(partitionConfigs != null, "partitionConfigs must not be null");
     checkArgument(owner != null && !owner.isBlank(), "owner must not be null or blank");
-    checkArgument(throughputBytes > 0, "throughputBytes must be greater than 0");
+    checkArgument(throughputBytes >= 0, "throughputBytes must be greater than or equal to 0");
     checkPartitions(partitionConfigs, "partitionConfigs must not overlap start and end times");
 
     this.owner = owner;

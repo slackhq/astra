@@ -24,7 +24,7 @@ public class ServiceMetadataSerializer implements MetadataSerializer<ServiceMeta
         servicePartitionMetadata);
   }
 
-  private static Metadata.ServiceMetadata toServiceMetadataProto(ServiceMetadata metadata) {
+  public static Metadata.ServiceMetadata toServiceMetadataProto(ServiceMetadata metadata) {
     List<Metadata.ServicePartitionMetadata> servicePartitionMetadata =
         metadata
             .partitionConfigs

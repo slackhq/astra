@@ -2,15 +2,20 @@ package com.slack.kaldb.server;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
+import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
+import com.slack.kaldb.proto.metadata.Metadata;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -49,8 +54,8 @@ public class ManagerApiGrpcTest {
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("ManagerApiGrpcTest")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(30000)
+            .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(1000)
             .build();
 
@@ -83,45 +88,41 @@ public class ManagerApiGrpcTest {
   public void shouldCreateAndGetNewService() {
     String serviceName = "testService";
     String serviceOwner = "testOwner";
-    long serviceBytes = 1;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    managerApiStub.createServiceMetadata(
+        ManagerApi.CreateServiceMetadataRequest.newBuilder()
             .setName(serviceName)
             .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
             .build());
 
-    ManagerApi.GetServiceResponse getServiceResponse =
-        managerApiStub.getService(
-            ManagerApi.GetServiceRequest.newBuilder().setName(serviceName).build());
-    assertThat(getServiceResponse.getName()).isEqualTo(serviceName);
-    assertThat(getServiceResponse.getOwner()).isEqualTo(serviceOwner);
-    assertThat(getServiceResponse.getThroughputBytes()).isEqualTo(serviceBytes);
+    Metadata.ServiceMetadata getServiceMetadataResponse =
+        managerApiStub.getServiceMetadata(
+            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
+    assertThat(getServiceMetadataResponse.getName()).isEqualTo(serviceName);
+    assertThat(getServiceMetadataResponse.getOwner()).isEqualTo(serviceOwner);
+    assertThat(getServiceMetadataResponse.getThroughputBytes()).isEqualTo(0);
+    assertThat(getServiceMetadataResponse.getPartitionConfigsList().size()).isEqualTo(0);
   }
 
   @Test
   public void shouldErrorCreatingDuplicateServiceName() {
     String serviceName = "testService";
     String serviceOwner = "testOwner";
-    long serviceBytes = 1;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    managerApiStub.createServiceMetadata(
+        ManagerApi.CreateServiceMetadataRequest.newBuilder()
             .setName(serviceName)
             .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
             .build());
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
                             .setName(serviceName)
                             .setOwner(serviceOwner)
-                            .setThroughputBytes(serviceBytes)
                             .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
   }
@@ -129,17 +130,15 @@ public class ManagerApiGrpcTest {
   @Test
   public void shouldErrorCreatingWithInvalidServiceNames() {
     String serviceOwner = "testOwner";
-    long serviceBytes = 1;
 
     StatusRuntimeException throwable1 =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
                             .setName("")
                             .setOwner(serviceOwner)
-                            .setThroughputBytes(serviceBytes)
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
@@ -148,11 +147,10 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
                             .setName("/")
                             .setOwner(serviceOwner)
-                            .setThroughputBytes(serviceBytes)
                             .build()));
     assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
@@ -160,11 +158,10 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
                             .setName(".")
                             .setOwner(serviceOwner)
-                            .setThroughputBytes(serviceBytes)
                             .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
   }
@@ -172,110 +169,43 @@ public class ManagerApiGrpcTest {
   @Test
   public void shouldErrorWithEmptyOwnerInformation() {
     String serviceName = "testService";
-    long serviceBytes = 1;
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
                             .setName(serviceName)
                             .setOwner("")
-                            .setThroughputBytes(serviceBytes)
                             .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
   }
 
   @Test
-  public void shouldErrorCreatingWithInvalidThroughput() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
-
-    StatusRuntimeException throwable1 =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner)
-                            .setThroughputBytes(0)
-                            .build()));
-    assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(throwable1.getStatus().getDescription())
-        .isEqualTo("throughputBytes must be greater than 0");
-
-    StatusRuntimeException throwable2 =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.createService(
-                        ManagerApi.CreateServiceRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner)
-                            .setThroughputBytes(-1)
-                            .build()));
-    assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(throwable2.getStatus().getDescription())
-        .isEqualTo("throughputBytes must be greater than 0");
-  }
-
-  @Test
   public void shouldUpdateExistingService() {
     String serviceName = "testService";
     String serviceOwner = "testOwner";
-    long serviceBytes = 1;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    managerApiStub.createServiceMetadata(
+        ManagerApi.CreateServiceMetadataRequest.newBuilder()
             .setName(serviceName)
             .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
             .build());
 
     String updatedServiceOwner = "testOwnerUpdated";
-    ManagerApi.UpdateServiceResponse updatedServiceResponse =
-        managerApiStub.updateService(
-            ManagerApi.UpdateServiceRequest.newBuilder()
+    Metadata.ServiceMetadata updatedServiceResponse =
+        managerApiStub.updateServiceMetadata(
+            ManagerApi.UpdateServiceMetadataRequest.newBuilder()
                 .setName(serviceName)
                 .setOwner(updatedServiceOwner)
-                .setThroughputBytes(serviceBytes)
                 .build());
 
     assertThat(updatedServiceResponse.getName()).isEqualTo(serviceName);
     assertThat(updatedServiceResponse.getOwner()).isEqualTo(updatedServiceOwner);
-    assertThat(updatedServiceResponse.getThroughputBytes()).isEqualTo(serviceBytes);
-  }
-
-  @Test
-  public void shouldErrorUpdatingWithInvalidThroughput() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
-    long serviceBytes = 1;
-
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
-            .build());
-
-    StatusRuntimeException throwable =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.updateService(
-                        ManagerApi.UpdateServiceRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner)
-                            .setThroughputBytes(0)
-                            .build()));
-    Status status = throwable.getStatus();
-
-    assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(status.getDescription()).isEqualTo("throughputBytes must be greater than 0");
+    assertThat(updatedServiceResponse.getThroughputBytes()).isEqualTo(0);
+    assertThat(updatedServiceResponse.getPartitionConfigsList().size()).isEqualTo(0);
   }
 
   @Test
@@ -284,97 +214,99 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.getService(
-                        ManagerApi.GetServiceRequest.newBuilder().setName("foo").build()));
+                    managerApiStub.getServiceMetadata(
+                        ManagerApi.GetServiceMetadataRequest.newBuilder().setName("foo").build()));
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
   }
 
   @Test
-  public void shouldAppendServicePartitions() {
+  public void shouldUpdatePartitionAssignments() {
     String serviceName = "testService";
     String serviceOwner = "testOwner";
-    long serviceBytes = 1;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
-            .build());
-
-    ManagerApi.GetServicePartitionsResponse partitionsResponse1 =
-        managerApiStub.getServicePartitions(
-            ManagerApi.GetServicePartitionsRequest.newBuilder().setName(serviceName).build());
-    assertThat(partitionsResponse1.getServicePartitionsList().size()).isEqualTo(0);
+    Metadata.ServiceMetadata initialServiceRequest =
+        managerApiStub.createServiceMetadata(
+            ManagerApi.CreateServiceMetadataRequest.newBuilder()
+                .setName(serviceName)
+                .setOwner(serviceOwner)
+                .build());
+    assertThat(initialServiceRequest.getPartitionConfigsList().size()).isEqualTo(0);
 
     long nowMs = Instant.now().toEpochMilli();
-    List<String> partitionList = List.of("1", "2");
-    ManagerApi.AddServicePartitionResponse addServicePartitionResponse =
-        managerApiStub.addServicePartition(
-            ManagerApi.AddServicePartitionRequest.newBuilder()
-                .setName(serviceName)
-                .addAllPartitionIds(partitionList)
-                .build());
-
-    assertThat(addServicePartitionResponse.getStartTimeEpochMs()).isGreaterThanOrEqualTo(nowMs);
-    assertThat(addServicePartitionResponse.getPartitionIdsList()).isEqualTo(partitionList);
-
-    ManagerApi.GetServicePartitionsResponse partitionsResponse2 =
-        managerApiStub.getServicePartitions(
-            ManagerApi.GetServicePartitionsRequest.newBuilder().setName(serviceName).build());
-    assertThat(partitionsResponse2.getServicePartitionsList().size()).isEqualTo(1);
-    assertThat(partitionsResponse2.getServicePartitionsList().get(0).getPartitionIdsList())
-        .isEqualTo(partitionList);
-  }
-
-  @Test
-  public void shouldErrorWithInvalidPartitionAssignment() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
-    long serviceBytes = 1;
-
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    long throughputBytes = 10;
+    managerApiStub.updatePartitionAssignment(
+        ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
             .setName(serviceName)
-            .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
+            .setThroughputBytes(throughputBytes)
+            .addAllPartitionIds(List.of("1", "2"))
             .build());
+    Metadata.ServiceMetadata firstAssignment =
+        managerApiStub.getServiceMetadata(
+            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
 
-    ManagerApi.GetServicePartitionsResponse partitionsResponse1 =
-        managerApiStub.getServicePartitions(
-            ManagerApi.GetServicePartitionsRequest.newBuilder().setName(serviceName).build());
-    assertThat(partitionsResponse1.getServicePartitionsList().size()).isEqualTo(0);
+    assertThat(firstAssignment.getThroughputBytes()).isEqualTo(throughputBytes);
+    assertThat(firstAssignment.getPartitionConfigsList().size()).isEqualTo(1);
+    assertThat(firstAssignment.getPartitionConfigsList().get(0).getPartitionsList())
+        .isEqualTo(List.of("1", "2"));
+    assertThat(firstAssignment.getPartitionConfigsList().get(0).getStartTimeEpochMs())
+        .isGreaterThanOrEqualTo(nowMs);
+    assertThat(firstAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
+        .isEqualTo(Long.MAX_VALUE);
 
-    StatusRuntimeException throwable1 =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.addServicePartition(
-                        ManagerApi.AddServicePartitionRequest.newBuilder()
-                            .setName(serviceName)
-                            .addAllPartitionIds(Collections.emptyList())
-                            .build()));
-    assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(throwable1.getStatus().getDescription())
-        .isEqualTo("PartitionIds list must not be empty");
+    // only update the partition assignment, leaving throughput
+    managerApiStub.updatePartitionAssignment(
+        ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
+            .setName(serviceName)
+            .setThroughputBytes(-1)
+            .addAllPartitionIds(List.of("3", "4", "5"))
+            .build());
+    Metadata.ServiceMetadata secondAssignment =
+        managerApiStub.getServiceMetadata(
+            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
 
-    StatusRuntimeException throwable2 =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.addServicePartition(
-                        ManagerApi.AddServicePartitionRequest.newBuilder()
-                            .setName(serviceName)
-                            .addAllPartitionIds(Collections.singletonList(""))
-                            .build()));
-    assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(throwable2.getStatus().getDescription())
-        .isEqualTo("PartitionIds list must not contain blank strings");
+    assertThat(secondAssignment.getThroughputBytes()).isEqualTo(throughputBytes);
+    assertThat(secondAssignment.getPartitionConfigsList().size()).isEqualTo(2);
+    assertThat(secondAssignment.getPartitionConfigsList().get(0).getPartitionsList())
+        .isEqualTo(List.of("1", "2"));
+    assertThat(secondAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
+        .isNotEqualTo(Long.MAX_VALUE);
+
+    assertThat(secondAssignment.getPartitionConfigsList().get(1).getPartitionsList())
+        .isEqualTo(List.of("3", "4", "5"));
+    assertThat(secondAssignment.getPartitionConfigsList().get(1).getStartTimeEpochMs())
+        .isGreaterThanOrEqualTo(nowMs);
+    assertThat(secondAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
+        .isEqualTo(Long.MAX_VALUE);
+
+    // only update the throughput, leaving the partition assignments
+    long updatedThroughputBytes = 12;
+    managerApiStub.updatePartitionAssignment(
+        ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
+            .setName(serviceName)
+            .setThroughputBytes(updatedThroughputBytes)
+            .build());
+    Metadata.ServiceMetadata thirdAssignment =
+        managerApiStub.getServiceMetadata(
+            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
+
+    assertThat(thirdAssignment.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
+    assertThat(thirdAssignment.getPartitionConfigsList().size()).isEqualTo(2);
+    assertThat(thirdAssignment.getPartitionConfigsList().get(0).getPartitionsList())
+        .isEqualTo(List.of("1", "2"));
+    assertThat(thirdAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
+        .isNotEqualTo(Long.MAX_VALUE);
+
+    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getPartitionsList())
+        .isEqualTo(List.of("3", "4", "5"));
+    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getStartTimeEpochMs())
+        .isGreaterThanOrEqualTo(nowMs);
+    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
+        .isEqualTo(Long.MAX_VALUE);
   }
 
   @Test
-  public void shouldErrorAppendingPartitionsNonexistentService() {
+  public void shouldErrorUpdatingPartitionAssignmentNonexistentService() {
     String serviceName = "testService";
     List<String> partitionList = List.of("1", "2");
 
@@ -382,110 +314,96 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.addServicePartition(
-                        ManagerApi.AddServicePartitionRequest.newBuilder()
+                    managerApiStub.updatePartitionAssignment(
+                        ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
                             .setName(serviceName)
+                            .setThroughputBytes(-1)
                             .addAllPartitionIds(partitionList)
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
   }
 
   @Test
-  public void shouldListExistingPartitions() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
-    long serviceBytes = 1;
-
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner)
-            .setThroughputBytes(serviceBytes)
-            .build());
-
-    List<String> partitionList1 = List.of("1", "2");
-    managerApiStub.addServicePartition(
-        ManagerApi.AddServicePartitionRequest.newBuilder()
-            .setName(serviceName)
-            .addAllPartitionIds(partitionList1)
-            .build());
-
-    List<String> partitionList2 = List.of("3", "4");
-    managerApiStub.addServicePartition(
-        ManagerApi.AddServicePartitionRequest.newBuilder()
-            .setName(serviceName)
-            .addAllPartitionIds(partitionList2)
-            .build());
-
-    ManagerApi.GetServicePartitionsResponse partitionsResponse =
-        managerApiStub.getServicePartitions(
-            ManagerApi.GetServicePartitionsRequest.newBuilder().setName(serviceName).build());
-    assertThat(partitionsResponse.getServicePartitionsList().size()).isEqualTo(2);
-
-    assertThat(partitionsResponse.getServicePartitionsList().get(0).getPartitionIdsList())
-        .isEqualTo(partitionList1);
-    assertThat(partitionsResponse.getServicePartitionsList().get(1).getPartitionIdsList())
-        .isEqualTo(partitionList2);
-    assertThat(partitionsResponse.getServicePartitionsList().get(0).getEndTimeEpochMs() + 1)
-        .isEqualTo(partitionsResponse.getServicePartitionsList().get(1).getStartTimeEpochMs());
-  }
-
-  @Test
-  public void shouldErrorListingPartitionsNonexistentService() {
-    String serviceName = "testService";
-
-    StatusRuntimeException throwable =
-        (StatusRuntimeException)
-            catchThrowable(
-                () ->
-                    managerApiStub.getServicePartitions(
-                        ManagerApi.GetServicePartitionsRequest.newBuilder()
-                            .setName(serviceName)
-                            .build()));
-    assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-  }
-
-  @Test
   public void shouldListExistingServices() {
     String serviceName1 = "testService1";
     String serviceOwner1 = "testOwner1";
-    long serviceBytes1 = 1;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    managerApiStub.createServiceMetadata(
+        ManagerApi.CreateServiceMetadataRequest.newBuilder()
             .setName(serviceName1)
             .setOwner(serviceOwner1)
-            .setThroughputBytes(serviceBytes1)
             .build());
 
     String serviceName2 = "testService2";
     String serviceOwner2 = "testOwner2";
-    long serviceBytes2 = 2;
 
-    managerApiStub.createService(
-        ManagerApi.CreateServiceRequest.newBuilder()
+    managerApiStub.createServiceMetadata(
+        ManagerApi.CreateServiceMetadataRequest.newBuilder()
             .setName(serviceName2)
             .setOwner(serviceOwner2)
-            .setThroughputBytes(serviceBytes2)
             .build());
 
-    ManagerApi.GetServicesResponse getServicesResponse =
-        managerApiStub.getServices(ManagerApi.GetServicesRequest.newBuilder().build());
+    ManagerApi.ListServiceMetadataResponse listServiceMetadataResponse =
+        managerApiStub.listServiceMetadata(
+            ManagerApi.ListServiceMetadataRequest.newBuilder().build());
 
     assertThat(
-        getServicesResponse
-            .getServiceListList()
+        listServiceMetadataResponse
+            .getServiceMetadataList()
             .containsAll(
                 List.of(
-                    ManagerApi.GetServicesResponse.ServiceResponse.newBuilder()
+                    Metadata.ServiceMetadata.newBuilder()
                         .setName(serviceName1)
                         .setOwner(serviceOwner1)
-                        .setThroughputBytes(serviceBytes1)
+                        .setThroughputBytes(0)
                         .build(),
-                    ManagerApi.GetServicesResponse.ServiceResponse.newBuilder()
-                        .setName(serviceName2)
-                        .setOwner(serviceOwner2)
-                        .setThroughputBytes(serviceBytes2)
+                    Metadata.ServiceMetadata.newBuilder()
+                        .setName(serviceName1)
+                        .setOwner(serviceOwner1)
+                        .setThroughputBytes(0)
                         .build())));
+  }
+
+  @Test
+  public void shouldHandleZkErrorsGracefully() {
+    String serviceName = "testZkErrorsService";
+    String serviceOwner = "testZkErrorsOwner";
+    String errorString = "zkError";
+
+    doThrow(new InternalMetadataStoreException(errorString))
+        .when(serviceMetadataStore)
+        .createSync(
+            eq(new ServiceMetadata(serviceName, serviceOwner, 0L, Collections.emptyList())));
+
+    StatusRuntimeException throwableCreate =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.createServiceMetadata(
+                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
+                            .setName(serviceName)
+                            .setOwner(serviceOwner)
+                            .build()));
+
+    assertThat(throwableCreate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+    assertThat(throwableCreate.getStatus().getDescription()).isEqualTo(errorString);
+
+    doThrow(new InternalMetadataStoreException(errorString))
+        .when(serviceMetadataStore)
+        .updateSync(
+            eq(new ServiceMetadata(serviceName, serviceOwner, 0L, Collections.emptyList())));
+
+    StatusRuntimeException throwableUpdate =
+        (StatusRuntimeException)
+            catchThrowable(
+                () ->
+                    managerApiStub.updateServiceMetadata(
+                        ManagerApi.UpdateServiceMetadataRequest.newBuilder()
+                            .setName(serviceName)
+                            .setOwner(serviceOwner)
+                            .build()));
+
+    assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
+    assertThat(throwableUpdate.getStatus().getDescription()).contains(serviceName);
   }
 }

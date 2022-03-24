@@ -1,123 +1,65 @@
 syntax = "proto3";
+import "metadata.proto";
 package slack.proto.kaldb;
 option java_package = "com.slack.kaldb.proto.manager_api";
 
-// ManagerApiService is the administration API for operating on services and their partition assignments
+// ManagerApiService is the administration API for operating on service metadata and the associated partition assignments
 service ManagerApiService {
-  // CreateService initializes a new service in the metadata store
-  rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse) {}
+  // CreateService initializes a new service in the metadata store with no initial allocated capacity
+  rpc CreateServiceMetadata(CreateServiceMetadataRequest) returns (ServiceMetadata) {}
+  // GetService returns a single service metadata by name
+  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (ServiceMetadata) {}
   // UpdateService updates an existing service with new metadata
-  rpc UpdateService(UpdateServiceRequest) returns (UpdateServiceResponse) {}
-  // GetService returns a single service from the metadata store by name
-  rpc GetService(GetServiceRequest) returns (GetServiceResponse) {}
-  // AddServicePartition appends a new partition assignment to an existing service
-  rpc AddServicePartition(AddServicePartitionRequest) returns (AddServicePartitionResponse) {}
-  // GetServicePartitions lists all available partition assignments for an existing service
-  rpc GetServicePartitions(GetServicePartitionsRequest) returns (GetServicePartitionsResponse) {}
+  rpc UpdateServiceMetadata(UpdateServiceMetadataRequest) returns (ServiceMetadata) {}
   // GetServices returns all available services from the metadata store
-  rpc GetServices(GetServicesRequest) returns (GetServicesResponse) {}
+  rpc ListServiceMetadata(ListServiceMetadataRequest) returns (ListServiceMetadataResponse) {}
+  // Update partition
+  rpc UpdatePartitionAssignment(UpdatePartitionAssignmentRequest) returns (UpdatePartitionAssignmentResponse) {}
 }
 
-// CreateServiceRequest represents a new service with uninitialized partition assignments
-message CreateServiceRequest {
+// CreateServiceMetadataRequest represents a new service with uninitialized thoughput and partition assignments
+message CreateServiceMetadataRequest {
   // Name of the service, must be unique
   string name = 1;
   // Owner information, maybe be any string
   string owner = 2;
-  // Desired maximum throughput of the service across all partitions
-  int64 throughput_bytes = 3;
 }
 
-// CreateServiceResponse represents the result of a newly created service
-message CreateServiceResponse {}
-
-// UpdateServiceRequest represents a request to update an existing service
-message UpdateServiceRequest {
+// UpdateServiceMetadataRequest represents a request to update an existing service
+message UpdateServiceMetadataRequest {
   // Unique name of the existing service
   string name = 1;
   // Owner information, maybe be any string
   string owner = 2;
-  // Desired maximum throughput of the service across all partitions
-  int64 throughput_bytes = 3;
 }
 
-// UpdateServiceResponse represents the result of a recently updated service
-message UpdateServiceResponse {
-  // Unique name of the service
-  string name = 1;
-  // Updated owner information
-  string owner = 2;
-  // Updated maximum throughput of the service
-  int64 throughput_bytes = 3;
-}
-
-// GetServiceRequest represents a request to fetch an existing service
-message GetServiceRequest {
+// GetServiceMetadataRequest represents a request to fetch an existing service
+message GetServiceMetadataRequest {
   // Must be an exact string name match
   string name = 1;
 }
 
-// GetServiceResponse represents the response when fetching a single available service
-message GetServiceResponse {
-  // Unique name of the service
-  string name = 1;
-  // Owner information
-  string owner = 2;
-  // Configured maximum throughput of the service
-  int64 throughput_bytes = 3;
-}
+// ListServiceMetadataRequest represents a request to list all existing services
+message ListServiceMetadataRequest {}
 
-// AddServicePartitionRequest represents a request to append a new partition assignment to an existing service
-message AddServicePartitionRequest {
-  // Unique name of the existing service
-  string name = 1;
-  // List of assigned partition IDs
-  repeated string partition_ids = 2;
-}
-
-// AddServicePartitionResponse represents the result of a newly appended service partition
-message AddServicePartitionResponse {
-  // Time in epoch milliseconds that this assignment takes effect
-  int64 start_time_epoch_ms = 1;
-  // List of assigned partition IDs
-  repeated string partition_ids = 2;
-}
-
-// GetServicePartitionsRequest represents a request to list all partitions for the matching service
-message GetServicePartitionsRequest {
-  // Must be an exact string name match
-  string name = 1;
-}
-
-// GetServicePartitionsResponse represents the response when listing all available partitions on a single service
-message GetServicePartitionsResponse {
-  // Partition assignment information for a single service
-  message ServicePartition {
-    // Time in epoch milliseconds that this assignment was in affect
-    int64 start_time_epoch_ms = 1;
-    // Time in epoch milliseconds that this assignment was no longer in affect
-    int64 end_time_epoch_ms = 2;
-    // List of assigned partition IDs
-    repeated string partition_ids = 3;
-  }
-  // List of all configured partitions assignments
-  repeated ServicePartition service_partitions = 1;
-}
-
-// GetServicesRequest represents a request to list all existing services
-message GetServicesRequest {}
-
-// GetServicesResponse represents the response when listing all available services
-message GetServicesResponse {
-  // Overall service information, excluding partition assignments
-  message ServiceResponse {
-    // Unique name of the service
-    string name = 1;
-    // Owner information
-    string owner = 2;
-    // Configured maximum throughput of the service
-    int64 throughput_bytes = 3;
-  }
+// ListServiceMetadataResponse represents the response when listing all available services
+message ListServiceMetadataResponse {
   // List of services, excluding partition assignments
-  repeated ServiceResponse service_list = 1;
+  repeated ServiceMetadata service_metadata = 1;
+}
+
+// UpdatePartitionAssignmentRequest represents a request to allocate a new set of partitions
+message UpdatePartitionAssignmentRequest {
+  // Must be an exact string name match
+  string name = 1;
+  // Configured maximum throughput of the service
+  int64 throughput_bytes = 2;
+  // Optional desired partition IDs - if not provided will be automatically assigned
+  repeated string partition_ids = 3;
+}
+
+// UpdatePartitionAssignmentResponse represents the response after asigning a new set of partitions
+message UpdatePartitionAssignmentResponse {
+  // The assigned partition IDs
+  repeated string assigned_partition_ids = 1;
 }

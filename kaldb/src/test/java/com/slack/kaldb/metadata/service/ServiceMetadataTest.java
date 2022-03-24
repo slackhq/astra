@@ -128,7 +128,7 @@ public class ServiceMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new ServiceMetadata(name, null, throughputBytes, partitionConfig));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ServiceMetadata(name, owner, 0, partitionConfig));
+        .isThrownBy(() -> new ServiceMetadata(name, owner, -1, partitionConfig));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new ServiceMetadata(name, owner, throughputBytes, null));
   }
