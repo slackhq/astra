@@ -58,7 +58,7 @@ public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
   @VisibleForTesting
-  public final PrometheusMeterRegistry prometheusMeterRegistry =
+  final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
   private final KaldbConfigs.KaldbConfig kaldbConfig;
