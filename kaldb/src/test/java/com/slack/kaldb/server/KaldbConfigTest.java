@@ -372,6 +372,16 @@ public class KaldbConfigTest {
   }
 
   @Test
+  public void testMissingDataTransformerConfigForCache() throws InvalidProtocolBufferException {
+    KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{nodeRoles: [CACHE]}");
+
+    assertThat(config.getNodeRolesList().size()).isEqualTo(1);
+    assertThat(config.getNodeRolesList()).containsOnly(KaldbConfigs.NodeRole.CACHE);
+    final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
+    assertThat(indexerConfig.getDataTransformer()).isEmpty();
+  }
+
+  @Test
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config =
         KaldbConfig.fromJsonConfig(

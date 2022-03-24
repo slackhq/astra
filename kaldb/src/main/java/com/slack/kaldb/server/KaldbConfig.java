@@ -75,7 +75,9 @@ public class KaldbConfig {
    */
   public static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
     validateNodeRoles(kaldbConfig.getNodeRolesList());
-    validateDataTransformerConfig(kaldbConfig.getIndexerConfig().getDataTransformer());
+    if (kaldbConfig.getNodeRolesList().contains(KaldbConfigs.NodeRole.INDEX)) {
+      validateDataTransformerConfig(kaldbConfig.getIndexerConfig().getDataTransformer());
+    }
   }
 
   public static void validateNodeRoles(List<KaldbConfigs.NodeRole> nodeRoleList) {
