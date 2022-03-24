@@ -1,5 +1,6 @@
 package com.slack.kaldb.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
@@ -37,7 +38,6 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
@@ -57,8 +57,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
+  @VisibleForTesting
   public final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+
   private final KaldbConfigs.KaldbConfig kaldbConfig;
   private final S3Client s3Client;
   protected ServiceManager serviceManager;
@@ -71,7 +73,7 @@ public class Kaldb {
     LOG.info("Started Kaldb process with config: {}", kaldbConfig);
   }
 
-  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) {
     this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()));
   }
 

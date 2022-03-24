@@ -2,8 +2,8 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.runHealthCheckOnPort;
-import static com.slack.kaldb.testlib.KaldbGrpcQueryUtil.searchUsingGrpcApi;
+import static com.slack.kaldb.testlib.KaldbRpcUtil.runHealthCheckOnPort;
+import static com.slack.kaldb.testlib.KaldbRpcUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -300,5 +300,5 @@ public class KaldbTest {
     indexer2.shutdown();
   }
 
-  // TODO: Add a unit test where a shard times out.
+  // TODO: Add a test where a shard times out.
 }

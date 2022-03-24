@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 public class TestKafkaServer {
   private static final Logger LOG = LoggerFactory.getLogger(TestKafkaServer.class);
+  private static final int ALLOCATE_RANDOM_PORT = -1;
 
   public static final String TEST_KAFKA_TOPIC = "test-topic";
 
@@ -93,7 +94,7 @@ public class TestKafkaServer {
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
-    this(-1);
+    this(ALLOCATE_RANDOM_PORT);
   }
 
   public TestKafkaServer(int port) throws Exception {
