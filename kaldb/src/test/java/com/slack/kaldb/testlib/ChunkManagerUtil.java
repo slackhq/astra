@@ -61,8 +61,8 @@ public class ChunkManagerUtil<T> {
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
             .setZkPathPrefix(ZK_PATH_PREFIX)
-            .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(15000)
+            .setZkSessionTimeoutMs(30000)
+            .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(1000)
             .build();
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
