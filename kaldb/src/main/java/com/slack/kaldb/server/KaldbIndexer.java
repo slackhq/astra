@@ -18,11 +18,13 @@ import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
-import java.util.concurrent.RejectedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** KaldbIndexer sets up an indexer that indexes the messages and a search api for search. */
+/**
+ * KaldbIndexer creates an indexer to index the log data. The indexer also exposes a search api to
+ * search the log data.
+ */
 public class KaldbIndexer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
@@ -83,7 +85,10 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     LOG.info("Started Kaldb indexer.");
   }
 
-  /** Indexer pre-start Clean up stale indexer tasks and optionally create a recovery task */
+  /**
+   * Indexer pre-start cleans up stale indexer tasks and optionally creates a recovery task if we
+   * can't catch up.
+   */
   private long indexerPreStart() throws Exception {
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
@@ -114,10 +119,6 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     while (isRunning()) {
       try {
         kafkaConsumer.consumeMessages();
-      } catch (RejectedExecutionException e) {
-        // This case shouldn't happen since there is only one thread queuing tasks here and we check
-        // that the queue is empty before polling kafka.
-        LOG.error("Rejected execution shouldn't happen ", e);
       } catch (ChunkRollOverException | IOException e) {
         // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
         // the program, since consuming more messages from Kafka would only make the issue worse.
