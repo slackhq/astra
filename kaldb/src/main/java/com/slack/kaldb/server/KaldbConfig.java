@@ -85,7 +85,7 @@ public class KaldbConfig {
     // of the enum
     checkArgument(
         !nodeRoleList.isEmpty(),
-        "Kaldb must start with atleast 1 node role. Accepted roles are "
+        "Kaldb must start with at least 1 node role. Accepted roles are "
             + Arrays.toString(KaldbConfigs.NodeRole.values()));
   }
 
