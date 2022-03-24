@@ -95,7 +95,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
         new RecoveryTaskMetadataStore(metadataStore, false);
 
     String partitionId = kafkaConfig.getKafkaTopicPartition();
-    long maxOffsetDelay = indexerConfig.getMaxOffsetDelay();
+    long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(

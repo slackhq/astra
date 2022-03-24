@@ -186,7 +186,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
-    assertThat(indexerConfig.getMaxOffsetDelay()).isEqualTo(10002);
+    assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10002);
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isEqualTo(8081);
@@ -295,7 +295,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
-    assertThat(indexerConfig.getMaxOffsetDelay()).isEqualTo(10001);
+    assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10001);
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
 
@@ -412,7 +412,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
-    assertThat(indexerConfig.getMaxOffsetDelay()).isZero();
+    assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 
@@ -509,7 +509,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
-    assertThat(indexerConfig.getMaxOffsetDelay()).isZero();
+    assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 

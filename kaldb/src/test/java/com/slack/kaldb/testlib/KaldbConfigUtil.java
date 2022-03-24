@@ -51,7 +51,7 @@ public class KaldbConfigUtil {
                     .build())
             .setStaleDurationSecs(7200)
             .setDataTransformer(dataTransformerConfig)
-            .setMaxOffsetDelay(maxOffsetDelay)
+            .setMaxOffsetDelayMessages(maxOffsetDelay)
             .build();
 
     KaldbConfigs.ZookeeperConfig zkConfig =
@@ -124,7 +124,7 @@ public class KaldbConfigUtil {
                 .setRefreshDurationSecs(10)
                 .build())
         .setStaleDurationSecs(7200)
-        .setMaxOffsetDelay(maxOffsetDelay)
+        .setMaxOffsetDelayMessages(maxOffsetDelay)
         .setDataTransformer(dataTransformer)
         .build();
   }

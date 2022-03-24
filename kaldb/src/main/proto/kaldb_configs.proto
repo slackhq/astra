@@ -88,9 +88,9 @@ message IndexerConfig {
   string data_directory = 6;
   // Indexer server config.
   ServerConfig server_config = 7;
-  // The max_offset_delay controls by how much the indexer can be behind
+  // The max_offset_delay controls by how many kafka messages the indexer can be behind
   // before it needs to create a recovery task to catch up.
-  int64 max_offset_delay = 8;
+  int64 max_offset_delay_messages = 8;
 }
 
 // A config object containing all the lucene configs.
