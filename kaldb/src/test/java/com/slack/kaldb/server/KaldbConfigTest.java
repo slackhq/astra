@@ -163,7 +163,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
-    assertThat(kafkaCfg.getKafkaBootStrapServers()).isEqualTo("kafka.us-east-1.consul:9092");
+    assertThat(kafkaCfg.getKafkaBootStrapServers()).isEqualTo("kafka.us-east-1.consul:9094");
     assertThat(kafkaCfg.getKafkaClientGroup()).isEqualTo("kaldb-test");
     assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEqualTo("true");
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
