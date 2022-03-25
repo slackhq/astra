@@ -10,6 +10,7 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -26,6 +27,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.Map;
+import org.apache.commons.text.StringSubstitutor;
 import org.apache.curator.test.TestingServer;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -106,8 +109,8 @@ public class KaldbTest {
 
   @Before
   public void setUp() throws Exception {
-    zkServer = new TestingServer(2181);
-    kafkaServer = new TestKafkaServer(9092);
+    zkServer = new TestingServer();
+    kafkaServer = new TestKafkaServer();
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
   }
@@ -250,8 +253,16 @@ public class KaldbTest {
 
   @Test
   public void testBootAllComponentsStartSuccessfullyFromConfig() throws Exception {
+    Map<String, String> values =
+        ImmutableMap.of(
+            "KAFKA_BOOTSTRAP_SERVERS", "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
+            "KALDB_ZK_CONNECTION_STRING", "localhost:" + zkServer.getPort());
+    StringSubstitutor substitute = new StringSubstitutor(s -> values.getOrDefault(s, null));
+
     KaldbConfigs.KaldbConfig kaldbConfig =
-        KaldbConfig.fromYamlConfig(Files.readString(Path.of("../config/config.yaml")));
+        KaldbConfig.fromYamlConfig(
+            substitute.replace(Files.readString(Path.of("../config/config.yaml"))));
+
     Kaldb kaldb = new Kaldb(kaldbConfig);
     LOG.info("Starting kalDb with the resolved configs: {}", kaldbConfig);
     kaldb.start();
