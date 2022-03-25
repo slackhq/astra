@@ -167,7 +167,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
-              .withGrpcSearchApi(kaldbDistributedQueryService)
+              .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
     }
@@ -224,6 +224,7 @@ public class Kaldb {
                   cacheSlotMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
+          new ReplicaCreationService(
               replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
 
