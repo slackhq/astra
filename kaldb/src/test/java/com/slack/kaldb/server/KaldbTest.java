@@ -2,27 +2,37 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.KaldbRpcUtil.runHealthCheckOnPort;
-import static com.slack.kaldb.testlib.KaldbRpcUtil.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linecorp.armeria.client.Clients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import org.apache.curator.test.TestingServer;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -39,6 +49,55 @@ public class KaldbTest {
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
   private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
+
+  private static KaldbSearch.SearchResult searchUsingGrpcApi(String queryString, int port) {
+    KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
+        Clients.newClient(uri(port), KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+
+    return kaldbService.search(
+        KaldbSearch.SearchRequest.newBuilder()
+            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+            .setQueryString(queryString)
+            .setStartTimeEpochMs(0L)
+            .setEndTimeEpochMs(1601547099000L)
+            .setHowMany(100)
+            .setBucketCount(2)
+            .build());
+  }
+
+  private static String uri(int port) {
+    return "gproto+http://127.0.0.1:" + port + '/';
+  }
+
+  private static String getHealthCheckResponse(String url) {
+    try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
+      HttpGet httpGet = new HttpGet(url);
+      try (CloseableHttpResponse httpResponse = httpclient.execute(httpGet)) {
+        HttpEntity entity = httpResponse.getEntity();
+
+        String response = EntityUtils.toString(entity);
+        EntityUtils.consume(entity);
+        return response;
+      }
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
+  private static String getHealthCheckResponse(int port) {
+    String url = String.format("http://localhost:%s/health", port);
+    return getHealthCheckResponse(url);
+  }
+
+  private static boolean runHealthCheckOnPort(KaldbConfigs.ServerConfig serverConfig)
+      throws JsonProcessingException {
+    final ObjectMapper om = new ObjectMapper();
+    final String response = getHealthCheckResponse(serverConfig.getServerPort());
+    HashMap<String, Object> map = om.readValue(response, HashMap.class);
+
+    LOG.info(String.format("Response from healthcheck - '%s'", response));
+    return (boolean) map.get("healthy");
+  }
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private TestKafkaServer kafkaServer;
@@ -167,9 +226,7 @@ public class KaldbTest {
             indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    KaldbSearch.SearchResult indexerSearchResponse =
-        searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, indexerPort);
+    KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
@@ -177,8 +234,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, queryServicePort + 1);
+        searchUsingGrpcApi("*:*", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -250,17 +306,13 @@ public class KaldbTest {
             indexerPort2, TEST_KAFKA_TOPIC_1, 1, KALDB_TEST_CLIENT_2, indexerPathPrefix, 2);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    KaldbSearch.SearchResult indexerSearchResponse =
-        searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, indexerPort);
+    KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
-    KaldbSearch.SearchResult indexer2SearchResponse =
-        searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, indexerPort2);
+    KaldbSearch.SearchResult indexer2SearchResponse = searchUsingGrpcApi("*:*", indexerPort2);
     assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
@@ -268,8 +320,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi(
-            "*:*", 0L, 1601547099000L, MessageUtil.TEST_INDEX_NAME, 100, 2, queryServicePort + 1);
+        searchUsingGrpcApi("*:*", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -278,14 +329,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse2 =
-        searchUsingGrpcApi(
-            "Message100",
-            0L,
-            1601547099000L,
-            MessageUtil.TEST_INDEX_NAME,
-            100,
-            2,
-            queryServicePort + 1);
+        searchUsingGrpcApi("Message100", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);
