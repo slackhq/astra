@@ -22,7 +22,7 @@ queryConfig:
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
   kafkaTopicPartition: ${NOT_PRESENT:-0}
-  kafkaBootStrapServers: "localhost:9095"
+  kafkaBootStrapServers: "localhost:9092"
   kafkaClientGroup: "kaldb-test"
   enableKafkaAutoCommit: "true"
   kafkaAutoCommitInterval: "5000"
