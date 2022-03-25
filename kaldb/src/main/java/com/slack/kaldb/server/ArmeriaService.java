@@ -21,8 +21,7 @@ import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
-import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
-import com.slack.kaldb.proto.service.KaldbServiceGrpc;
+import io.grpc.BindableService;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
@@ -107,15 +106,15 @@ public class ArmeriaService extends AbstractIdleService {
       return this;
     }
 
-    public Builder withElasticsearchApi(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
-      serverBuilder.annotatedService(new ElasticsearchApiService(searcher));
+    public Builder withAnnotatedService(Object service) {
+      serverBuilder.annotatedService(service);
       return this;
     }
 
-    public Builder withGrpcSearchApi(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
+    public Builder withGrpcService(BindableService grpcService) {
       GrpcServiceBuilder searchBuilder =
           GrpcService.builder()
-              .addService(searcher)
+              .addService(grpcService)
               .enableUnframedRequests(true)
               .useBlockingTaskExecutor(true);
       serverBuilder.decorator(

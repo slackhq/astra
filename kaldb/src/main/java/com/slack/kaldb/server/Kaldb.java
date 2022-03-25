@@ -15,6 +15,7 @@ import com.slack.kaldb.clusterManager.ReplicaCreationService;
 import com.slack.kaldb.clusterManager.ReplicaDeletionService;
 import com.slack.kaldb.clusterManager.ReplicaEvictionService;
 import com.slack.kaldb.clusterManager.SnapshotDeletionService;
+import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
@@ -23,6 +24,7 @@ import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
@@ -147,7 +149,7 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbIndex", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
-              .withGrpcSearchApi(searcher)
+              .withGrpcService(searcher)
               .build();
       services.add(armeriaService);
     }
@@ -164,7 +166,7 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
-              .withElasticsearchApi(kaldbDistributedQueryService)
+              .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withGrpcSearchApi(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
@@ -185,7 +187,7 @@ public class Kaldb {
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbCache", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
-              .withGrpcSearchApi(searcher)
+              .withGrpcService(searcher)
               .build();
       services.add(armeriaService);
     }
@@ -193,12 +195,6 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
       final KaldbConfigs.ManagerConfig managerConfig = kaldbConfig.getManagerConfig();
       final int serverPort = managerConfig.getServerConfig().getServerPort();
-
-      ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbManager", prometheusMeterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
-              .build();
-      services.add(armeriaService);
 
       ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
@@ -208,6 +204,14 @@ public class Kaldb {
           new RecoveryNodeMetadataStore(metadataStore, true);
       CacheSlotMetadataStore cacheSlotMetadataStore =
           new CacheSlotMetadataStore(metadataStore, true);
+      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+
+      ArmeriaService armeriaService =
+          new ArmeriaService.Builder(serverPort, "kalDbManager", prometheusMeterRegistry)
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
+              .build();
+      services.add(armeriaService);
 
       services.add(
           new MetadataStoreLifecycleManager(
@@ -220,7 +224,6 @@ public class Kaldb {
                   cacheSlotMetadataStore)));
 
       ReplicaCreationService replicaCreationService =
-          new ReplicaCreationService(
               replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaCreationService);
 
