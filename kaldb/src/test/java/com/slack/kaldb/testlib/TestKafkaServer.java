@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import kafka.server.KafkaConfig$;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -99,9 +98,10 @@ public class TestKafkaServer {
 
   public TestKafkaServer(int port) throws Exception {
     Properties brokerProperties = new Properties();
-    brokerProperties.put(KafkaConfig$.MODULE$.NumPartitionsProp(), "3");
+    // Set the number of default partitions for a kafka topic to 3 instead of 1.
+    brokerProperties.put("num.partitions", "3");
     // Create a kafka broker
-    broker = EphemeralKafkaBroker.create(port, -1, brokerProperties);
+    broker = EphemeralKafkaBroker.create(port, ALLOCATE_RANDOM_PORT, brokerProperties);
     brokerStart = broker.start();
     Futures.getUnchecked(brokerStart);
 
