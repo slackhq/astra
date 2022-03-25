@@ -34,6 +34,25 @@ public class ServiceMetadataTest {
   }
 
   @Test
+  public void testInvalidServiceMetadataNames() {
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ServiceMetadata("&", "owner", 0, null));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new ServiceMetadata("test%", "owner", 0, null));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new ServiceMetadata(
+                    "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"
+                        + "uVPS1xwXxZAK6pSW9zjdSDYe9v8JfuJvCsiyjGyQv2v0lYc1H3ZGkYTeGjdtnPCQ0I7EIxFRr1UpGpoud7b0"
+                        + "xq3sEboigNrDG8carETSj8c95Aj4EW4RudkDjRHjUhrA5aLZ688LfZVIJpnom3kgyxlAnhhrdVQsdN1J2qL7"
+                        + "FY9LMMsA2aPtQ7Q8g4eZzm6Kv51r0x26pFQhxfHCwUZqa",
+                    "owner",
+                    0,
+                    null));
+  }
+
+  @Test
   public void testServiceMetadataImmutableList() {
     final String name = "testService";
     final String owner = "serviceOwner";
@@ -128,7 +147,7 @@ public class ServiceMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new ServiceMetadata(name, null, throughputBytes, partitionConfig));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ServiceMetadata(name, owner, 0, partitionConfig));
+        .isThrownBy(() -> new ServiceMetadata(name, owner, -1, partitionConfig));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new ServiceMetadata(name, owner, throughputBytes, null));
   }
