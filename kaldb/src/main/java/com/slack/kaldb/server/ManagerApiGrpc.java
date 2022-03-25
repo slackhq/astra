@@ -30,11 +30,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   private static final Logger LOG = LoggerFactory.getLogger(ManagerApiGrpc.class);
 
   private final ServiceMetadataStore serviceMetadataStore;
+  public static final long MAX_TIME = Long.MAX_VALUE;
 
   public ManagerApiGrpc(ServiceMetadataStore serviceMetadataStore) {
     this.serviceMetadataStore = serviceMetadataStore;
   }
 
+  /** Initializes a new service in the metadata store with no initial allocated capacity */
   @Override
   public void createServiceMetadata(
       ManagerApi.CreateServiceMetadataRequest request,
@@ -52,6 +54,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  /** Updates an existing service with new metadata */
   @Override
   public void updateServiceMetadata(
       ManagerApi.UpdateServiceMetadataRequest request,
@@ -75,6 +78,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  /** Returns a single service metadata by name */
   @Override
   public void getServiceMetadata(
       ManagerApi.GetServiceMetadataRequest request,
@@ -90,11 +94,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  /** Returns all available services from the metadata store */
   @Override
   public void listServiceMetadata(
       ManagerApi.ListServiceMetadataRequest request,
       StreamObserver<ManagerApi.ListServiceMetadataResponse> responseObserver) {
-
+    // todo - consider adding search/pagination support
     try {
       responseObserver.onNext(
           ManagerApi.ListServiceMetadataResponse.newBuilder()
@@ -112,10 +117,17 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  /**
+   * Allocates a new partition assignment for a service. If a rate and a list of partition IDs are
+   * provided, it will use it use the list of partition ids as the current allocation and
+   * invalidates the existing assignment.
+   */
   @Override
   public void updatePartitionAssignment(
       ManagerApi.UpdatePartitionAssignmentRequest request,
       StreamObserver<ManagerApi.UpdatePartitionAssignmentResponse> responseObserver) {
+    // todo - In the future if only a rate is provided with an empty list the allocation
+    //  will be automatically assigned.
 
     try {
       // todo - add additional validation to ensure the provided allocation makes sense for the
@@ -171,7 +183,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
             .stream()
             .filter(
                 servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() == Long.MAX_VALUE)
+                    servicePartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
     List<ServicePartitionMetadata> remainingServicePartitions =
@@ -179,12 +191,14 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
             .stream()
             .filter(
                 servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() != Long.MAX_VALUE)
+                    servicePartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
             .collect(Collectors.toList());
 
     // todo - consider adding some padding to this value; this may complicate
     //   validation as you would need to consider what happens when there's a future
     //   cut-over already scheduled
+    // todo - if introducing an optional padding this should be added as a method parameter
+    //   see https://github.com/slackhq/kaldb/pull/244#discussion_r835424863
     long partitionCutoverTime = Instant.now().toEpochMilli();
 
     ImmutableList.Builder<ServicePartitionMetadata> builder =
@@ -200,7 +214,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
 
     ServicePartitionMetadata newPartitionMetadata =
-        new ServicePartitionMetadata(partitionCutoverTime + 1, Long.MAX_VALUE, newPartitionIdsList);
+        new ServicePartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
     return builder.add(newPartitionMetadata).build();
   }
 }

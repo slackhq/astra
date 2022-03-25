@@ -7,13 +7,18 @@ option java_package = "com.slack.kaldb.proto.manager_api";
 service ManagerApiService {
   // CreateService initializes a new service in the metadata store with no initial allocated capacity
   rpc CreateServiceMetadata(CreateServiceMetadataRequest) returns (ServiceMetadata) {}
-  // GetService returns a single service metadata by name
-  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (ServiceMetadata) {}
   // UpdateService updates an existing service with new metadata
   rpc UpdateServiceMetadata(UpdateServiceMetadataRequest) returns (ServiceMetadata) {}
+  // GetService returns a single service metadata by name
+  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (ServiceMetadata) {}
   // GetServices returns all available services from the metadata store
   rpc ListServiceMetadata(ListServiceMetadataRequest) returns (ListServiceMetadataResponse) {}
-  // Update partition
+
+  // UpdatePartitionAssignment allocates a new partition assignment for a service. If a rate and a list of
+  // partition_ids are provided, it will use it use the list of partition ids as the current allocation
+  // and invalidates the existing assignment.
+  //
+  // In the future if only a rate is provided with an empty list the allocation will be automatically assigned.
   rpc UpdatePartitionAssignment(UpdatePartitionAssignmentRequest) returns (UpdatePartitionAssignmentResponse) {}
 }
 
@@ -48,17 +53,17 @@ message ListServiceMetadataResponse {
   repeated ServiceMetadata service_metadata = 1;
 }
 
-// UpdatePartitionAssignmentRequest represents a request to allocate a new set of partitions
+// UpdatePartitionAssignmentRequest represents a request to allocate a new set of partitions.
 message UpdatePartitionAssignmentRequest {
   // Must be an exact string name match
   string name = 1;
-  // Configured maximum throughput of the service
+  // Optional maximum throughput of the service - if set to -1 the existing value will not be updated
   int64 throughput_bytes = 2;
-  // Optional desired partition IDs - if not provided will be automatically assigned
+  // Optional desired partition IDs - if empty will be automatically assigned
   repeated string partition_ids = 3;
 }
 
-// UpdatePartitionAssignmentResponse represents the response after asigning a new set of partitions
+// UpdatePartitionAssignmentResponse represents the response after assigning a new set of partitions
 message UpdatePartitionAssignmentResponse {
   // The assigned partition IDs
   repeated string assigned_partition_ids = 1;
