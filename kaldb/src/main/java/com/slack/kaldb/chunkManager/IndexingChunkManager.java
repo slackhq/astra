@@ -323,9 +323,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
 
-    // todo - we should reconsider what it means to be initialized, vs running
-    // todo - potentially defer threadpool creation until the startup has been called?
-    // prevents use of chunk manager until the service has started
     stopIngestion = false;
   }
 
