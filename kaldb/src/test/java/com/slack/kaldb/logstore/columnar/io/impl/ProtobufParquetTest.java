@@ -25,9 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ProtobufParquetTest {
-    private static final Logger LOG = LoggerFactory.getLogger(ProtobufParquetTest.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ProtobufParquetTest.class);
 
-   private SecorConfig config;
+  private SecorConfig config;
   private LogFilePath tempLogFilePath;
 
   @Before
