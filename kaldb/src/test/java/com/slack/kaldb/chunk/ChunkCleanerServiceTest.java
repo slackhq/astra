@@ -4,12 +4,7 @@ import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -51,7 +46,7 @@ public class ChunkCleanerServiceTest {
   public void setUp() throws Exception {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(
+        makeChunkManagerUtil(
             S3_MOCK_RULE,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,

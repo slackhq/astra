@@ -39,8 +39,7 @@ public class S3BlobFsTest {
   @Before
   public void setUp() {
     bucket = "test-bucket-" + UUID.randomUUID();
-    s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    s3BlobFs = new S3BlobFs(s3Client);
     s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
   }
 

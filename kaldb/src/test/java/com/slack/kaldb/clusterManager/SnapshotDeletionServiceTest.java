@@ -82,8 +82,7 @@ public class SnapshotDeletionServiceTest {
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
-    s3BlobFs = spy(new S3BlobFs());
-    s3BlobFs.init(s3Client);
+    s3BlobFs = spy(new S3BlobFs(s3Client));
   }
 
   @After

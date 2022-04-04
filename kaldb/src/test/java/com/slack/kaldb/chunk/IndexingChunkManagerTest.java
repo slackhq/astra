@@ -105,8 +105,7 @@ public class IndexingChunkManagerTest {
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
-    s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -154,7 +153,7 @@ public class IndexingChunkManagerTest {
             rollOverFutureTimeoutMs,
             metadataStore,
             searchContext,
-            KaldbConfigUtil.makeIndexerConfig(TEST_PORT));
+            KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }

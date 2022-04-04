@@ -49,21 +49,32 @@ public class ChunkManagerUtil<T> {
   private final TestingServer zkServer;
   private final MetadataStore metadataStore;
 
-  public ChunkManagerUtil(
+  public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
       long maxMessagesPerChunk,
       KaldbConfigs.IndexerConfig indexerConfig)
       throws Exception {
-    this(
+    TestingServer zkServer = new TestingServer();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(zkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(30000)
+            .setZkConnectionTimeoutMs(30000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+
+    return new ChunkManagerUtil<>(
         s3MockRule,
         meterRegistry,
-        new TestingServer(),
+        zkServer,
         maxBytesPerChunk,
         maxMessagesPerChunk,
         new SearchContext(TEST_HOST, TEST_PORT),
-        null,
+        metadataStore,
         indexerConfig);
   }
 
@@ -83,8 +94,7 @@ public class ChunkManagerUtil<T> {
     s3Client = s3MockRule.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
     this.zkServer.start();
@@ -92,21 +102,6 @@ public class ChunkManagerUtil<T> {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
 
-    zkServer = new TestingServer();
-    zkServer.start();
-
-    if (metadataStore == null) {
-      KaldbConfigs.ZookeeperConfig zkConfig =
-          KaldbConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(zkServer.getConnectString())
-              .setZkPathPrefix(ZK_PATH_PREFIX)
-              .setZkSessionTimeoutMs(15000)
-              .setZkConnectionTimeoutMs(15000)
-              .setSleepBetweenRetriesMs(1000)
-              .build();
-
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    }
     this.metadataStore = metadataStore;
 
     chunkManager =

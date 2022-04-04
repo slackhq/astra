@@ -9,6 +9,7 @@ indexerConfig:
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
+  maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-100000}
   serverConfig:
     serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
     serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}

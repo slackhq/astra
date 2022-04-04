@@ -32,12 +32,13 @@ import org.slf4j.LoggerFactory;
 
 public class TestKafkaServer {
   private static final Logger LOG = LoggerFactory.getLogger(TestKafkaServer.class);
+  private static final int ALLOCATE_RANDOM_PORT = -1;
 
   public static final String TEST_KAFKA_TOPIC = "test-topic";
 
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
-      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic)
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
 
@@ -53,7 +54,7 @@ public class TestKafkaServer {
             producer.send(
                 new ProducerRecord<>(
                     kafkaTopic,
-                    0,
+                    partitionId,
                     String.valueOf(indexedCount),
                     fromLogMessage(msg, indexedCount).toByteArray()));
 
@@ -70,7 +71,7 @@ public class TestKafkaServer {
 
   public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC);
+    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
   }
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)
@@ -92,8 +93,15 @@ public class TestKafkaServer {
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
+    this(ALLOCATE_RANDOM_PORT);
+  }
+
+  public TestKafkaServer(int port) throws Exception {
+    Properties brokerProperties = new Properties();
+    // Set the number of default partitions for a kafka topic to 3 instead of 1.
+    brokerProperties.put("num.partitions", "3");
     // Create a kafka broker
-    broker = EphemeralKafkaBroker.create();
+    broker = EphemeralKafkaBroker.create(port, ALLOCATE_RANDOM_PORT, brokerProperties);
     brokerStart = broker.start();
     Futures.getUnchecked(brokerStart);
 

@@ -1,8 +1,10 @@
 package com.slack.kaldb.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
@@ -30,9 +32,6 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -41,7 +40,6 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
@@ -52,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
@@ -60,15 +59,24 @@ import org.slf4j.LoggerFactory;
 public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  private static final PrometheusMeterRegistry prometheusMeterRegistry =
+  @VisibleForTesting
+  final PrometheusMeterRegistry prometheusMeterRegistry =
       new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+
   private final KaldbConfigs.KaldbConfig kaldbConfig;
+  private final S3Client s3Client;
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  public Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) throws IOException {
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) {
     Metrics.addRegistry(prometheusMeterRegistry);
     this.kaldbConfig = kaldbConfig;
+    this.s3Client = s3Client;
+    LOG.info("Started Kaldb process with config: {}", kaldbConfig);
+  }
+
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) {
+    this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()));
   }
 
   public static void main(String[] args) throws Exception {
@@ -83,13 +91,17 @@ public class Kaldb {
   }
 
   public void start() throws Exception {
-    setupSystemMetrics();
+    setupSystemMetrics(prometheusMeterRegistry);
 
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
-    Set<Service> services = getServices(metadataStore, kaldbConfig);
+    // Initialize blobfs. Only S3 is supported currently.
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+
+    Set<Service> services =
+        getServices(metadataStore, kaldbConfig, s3BlobFs, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
     addShutdownHook();
@@ -97,8 +109,12 @@ public class Kaldb {
     serviceManager.startAsync();
   }
 
-  public static Set<Service> getServices(
-      MetadataStore metadataStore, KaldbConfigs.KaldbConfig kaldbConfig) throws Exception {
+  private static Set<Service> getServices(
+      MetadataStore metadataStore,
+      KaldbConfigs.KaldbConfig kaldbConfig,
+      BlobFs blobFs,
+      PrometheusMeterRegistry prometheusMeterRegistry)
+      throws Exception {
     Set<Service> services = new HashSet<>();
 
     HashSet<KaldbConfigs.NodeRole> roles = new HashSet<>(kaldbConfig.getNodeRolesList());
@@ -109,6 +125,7 @@ public class Kaldb {
               prometheusMeterRegistry,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
+              blobFs,
               kaldbConfig.getS3Config());
       services.add(chunkManager);
 
@@ -118,20 +135,16 @@ public class Kaldb {
               Duration.ofSeconds(kaldbConfig.getIndexerConfig().getStaleDurationSecs()));
       services.add(chunkCleanerService);
 
-      LogMessageTransformer messageTransformer =
-          KaldbIndexer.getLogMessageTransformer(
-              kaldbConfig.getIndexerConfig().getDataTransformer());
-      LogMessageWriterImpl logMessageWriterImpl =
-          new LogMessageWriterImpl(chunkManager, messageTransformer);
-      KaldbKafkaWriter kafkaWriter =
-          KaldbKafkaWriter.fromConfig(
-              logMessageWriterImpl, kaldbConfig.getKafkaConfig(), prometheusMeterRegistry);
-      services.add(kafkaWriter);
-      KaldbIndexer indexer = new KaldbIndexer(chunkManager, kafkaWriter);
+      KaldbIndexer indexer =
+          new KaldbIndexer(
+              chunkManager,
+              metadataStore,
+              kaldbConfig.getIndexerConfig(),
+              kaldbConfig.getKafkaConfig(),
+              prometheusMeterRegistry);
       services.add(indexer);
 
-      KaldbLocalQueryService<LogMessage> searcher =
-          new KaldbLocalQueryService<>(indexer.getChunkManager());
+      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbIndex", prometheusMeterRegistry)
@@ -154,6 +167,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
+              .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
     }
@@ -164,7 +178,8 @@ public class Kaldb {
               prometheusMeterRegistry,
               metadataStore,
               kaldbConfig.getS3Config(),
-              kaldbConfig.getCacheConfig());
+              kaldbConfig.getCacheConfig(),
+              blobFs);
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
@@ -236,12 +251,11 @@ public class Kaldb {
               cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
       services.add(replicaAssignmentService);
 
-      S3BlobFs s3BlobFs = S3BlobFs.getS3BlobFsClient(kaldbConfig.getS3Config());
       SnapshotDeletionService snapshotDeletionService =
           new SnapshotDeletionService(
               replicaMetadataStore,
               snapshotMetadataStore,
-              s3BlobFs,
+              blobFs,
               managerConfig,
               prometheusMeterRegistry);
       services.add(snapshotDeletionService);
@@ -265,14 +279,13 @@ public class Kaldb {
     return services;
   }
 
-  public static ServiceManager.Listener getServiceManagerListener() {
+  private static ServiceManager.Listener getServiceManagerListener() {
     return new ServiceManager.Listener() {
       @Override
       public void failure(Service service) {
         LOG.error(
             String.format("Service %s failed with cause ", service.getClass().toString()),
             service.failureCause());
-
         // shutdown if any services enters failure state
         new RuntimeHalterImpl()
             .handleFatal(new Throwable("Shutting down Kaldb due to failed service"));
@@ -280,7 +293,7 @@ public class Kaldb {
     };
   }
 
-  public void shutdown() {
+  void shutdown() {
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     } catch (Exception e) {
@@ -300,7 +313,7 @@ public class Kaldb {
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
-  private static void setupSystemMetrics() {
+  private static void setupSystemMetrics(PrometheusMeterRegistry prometheusMeterRegistry) {
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
     new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);

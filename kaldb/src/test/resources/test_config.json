@@ -8,7 +8,7 @@
   "kafkaConfig": {
     "kafkaTopic": "testTopic",
     "kafkaTopicPartition": "1",
-    "kafkaBootStrapServers": "kafka.us-east-1.consul:9092",
+    "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
     "kafkaClientGroup": "kaldb-test",
     "enableKafkaAutoCommit": "true",
     "kafkaAutoCommitInterval": "5000",
@@ -31,6 +31,7 @@
     "staleDurationSecs": 7200,
     "dataTransformer": "api_log",
     "dataDirectory": "/tmp",
+    "maxOffsetDelayMessages" : 10002,
     "serverConfig": {
       "serverPort": 8080,
       "serverAddress": "localhost"

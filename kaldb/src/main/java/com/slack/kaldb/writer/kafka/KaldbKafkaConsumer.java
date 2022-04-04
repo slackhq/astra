@@ -1,16 +1,22 @@
 package com.slack.kaldb.writer.kafka;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
-import com.google.common.util.concurrent.AbstractExecutionThreadService;
-import com.slack.kaldb.chunkManager.ChunkRollOverException;
-import com.slack.kaldb.util.RuntimeHalterImpl;
+import com.google.common.annotations.VisibleForTesting;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.server.KaldbConfig;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.RejectedExecutionException;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -18,23 +24,65 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A simple wrapper class for Kafka Consumer. A kafka consumer is an infinite loop. So, it needs to
- * be run in a separate thread. Further, it is also important to shutdown the consumer cleanly so
+ * be run in a separate thread. Further, it is also important to shut down the consumer cleanly so
  * that we can guarantee that the data is indexed only once.
  */
-abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
+public class KaldbKafkaConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
+  private static final int KAFKA_POLL_TIMEOUT_MS = 100;
+  private final LogMessageWriterImpl logMessageWriterImpl;
 
-  private KafkaConsumer<String, byte[]> consumer;
+  public static KaldbKafkaConsumer fromConfig(
+      KaldbConfigs.KafkaConfig kafkaCfg,
+      LogMessageWriterImpl logMessageWriter,
+      MeterRegistry meterRegistry) {
+    return new KaldbKafkaConsumer(
+        kafkaCfg.getKafkaTopic(),
+        kafkaCfg.getKafkaTopicPartition(),
+        kafkaCfg.getKafkaBootStrapServers(),
+        kafkaCfg.getKafkaClientGroup(),
+        kafkaCfg.getEnableKafkaAutoCommit(),
+        kafkaCfg.getKafkaAutoCommitInterval(),
+        kafkaCfg.getKafkaSessionTimeout(),
+        logMessageWriter,
+        meterRegistry);
+  }
 
-  private final String kafkaTopic;
-  private final int kafkaTopicPartition;
-  private final String kafkaTopicPartitionStr;
-  private final String kafkaBootStrapServers;
-  private final String kafkaClientGroup;
-  private final String enableKafkaAutoCommit;
-  private final String kafkaAutoCommitInterval;
-  private final String kafkaSessionTimeout;
+  private static Properties makeKafkaConsumerProps(
+      String kafkaBootStrapServers,
+      String kafkaClientGroup,
+      String enableKafkaAutoCommit,
+      String kafkaAutoCommitInterval,
+      String kafkaSessionTimeout) {
 
+    Properties props = new Properties();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootStrapServers);
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaClientGroup);
+    // TODO: Consider committing manual consumer offset?
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableKafkaAutoCommit);
+    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafkaAutoCommitInterval);
+    props.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringDeserializer");
+    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
+    // not.
+    props.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+    // TODO: Does the session timeout matter in assign?
+    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+    return props;
+  }
+
+  private KafkaConsumer<String, byte[]> kafkaConsumer;
+  private final TopicPartition topicPartition;
+
+  public static final String RECORDS_RECEIVED_COUNTER = "records_received";
+  public static final String RECORDS_FAILED_COUNTER = "records_failed";
+  private final Counter recordsReceivedCounter;
+  private final Counter recordsFailedCounter;
+
+  // TODO: Instead of passing each property as a field, consider defining props in config file.
   public KaldbKafkaConsumer(
       String kafkaTopic,
       String kafkaTopicPartitionStr,
@@ -42,7 +90,31 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
       String kafkaClientGroup,
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout) {
+      String kafkaSessionTimeout,
+      LogMessageWriterImpl logMessageWriterImpl,
+      MeterRegistry meterRegistry) {
+
+    checkArgument(
+        kafkaTopic != null && !kafkaTopic.isEmpty(), "Kafka topic can't be null or " + "empty");
+    checkArgument(
+        kafkaBootStrapServers != null && !kafkaBootStrapServers.isEmpty(),
+        "Kafka bootstrap server list can't be null or empty");
+    checkArgument(
+        kafkaClientGroup != null && !kafkaClientGroup.isEmpty(),
+        "Kafka client group can't be null or empty");
+    checkArgument(
+        enableKafkaAutoCommit != null && !enableKafkaAutoCommit.isEmpty(),
+        "Kafka enable auto commit can't be null or empty");
+    checkArgument(
+        kafkaAutoCommitInterval != null && !kafkaAutoCommitInterval.isEmpty(),
+        "Kafka auto commit interval can't be null or empty");
+    checkArgument(
+        kafkaSessionTimeout != null && !kafkaSessionTimeout.isEmpty(),
+        "Kafka session timeout can't be null or empty");
+    checkArgument(
+        kafkaTopicPartitionStr != null && !kafkaTopicPartitionStr.isEmpty(),
+        "Kafka topic partition can't be null or empty");
+
     LOG.info(
         "Kafka params are: kafkaTopicName: {}, kafkaTopicPartition: {}, "
             + "kafkaBootstrapServers:{}, kafkaClientGroup: {}, kafkaAutoCommit:{}, "
@@ -55,111 +127,95 @@ abstract class KaldbKafkaConsumer extends AbstractExecutionThreadService {
         kafkaAutoCommitInterval,
         kafkaSessionTimeout);
 
-    if (kafkaTopicPartitionStr == null
-        || kafkaTopic == null
-        || kafkaTopic.isEmpty()
-        || kafkaBootStrapServers == null
-        || kafkaBootStrapServers.isEmpty()
-        || kafkaClientGroup == null
-        || kafkaClientGroup.isEmpty()
-        || enableKafkaAutoCommit == null
-        || enableKafkaAutoCommit.isEmpty()
-        || kafkaAutoCommitInterval == null
-        || kafkaAutoCommitInterval.isEmpty()
-        || kafkaSessionTimeout == null
-        || kafkaSessionTimeout.isEmpty()) {
-      throw new IllegalArgumentException("Kafka params can't be null or empty.");
-    }
+    int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
+    topicPartition = new TopicPartition(kafkaTopic, kafkaTopicPartition);
 
-    this.kafkaTopic = kafkaTopic;
-    this.kafkaTopicPartitionStr = kafkaTopicPartitionStr;
-    this.kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
-    this.kafkaBootStrapServers = kafkaBootStrapServers;
-    this.kafkaClientGroup = kafkaClientGroup;
-    this.enableKafkaAutoCommit = enableKafkaAutoCommit;
-    this.kafkaAutoCommitInterval = kafkaAutoCommitInterval;
-    this.kafkaSessionTimeout = kafkaSessionTimeout;
-  }
+    recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
+    recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
 
-  private KafkaConsumer<String, byte[]> buildKafkaConsumer(
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval) {
-
-    Properties props = new Properties();
-    props.put("bootstrap.servers", kafkaBootStrapServers);
-    props.put("group.id", kafkaClientGroup);
-    // TODO: Consider committing manual consumer offset?
-    props.put("enable.auto.commit", enableKafkaAutoCommit);
-    props.put("auto.commit.interval.ms", kafkaAutoCommitInterval);
-    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
-    // not.
-    props.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    return new KafkaConsumer<>(props);
-  }
-
-  @Override
-  public void startUp() {
-    LOG.info("Starting kafka consumer.");
+    this.logMessageWriterImpl = logMessageWriterImpl;
 
     // Create kafka consumer
-    this.consumer =
-        buildKafkaConsumer(
+    Properties consumerProps =
+        makeKafkaConsumerProps(
             kafkaBootStrapServers,
             kafkaClientGroup,
             enableKafkaAutoCommit,
-            kafkaAutoCommitInterval);
+            kafkaAutoCommitInterval,
+            kafkaSessionTimeout);
+    kafkaConsumer = new KafkaConsumer<>(consumerProps);
+  }
 
-    if (kafkaTopicPartitionStr.isEmpty()) {
-      LOG.info("Subscribing to kafka topic {}", kafkaTopic);
-      consumer.subscribe(
-          Collections.singletonList(kafkaTopic), new KafkaConsumerRebalanceListener());
+  /** Start consuming the partition from an offset. */
+  public void prepConsumerForConsumption(long startOffset) {
+    LOG.info("Starting kafka consumer for partition:{}.", topicPartition.partition());
+
+    // Consume from a partition.
+    kafkaConsumer.assign(Collections.singletonList(topicPartition));
+    LOG.info("Assigned to topicPartition: {}", topicPartition);
+    // Offset is negative when the partition was not consumed before, so start consumption from
+    // beginning of the stream. If the offset is positive, start consuming from there.
+    if (startOffset > 0) {
+      kafkaConsumer.seek(topicPartition, startOffset);
     } else {
-      // TODO: Consider using sticky consumer instead of assign?
-      LOG.info(
-          "Assigned to kafka topic {} and partition {}", this.kafkaTopic, this.kafkaTopicPartition);
-      consumer.assign(
-          Collections.singletonList(new TopicPartition(this.kafkaTopic, kafkaTopicPartition)));
+      kafkaConsumer.seekToBeginning(List.of(topicPartition));
     }
+    LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffset);
   }
 
-  @Override
-  protected void run() {
-    while (isRunning()) {
-      try {
-        long kafkaPollTimeoutMs = 100;
-        consumeMessages(kafkaPollTimeoutMs);
-      } catch (RejectedExecutionException e) {
-        // This case shouldn't happen since there is only one thread queuing tasks here and we check
-        // that the queue is empty before polling kafka.
-        LOG.error("Rejected execution shouldn't happen ", e);
-      } catch (ChunkRollOverException | IOException e) {
-        // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
-        // the program, since consuming more messages from Kafka would only make the issue worse.
-        LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
-        new RuntimeHalterImpl().handleFatal(e);
-      } catch (Exception e) {
-        LOG.error("FATAL: Unhandled exception ", e);
-        new RuntimeHalterImpl().handleFatal(e);
+  public void close() {
+    LOG.info("Closing kafka consumer for partition:{}", topicPartition);
+    kafkaConsumer.close(KaldbConfig.DEFAULT_START_STOP_DURATION);
+    LOG.info("Closed kafka consumer for partition:{}", topicPartition);
+  }
+
+  public long getEndOffSetForPartition() {
+    return getEndOffSetForPartition(topicPartition);
+  }
+
+  public long getEndOffSetForPartition(TopicPartition topicPartition) {
+    return kafkaConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+  }
+
+  public long getConsumerPositionForPartition() {
+    return getConsumerPositionForPartition(topicPartition);
+  }
+
+  public long getConsumerPositionForPartition(TopicPartition topicPartition) {
+    return kafkaConsumer.position(topicPartition);
+  }
+
+  public void consumeMessages() throws IOException {
+    consumeMessages(KAFKA_POLL_TIMEOUT_MS);
+  }
+
+  public void consumeMessages(long kafkaPollTimeoutMs) throws IOException {
+    ConsumerRecords<String, byte[]> records =
+        kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+    int recordCount = records.count();
+    LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+    if (recordCount > 0) {
+      recordsReceivedCounter.increment(recordCount);
+      int recordFailures = 0;
+      for (ConsumerRecord<String, byte[]> record : records) {
+        if (!logMessageWriterImpl.insertRecord(record)) recordFailures++;
       }
+      recordsFailedCounter.increment(recordFailures);
+      LOG.debug(
+          "Processed {} records. Success: {}, Failed: {}",
+          recordCount,
+          recordCount - recordFailures,
+          recordFailures);
     }
-
-    if (consumer != null) {
-      LOG.info("Closing kafka consumer.");
-      consumer.close(Duration.of(15, ChronoUnit.SECONDS));
-      LOG.info("Closed kafka consumer.");
-    }
   }
 
-  protected KafkaConsumer<String, byte[]> getConsumer() {
-    return consumer;
+  @VisibleForTesting
+  public KafkaConsumer<String, byte[]> getKafkaConsumer() {
+    return kafkaConsumer;
   }
 
-  protected TopicPartition getTopicPartition() {
-    return new TopicPartition(this.kafkaTopic, this.kafkaTopicPartition);
+  @VisibleForTesting
+  void setKafkaConsumer(KafkaConsumer<String, byte[]> kafkaConsumer) {
+    this.kafkaConsumer = kafkaConsumer;
   }
-
-  abstract void consumeMessages(long kafkaPollTimeoutMs) throws IOException;
 }

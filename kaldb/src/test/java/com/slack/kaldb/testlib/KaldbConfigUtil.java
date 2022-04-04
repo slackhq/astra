@@ -12,7 +12,10 @@ public class KaldbConfigUtil {
       String s3Bucket,
       int queryPort,
       String metadataZkConnectionString,
-      String metadataZkPathPrefix) {
+      String metadataZkPathPrefix,
+      KaldbConfigs.NodeRole nodeRole,
+      int maxOffsetDelay,
+      String dataTransformerConfig) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -25,7 +28,12 @@ public class KaldbConfigUtil {
             .build();
 
     KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder().setS3Bucket(s3Bucket).setS3Region("us-east-1").build();
+        KaldbConfigs.S3Config.newBuilder()
+            .setS3Bucket(s3Bucket)
+            .setS3Region("us-east-1")
+            .setS3AccessKey("")
+            .setS3SecretKey("")
+            .build();
 
     KaldbConfigs.IndexerConfig indexerConfig =
         KaldbConfigs.IndexerConfig.newBuilder()
@@ -42,7 +50,8 @@ public class KaldbConfigUtil {
                     .setRefreshDurationSecs(10)
                     .build())
             .setStaleDurationSecs(7200)
-            .setDataTransformer("log_message")
+            .setDataTransformer(dataTransformerConfig)
+            .setMaxOffsetDelayMessages(maxOffsetDelay)
             .build();
 
     KaldbConfigs.ZookeeperConfig zkConfig =
@@ -71,16 +80,36 @@ public class KaldbConfigUtil {
         .setIndexerConfig(indexerConfig)
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
+        .addNodeRoles(nodeRole)
+        .build();
+  }
+
+  public static KaldbConfigs.KafkaConfig makeKafkaConfig(
+      String kafkaTopic, int topicPartition, String kafkaClient, String brokerList) {
+    return KaldbConfigs.KafkaConfig.newBuilder()
+        .setKafkaTopic(kafkaTopic)
+        .setKafkaTopicPartition(String.valueOf(topicPartition))
+        .setKafkaBootStrapServers(brokerList)
+        .setKafkaClientGroup(kafkaClient)
+        .setEnableKafkaAutoCommit("true")
+        .setKafkaAutoCommitInterval("5000")
+        .setKafkaSessionTimeout("30000")
         .build();
   }
 
   public static int TEST_INDEXER_PORT = 10000;
 
   public static KaldbConfigs.IndexerConfig makeIndexerConfig() {
-    return makeIndexerConfig(TEST_INDEXER_PORT);
+    return makeIndexerConfig(TEST_INDEXER_PORT, 1000, "log_message", 100);
   }
 
-  public static KaldbConfigs.IndexerConfig makeIndexerConfig(int indexerPort) {
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int maxOffsetDelay, String dataTransformer) {
+    return makeIndexerConfig(TEST_INDEXER_PORT, maxOffsetDelay, dataTransformer, 100);
+  }
+
+  public static KaldbConfigs.IndexerConfig makeIndexerConfig(
+      int indexerPort, int maxOffsetDelay, String dataTransformer, int maxMessagesPerChunk) {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             KaldbConfigs.ServerConfig.newBuilder()
@@ -88,14 +117,15 @@ public class KaldbConfigUtil {
                 .setServerAddress("localhost")
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-        .setMaxMessagesPerChunk(100)
+        .setMaxMessagesPerChunk(maxMessagesPerChunk)
         .setLuceneConfig(
             KaldbConfigs.LuceneConfig.newBuilder()
                 .setCommitDurationSecs(10)
                 .setRefreshDurationSecs(10)
                 .build())
         .setStaleDurationSecs(7200)
-        .setDataTransformer("log_message")
+        .setMaxOffsetDelayMessages(maxOffsetDelay)
+        .setDataTransformer(dataTransformer)
         .build();
   }
 }
