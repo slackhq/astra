@@ -1,8 +1,13 @@
 package com.slack.kaldb.writer.kafka;
 
+import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
 import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getValue;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.RECORDS_RECEIVED_COUNTER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -57,7 +62,7 @@ public class KaldbKafkaConsumerTest {
 
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
+              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("api_log"));
       testConsumer =
           new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
@@ -110,6 +115,35 @@ public class KaldbKafkaConsumerTest {
 
       testConsumer.prepConsumerForConsumption(0);
       testConsumer.consumeMessages();
+      assertThat(testConsumer.getConsumerPositionForPartition()).isEqualTo(100);
+      assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
+      // Assign doesn't create a consumer group.
+      assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
+    }
+
+    @Test
+    public void testConsumeMessagesBetweenOffsets() throws Exception {
+      EphemeralKafkaBroker broker = kafkaServer.getBroker();
+      assertThat(broker.isRunning()).isTrue();
+      final Instant startTime =
+              LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+      assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
+
+      // Missing consumer throws an IllegalStateException.
+      assertThatIllegalStateException()
+              .isThrownBy(() -> testConsumer.getConsumerPositionForPartition());
+      TestKafkaServer.produceMessagesToKafka(broker, startTime);
+      await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
+
+      final long startOffset = 21;
+      testConsumer.prepConsumerForConsumption(startOffset);
+      testConsumer.consumeMessagesBetweenOffsetsInParallel(KAFKA_POLL_TIMEOUT_MS, startOffset, 80);
+      // Check that messages are received and indexed.
+      assertThat(getCount(RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(60);
+      assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(60);
+      // The consumer fetches 500 records per batch. So, the consumer offset is a bit ahead of actual messages indexed.
+      // Since there are only 100 messages, we are at 100 message index.
       assertThat(testConsumer.getConsumerPositionForPartition()).isEqualTo(100);
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
       // Assign doesn't create a consumer group.
