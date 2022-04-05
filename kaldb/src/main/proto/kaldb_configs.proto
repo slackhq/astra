@@ -11,6 +11,7 @@ enum NodeRole {
   CACHE = 2;
   MANAGER = 3;
   RECOVERY = 4;
+  PREPROCESSOR = 5;
 };
 
 // KalDb is a single binary consisting of multiple components.
@@ -27,9 +28,12 @@ message KaldbConfig {
   CacheConfig cache_config = 8;
   ManagerConfig manager_config = 9;
   RecoveryConfig recovery_config = 10;
+  PreprocessorConfig preprocessor_config = 11;
 }
 
-// Configuration for Kafka producer and consumer.
+// todo - move this to a nested IndexerConfig message, and refactor as KafkaConsumerConfig
+// todo - this is only ever used by the indexer and should have reduced visibility
+// Configuration for Kafka consumer.
 message KafkaConfig {
   string kafka_topic = 1;
   string kafka_topic_partition = 2;
@@ -163,4 +167,25 @@ message ManagerConfig {
 // Config for the recovery node.
 message RecoveryConfig {
   ServerConfig server_config = 1;
+}
+
+// Config for the preprocessor node.
+message PreprocessorConfig {
+  // Configuration for the kafka stream processor
+  message KafkaStreamConfig {
+    string downstream_topic = 1;
+    string bootstrap_servers = 2;
+    string application_id = 3;
+    int32 num_stream_threads = 4;
+  }
+
+  ServerConfig server_config = 1;
+  KafkaStreamConfig kafka_stream_config = 2;
+
+  // The number of preprocessor instances
+  // Used for calculating target throughput per instance
+  int32 preprocessor_instance_count = 3;
+
+  // Name of the data transformation pipeline to use when ingesting the data.
+  string data_transformer = 4;
 }

@@ -18,6 +18,12 @@ public class LogWireMessage extends Message {
   private String index;
   private String type;
 
+  /**
+   * Move all Kafka message serializers to common class
+   *
+   * @see com.slack.kaldb.preprocessor.KaldbSerdes
+   */
+  @Deprecated
   static Optional<LogWireMessage> fromJson(String jsonStr) {
     try {
       ObjectMapper objectMapper = new ObjectMapper();

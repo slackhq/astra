@@ -94,5 +94,19 @@
       "serverPort": 8084,
       "serverAddress": "localhost"
     }
+  },
+  "preprocessorConfig": {
+    "kafkaStreamConfig": {
+      "downstreamTopic": "test-topic-out",
+      "bootstrapServers": "localhost:9092",
+      "applicationId": "kaldb_preprocessor",
+      "numStreamThreads": 2
+    },
+    "serverConfig": {
+      "serverPort": 8085,
+      "serverAddress": "localhost"
+    },
+    "preprocessorInstanceCount": 1,
+    "dataTransformer": "api_log"
   }
 }

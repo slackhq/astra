@@ -562,4 +562,59 @@ public class LogMessageWriterImplTest {
 
     assertThat(messageWriter.insertRecord(spanRecord)).isFalse();
   }
+
+  @Test
+  public void testIngestTraceListOfSpans() throws IOException {
+    final String traceId = "t1";
+    final String id = "i1";
+    final String parentId = "p2";
+    final long timestampMicros = 1612550512340953L;
+    final long durationMicros = 500000L;
+    final String serviceName = "test_service";
+    final String name = "testSpanName";
+    final String msgType = "test_message_type";
+    final Trace.Span span =
+        makeSpan(
+            traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
+    final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
+    ConsumerRecord<String, byte[]> listOfSpansRecord =
+        consumerRecordWithValue(listOfSpans.toByteArray());
+
+    LogMessageWriterImpl messageWriter =
+        new LogMessageWriterImpl(
+            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceListOfSpansTransformer);
+
+    assertThat(messageWriter.insertRecord(listOfSpansRecord)).isTrue();
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "type:test_message_type").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "service_name:test_service").hits.size())
+        .isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "http_method:GET").hits.size()).isEqualTo(0);
+    assertThat(searchChunkManager(serviceName, "method:callbacks*").hits.size()).isEqualTo(1);
+    assertThat(
+            searchChunkManager(serviceName, "http_method:POST AND method:callbacks*").hits.size())
+        .isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "http_method:GET AND method:callbacks*").hits.size())
+        .isEqualTo(0);
+    assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void testNullTraceListOfSpans() throws IOException {
+    final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().build();
+    ConsumerRecord<String, byte[]> listOfSpansRecord =
+        consumerRecordWithValue(listOfSpans.toByteArray());
+
+    LogMessageWriterImpl messageWriter =
+        new LogMessageWriterImpl(
+            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceListOfSpansTransformer);
+
+    assertThat(messageWriter.insertRecord(listOfSpansRecord)).isFalse();
+  }
 }
