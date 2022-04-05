@@ -5,8 +5,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
@@ -15,7 +13,6 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
-import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -153,7 +150,7 @@ public class RecoveryService extends AbstractIdleService {
       handleRecoveryTask(recoveryTaskMetadata);
 
       // delete the completed recovery task
-       recoveryTaskMetadataStore.deleteSync(recoveryTaskMetadata.name);
+      recoveryTaskMetadataStore.deleteSync(recoveryTaskMetadata.name);
 
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
       recoveryNodeCompletedAssignment.increment();
@@ -168,27 +165,28 @@ public class RecoveryService extends AbstractIdleService {
   //   upload to S3, create the snapshot
   private void handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     // Create an recovery chunk manager from an indexing chunk manager.
-    // recovery chunk manager - indexing chunk manager that stops indexing at an offset - no search and no cleaner.
+    // recovery chunk manager - indexing chunk manager that stops indexing at an offset - no search
+    // and no cleaner.
     // on close upload active chunk to S3.
     // returns bool when done.
-    IndexingChunkManager<LogMessage> chunkManager =
-            IndexingChunkManager.fromConfig(
-                    meterRegistry,
-                    metadataStore,
-                    kaldbConfig.getIndexerConfig(),
-                    blobFs,
-                    kaldbConfig.getS3Config());
-    // Index the data until offset.
-    KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
-    // consume messages in parallel.
-    kafkaConsumer.consumeMessages();
-
-    // close and upload active chunk to S3.
-    chunkManager.rollOverActiveChunk();
-
-    // Close the indexing chunk manager and kafka consumer.
-    kafkaConsumer.close();
-    chunkManager.close();
+    //    IndexingChunkManager<LogMessage> chunkManager =
+    //        IndexingChunkManager.fromConfig(
+    //            meterRegistry,
+    //            metadataStore,
+    //            kaldbConfig.getIndexerConfig(),
+    //            blobFs,
+    //            kaldbConfig.getS3Config());
+    //    // Index the data until offset.
+    //    KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
+    //    // consume messages in parallel.
+    //    kafkaConsumer.consumeMessages();
+    //
+    //    // close and upload active chunk to S3.
+    //    chunkManager.rollOverActiveChunk();
+    //
+    //    // Close the indexing chunk manager and kafka consumer.
+    //    kafkaConsumer.close();
+    //    chunkManager.close();
   }
 
   @VisibleForTesting

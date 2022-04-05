@@ -1,26 +1,21 @@
 package com.slack.kaldb.server;
 
-import com.google.common.util.concurrent.AbstractExecutionThreadService;
-import com.slack.kaldb.chunkManager.ChunkRollOverException;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 /**
  * KaldbIndexer creates an indexer to index the log data. The indexer also exposes a search api to
@@ -116,20 +111,22 @@ public class KaldbRecovery {
   }
 
   protected void run() throws Exception {
-    while (isRunning()) {
-      try {
-        kafkaConsumer.consumeMessages();
-      } catch (ChunkRollOverException | IOException e) {
-        // Once we hit these exceptions, we likely have an issue related to storage. So, terminate
-        // the program, since consuming more messages from Kafka would only make the issue worse.
-        LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
-        new RuntimeHalterImpl().handleFatal(e);
-      } catch (Exception e) {
-        LOG.error("FATAL: Unhandled exception ", e);
-        new RuntimeHalterImpl().handleFatal(e);
-      }
-    }
-    kafkaConsumer.close();
+    //    // while (isRunning()) {
+    //      try {
+    //        kafkaConsumer.consumeMessages();
+    //      } catch (ChunkRollOverException | IOException e) {
+    //        // Once we hit these exceptions, we likely have an issue related to storage. So,
+    // terminate
+    //        // the program, since consuming more messages from Kafka would only make the issue
+    // worse.
+    //        LOG.error("FATAL: Encountered an unrecoverable storage exception.", e);
+    //        new RuntimeHalterImpl().handleFatal(e);
+    //      } catch (Exception e) {
+    //        LOG.error("FATAL: Unhandled exception ", e);
+    //        new RuntimeHalterImpl().handleFatal(e);
+    //      }
+    //    // }
+    //    kafkaConsumer.close();
   }
 
   /**
