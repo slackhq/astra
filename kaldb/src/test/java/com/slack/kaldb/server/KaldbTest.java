@@ -359,7 +359,7 @@ public class KaldbTest {
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
     KaldbSearch.SearchResult indexer2SearchResponse =
-        searchUsingGrpcApi("*:*", indexerPort2, 0, Long.MAX_VALUE);
+        searchUsingGrpcApi("*:*", indexerPort2, 1633083000000L, 1633083099000L);
     assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
