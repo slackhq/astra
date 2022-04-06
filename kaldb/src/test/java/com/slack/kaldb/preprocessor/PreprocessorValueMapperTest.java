@@ -3,12 +3,14 @@ package com.slack.kaldb.preprocessor;
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import org.apache.kafka.streams.kstream.ValueMapper;
 import org.junit.Test;
 
@@ -30,58 +32,39 @@ public class PreprocessorValueMapperTest {
             .setTimestamp(timestamp)
             .build();
 
-    ValueMapper<byte[], Trace.ListOfSpans> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceListOfSpans("api_log");
+    ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
+        PreprocessorValueMapper.byteArrayToTraceSpans("api_log");
     byte[] inputBytes =
         KaldbSerdes.MurronMurronMessage().serializer().serialize(indexName, testMurronMsg);
 
-    Trace.ListOfSpans listOfSpans = valueMapper.apply(inputBytes);
+    Iterable<Trace.Span> spanIterable = valueMapper.apply(inputBytes);
+    Iterator<Trace.Span> spanIterator = spanIterable.iterator();
+    Trace.Span span = spanIterator.next();
 
-    assertThat(listOfSpans.getTagsList().size()).isEqualTo(0);
-    assertThat(listOfSpans.getSpansList().size()).isEqualTo(1);
+    assertThat(span.getStartTimestampMicros()).isEqualTo(timestamp / 1000);
+    assertThat(span.getDurationMicros()).isEqualTo(1);
 
-    assertThat(listOfSpans.getSpansList().get(0).getStartTimestampMicros())
-        .isEqualTo(timestamp / 1000);
-    assertThat(listOfSpans.getSpansList().get(0).getDurationMicros()).isEqualTo(1);
-
-    assertThat(listOfSpans.getSpansList().get(0).getTagsList().size()).isEqualTo(6);
+    assertThat(span.getTagsList().size()).isEqualTo(6);
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("method").setVStr("verifyToken").build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("type").setVStr(indexName).build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("level").setVStr("info").build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("hostname").setVStr(host).build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
-            .getTagsList()
+        span.getTagsList()
             .contains(
                 Trace.KeyValue.newBuilder().setKey("service_name").setVStr(indexName).build()));
+    assertFalse(spanIterator.hasNext());
   }
 
   @Test
@@ -94,7 +77,7 @@ public class PreprocessorValueMapperTest {
     final String serviceName = "test_service";
     final String name = "testSpanName";
     final String msgType = "test_message_type";
-    final Trace.Span span =
+    final Trace.Span inputSpan =
         makeSpan(
             traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
 
@@ -102,31 +85,27 @@ public class PreprocessorValueMapperTest {
     final String host = "testHost";
     final Murron.MurronMessage murronMessage =
         Murron.MurronMessage.newBuilder()
-            .setMessage(Trace.ListOfSpans.newBuilder().addSpans(span).build().toByteString())
+            .setMessage(Trace.ListOfSpans.newBuilder().addSpans(inputSpan).build().toByteString())
             .setType(type)
             .setHost(host)
             .setTimestamp(timestampMicros * 1000 + 1)
             .build();
 
-    ValueMapper<byte[], Trace.ListOfSpans> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceListOfSpans("spans");
+    ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
+        PreprocessorValueMapper.byteArrayToTraceSpans("spans");
     byte[] inputBytes =
         KaldbSerdes.MurronMurronMessage().serializer().serialize(serviceName, murronMessage);
 
-    Trace.ListOfSpans listOfSpans = valueMapper.apply(inputBytes);
+    Iterable<Trace.Span> spanIterable = valueMapper.apply(inputBytes);
+    Iterator<Trace.Span> spanIterator = spanIterable.iterator();
+    Trace.Span mappedSpan = spanIterator.next();
 
-    assertThat(listOfSpans.getTagsList().size()).isEqualTo(0);
-    assertThat(listOfSpans.getSpansList().size()).isEqualTo(1);
+    assertThat(mappedSpan.getStartTimestampMicros()).isEqualTo(timestampMicros);
+    assertThat(mappedSpan.getDurationMicros()).isEqualTo(durationMicros);
 
-    assertThat(listOfSpans.getSpansList().get(0).getStartTimestampMicros())
-        .isEqualTo(timestampMicros);
-    assertThat(listOfSpans.getSpansList().get(0).getDurationMicros()).isEqualTo(durationMicros);
-
-    assertThat(listOfSpans.getSpansList().get(0).getTagsList().size()).isEqualTo(8);
+    assertThat(mappedSpan.getTagsList().size()).isEqualTo(8);
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
+        mappedSpan
             .getTagsList()
             .contains(
                 Trace.KeyValue.newBuilder()
@@ -134,18 +113,15 @@ public class PreprocessorValueMapperTest {
                     .setVStr("test_service")
                     .build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
+        mappedSpan
             .getTagsList()
             .contains(Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()));
     assertTrue(
-        listOfSpans
-            .getSpansList()
-            .get(0)
+        mappedSpan
             .getTagsList()
             .contains(
                 Trace.KeyValue.newBuilder().setKey("method").setVStr("callbacks.flannel").build()));
+    assertFalse(spanIterator.hasNext());
   }
 
   @Test
@@ -153,8 +129,26 @@ public class PreprocessorValueMapperTest {
     assertThatIllegalArgumentException()
         .isThrownBy(
             () -> {
-              ValueMapper<byte[], Trace.ListOfSpans> valueMapper =
-                  PreprocessorValueMapper.byteArrayToTraceListOfSpans("invalid");
+              ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
+                  PreprocessorValueMapper.byteArrayToTraceSpans("invalid");
             });
+  }
+
+  @Test
+  public void shouldExtractServiceName() {
+    String service1 = "service1";
+    Trace.Span span1 =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder()
+                    .setKey(PreprocessorValueMapper.SERVICE_NAME_KEY)
+                    .setVStr(service1)
+                    .build())
+            .build();
+
+    assertThat(PreprocessorValueMapper.getServiceName(span1)).isEqualTo(service1);
+
+    Trace.Span span2 = Trace.Span.newBuilder().build();
+    assertThat(PreprocessorValueMapper.getServiceName(span2)).isNull();
   }
 }

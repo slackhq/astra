@@ -26,8 +26,12 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PreprocessorServiceIntegrationTest {
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PreprocessorServiceIntegrationTest.class);
 
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
@@ -124,18 +128,22 @@ public class PreprocessorServiceIntegrationTest {
             .setApplicationId("applicationId")
             .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
             .setNumStreamThreads(1)
-            .setDownstreamTopic(downstreamTopic)
+            .setProcessingGuarantee("at_least_once")
             .build();
     KaldbConfigs.ServerConfig serverConfig =
         KaldbConfigs.ServerConfig.newBuilder()
             .setServerPort(8080)
             .setServerAddress("localhost")
             .build();
+
+    List<String> upstreamTopics = List.of("test-topic");
     KaldbConfigs.PreprocessorConfig preprocessorConfig =
         KaldbConfigs.PreprocessorConfig.newBuilder()
             .setKafkaStreamConfig(kafkaStreamConfig)
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
+            .addAllUpstreamTopics(upstreamTopics)
+            .setDownstreamTopic(downstreamTopic)
             .setDataTransformer("api_log")
             .build();
 
@@ -149,9 +157,10 @@ public class PreprocessorServiceIntegrationTest {
         .isEqualTo(1);
 
     // create a new service config with dummy data
+    String serviceName = "testindex";
     ServiceMetadata serviceMetadata =
         new ServiceMetadata(
-            "test-topic",
+            serviceName,
             "owner",
             100,
             List.of(new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("3"))));
@@ -200,18 +209,21 @@ public class PreprocessorServiceIntegrationTest {
     kafkaConsumer.subscribe(List.of(downstreamTopic));
 
     // wait until we see an offset of 100 on our target partition before we poll
-    //noinspection OptionalGetWithoutIsPresent
     await()
         .until(
-            () ->
-                ((Long)
-                        kafkaConsumer
-                            .endOffsets(List.of(new TopicPartition(downstreamTopic, 2)))
-                            .values()
-                            .stream()
-                            .findFirst()
-                            .get())
-                    == 100);
+            () -> {
+              @SuppressWarnings("OptionalGetWithoutIsPresent")
+              Long partition2Offset =
+                  ((Long)
+                      kafkaConsumer
+                          .endOffsets(List.of(new TopicPartition(downstreamTopic, 2)))
+                          .values()
+                          .stream()
+                          .findFirst()
+                          .get());
+              LOG.debug("Current partition2Offset - {}", partition2Offset);
+              return partition2Offset == 100;
+            });
 
     // double check that only 100 records were fetched and all are on partition 2
     ConsumerRecords<String, byte[]> records =

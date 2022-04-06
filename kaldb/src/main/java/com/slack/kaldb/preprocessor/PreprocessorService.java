@@ -1,10 +1,11 @@
 package com.slack.kaldb.preprocessor;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
@@ -15,6 +16,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
@@ -25,6 +27,7 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
+import org.apache.kafka.streams.kstream.Predicate;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.ValueMapper;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -34,8 +37,8 @@ import org.slf4j.LoggerFactory;
 /**
  * The PreprocessorService consumes from multiple upstream topics, applies rate limiting, transforms
  * the data format, and then writes out the new message to a common downstream topic targeting
- * specific partitions. The upstream topic information, rate limits, and target partitions are read
- * in via the ServiceMetadataStore, and the common output topic and transforms are stored via a
+ * specific partitions. The rate limits, and target partitions are read in via the
+ * ServiceMetadataStore, with the upstream topic, downstream topic, and transforms stored in the
  * service config.
  */
 public class PreprocessorService extends AbstractIdleService {
@@ -45,6 +48,7 @@ public class PreprocessorService extends AbstractIdleService {
   private final ServiceMetadataStore serviceMetadataStore;
   private final PreprocessorRateLimiter rateLimiter;
   private final Properties kafkaProperties;
+  private final List<String> upstreamTopics;
   private final String downstreamTopic;
   private final String dataTransformer;
   private final MeterRegistry meterRegistry;
@@ -64,7 +68,8 @@ public class PreprocessorService extends AbstractIdleService {
     this.configReloadCounter = meterRegistry.counter(CONFIG_RELOAD_COUNTER);
 
     this.kafkaProperties = makeKafkaStreamsProps(preprocessorConfig.getKafkaStreamConfig());
-    this.downstreamTopic = preprocessorConfig.getKafkaStreamConfig().getDownstreamTopic();
+    this.downstreamTopic = preprocessorConfig.getDownstreamTopic();
+    this.upstreamTopics = Collections.unmodifiableList(preprocessorConfig.getUpstreamTopicsList());
     this.dataTransformer = preprocessorConfig.getDataTransformer();
     this.rateLimiter =
         new PreprocessorRateLimiter(
@@ -115,7 +120,12 @@ public class PreprocessorService extends AbstractIdleService {
 
     if (serviceMetadataToProcess.size() > 0) {
       Topology topology =
-          buildTopology(serviceMetadataToProcess, rateLimiter, downstreamTopic, dataTransformer);
+          buildTopology(
+              serviceMetadataToProcess,
+              rateLimiter,
+              upstreamTopics,
+              downstreamTopic,
+              dataTransformer);
       kafkaStreams = new KafkaStreams(topology, kafkaProperties);
       kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
       kafkaStreamsMetrics.bindTo(meterRegistry);
@@ -135,40 +145,50 @@ public class PreprocessorService extends AbstractIdleService {
   protected static Topology buildTopology(
       List<ServiceMetadata> serviceMetadataList,
       PreprocessorRateLimiter rateLimiter,
+      List<String> upstreamTopics,
       String downstreamTopic,
       String dataTransformer) {
     Preconditions.checkArgument(
         !serviceMetadataList.isEmpty(), "service metadata list must not be empty");
+    Preconditions.checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     Preconditions.checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     Preconditions.checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
 
     StreamsBuilder builder = new StreamsBuilder();
-    ValueMapper<byte[], Trace.ListOfSpans> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceListOfSpans(dataTransformer);
-    serviceMetadataList.forEach(
-        (serviceMetadata ->
+
+    ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
+        PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
+    StreamPartitioner<String, Trace.Span> streamPartitioner =
+        streamPartitioner(
+            serviceMetadataList
+                .stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        KaldbMetadata::getName, PreprocessorService::getActivePartitionList)));
+    Predicate<String, Trace.Span> rateLimitPredicate =
+        rateLimiter.createRateLimiter(
+            serviceMetadataList
+                .stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        KaldbMetadata::getName, ServiceMetadata::getThroughputBytes)));
+
+    upstreamTopics.forEach(
+        (upstreamTopic ->
             builder
-                .stream(
-                    serviceMetadata.getName(), Consumed.with(Serdes.String(), Serdes.ByteArray()))
-                .filter(
-                    rateLimiter.createRateLimiter(
-                        serviceMetadata.getName(), serviceMetadata.getThroughputBytes()))
-                .mapValues(valueMapper)
-                .filter((key, listOfSpans) -> listOfSpans != null)
+                .stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
+                .flatMapValues(valueMapper)
+                .filter(rateLimitPredicate)
                 .peek(
-                    (key, listOfSpans) ->
+                    (key, span) ->
                         LOG.debug(
-                            "Processed key/record {}/{} from topic {} to topic {}",
-                            key,
-                            listOfSpans.toString(),
-                            serviceMetadata.getName(),
+                            "Processed span {} from topic {} to topic {}",
+                            span,
+                            upstreamTopic,
                             downstreamTopic))
                 .to(
                     downstreamTopic,
-                    Produced.with(
-                        Serdes.String(),
-                        KaldbSerdes.TraceListOfSpans(),
-                        streamPartitioner(getActivePartitionList(serviceMetadata))))));
+                    Produced.with(Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner))));
 
     return builder.build();
   }
@@ -202,21 +222,38 @@ public class PreprocessorService extends AbstractIdleService {
         .get()
         .getPartitions()
         .stream()
-        .map(java.lang.Integer::parseInt)
-        .collect(Collectors.toList());
+        .map(Integer::parseInt)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   /**
-   * Returns a StreamPartitioner that selects from the provided list of partitions. If no valid
-   * partitions are provided throws an exception.
+   * Returns a StreamPartitioner that selects from the provided list of service metadata. If no
+   * valid service metadata are provided throws an exception.
    */
-  protected static StreamPartitioner<Object, Object> streamPartitioner(List<Integer> partitions) {
-    checkArgument(partitions.size() > 0, "Invalid partition list provided, had no partitions");
+  protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
+      Map<String, List<Integer>> serviceNameToPartitionList) {
     checkArgument(
-        partitions.stream().noneMatch(integer -> integer < 0),
-        "All partitions must be positive, non-null values");
-    return (topic, key, value, partitionCount) ->
-        partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+        serviceNameToPartitionList.entrySet().size() > 0,
+        "serviceNameToPartitionList cannot be empty");
+    checkArgument(
+        serviceNameToPartitionList.keySet().stream().noneMatch(String::isEmpty),
+        "serviceNameToPartitionList cannot have any empty keys");
+    checkArgument(
+        serviceNameToPartitionList.values().stream().noneMatch(List::isEmpty),
+        "serviceNameToPartitionList cannot have any empty partition lists");
+
+    return (topic, key, value, partitionCount) -> {
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
+      if (!serviceNameToPartitionList.containsKey(serviceName)) {
+        // this shouldn't happen, as we should have filtered all the missing services in the value
+        // mapper stage
+        throw new IllegalStateException(
+            String.format("Service '%s' was not found in service metadata", serviceName));
+      }
+
+      List<Integer> partitions = serviceNameToPartitionList.getOrDefault(serviceName, List.of());
+      return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+    };
   }
 
   /** Builds a Properties hashtable using the provided config, and sensible defaults */
@@ -238,11 +275,10 @@ public class PreprocessorService extends AbstractIdleService {
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaStreamConfig.getBootstrapServers());
     props.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, kafkaStreamConfig.getNumStreamThreads());
 
-    // todo - expose this as an option for users to configure?
     // This will allow parallel processing up to the amount of upstream partitions. You cannot have
     // more threads than you have upstreams due to how the work is partitioned
-    // @see StreamsConfig.EXACTLY_ONCE
-    props.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.AT_LEAST_ONCE);
+    props.put(
+        StreamsConfig.PROCESSING_GUARANTEE_CONFIG, kafkaStreamConfig.getProcessingGuarantee());
 
     return props;
   }

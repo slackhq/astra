@@ -78,10 +78,11 @@ public class LogMessageWriterImpl implements MessageWriter {
         return msg.map(List::of).orElse(Collections.emptyList());
       };
 
-  // A protobuf Trace.ListOfSpans
-  public static final LogMessageTransformer traceListOfSpansTransformer =
+  // A protobuf Trace.Span
+  public static final LogMessageTransformer traceSpanTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
-        final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.parseFrom(record.value());
+        final Trace.Span span = Trace.Span.parseFrom(record.value());
+        final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
         return SpanFormatter.toLogMessage(listOfSpans);
       };
 

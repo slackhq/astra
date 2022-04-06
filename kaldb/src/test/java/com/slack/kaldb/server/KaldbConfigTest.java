@@ -250,6 +250,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
+    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
+    assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
@@ -258,10 +260,10 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEqualTo("localhost:9092");
     assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEqualTo("kaldb_preprocessor");
     assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isEqualTo(2);
+    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEqualTo("at_least_once");
   }
 
   @Test
@@ -376,6 +378,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isEqualTo(1);
+    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
+    assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
@@ -384,10 +388,10 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEqualTo("localhost:9092");
     assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEqualTo("kaldb_preprocessor");
     assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isEqualTo(2);
+    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEqualTo("at_least_once");
   }
 
   @Test(expected = RuntimeException.class)
@@ -508,6 +512,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
+    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
+    assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
@@ -516,10 +522,10 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isZero();
+    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEmpty();
   }
 
   @Test
@@ -615,6 +621,8 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
     assertThat(preprocessorConfig.getPreprocessorInstanceCount()).isZero();
+    assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
+    assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
@@ -623,10 +631,10 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
         preprocessorConfig.getKafkaStreamConfig();
-    assertThat(preprocessorKafkaStreamConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getBootstrapServers()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getApplicationId()).isEmpty();
     assertThat(preprocessorKafkaStreamConfig.getNumStreamThreads()).isZero();
+    assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEmpty();
   }
 
   @Test

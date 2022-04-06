@@ -45,6 +45,35 @@ public class KaldbSerdes {
     };
   }
 
+  public static Serde<Trace.Span> TraceSpan() {
+    return new Serde<>() {
+      @Override
+      public Serializer<Trace.Span> serializer() {
+        return (topic, data) -> {
+          if (data == null) {
+            return null;
+          }
+          return data.toByteArray();
+        };
+      }
+
+      @Override
+      public Deserializer<Trace.Span> deserializer() {
+        return (topic, data) -> {
+          Trace.Span span = null;
+          if (data == null || data.length == 0) return null;
+
+          try {
+            span = Trace.Span.parseFrom(data);
+          } catch (InvalidProtocolBufferException e) {
+            LOG.error("Error parsing byte string into Trace.Span: {}", new String(data), e);
+          }
+          return span;
+        };
+      }
+    };
+  }
+
   public static Serde<Trace.ListOfSpans> TraceListOfSpans() {
     return new Serde<>() {
       @Override

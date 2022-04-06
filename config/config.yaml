@@ -82,12 +82,14 @@ recoveryConfig:
 
 preprocessorConfig:
   kafkaStreamConfig:
-    downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
     bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
     applicationId: ${KAFKA_APPLICATION_ID:-kaldb_preprocessor}
     numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
+    processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
+  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic}]
+  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}

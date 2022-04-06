@@ -564,7 +564,7 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
-  public void testIngestTraceListOfSpans() throws IOException {
+  public void testIngestTraceSpan() throws IOException {
     final String traceId = "t1";
     final String id = "i1";
     final String parentId = "p2";
@@ -576,15 +576,13 @@ public class LogMessageWriterImplTest {
     final Trace.Span span =
         makeSpan(
             traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
-    final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
-    ConsumerRecord<String, byte[]> listOfSpansRecord =
-        consumerRecordWithValue(listOfSpans.toByteArray());
+    ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
 
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceListOfSpansTransformer);
+            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
 
-    assertThat(messageWriter.insertRecord(listOfSpansRecord)).isTrue();
+    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     chunkManagerUtil.chunkManager.getActiveChunk().commit();
@@ -606,15 +604,11 @@ public class LogMessageWriterImplTest {
   }
 
   @Test
-  public void testNullTraceListOfSpans() throws IOException {
-    final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().build();
-    ConsumerRecord<String, byte[]> listOfSpansRecord =
-        consumerRecordWithValue(listOfSpans.toByteArray());
-
+  public void testNullTraceSpan() throws IOException {
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceListOfSpansTransformer);
+            chunkManagerUtil.chunkManager, LogMessageWriterImpl.traceSpanTransformer);
 
-    assertThat(messageWriter.insertRecord(listOfSpansRecord)).isFalse();
+    assertThat(messageWriter.insertRecord(null)).isFalse();
   }
 }

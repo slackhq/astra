@@ -100,8 +100,53 @@ public class KaldbSerdesTest {
   }
 
   @Test
+  public void shouldSerializeAndDeserializeTraceSpan() {
+    Serde<Trace.Span> serdes = KaldbSerdes.TraceSpan();
+
+    String topic = "topic";
+    String id = "id";
+    String traceId = "traceId";
+    String name = "name";
+    long timestamp = Instant.now().toEpochMilli() * 1000;
+    long duration = 10;
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .setId(ByteString.copyFromUtf8(id))
+            .setTraceId(ByteString.copyFromUtf8(traceId))
+            .setName(name)
+            .setStartTimestampMicros(timestamp)
+            .setDurationMicros(duration)
+            .build();
+
+    byte[] serializedBytes = serdes.serializer().serialize(topic, span);
+    Trace.Span deserializedMessage = serdes.deserializer().deserialize(topic, serializedBytes);
+
+    assertThat(deserializedMessage.getId()).isEqualTo(ByteString.copyFromUtf8(id));
+    assertThat(deserializedMessage.getTraceId()).isEqualTo(ByteString.copyFromUtf8(traceId));
+    assertThat(deserializedMessage.getName()).isEqualTo(name);
+    assertThat(deserializedMessage.getStartTimestampMicros()).isEqualTo(timestamp);
+    assertThat(deserializedMessage.getDurationMicros()).isEqualTo(duration);
+    assertThat(deserializedMessage.getTagsList().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldSerializeAndDeserializeTraceSpanNullsCorrectly() {
+    Serde<Trace.Span> serdes = KaldbSerdes.TraceSpan();
+
+    byte[] serializedBytes = serdes.serializer().serialize("topic", null);
+    assertThat(serializedBytes).isNull();
+
+    Trace.Span deserializedMessage = serdes.deserializer().deserialize("topic", null);
+    assertThat(deserializedMessage).isNull();
+  }
+
+  @Test
   public void shouldGracefullyHandleWrongMessageTypes() {
     byte[] malformedData = "malformed data".getBytes();
+
+    Trace.Span deserializedTraceSpan =
+        KaldbSerdes.TraceSpan().deserializer().deserialize("topic", malformedData);
+    assertThat(deserializedTraceSpan).isEqualTo(null);
 
     Trace.ListOfSpans deserializedTraceListOfSpans =
         KaldbSerdes.TraceListOfSpans().deserializer().deserialize("topic", malformedData);

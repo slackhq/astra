@@ -173,19 +173,29 @@ message RecoveryConfig {
 message PreprocessorConfig {
   // Configuration for the kafka stream processor
   message KafkaStreamConfig {
-    string downstream_topic = 1;
-    string bootstrap_servers = 2;
-    string application_id = 3;
-    int32 num_stream_threads = 4;
+    string bootstrap_servers = 1;
+    // An identifier for the stream processing application. Must be unique within the Kafka cluster
+    string application_id = 2;
+    // The number of threads to execute stream processing
+    int32 num_stream_threads = 3;
+    // This will allow parallel processing up to the amount of upstream partitions. You cannot have
+    // more threads than you have upstreams due to how the work is partitioned. E
+    string processing_guarantee = 4;
   }
 
   ServerConfig server_config = 1;
   KafkaStreamConfig kafka_stream_config = 2;
 
-  // The number of preprocessor instances
-  // Used for calculating target throughput per instance
-  int32 preprocessor_instance_count = 3;
+  // Upstream topics to consume from
+  repeated string upstream_topics = 3;
+
+  // Downstream topic to write to
+  string downstream_topic = 4;
 
   // Name of the data transformation pipeline to use when ingesting the data.
-  string data_transformer = 4;
+  string data_transformer = 5;
+
+  // The number of preprocessor instances
+  // Used for calculating target throughput per instance
+  int32 preprocessor_instance_count = 6;
 }

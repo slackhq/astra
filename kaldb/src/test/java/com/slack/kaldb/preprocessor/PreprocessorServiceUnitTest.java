@@ -1,5 +1,6 @@
 package com.slack.kaldb.preprocessor;
 
+import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -13,11 +14,13 @@ import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.streams.StreamsConfig;
@@ -31,6 +34,7 @@ public class PreprocessorServiceUnitTest {
   public void shouldBuildValidPropsFromStreamConfig() {
     String applicationId = "applicationId";
     String bootstrapServers = "bootstrap";
+    String processingGuarantee = "at_least_once";
     int numStreamThreads = 1;
 
     KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
@@ -38,6 +42,7 @@ public class PreprocessorServiceUnitTest {
             .setApplicationId(applicationId)
             .setBootstrapServers(bootstrapServers)
             .setNumStreamThreads(numStreamThreads)
+            .setProcessingGuarantee(processingGuarantee)
             .build();
 
     Properties properties = PreprocessorService.makeKafkaStreamsProps(kafkaStreamConfig);
@@ -46,10 +51,8 @@ public class PreprocessorServiceUnitTest {
     assertThat(properties.get(StreamsConfig.APPLICATION_ID_CONFIG)).isEqualTo(applicationId);
     assertThat(properties.get(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG)).isEqualTo(bootstrapServers);
     assertThat(properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG)).isEqualTo(numStreamThreads);
-
-    // static property
     assertThat(properties.get(StreamsConfig.PROCESSING_GUARANTEE_CONFIG))
-        .isEqualTo(StreamsConfig.AT_LEAST_ONCE);
+        .isEqualTo(processingGuarantee);
   }
 
   @Test
@@ -106,26 +109,34 @@ public class PreprocessorServiceUnitTest {
 
   @Test
   public void shouldReturnRandomPartitionFromStreamPartitioner() {
+    String serviceName = "serviceName";
     List<Integer> partitionList = List.of(33, 44, 55);
-    StreamPartitioner<Object, Object> streamPartitioner =
-        PreprocessorService.streamPartitioner(partitionList);
+    Map<String, List<Integer>> serviceNameToPartitions = Map.of(serviceName, partitionList);
+    StreamPartitioner<String, Trace.Span> streamPartitioner =
+        PreprocessorService.streamPartitioner(serviceNameToPartitions);
 
-    // all arguments are currently unused for determining the partition to assign, as this
-    // comes the internal partition list that is set on stream partitioner initialization
-    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, null, 0)));
-    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, null, 1)));
-    assertTrue(
-        partitionList.contains(
-            streamPartitioner.partition("topic", new Object(), new Object(), 0)));
-    assertTrue(partitionList.contains(streamPartitioner.partition("", null, null, 0)));
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(serviceName).build())
+            .build();
+
+    // all arguments except value are currently unused for determining the partition to assign, as
+    // this comes the internal partition list that is set on stream partitioner initialization
+    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, span, 0)));
+    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, span, 1)));
+    assertTrue(partitionList.contains(streamPartitioner.partition("topic", "", span, 0)));
+    assertTrue(partitionList.contains(streamPartitioner.partition("", null, span, 0)));
   }
 
   @Test
   public void shouldPreventInvalidStreamPartitionConfigurations() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(List.of()));
+        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of()));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(List.of(-1)));
+        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of("", List.of(1))));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of("service", List.of())));
   }
 
   @Test
@@ -235,15 +246,16 @@ public class PreprocessorServiceUnitTest {
     PreprocessorRateLimiter rateLimiter =
         new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
 
+    List<String> upstreamTopics = List.of("upstream1", "upstream2", "upstream3");
     String downstreamTopic = "downstream";
     String dataTransformer = "api_log";
     Topology topology =
         PreprocessorService.buildTopology(
-            serviceMetadata, rateLimiter, downstreamTopic, dataTransformer);
+            serviceMetadata, rateLimiter, upstreamTopics, downstreamTopic, dataTransformer);
 
     // we have limited visibility into the topology, so we just verify we have the correct number of
     // stream processors as we expect
-    assertThat(topology.describe().subtopologies().size()).isEqualTo(2);
+    assertThat(topology.describe().subtopologies().size()).isEqualTo(upstreamTopics.size());
   }
 
   @Test
@@ -259,6 +271,7 @@ public class PreprocessorServiceUnitTest {
     int preprocessorCount = 1;
     PreprocessorRateLimiter rateLimiter =
         new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
+    List<String> upstreamTopics = List.of("upstream");
     String downstreamTopic = "downstream";
     String dataTransformer = "api_log";
 
@@ -266,27 +279,44 @@ public class PreprocessorServiceUnitTest {
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(), rateLimiter, downstreamTopic, dataTransformer));
+                    List.of(), rateLimiter, upstreamTopics, downstreamTopic, dataTransformer));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                PreprocessorService.buildTopology(
+                    List.of(serviceMetadata),
+                    rateLimiter,
+                    List.of(),
+                    downstreamTopic,
+                    dataTransformer));
     assertThatNullPointerException()
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(serviceMetadata), null, downstreamTopic, dataTransformer));
+                    List.of(serviceMetadata),
+                    null,
+                    upstreamTopics,
+                    downstreamTopic,
+                    dataTransformer));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(serviceMetadata), rateLimiter, "", dataTransformer));
+                    List.of(serviceMetadata), rateLimiter, upstreamTopics, "", dataTransformer));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(serviceMetadata), rateLimiter, downstreamTopic, ""));
+                    List.of(serviceMetadata), rateLimiter, upstreamTopics, downstreamTopic, ""));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(serviceMetadata), rateLimiter, downstreamTopic, "invalid"));
+                    List.of(serviceMetadata),
+                    rateLimiter,
+                    upstreamTopics,
+                    downstreamTopic,
+                    "invalid"));
   }
 
   @Test

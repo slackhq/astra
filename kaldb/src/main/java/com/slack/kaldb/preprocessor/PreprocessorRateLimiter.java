@@ -2,10 +2,12 @@ package com.slack.kaldb.preprocessor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
-import io.micrometer.core.instrument.Counter;
+import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
@@ -27,6 +29,11 @@ public class PreprocessorRateLimiter {
   public static final String MESSAGES_DROPPED = "preprocessor_rate_limit_messages_dropped";
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
 
+  public enum MessageDropReason {
+    NOT_PROVISIONED,
+    OVER_LIMIT
+  }
+
   public PreprocessorRateLimiter(final MeterRegistry meterRegistry, final int preprocessorCount) {
     Preconditions.checkArgument(preprocessorCount > 0, "Preprocessor count must be greater than 0");
 
@@ -34,36 +41,70 @@ public class PreprocessorRateLimiter {
     this.preprocessorCount = preprocessorCount;
   }
 
-  public Predicate<String, byte[]> createRateLimiter(
-      final String name, final long throughputBytes) {
-    double permitsPerSecond = (double) throughputBytes / preprocessorCount;
-    LOG.info(
-        "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
-        name,
-        permitsPerSecond,
-        throughputBytes,
-        preprocessorCount);
-    RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
+  public Predicate<String, Trace.Span> createRateLimiter(
+      Map<String, Long> serviceNameToThroughput) {
+    Map<String, RateLimiter> rateLimiterMap =
+        serviceNameToThroughput
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    (Map.Entry::getKey),
+                    (entry -> {
+                      double permitsPerSecond = (double) entry.getValue() / preprocessorCount;
+                      LOG.info(
+                          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
+                          entry.getKey(),
+                          permitsPerSecond,
+                          entry.getValue(),
+                          preprocessorCount);
+                      return RateLimiter.create(permitsPerSecond);
+                    })));
 
-    Iterable<Tag> tags = List.of(Tag.of("service", name));
-    Counter messagesDropped = meterRegistry.counter(MESSAGES_DROPPED, tags);
-    Counter bytesDropped = meterRegistry.counter(BYTES_DROPPED, tags);
+    return (key, value) -> {
+      if (value == null) {
+        LOG.warn("Message was dropped, was null span");
+        return false;
+      }
 
-    return (String key, byte[] value) -> {
-      if (value == null || value.length == 0) {
-        return true;
-      } else if (rateLimiter.tryAcquire(value.length)) {
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
+      int bytes = value.toByteArray().length;
+
+      if (serviceName == null || serviceName.isEmpty()) {
+        // service name wasn't provided
+        LOG.warn("Message was dropped due to missing service name - '{}'", value);
+        return false;
+      } else if (!rateLimiterMap.containsKey(serviceName)) {
+        // service isn't provisioned in our rate limit map
+        meterRegistry
+            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+            .increment();
+        meterRegistry
+            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+            .increment(bytes);
+        LOG.debug(
+            "Message was dropped from service '{}' as it not currently provisioned", serviceName);
+        return false;
+      } else if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
         return true;
       } else {
-        messagesDropped.increment();
-        bytesDropped.increment(value.length);
-        LOG.warn(
-            "Message was dropped from topic {} due to rate limiting ({} bytes per second), wanted {} bytes",
-            name,
-            permitsPerSecond,
-            value.length);
+        meterRegistry
+            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+            .increment();
+        meterRegistry
+            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+            .increment(bytes);
+        LOG.debug(
+            "Message was dropped from service '{}' due to rate limiting ({} bytes per second), wanted {} bytes",
+            serviceName,
+            rateLimiterMap.get(serviceName).getRate(),
+            serviceName);
         return false;
       }
     };
+  }
+
+  private static List<Tag> getMeterTags(String serviceName, MessageDropReason reason) {
+    return List.of(Tag.of("service", serviceName), Tag.of("reason", reason.toString()));
   }
 }
