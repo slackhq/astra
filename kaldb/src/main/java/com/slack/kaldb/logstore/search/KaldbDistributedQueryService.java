@@ -184,8 +184,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub :
         getSnapshotsToSearch(request.getStartTimeEpochMs(), request.getEndTimeEpochMs())) {
 
-      //      for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
-
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
