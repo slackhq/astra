@@ -27,7 +27,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
 
+@RunWith(Enclosed.class)
 public class KaldbKafkaConsumerTest {
   private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
