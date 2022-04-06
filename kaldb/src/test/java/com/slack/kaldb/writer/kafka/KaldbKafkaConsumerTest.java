@@ -32,7 +32,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
 
+@RunWith(Enclosed.class)
 public class KaldbKafkaConsumerTest {
   private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
@@ -55,7 +58,7 @@ public class KaldbKafkaConsumerTest {
               S3_MOCK_RULE,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
-              100L,
+              10000L,
               KaldbConfigUtil.makeIndexerConfig());
       chunkManagerUtil.chunkManager.startAsync();
       chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -126,29 +129,35 @@ public class KaldbKafkaConsumerTest {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
       final Instant startTime =
-              LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 
       // Missing consumer throws an IllegalStateException.
       assertThatIllegalStateException()
-              .isThrownBy(() -> testConsumer.getConsumerPositionForPartition());
-      TestKafkaServer.produceMessagesToKafka(broker, startTime);
-      await().until(() -> testConsumer.getEndOffSetForPartition() == 100);
+          .isThrownBy(() -> testConsumer.getConsumerPositionForPartition());
+      // The kafka consumer fetches 500 messages per poll. So, generate lots of messages so we can
+      // test the blocking logic of the consumer also.
+      TestKafkaServer.produceMessagesToKafka(
+          broker, startTime, TestKafkaServer.TEST_KAFKA_TOPIC, 0, 10000);
+      await().until(() -> testConsumer.getEndOffSetForPartition() == 10000);
 
-      final long startOffset = 21;
+      final long startOffset = 101;
       testConsumer.prepConsumerForConsumption(startOffset);
-      testConsumer.consumeMessagesBetweenOffsetsInParallel(KAFKA_POLL_TIMEOUT_MS, startOffset, 80);
+      testConsumer.consumeMessagesBetweenOffsetsInParallel(
+          KAFKA_POLL_TIMEOUT_MS, startOffset, 1300);
       // Check that messages are received and indexed.
-      assertThat(getCount(RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(60);
-      assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(60);
-      // The consumer fetches 500 records per batch. So, the consumer offset is a bit ahead of actual messages indexed.
-      // Since there are only 100 messages, we are at 100 message index.
-      assertThat(testConsumer.getConsumerPositionForPartition()).isEqualTo(100);
+      assertThat(getCount(RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1200);
+      assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1200);
+      // The consumer fetches 500 records per batch. So, the consumer offset is a bit ahead of
+      // actual messages indexed.
+      assertThat(testConsumer.getConsumerPositionForPartition()).isEqualTo(1601L);
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
       // Assign doesn't create a consumer group.
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
     }
+
+    // TODO: Test batch ingestion with roll over.
   }
 
   public static class TimeoutTests {

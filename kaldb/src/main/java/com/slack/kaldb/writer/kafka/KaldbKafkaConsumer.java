@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.KaldbConfig;
@@ -17,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.*;
-
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -213,6 +211,22 @@ public class KaldbKafkaConsumer {
     }
   }
 
+  private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
+    public BlockingArrayBlockingQueue(int capacity) {
+      super(capacity);
+    }
+
+    @Override
+    public boolean offer(E element) {
+      try {
+        return super.offer(element, Long.MAX_VALUE, TimeUnit.MINUTES);
+      } catch (InterruptedException ex) {
+        LOG.error("Exception in blocking array queue", ex);
+        return false;
+      }
+    }
+  }
+
   /**
    * Consume messages between the given start and end offset as fast as possible. This method is
    * called in the catchup indexer whose operations are idempotent. Further, we want to index the
@@ -229,10 +243,15 @@ public class KaldbKafkaConsumer {
     LOG.info("Pool size for queue is: {}", poolSize);
 
     // TODO: Track and log errors and success better.
-    LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>(100);
-    ThreadPoolExecutor executor = new ThreadPoolExecutor(poolSize, poolSize,
-            0L, TimeUnit.MILLISECONDS,
-            queue, new ThreadFactoryBuilder().setNameFormat("recovery-task-%d").build());
+    BlockingArrayBlockingQueue<Runnable> queue = new BlockingArrayBlockingQueue<>(100);
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            poolSize,
+            poolSize,
+            0L,
+            TimeUnit.MILLISECONDS,
+            queue,
+            new ThreadFactoryBuilder().setNameFormat("recovery-task-%d").build());
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
@@ -244,31 +263,35 @@ public class KaldbKafkaConsumer {
       if (recordCount > 0) {
         messagesIndexed += recordCount;
         executor.submit(
-                () -> {
-                  for (ConsumerRecord<String, byte[]> record : records) {
-                    if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                      throw new KafkaOffsetBoundsExceededException(
-                          "Record is outside of start offset range: " + startOffsetInclusive);
-                    }
-                    if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                      throw new KafkaOffsetBoundsExceededException(
-                          "Record is outside of start offset range: " + startOffsetInclusive);
-                    }
-                    try {
-                      if (logMessageWriterImpl.insertRecord(record)) {
-                        recordsReceivedCounter.increment();
-                      } else {
-                        recordsFailedCounter.increment();
-                      }
-                    } catch (IOException e) {
-                      e.printStackTrace();
-                    }
+            () -> {
+              LOG.info("ingesting a batch");
+              for (ConsumerRecord<String, byte[]> record : records) {
+                if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
+                  throw new KafkaOffsetBoundsExceededException(
+                      "Record is outside of start offset range: " + startOffsetInclusive);
+                }
+                if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                  throw new KafkaOffsetBoundsExceededException(
+                      "Record is outside of start offset range: " + startOffsetInclusive);
+                }
+                try {
+                  if (logMessageWriterImpl.insertRecord(record)) {
+                    recordsReceivedCounter.increment();
+                  } else {
+                    recordsFailedCounter.increment();
                   }
-                });
-        LOG.info("Queued");
+                } catch (IOException e) {
+                  e.printStackTrace();
+                }
+              }
+              // TODO: Not all threads are printing this message.
+              LOG.info("finished ingesting a batch");
+            });
+        LOG.debug("Queued");
       }
     }
     executor.shutdown();
+    LOG.info("Shut down");
     return executor.awaitTermination(1, TimeUnit.MINUTES);
   }
 
