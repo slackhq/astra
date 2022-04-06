@@ -164,9 +164,7 @@ public class Kaldb {
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(
               searchMetadataStore, snapshotMetadataStore, prometheusMeterRegistry);
-      new KaldbDistributedQueryService(
-          searchMetadataStore, snapshotMetadataStore, prometheusMeterRegistry);
-      final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
+      final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
