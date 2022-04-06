@@ -53,7 +53,8 @@ public class KaldbTest {
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
   private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
 
-  private static KaldbSearch.SearchResult searchUsingGrpcApi(String queryString, int port) {
+  private static KaldbSearch.SearchResult searchUsingGrpcApi(
+      String queryString, int port, long startTime, long endTime) {
     KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
         Clients.newClient(uri(port), KaldbServiceGrpc.KaldbServiceBlockingStub.class);
 
@@ -61,8 +62,8 @@ public class KaldbTest {
         KaldbSearch.SearchRequest.newBuilder()
             .setIndexName(MessageUtil.TEST_INDEX_NAME)
             .setQueryString(queryString)
-            .setStartTimeEpochMs(0L)
-            .setEndTimeEpochMs(1601547099000L)
+            .setStartTimeEpochMs(startTime)
+            .setEndTimeEpochMs(endTime)
             .setHowMany(100)
             .setBucketCount(2)
             .build());
@@ -151,7 +152,8 @@ public class KaldbTest {
       int kafkaPartition,
       String kafkaClient,
       String indexerPathPrefix,
-      int indexerCount)
+      int indexerCount,
+      Instant indexedMessagesStartTime)
       throws Exception {
     LOG.info(
         "Creating indexer service at port {}, topic: {} and partition {}",
@@ -175,10 +177,9 @@ public class KaldbTest {
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == indexerCount);
 
     // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final int indexedMessagesCount =
-        produceMessagesToKafka(kafkaServer.getBroker(), startTime, kafkaTopic, kafkaPartition);
+        produceMessagesToKafka(
+            kafkaServer.getBroker(), indexedMessagesStartTime, kafkaTopic, kafkaPartition);
 
     await()
         .until(
@@ -227,12 +228,21 @@ public class KaldbTest {
     LOG.info("Starting indexer service");
     int indexerPort = 10000;
 
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     Kaldb indexer =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
+            indexerPort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            1,
+            startTime);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);
+    KaldbSearch.SearchResult indexerSearchResponse =
+        searchUsingGrpcApi("*:*", indexerPort, 0, 1601547099000L);
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
@@ -240,7 +250,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort);
+        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -311,25 +321,43 @@ public class KaldbTest {
 
     LOG.info("Starting indexer service 1");
     int indexerPort = 10000;
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     Kaldb indexer1 =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
+            indexerPort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            1,
+            startTime);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
+    final Instant startTime2 =
+        LocalDateTime.of(2021, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     Kaldb indexer2 =
         makeIndexerAndIndexMessages(
-            indexerPort2, TEST_KAFKA_TOPIC_1, 1, KALDB_TEST_CLIENT_2, indexerPathPrefix, 2);
+            indexerPort2,
+            TEST_KAFKA_TOPIC_1,
+            1,
+            KALDB_TEST_CLIENT_2,
+            indexerPathPrefix,
+            2,
+            startTime2);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
-    KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);
+    KaldbSearch.SearchResult indexerSearchResponse =
+        searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L);
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
-    KaldbSearch.SearchResult indexer2SearchResponse = searchUsingGrpcApi("*:*", indexerPort2);
+    KaldbSearch.SearchResult indexer2SearchResponse =
+        searchUsingGrpcApi("*:*", indexerPort2, 0, Long.MAX_VALUE);
     assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
@@ -337,7 +365,14 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort);
+        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    queryServiceSearchResponse = searchUsingGrpcApi("*:*", queryServicePort, 0, Long.MAX_VALUE);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -346,7 +381,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse2 =
-        searchUsingGrpcApi("Message100", queryServicePort);
+        searchUsingGrpcApi("Message100", queryServicePort, 0, Long.MAX_VALUE);
 
     assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);

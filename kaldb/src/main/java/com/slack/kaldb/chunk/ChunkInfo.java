@@ -186,19 +186,9 @@ public class ChunkInfo {
         endTimeMs - startTimeMs >= 0,
         String.format(
             "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
-    boolean shouldSearch =
-        (chunkStartTimeMs <= startTimeMs && chunkEndTimeMs >= startTimeMs)
-            || (chunkStartTimeMs <= endTimeMs && chunkEndTimeMs >= endTimeMs)
-            || (chunkStartTimeMs >= startTimeMs && chunkEndTimeMs <= endTimeMs);
-
-    LOG.warn(
-        "TEST:: chunkStartTimeMs={} chunkEndTimeMs={} startTimeMs={} endTimeMs={} will return={}",
-        chunkStartTimeMs,
-        chunkEndTimeMs,
-        startTimeMs,
-        endTimeMs,
-        shouldSearch);
-    return shouldSearch;
+    return (chunkStartTimeMs <= startTimeMs && chunkEndTimeMs >= startTimeMs)
+        || (chunkStartTimeMs <= endTimeMs && chunkEndTimeMs >= endTimeMs)
+        || (chunkStartTimeMs >= startTimeMs && chunkEndTimeMs <= endTimeMs);
   }
 
   /*
