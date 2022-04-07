@@ -37,6 +37,7 @@ public class RecoveryService extends AbstractIdleService {
 
   private final SearchContext searchContext;
   private final MetadataStore metadataStore;
+  private final MeterRegistry meterRegistry;
 
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
@@ -60,6 +61,7 @@ public class RecoveryService extends AbstractIdleService {
       MeterRegistry meterRegistry) {
     this.metadataStore = metadataStore;
     this.searchContext = SearchContext.fromConfig(recoveryConfig.getServerConfig());
+    this.meterRegistry = meterRegistry;
 
     // we use a single thread executor to allow operations for this recovery node to queue,
     // guaranteeing that they are executed in the order they were received
@@ -144,11 +146,11 @@ public class RecoveryService extends AbstractIdleService {
       RecoveryTaskMetadata recoveryTaskMetadata =
           recoveryTaskMetadataStore.getNodeSync(recoveryNodeMetadata.recoveryTaskName);
 
-      // todo - index between recoveryTaskMetadata.startOffset and recoveryTaskMetadata.endOffset,
-      //   upload to S3, create the snapshot
+      // Process recovery task.
+      handleRecoveryTask(recoveryTaskMetadata);
 
-      // todo - delete the completed recovery task
-      //   recoveryTaskMetadataStore.delete(recoveryTaskMetadata.name);
+      // delete the completed recovery task
+      recoveryTaskMetadataStore.deleteSync(recoveryTaskMetadata.name);
 
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
       recoveryNodeCompletedAssignment.increment();
@@ -157,6 +159,34 @@ public class RecoveryService extends AbstractIdleService {
       LOG.error("Failed to complete recovery node task assignment", e);
       recoveryNodeFailedAssignment.increment();
     }
+  }
+
+  // index between recoveryTaskMetadata.startOffset and recoveryTaskMetadata.endOffset,
+  //   upload to S3, create the snapshot
+  private void handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+    // Create an recovery chunk manager from an indexing chunk manager.
+    // recovery chunk manager - indexing chunk manager that stops indexing at an offset - no search
+    // and no cleaner.
+    // on close upload active chunk to S3.
+    // returns bool when done.
+    //    IndexingChunkManager<LogMessage> chunkManager =
+    //        IndexingChunkManager.fromConfig(
+    //            meterRegistry,
+    //            metadataStore,
+    //            kaldbConfig.getIndexerConfig(),
+    //            blobFs,
+    //            kaldbConfig.getS3Config());
+    //    // Index the data until offset.
+    //    KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
+    //    // consume messages in parallel.
+    //    kafkaConsumer.consumeMessages();
+    //
+    //    // close and upload active chunk to S3.
+    //    chunkManager.rollOverActiveChunk();
+    //
+    //    // Close the indexing chunk manager and kafka consumer.
+    //    kafkaConsumer.close();
+    //    chunkManager.close();
   }
 
   @VisibleForTesting

@@ -122,8 +122,7 @@ public class KaldbTest {
   }
 
   private KaldbConfigs.KaldbConfig makeKaldbConfig(
-      int indexPort,
-      int queryPort,
+      int port,
       String kafkaTopic,
       int kafkaPartition,
       String clientName,
@@ -132,12 +131,12 @@ public class KaldbTest {
       int maxOffsetDelay) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
-        indexPort,
+        port,
         kafkaTopic,
         kafkaPartition,
         clientName,
         TEST_S3_BUCKET,
-        queryPort,
+        port + 1,
         zkServer.getConnectString(),
         zkPathPrefix,
         nodeRole,
@@ -162,7 +161,6 @@ public class KaldbTest {
     KaldbConfigs.KaldbConfig indexerConfig =
         makeKaldbConfig(
             indexerPort,
-            -1,
             kafkaTopic,
             kafkaPartition,
             kafkaClient,
@@ -209,10 +207,9 @@ public class KaldbTest {
     String indexerPathPrefix = "indexer1";
 
     LOG.info("Starting query service");
-    int queryServicePort = 8887;
+    int queryServicePort = 11000;
     KaldbConfigs.KaldbConfig queryServiceConfig =
         makeKaldbConfig(
-            -1,
             queryServicePort,
             TEST_KAFKA_TOPIC_1,
             0,
@@ -240,7 +237,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort);
+        searchUsingGrpcApi("*:*", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -292,10 +289,9 @@ public class KaldbTest {
     String indexerPathPrefix = "indexer1";
 
     LOG.info("Starting query service");
-    int queryServicePort = 8888;
+    int queryServicePort = 11000;
     KaldbConfigs.KaldbConfig queryServiceConfig =
         makeKaldbConfig(
-            -1,
             queryServicePort,
             TEST_KAFKA_TOPIC_1,
             0,
@@ -335,7 +331,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort);
+        searchUsingGrpcApi("*:*", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -344,7 +340,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse2 =
-        searchUsingGrpcApi("Message100", queryServicePort);
+        searchUsingGrpcApi("Message100", queryServicePort + 1);
 
     assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);
