@@ -29,6 +29,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
@@ -274,6 +275,24 @@ public class Kaldb {
       RecoveryService recoveryService =
           new RecoveryService(recoveryConfig, metadataStore, prometheusMeterRegistry);
       services.add(recoveryService);
+    }
+
+    if (roles.contains(KaldbConfigs.NodeRole.PREPROCESSOR)) {
+      final KaldbConfigs.PreprocessorConfig preprocessorConfig =
+          kaldbConfig.getPreprocessorConfig();
+      final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
+
+      ArmeriaService armeriaService =
+          new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", prometheusMeterRegistry)
+              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .build();
+      services.add(armeriaService);
+
+      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      PreprocessorService preprocessorService =
+          new PreprocessorService(
+              serviceMetadataStore, preprocessorConfig, prometheusMeterRegistry);
+      services.add(preprocessorService);
     }
 
     return services;

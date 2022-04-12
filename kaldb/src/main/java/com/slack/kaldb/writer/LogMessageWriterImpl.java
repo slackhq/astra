@@ -78,6 +78,14 @@ public class LogMessageWriterImpl implements MessageWriter {
         return msg.map(List::of).orElse(Collections.emptyList());
       };
 
+  // A protobuf Trace.Span
+  public static final LogMessageTransformer traceSpanTransformer =
+      (ConsumerRecord<String, byte[]> record) -> {
+        final Trace.Span span = Trace.Span.parseFrom(record.value());
+        final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
+        return SpanFormatter.toLogMessage(listOfSpans);
+      };
+
   private final IndexingChunkManager<LogMessage> chunkManager;
   private final LogMessageTransformer dataTransformer;
 
@@ -114,6 +122,12 @@ public class LogMessageWriterImpl implements MessageWriter {
     return true;
   }
 
+  /**
+   * Move all Kafka message serializers to common class
+   *
+   * @see com.slack.kaldb.preprocessor.KaldbSerdes
+   */
+  @Deprecated
   public static Murron.MurronMessage toMurronMessage(byte[] recordStr) {
     Murron.MurronMessage murronMsg = null;
     if (recordStr == null || recordStr.length == 0) return null;

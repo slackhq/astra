@@ -663,7 +663,7 @@ public class SnapshotDeletionServiceTest {
     int deletesRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletesRetry).isEqualTo(1);
 
-    assertThat(snapshotMetadataStore.getCached().size()).isEqualTo(0);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 0);
     // delete was called once before - should still be only once
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
