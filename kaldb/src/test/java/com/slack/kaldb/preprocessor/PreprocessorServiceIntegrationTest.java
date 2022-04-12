@@ -87,13 +87,13 @@ public class PreprocessorServiceIntegrationTest {
     preprocessorService.startAsync();
     preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    assertThat(MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry))
+    assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(1);
     serviceMetadataStore.createSync(new ServiceMetadata("name", "owner", 0, List.of()));
 
     // wait for the cache to be updated
     await().until(() -> serviceMetadataStore.listSync().size() == 1);
-    assertThat(MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry))
+    assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(2);
 
     preprocessorService.stopAsync();
@@ -153,7 +153,7 @@ public class PreprocessorServiceIntegrationTest {
     preprocessorService.startAsync();
     preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    assertThat(MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry))
+    assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(1);
 
     // create a new service config with dummy data
@@ -168,8 +168,11 @@ public class PreprocessorServiceIntegrationTest {
 
     // wait for the cache to be updated
     await().until(() -> serviceMetadataStore.listSync().size() == 1);
-    assertThat(MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry))
-        .isEqualTo(2);
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
+                    == 2);
 
     // update the service config with our desired configuration
     ServiceMetadata updatedServiceMetadata =
@@ -186,7 +189,7 @@ public class PreprocessorServiceIntegrationTest {
     await()
         .until(
             () ->
-                MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry)
+                MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
                     == 3);
     assertThat(serviceMetadataStore.listSync().size()).isEqualTo(1);
     assertThat(serviceMetadataStore.listSync().get(0).getThroughputBytes())

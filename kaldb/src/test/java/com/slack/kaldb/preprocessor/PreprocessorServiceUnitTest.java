@@ -350,7 +350,7 @@ public class PreprocessorServiceUnitTest {
     preprocessorService.startAsync();
     preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    assertThat(MetricsUtil.getCount(PreprocessorService.CONFIG_RELOAD_COUNTER, meterRegistry))
+    assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(1);
 
     preprocessorService.stopAsync();

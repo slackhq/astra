@@ -30,6 +30,7 @@ public class PreprocessorRateLimiter {
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
 
   public enum MessageDropReason {
+    MISSING_SERVICE_NAME,
     NOT_PROVISIONED,
     OVER_LIMIT
   }
@@ -69,12 +70,22 @@ public class PreprocessorRateLimiter {
 
       String serviceName = PreprocessorValueMapper.getServiceName(value);
       int bytes = value.toByteArray().length;
-
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided
         LOG.warn("Message was dropped due to missing service name - '{}'", value);
+        // todo - we may consider adding a logging BurstFilter so that a bad actor cannot
+        // inadvertently swamp the system
+        //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
+        meterRegistry
+            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .increment();
+        meterRegistry
+            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .increment(bytes);
         return false;
-      } else if (!rateLimiterMap.containsKey(serviceName)) {
+      }
+
+      if (!rateLimiterMap.containsKey(serviceName)) {
         // service isn't provisioned in our rate limit map
         meterRegistry
             .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
@@ -85,22 +96,25 @@ public class PreprocessorRateLimiter {
         LOG.debug(
             "Message was dropped from service '{}' as it not currently provisioned", serviceName);
         return false;
-      } else if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
-        return true;
-      } else {
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-            .increment();
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-            .increment(bytes);
-        LOG.debug(
-            "Message was dropped from service '{}' due to rate limiting ({} bytes per second), wanted {} bytes",
-            serviceName,
-            rateLimiterMap.get(serviceName).getRate(),
-            serviceName);
-        return false;
       }
+
+      if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
+        return true;
+      }
+
+      // message should be dropped due to rate limit
+      meterRegistry
+          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .increment();
+      meterRegistry
+          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .increment(bytes);
+      LOG.debug(
+          "Message was dropped from service '{}' due to rate limiting ({} bytes per second), wanted {} bytes",
+          serviceName,
+          rateLimiterMap.get(serviceName).getRate(),
+          serviceName);
+      return false;
     };
   }
 

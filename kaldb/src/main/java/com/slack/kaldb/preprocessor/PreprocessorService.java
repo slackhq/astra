@@ -4,15 +4,15 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
 import java.util.Collections;
 import java.util.List;
@@ -40,8 +40,14 @@ import org.slf4j.LoggerFactory;
  * specific partitions. The rate limits, and target partitions are read in via the
  * ServiceMetadataStore, with the upstream topic, downstream topic, and transforms stored in the
  * service config.
+ *
+ * <p>Changes to the ServiceMetadata will cause the existing Kafka Stream topology to be closed, and
+ * this service will restart consumption with a new stream topology representing the newly updated
+ * metadata. This class implements a doStart/doStop similar to the AbstractIdleService, but by
+ * extending an AbstractService we also gain access to notifyFailed() in the event a subsequent load
+ * were to fail.
  */
-public class PreprocessorService extends AbstractIdleService {
+public class PreprocessorService extends AbstractService {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorService.class);
   private static final long MAX_TIME = Long.MAX_VALUE;
 
@@ -56,8 +62,8 @@ public class PreprocessorService extends AbstractIdleService {
   private KafkaStreams kafkaStreams;
   private KafkaStreamsMetrics kafkaStreamsMetrics;
 
-  private final Counter configReloadCounter;
-  public static final String CONFIG_RELOAD_COUNTER = "preprocessor_config_reload_counter";
+  private final Timer configReloadTimer;
+  public static final String CONFIG_RELOAD_TIMER = "preprocessor_config_reload_timer";
 
   public PreprocessorService(
       ServiceMetadataStore serviceMetadataStore,
@@ -65,7 +71,7 @@ public class PreprocessorService extends AbstractIdleService {
       MeterRegistry meterRegistry) {
     this.serviceMetadataStore = serviceMetadataStore;
     this.meterRegistry = meterRegistry;
-    this.configReloadCounter = meterRegistry.counter(CONFIG_RELOAD_COUNTER);
+    this.configReloadTimer = meterRegistry.timer(CONFIG_RELOAD_TIMER);
 
     this.kafkaProperties = makeKafkaStreamsProps(preprocessorConfig.getKafkaStreamConfig());
     this.downstreamTopic = preprocessorConfig.getDownstreamTopic();
@@ -77,15 +83,33 @@ public class PreprocessorService extends AbstractIdleService {
   }
 
   @Override
-  protected void startUp() throws Exception {
+  protected void doStart() {
+    try {
+      startUp();
+      notifyStarted();
+    } catch (Throwable t) {
+      notifyFailed(t);
+    }
+  }
+
+  @Override
+  protected void doStop() {
+    try {
+      shutDown();
+      notifyStopped();
+    } catch (Throwable t) {
+      notifyFailed(t);
+    }
+  }
+
+  private void startUp() {
     LOG.info("Starting preprocessor service");
     load();
     serviceMetadataStore.addListener(this::load);
     LOG.info("Preprocessor service started");
   }
 
-  @Override
-  protected void shutDown() throws Exception {
+  private void shutDown() {
     LOG.info("Stopping preprocessor service");
     if (kafkaStreams != null) {
       kafkaStreams.close(DEFAULT_START_STOP_DURATION);
@@ -103,37 +127,42 @@ public class PreprocessorService extends AbstractIdleService {
    * must be synchronized if using this method as part of a listener.
    */
   public synchronized void load() {
-    configReloadCounter.increment();
-    LOG.info("Loading new Kafka stream processor config");
-    if (kafkaStreams != null) {
-      LOG.info("Closing existing Kafka stream processor");
-      kafkaStreams.close();
-      kafkaStreams.cleanUp();
-    }
-    if (kafkaStreamsMetrics != null) {
-      kafkaStreamsMetrics.close();
-    }
+    try {
+      Timer.Sample loadTimer = Timer.start(meterRegistry);
+      LOG.info("Loading new Kafka stream processor config");
+      if (kafkaStreams != null) {
+        LOG.info("Closing existing Kafka stream processor");
+        kafkaStreams.close();
+        kafkaStreams.cleanUp();
+      }
+      if (kafkaStreamsMetrics != null) {
+        kafkaStreamsMetrics.close();
+      }
 
-    // only attempt to register stream processing on valid service configurations
-    List<ServiceMetadata> serviceMetadataToProcess =
-        filterValidServiceMetadata(serviceMetadataStore.listSync());
+      // only attempt to register stream processing on valid service configurations
+      List<ServiceMetadata> serviceMetadataToProcess =
+          filterValidServiceMetadata(serviceMetadataStore.listSync());
 
-    if (serviceMetadataToProcess.size() > 0) {
-      Topology topology =
-          buildTopology(
-              serviceMetadataToProcess,
-              rateLimiter,
-              upstreamTopics,
-              downstreamTopic,
-              dataTransformer);
-      kafkaStreams = new KafkaStreams(topology, kafkaProperties);
-      kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
-      kafkaStreamsMetrics.bindTo(meterRegistry);
-      kafkaStreams.start();
-      LOG.info("Kafka stream processor config loaded successfully");
-    } else {
-      LOG.info(
-          "No valid service configurations found to process - will retry on next service configuration update");
+      if (serviceMetadataToProcess.size() > 0) {
+        Topology topology =
+            buildTopology(
+                serviceMetadataToProcess,
+                rateLimiter,
+                upstreamTopics,
+                downstreamTopic,
+                dataTransformer);
+        kafkaStreams = new KafkaStreams(topology, kafkaProperties);
+        kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
+        kafkaStreamsMetrics.bindTo(meterRegistry);
+        kafkaStreams.start();
+        LOG.info("Kafka stream processor config loaded successfully");
+      } else {
+        LOG.info(
+            "No valid service configurations found to process - will retry on next service configuration update");
+      }
+      loadTimer.stop(configReloadTimer);
+    } catch (Exception e) {
+      notifyFailed(e);
     }
   }
 
@@ -158,6 +187,7 @@ public class PreprocessorService extends AbstractIdleService {
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
+
     StreamPartitioner<String, Trace.Span> streamPartitioner =
         streamPartitioner(
             serviceMetadataList
@@ -165,6 +195,7 @@ public class PreprocessorService extends AbstractIdleService {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         KaldbMetadata::getName, PreprocessorService::getActivePartitionList)));
+
     Predicate<String, Trace.Span> rateLimitPredicate =
         rateLimiter.createRateLimiter(
             serviceMetadataList
