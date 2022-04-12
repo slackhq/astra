@@ -72,9 +72,9 @@ public class PreprocessorRateLimiter {
       int bytes = value.toByteArray().length;
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided
-        LOG.warn("Message was dropped due to missing service name - '{}'", value);
+        LOG.debug("Message was dropped due to missing service name - '{}'", value);
         // todo - we may consider adding a logging BurstFilter so that a bad actor cannot
-        // inadvertently swamp the system
+        //  inadvertently swamp the system if we want to increase this logging level
         //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
         meterRegistry
             .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
