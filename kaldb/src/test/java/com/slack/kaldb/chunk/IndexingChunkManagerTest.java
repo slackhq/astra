@@ -3,9 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
@@ -15,8 +13,7 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.MetricsUtil.getValue;
+import static com.slack.kaldb.testlib.MetricsUtil.*;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -1015,6 +1012,7 @@ public class IndexingChunkManagerTest {
     }
 
     await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
+    assertThat(getTimerCount(ROLLOVER_TIMER, metricsRegistry)).isEqualTo(1);
     checkMetadata(1, 1, 0, 1, 1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -1192,6 +1190,7 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+    assertThat(getTimerCount(ROLLOVER_TIMER, metricsRegistry)).isEqualTo(2);
   }
 
   private void insertMessages(
