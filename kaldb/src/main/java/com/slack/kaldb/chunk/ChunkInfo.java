@@ -4,8 +4,6 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import java.util.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * ChunkInfo class holds the metadata about a single Chunk. This metadata is used by components like
@@ -19,8 +17,6 @@ import org.slf4j.LoggerFactory;
  * <p>TODO: Have a read only chunk info for read only chunks so we don't accidentally update it.
  */
 public class ChunkInfo {
-
-  private static final Logger LOG = LoggerFactory.getLogger(ChunkInfo.class);
 
   public static final long MAX_FUTURE_TIME = Long.MAX_VALUE;
   public static final int DEFAULT_MAX_OFFSET = 0;
