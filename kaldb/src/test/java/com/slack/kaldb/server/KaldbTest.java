@@ -281,6 +281,8 @@ public class KaldbTest {
         .isEqualTo(true);
     assertThat(runHealthCheckOnPort(kaldbConfig.getManagerConfig().getServerConfig()))
         .isEqualTo(true);
+    assertThat(runHealthCheckOnPort(kaldbConfig.getPreprocessorConfig().getServerConfig()))
+        .isEqualTo(true);
 
     // shutdown
     kaldb.shutdown();

@@ -97,7 +97,9 @@ public class KaldbConfig {
           "spans",
           LogMessageWriterImpl.spanTransformer,
           "json",
-          LogMessageWriterImpl.jsonLogMessageTransformer);
+          LogMessageWriterImpl.jsonLogMessageTransformer,
+          "trace_span",
+          LogMessageWriterImpl.traceSpanTransformer);
 
   public static void validateDataTransformerConfig(String dataTransformerConfig) {
     checkArgument(
