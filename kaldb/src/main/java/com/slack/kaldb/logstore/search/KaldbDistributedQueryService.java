@@ -14,6 +14,7 @@ import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -139,6 +140,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotsToSearch(
       long startTimeMs, long endTimeMs) {
+
+    // step 1 - find all snapshots that match time window
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
             .getCached()
@@ -153,14 +156,68 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    return searchMetadataStore
-        .getCached()
+    // step 2 - take all search metadata de-duplicate search metadata hosted by same snapshot and
+    // pick one
+    Collections.shuffle(searchMetadataStore.getCached());
+    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
+    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
+      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
+    }
+
+    // step 3 - iterate every snapshot and map it to the search metadata
+    return snapshotsToSearch
         .stream()
-        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .map(searchMetadata -> searchMetadata.url)
+        .map(searchMetadataToQuery::get)
+        .filter(Objects::nonNull)
         .map(this::getStub)
         .collect(Collectors.toSet());
+
+    //    Set<String> filteredSnapshotsToSearch =
+    //        snapshotsToSearch
+    //            .stream()
+    //            .filter(
+    //                snapshotName -> !containsLiveAndNonLiveSnapshot(snapshotsToSearch,
+    // snapshotName))
+    //            .collect(Collectors.toSet());
+
+    // There will be multiple entries of search metadata with the same snapshot name ( multiple
+    // replicas )
+    // Take a list of search metadata nodes, shuffle it so that we don't always pick the first entry
+    // from it and then pick one of them
+    //    Collections.shuffle(searchMetadataStore.getCached());
+    //    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
+    //    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
+    //      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
+    //    }
+
+    //    return searchMetadataToQuery
+    //        .entrySet()
+    //        .stream()
+    //        .filter(searchMetadataEntry ->
+    // snapshotsToSearch.contains(searchMetadataEntry.getKey()))
+    //        .map(Map.Entry::getValue)
+    //        .map(this::getStub)
+    //        .collect(Collectors.toSet());
+
+    //    return filteredSnapshotsToSearch.stream()
+    //            .map(searchMetadataToQuery::get)
+    //            .map(this::getStub)
+    //            .collect(Collectors.toSet());
+
+    //    return searchMetadataStore.getCached()
+    //        .stream()
+    //        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
+    //        .map(searchMetadata -> searchMetadata.url)
+    //        .map(this::getStub)
+    //        .collect(Collectors.toSet());
   }
+
+  //  public boolean containsLiveAndNonLiveSnapshot(
+  //      Set<String> snapshotsToSearch, String snapshotName) {
+  //    return snapshotName.startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH)
+  //        && snapshotsToSearch.contains(
+  //            snapshotName.substring(SnapshotMetadata.LIVE_SNAPSHOT_PATH.length()));
+  //  }
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getStub(String url) {
     if (stubs.get(url) != null) {
