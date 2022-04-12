@@ -69,7 +69,7 @@ public class PreprocessorRateLimiter {
       }
 
       String serviceName = PreprocessorValueMapper.getServiceName(value);
-      int bytes = value.toByteArray().length;
+      int bytes = value.getSerializedSize();
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided
         LOG.debug("Message was dropped due to missing service name - '{}'", value);
