@@ -93,6 +93,7 @@ public class Kaldb {
 
   public void start() throws Exception {
     setupSystemMetrics(prometheusMeterRegistry);
+    addShutdownHook();
 
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
@@ -105,7 +106,6 @@ public class Kaldb {
         getServices(metadataStore, kaldbConfig, s3BlobFs, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
-    addShutdownHook();
 
     serviceManager.startAsync();
   }
