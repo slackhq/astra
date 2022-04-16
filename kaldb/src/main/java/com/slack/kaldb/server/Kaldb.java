@@ -329,6 +329,7 @@ public class Kaldb {
   }
 
   private void addShutdownHook() {
+    LOG.info("Running shutdown hook.");
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
