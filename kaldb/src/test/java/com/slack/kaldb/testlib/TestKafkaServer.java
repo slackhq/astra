@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -125,6 +127,14 @@ public class TestKafkaServer {
     return adminClient.listConsumerGroups().all().get().size();
   }
 
+  public void createTopicWithPartitions(String topic, int numPartitions)
+      throws ExecutionException, InterruptedException {
+    adminClient
+        .createTopics(Collections.singleton(new NewTopic(topic, numPartitions, (short) 1)))
+        .all()
+        .get();
+  }
+
   public CompletableFuture<Void> getBrokerStart() {
     return brokerStart;
   }
@@ -134,6 +144,7 @@ public class TestKafkaServer {
   }
 
   public void close() throws ExecutionException, InterruptedException {
+    adminClient.close();
     if (broker != null) {
       broker.stop();
     }

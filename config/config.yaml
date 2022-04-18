@@ -1,4 +1,4 @@
-nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY}]
+nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY,PREPROCESSOR}]
 
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
@@ -75,8 +75,22 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
 
-
 recoveryConfig:
   serverConfig:
     serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
     serverAddress: ${KALDB_RECOVERY_SERVER_ADDRESS:-localhost}
+
+preprocessorConfig:
+  kafkaStreamConfig:
+    bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    applicationId: ${KAFKA_APPLICATION_ID:-kaldb_preprocessor}
+    numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
+    processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
+  serverConfig:
+    serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
+    serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
+  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic}]
+  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
+  preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
+  dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
+  rateLimitSmoothingMicros: ${PREPROCESSOR_RATE_LIMIT_SMOOTHING_MICROS:-0}
