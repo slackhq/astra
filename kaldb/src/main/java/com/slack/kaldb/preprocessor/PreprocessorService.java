@@ -79,7 +79,9 @@ public class PreprocessorService extends AbstractService {
     this.dataTransformer = preprocessorConfig.getDataTransformer();
     this.rateLimiter =
         new PreprocessorRateLimiter(
-            meterRegistry, preprocessorConfig.getPreprocessorInstanceCount());
+            meterRegistry,
+            preprocessorConfig.getPreprocessorInstanceCount(),
+            preprocessorConfig.getRateLimitSmoothingMicros());
   }
 
   @Override
