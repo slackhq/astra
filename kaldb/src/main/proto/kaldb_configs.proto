@@ -198,4 +198,7 @@ message PreprocessorConfig {
   // The number of preprocessor instances
   // Used for calculating target throughput per instance
   int32 preprocessor_instance_count = 6;
+
+  // Amount of time in microseconds the rate limiter can wait for acquire
+  int64 rateLimitSmoothingMicros = 7;
 }

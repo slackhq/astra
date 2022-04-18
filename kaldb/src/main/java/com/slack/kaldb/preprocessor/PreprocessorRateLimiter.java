@@ -5,6 +5,8 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +27,7 @@ public class PreprocessorRateLimiter {
 
   private final MeterRegistry meterRegistry;
   private final int preprocessorCount;
+  private final Duration rateLimitDuration;
 
   public static final String MESSAGES_DROPPED = "preprocessor_rate_limit_messages_dropped";
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
@@ -35,11 +38,18 @@ public class PreprocessorRateLimiter {
     OVER_LIMIT
   }
 
-  public PreprocessorRateLimiter(final MeterRegistry meterRegistry, final int preprocessorCount) {
+  public PreprocessorRateLimiter(
+      final MeterRegistry meterRegistry,
+      final int preprocessorCount,
+      final long rateLimitSmoothingMicros) {
     Preconditions.checkArgument(preprocessorCount > 0, "Preprocessor count must be greater than 0");
+    Preconditions.checkArgument(
+        rateLimitSmoothingMicros >= 0,
+        "Preprocessor rateLimitSmoothingMicros must be greater than or equal to 0");
 
     this.meterRegistry = meterRegistry;
     this.preprocessorCount = preprocessorCount;
+    this.rateLimitDuration = Duration.of(rateLimitSmoothingMicros, ChronoUnit.MICROS);
   }
 
   public Predicate<String, Trace.Span> createRateLimiter(
@@ -98,7 +108,7 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
+      if (rateLimiterMap.get(serviceName).tryAcquire(bytes, rateLimitDuration)) {
         return true;
       }
 

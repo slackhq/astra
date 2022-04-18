@@ -243,8 +243,9 @@ public class PreprocessorServiceUnitTest {
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;
+    int rateLimitSmoothingMicros = 0;
     PreprocessorRateLimiter rateLimiter =
-        new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
+        new PreprocessorRateLimiter(meterRegistry, preprocessorCount, rateLimitSmoothingMicros);
 
     List<String> upstreamTopics = List.of("upstream1", "upstream2", "upstream3");
     String downstreamTopic = "downstream";
@@ -269,8 +270,9 @@ public class PreprocessorServiceUnitTest {
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;
+    int rateLimitSmoothingMicros = 0;
     PreprocessorRateLimiter rateLimiter =
-        new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
+        new PreprocessorRateLimiter(meterRegistry, preprocessorCount, rateLimitSmoothingMicros);
     List<String> upstreamTopics = List.of("upstream");
     String downstreamTopic = "downstream";
     String dataTransformer = "api_log";
