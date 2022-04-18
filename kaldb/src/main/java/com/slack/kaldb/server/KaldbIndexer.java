@@ -90,6 +90,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
    * can't catch up.
    */
   private long indexerPreStart() throws Exception {
+    LOG.info("Starting Kaldb indexer pre start.");
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(metadataStore, false);
@@ -111,6 +112,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     // Close these stores since we don't need them after preStart.
     snapshotMetadataStore.close();
     recoveryTaskMetadataStore.close();
+    LOG.info("Completed Kaldb indexer pre start.");
 
     return startOffset;
   }
