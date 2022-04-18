@@ -313,6 +313,7 @@ public class Kaldb {
   }
 
   void shutdown() {
+    LOG.info("Running shutdown hook.");
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
     } catch (Exception e) {
@@ -329,7 +330,6 @@ public class Kaldb {
   }
 
   private void addShutdownHook() {
-    LOG.info("Running shutdown hook.");
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
