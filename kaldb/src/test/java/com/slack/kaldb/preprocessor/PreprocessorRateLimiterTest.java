@@ -20,7 +20,7 @@ public class PreprocessorRateLimiterTest {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 2;
     PreprocessorRateLimiter rateLimiter =
-        new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
+        new PreprocessorRateLimiter(meterRegistry, preprocessorCount, 0);
 
     String name = "rateLimiter";
     Trace.Span span =
@@ -63,7 +63,7 @@ public class PreprocessorRateLimiterTest {
   @Test
   public void shouldDropMessagesWithNoConfiguration() {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
-    PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1);
+    PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 0);
 
     Trace.Span span =
         Trace.Span.newBuilder()
@@ -104,7 +104,7 @@ public class PreprocessorRateLimiterTest {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;
     PreprocessorRateLimiter rateLimiter =
-        new PreprocessorRateLimiter(meterRegistry, preprocessorCount);
+        new PreprocessorRateLimiter(meterRegistry, preprocessorCount, 0);
 
     String name = "rateLimiter";
     long targetThroughput = 1000;
@@ -119,6 +119,27 @@ public class PreprocessorRateLimiterTest {
   public void shouldThrowOnInvalidConfigurations() {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new PreprocessorRateLimiter(meterRegistry, 0));
+        .isThrownBy(() -> new PreprocessorRateLimiter(meterRegistry, 0, 0));
+  }
+
+  @Test
+  public void shouldAllowRateLimitSmoothingOptions() {
+    String name = "rateLimiter";
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(name).build())
+            .build();
+
+    long rateLimitSmoothingMicros = 750000;
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    PreprocessorRateLimiter rateLimiter =
+        new PreprocessorRateLimiter(meterRegistry, 1, rateLimitSmoothingMicros);
+
+    long targetThroughput = (span.getSerializedSize() * 2L) - 1;
+    Predicate<String, Trace.Span> predicate =
+        rateLimiter.createRateLimiter(Map.of(name, targetThroughput));
+
+    assertThat(predicate.test("key", span)).isTrue();
+    assertThat(predicate.test("key", span)).isTrue();
   }
 }
