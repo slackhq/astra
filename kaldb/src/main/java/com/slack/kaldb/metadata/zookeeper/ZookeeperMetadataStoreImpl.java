@@ -143,7 +143,8 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
                   && curatorEvent.getWatchedEvent().getState()
                       == Watcher.Event.KeeperState.Expired) {
                 LOG.warn("The ZK session has expired {}.", curatorEvent);
-                fatalErrorHandler.handleFatal(new Throwable("ZK session expired."));
+                // todo - temporarily disabled to test ZK instability issues
+                // fatalErrorHandler.handleFatal(new Throwable("ZK session expired."));
               }
             });
 
