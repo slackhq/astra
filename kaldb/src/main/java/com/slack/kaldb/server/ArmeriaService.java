@@ -150,7 +150,15 @@ public class ArmeriaService extends AbstractIdleService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Shutting down");
-    server.closeAsync().get(15, TimeUnit.SECONDS);
+
+    // On server close there is an option for a graceful shutdown, which is disabled by default.
+    // When it is
+    // disabled it immediately starts rejecting requests and begins the shutdown process, which
+    // includes
+    // running any remaining AsyncClosableSupport closeAsync actions. We want to allow this to take
+    // up to the
+    // maximum permissible shutdown time to successfully close.
+    server.close();
   }
 
   @Override
