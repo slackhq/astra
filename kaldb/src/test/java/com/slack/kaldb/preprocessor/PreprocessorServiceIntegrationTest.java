@@ -70,7 +70,8 @@ public class PreprocessorServiceIntegrationTest {
             .build();
     KaldbConfigs.ServerConfig serverConfig =
         KaldbConfigs.ServerConfig.newBuilder()
-            .setServerPort(8080)
+            .setAppServerPort(8080)
+            .setAdminServerPort(8180)
             .setServerAddress("localhost")
             .build();
     KaldbConfigs.PreprocessorConfig preprocessorConfig =
@@ -132,7 +133,8 @@ public class PreprocessorServiceIntegrationTest {
             .build();
     KaldbConfigs.ServerConfig serverConfig =
         KaldbConfigs.ServerConfig.newBuilder()
-            .setServerPort(8080)
+            .setAppServerPort(8080)
+            .setAdminServerPort(8180)
             .setServerAddress("localhost")
             .build();
 

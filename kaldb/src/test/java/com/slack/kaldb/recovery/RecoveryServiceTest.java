@@ -52,7 +52,8 @@ public class RecoveryServiceTest {
 
     KaldbConfigs.ServerConfig serverConfig =
         KaldbConfigs.ServerConfig.newBuilder()
-            .setServerPort(1234)
+            .setAppServerPort(1234)
+            .setAdminServerPort(1235)
             .setServerAddress("localhost")
             .build();
 

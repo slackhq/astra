@@ -510,7 +510,8 @@ public class ReadOnlyChunkImplTest {
             .setServerConfig(
                 KaldbConfigs.ServerConfig.newBuilder()
                     .setServerAddress("localhost")
-                    .setServerPort(8080)
+                    .setAppServerPort(8080)
+                    .setAdminServerPort(8180)
                     .build())
             .build();
 

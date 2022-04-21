@@ -14,7 +14,7 @@ public class SearchContext {
   public static final String GRPC_PROTOCOL = "gproto+http://";
 
   public static SearchContext fromConfig(KaldbConfigs.ServerConfig serverConfig) {
-    return new SearchContext(serverConfig.getServerAddress(), serverConfig.getServerPort());
+    return new SearchContext(serverConfig.getServerAddress(), serverConfig.getAppServerPort());
   }
 
   public final String hostname;

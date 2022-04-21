@@ -5,12 +5,14 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 public class KaldbConfigUtil {
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(
       String bootstrapServers,
-      int indexerPort,
+      int indexerAppPort,
+      int indexerAdminPort,
       String kafkaTopic,
       int kafkaPartition,
       String kafkaClientGroup,
       String s3Bucket,
-      int queryPort,
+      int queryAppPort,
+      int queryAdminPort,
       String metadataZkConnectionString,
       String metadataZkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
@@ -39,7 +41,8 @@ public class KaldbConfigUtil {
         KaldbConfigs.IndexerConfig.newBuilder()
             .setServerConfig(
                 KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerPort(indexerPort)
+                    .setAppServerPort(indexerAppPort)
+                    .setAdminServerPort(indexerAdminPort)
                     .setServerAddress("localhost")
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
@@ -69,7 +72,8 @@ public class KaldbConfigUtil {
         KaldbConfigs.QueryServiceConfig.newBuilder()
             .setServerConfig(
                 KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerPort(queryPort)
+                    .setAppServerPort(queryAppPort)
+                    .setAdminServerPort(queryAdminPort)
                     .setServerAddress("localhost")
                     .build())
             .build();
@@ -113,7 +117,7 @@ public class KaldbConfigUtil {
     return KaldbConfigs.IndexerConfig.newBuilder()
         .setServerConfig(
             KaldbConfigs.ServerConfig.newBuilder()
-                .setServerPort(indexerPort)
+                .setAppServerPort(indexerPort)
                 .setServerAddress("localhost")
                 .build())
         .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)

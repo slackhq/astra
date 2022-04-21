@@ -184,12 +184,14 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
-    assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getAppServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getAdminServerPort()).isEqualTo(8180);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10002);
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
-    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isEqualTo(8081);
+    assertThat(queryServiceConfig.getServerConfig().getAppServerPort()).isEqualTo(8081);
+    assertThat(queryServiceConfig.getServerConfig().getAdminServerPort()).isEqualTo(8181);
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
@@ -204,7 +206,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
-    assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getAppServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getAdminServerPort()).isEqualTo(8182);
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
@@ -240,12 +243,14 @@ public class KaldbConfigTest {
     assertThat(snapshotDeletionServiceConfig.getSnapshotLifespanMins()).isEqualTo(10080);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
-    assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getAppServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getAdminServerPort()).isEqualTo(8183);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
     final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
-    assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getAppServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getAdminServerPort()).isEqualTo(8184);
     assertThat(recoveryServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
@@ -255,7 +260,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
-    assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
+    assertThat(preprocessorServerConfig.getAppServerPort()).isEqualTo(8085);
+    assertThat(preprocessorServerConfig.getAdminServerPort()).isEqualTo(8185);
     assertThat(preprocessorServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
@@ -313,11 +319,13 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10001);
-    assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getAppServerPort()).isEqualTo(8080);
+    assertThat(indexerConfig.getServerConfig().getAdminServerPort()).isEqualTo(8180);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
-    assertThat(readConfig.getServerConfig().getServerPort()).isEqualTo(8081);
+    assertThat(readConfig.getServerConfig().getAppServerPort()).isEqualTo(8081);
+    assertThat(readConfig.getServerConfig().getAdminServerPort()).isEqualTo(8181);
     assertThat(readConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
@@ -331,7 +339,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
-    assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getAppServerPort()).isEqualTo(8082);
+    assertThat(cacheServerConfig.getAdminServerPort()).isEqualTo(8182);
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
 
@@ -368,12 +377,14 @@ public class KaldbConfigTest {
     assertThat(snapshotDeletionServiceConfig.getSnapshotLifespanMins()).isEqualTo(10080);
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
-    assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getAppServerPort()).isEqualTo(8083);
+    assertThat(managerServerConfig.getAdminServerPort()).isEqualTo(8183);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
     final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
-    assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getAppServerPort()).isEqualTo(8084);
+    assertThat(recoveryServerConfig.getAdminServerPort()).isEqualTo(8184);
     assertThat(recoveryServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
@@ -383,7 +394,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
-    assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
+    assertThat(preprocessorServerConfig.getAppServerPort()).isEqualTo(8085);
+    assertThat(preprocessorServerConfig.getAdminServerPort()).isEqualTo(8185);
     assertThat(preprocessorServerConfig.getServerAddress()).isEqualTo("localhost");
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
@@ -447,11 +459,13 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
-    assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getAppServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getAdminServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
-    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getAppServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getAdminServerPort()).isZero();
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
@@ -466,7 +480,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
-    assertThat(cacheServerConfig.getServerPort()).isZero();
+    assertThat(cacheServerConfig.getAppServerPort()).isZero();
+    assertThat(cacheServerConfig.getAdminServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
@@ -502,12 +517,14 @@ public class KaldbConfigTest {
     assertThat(snapshotDeletionServiceConfig.getSnapshotLifespanMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
-    assertThat(managerServerConfig.getServerPort()).isZero();
+    assertThat(managerServerConfig.getAppServerPort()).isZero();
+    assertThat(managerServerConfig.getAdminServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
     final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
-    assertThat(recoveryServerConfig.getServerPort()).isZero();
+    assertThat(recoveryServerConfig.getAppServerPort()).isZero();
+    assertThat(recoveryServerConfig.getAdminServerPort()).isZero();
     assertThat(recoveryServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
@@ -517,7 +534,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
-    assertThat(preprocessorServerConfig.getServerPort()).isZero();
+    assertThat(preprocessorServerConfig.getAppServerPort()).isZero();
+    assertThat(preprocessorServerConfig.getAdminServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =
@@ -561,11 +579,13 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
-    assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getAppServerPort()).isZero();
+    assertThat(indexerConfig.getServerConfig().getAdminServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
-    assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getAppServerPort()).isZero();
+    assertThat(queryServiceConfig.getServerConfig().getAdminServerPort()).isZero();
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
@@ -580,7 +600,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
-    assertThat(cacheServerConfig.getServerPort()).isZero();
+    assertThat(cacheServerConfig.getAppServerPort()).isZero();
+    assertThat(cacheServerConfig.getAdminServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
@@ -616,7 +637,8 @@ public class KaldbConfigTest {
     assertThat(snapshotDeletionServiceConfig.getSnapshotLifespanMins()).isZero();
 
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
-    assertThat(managerServerConfig.getServerPort()).isZero();
+    assertThat(managerServerConfig.getAppServerPort()).isZero();
+    assertThat(managerServerConfig.getAdminServerPort()).isZero();
     assertThat(managerServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.PreprocessorConfig preprocessorConfig = config.getPreprocessorConfig();
@@ -626,7 +648,8 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
-    assertThat(preprocessorServerConfig.getServerPort()).isZero();
+    assertThat(preprocessorServerConfig.getAppServerPort()).isZero();
+    assertThat(preprocessorServerConfig.getAdminServerPort()).isZero();
     assertThat(preprocessorServerConfig.getServerAddress()).isEmpty();
 
     final KaldbConfigs.PreprocessorConfig.KafkaStreamConfig preprocessorKafkaStreamConfig =

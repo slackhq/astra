@@ -11,12 +11,14 @@ indexerConfig:
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
   serverConfig:
-    serverPort: 8080
+    appServerPort: 8080
+    adminServerPort: 8180
     serverAddress: "localhost"
 
 queryConfig:
   serverConfig:
-    serverPort: 8081
+    appServerPort: 8081
+    adminServerPort: 8181
     serverAddress: "1.2.3.4"
 
 kafkaConfig:
@@ -47,14 +49,16 @@ cacheConfig:
   slotsPerInstance: 10
   dataDirectory: "/tmp"
   serverConfig:
-    serverPort: 8082
+    appServerPort: 8082
+    adminServerPort: 8182
     serverAddress: localhost
 
 managerConfig:
   eventAggregationSecs: 10
   scheduleInitialDelayMins: 1
   serverConfig:
-    serverPort: 8083
+    appServerPort: 8083
+    adminServerPort: 8183
     serverAddress: localhost
   replicaCreationServiceConfig:
     replicasPerSnapshot: 2
@@ -74,7 +78,8 @@ managerConfig:
 
 recoveryConfig:
   serverConfig:
-    serverPort: 8084
+    appServerPort: 8084
+    adminServerPort: 8184
     serverAddress: localhost
 
 preprocessorConfig:
@@ -84,7 +89,8 @@ preprocessorConfig:
     numStreamThreads: 2
     processingGuarantee: at_least_once
   serverConfig:
-    serverPort: 8085
+    appServerPort: 8085
+    adminServerPort: 8185
     serverAddress: localhost
   upstreamTopics: [test-topic]
   downstreamTopic: test-topic-out

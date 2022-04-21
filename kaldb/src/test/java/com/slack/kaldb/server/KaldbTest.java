@@ -95,7 +95,7 @@ public class KaldbTest {
   private static boolean runHealthCheckOnPort(KaldbConfigs.ServerConfig serverConfig)
       throws JsonProcessingException {
     final ObjectMapper om = new ObjectMapper();
-    final String response = getHealthCheckResponse(serverConfig.getServerPort());
+    final String response = getHealthCheckResponse(serverConfig.getAdminServerPort());
     HashMap<String, Object> map = om.readValue(response, HashMap.class);
 
     LOG.info(String.format("Response from healthcheck - '%s'", response));
@@ -122,8 +122,10 @@ public class KaldbTest {
   }
 
   private KaldbConfigs.KaldbConfig makeKaldbConfig(
-      int indexPort,
-      int queryPort,
+      int indexAppPort,
+      int indexAdminPort,
+      int queryAppPort,
+      int queryAdminPort,
       String kafkaTopic,
       int kafkaPartition,
       String clientName,
@@ -132,12 +134,14 @@ public class KaldbTest {
       int maxOffsetDelay) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
-        indexPort,
+        indexAppPort,
+        indexAdminPort,
         kafkaTopic,
         kafkaPartition,
         clientName,
         TEST_S3_BUCKET,
-        queryPort,
+        queryAppPort,
+        queryAdminPort,
         zkServer.getConnectString(),
         zkPathPrefix,
         nodeRole,
@@ -146,7 +150,8 @@ public class KaldbTest {
   }
 
   private Kaldb makeIndexerAndIndexMessages(
-      int indexerPort,
+      int indexerAppPort,
+      int indexerAdminPort,
       String kafkaTopic,
       int kafkaPartition,
       String kafkaClient,
@@ -154,14 +159,17 @@ public class KaldbTest {
       int indexerCount)
       throws Exception {
     LOG.info(
-        "Creating indexer service at port {}, topic: {} and partition {}",
-        indexerPort,
+        "Creating indexer service at ports {} / {}, topic: {} and partition {}",
+        indexerAppPort,
+        indexerAdminPort,
         kafkaTopic,
         kafkaPartition);
     // create a kaldb query server and indexer.
     KaldbConfigs.KaldbConfig indexerConfig =
         makeKaldbConfig(
-            indexerPort,
+            indexerAppPort,
+            indexerAdminPort,
+            -1,
             -1,
             kafkaTopic,
             kafkaPartition,
@@ -213,7 +221,9 @@ public class KaldbTest {
     KaldbConfigs.KaldbConfig queryServiceConfig =
         makeKaldbConfig(
             -1,
+            -1,
             queryServicePort,
+            queryServicePort + 1,
             TEST_KAFKA_TOPIC_1,
             0,
             KALDB_TEST_CLIENT_1,
@@ -229,7 +239,13 @@ public class KaldbTest {
 
     Kaldb indexer =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
+            indexerPort,
+            indexerPort + 1,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            1);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);
@@ -298,7 +314,9 @@ public class KaldbTest {
     KaldbConfigs.KaldbConfig queryServiceConfig =
         makeKaldbConfig(
             -1,
+            -1,
             queryServicePort,
+            queryServicePort + 1,
             TEST_KAFKA_TOPIC_1,
             0,
             KALDB_TEST_CLIENT_1,
@@ -313,14 +331,26 @@ public class KaldbTest {
     int indexerPort = 10000;
     Kaldb indexer1 =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, indexerPathPrefix, 1);
+            indexerPort,
+            indexerPort + 1,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            indexerPathPrefix,
+            1);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
     Kaldb indexer2 =
         makeIndexerAndIndexMessages(
-            indexerPort2, TEST_KAFKA_TOPIC_1, 1, KALDB_TEST_CLIENT_2, indexerPathPrefix, 2);
+            indexerPort2,
+            indexerPort2 + 1,
+            TEST_KAFKA_TOPIC_1,
+            1,
+            KALDB_TEST_CLIENT_2,
+            indexerPathPrefix,
+            2);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     KaldbSearch.SearchResult indexerSearchResponse = searchUsingGrpcApi("*:*", indexerPort);

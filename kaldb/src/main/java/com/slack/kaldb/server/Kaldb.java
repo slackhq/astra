@@ -146,9 +146,14 @@ public class Kaldb {
       services.add(indexer);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
-      final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig =
+          kaldbConfig.getIndexerConfig().getServerConfig();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbIndex", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbIndex",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(searcher)
               .build();
@@ -163,9 +168,13 @@ public class Kaldb {
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(searchMetadataStore, prometheusMeterRegistry);
-      final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig = kaldbConfig.getQueryConfig().getServerConfig();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbQuery",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
@@ -184,9 +193,13 @@ public class Kaldb {
       services.add(chunkManager);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
-      final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig = kaldbConfig.getCacheConfig().getServerConfig();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbCache", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbCache",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(searcher)
               .build();
@@ -195,7 +208,8 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.MANAGER)) {
       final KaldbConfigs.ManagerConfig managerConfig = kaldbConfig.getManagerConfig();
-      final int serverPort = managerConfig.getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig =
+          kaldbConfig.getManagerConfig().getServerConfig();
 
       ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
@@ -208,7 +222,11 @@ public class Kaldb {
       ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbManager", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbManager",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
               .build();
@@ -264,10 +282,15 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
       final KaldbConfigs.RecoveryConfig recoveryConfig = kaldbConfig.getRecoveryConfig();
-      final int serverPort = recoveryConfig.getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig =
+          kaldbConfig.getRecoveryConfig().getServerConfig();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbRecovery", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbRecovery",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
@@ -280,10 +303,15 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.PREPROCESSOR)) {
       final KaldbConfigs.PreprocessorConfig preprocessorConfig =
           kaldbConfig.getPreprocessorConfig();
-      final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
+      final KaldbConfigs.ServerConfig serverConfig =
+          kaldbConfig.getPreprocessorConfig().getServerConfig();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", prometheusMeterRegistry)
+          new ArmeriaService.Builder(
+                  serverConfig.getAppServerPort(),
+                  serverConfig.getAdminServerPort(),
+                  "kalDbPreprocessor",
+                  prometheusMeterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
