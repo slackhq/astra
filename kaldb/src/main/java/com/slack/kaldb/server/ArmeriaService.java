@@ -20,6 +20,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import io.grpc.BindableService;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -94,6 +95,7 @@ public class ArmeriaService extends AbstractIdleService {
       serverBuilder
           .service("/health", HealthCheckService.builder().build())
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
+          .service("/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
     }
 
