@@ -6,11 +6,13 @@ import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
 import brave.handler.SpanHandler;
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
 import com.linecorp.armeria.common.util.EventLoopGroups;
+import com.linecorp.armeria.common.util.SettableIntSupplier;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
@@ -22,6 +24,7 @@ import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
+import com.linecorp.armeria.server.throttling.ThrottlingService;
 import io.grpc.BindableService;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.channel.EventLoopGroup;
@@ -109,11 +112,21 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public Builder withAnnotatedService(Object service) {
-      serverBuilder.annotatedService(service);
+      serverBuilder.annotatedService(
+          service,
+          ThrottlingService.newDecorator(
+              new BlockingTaskLimitingThrottlingStrategy<>(
+                  // prevent any one annotated service from consuming more than half of the
+                  // available blocking threads
+                  SettableIntSupplier.of(Flags.numCommonBlockingTaskThreads() / 2), null)));
       return this;
     }
 
     public Builder withGrpcService(BindableService grpcService) {
+      return withGrpcService(grpcService, 0);
+    }
+
+    public Builder withGrpcService(BindableService grpcService, int rateLimitRequestPerSecond) {
       GrpcServiceBuilder searchBuilder =
           GrpcService.builder()
               .addService(grpcService)
@@ -121,7 +134,13 @@ public class ArmeriaService extends AbstractIdleService {
               .useBlockingTaskExecutor(true);
       serverBuilder.decorator(
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
-      serverBuilder.service(searchBuilder.build());
+      serverBuilder.service(
+          searchBuilder.build(),
+          ThrottlingService.newDecorator(
+              new BlockingTaskLimitingThrottlingStrategy<>(
+                  // prevent any one annotated service from consuming more than half of the
+                  // available blocking threads
+                  SettableIntSupplier.of(Flags.numCommonBlockingTaskThreads() / 2), null)));
       return this;
     }
 
