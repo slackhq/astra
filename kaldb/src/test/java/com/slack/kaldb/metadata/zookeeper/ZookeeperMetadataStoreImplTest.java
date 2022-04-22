@@ -24,7 +24,6 @@ import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ZookeeperMetadataStoreImplTest {
@@ -498,7 +497,6 @@ public class ZookeeperMetadataStoreImplTest {
   }
 
   @Test
-  @Ignore
   public void testFatalErrorHandlerInvocation() throws Exception {
     String root = "/root/1/2/3";
     assertThat(metadataStore.create(root, "", true).get()).isNull();
