@@ -95,7 +95,7 @@ public class ArmeriaService extends AbstractIdleService {
       serverBuilder
           .service("/health", HealthCheckService.builder().build())
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
-          .service("/management", ManagementService.of())
+          .serviceUnder("/internal/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
     }
 
