@@ -129,6 +129,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
+
+
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotsToSearch(
       long startTimeMs, long endTimeMs) {
 
@@ -147,21 +149,28 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    // step 2 - take all search metadata de-duplicate search metadata hosted by same snapshot and
-    // pick one
-    Collections.shuffle(searchMetadataStore.getCached());
-    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
-    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
-      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
-    }
+    Set<SearchMetadata> nameToSearchMetadata = searchMetadataStore.getCached().stream()
+            .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
+            .collect(Collectors.toSet());
 
-    // step 3 - iterate every snapshot and map it to the search metadata
-    return snapshotsToSearch
-        .stream()
-        .map(searchMetadataToQuery::get)
-        .filter(Objects::nonNull)
-        .map(this::getStub)
-        .collect(Collectors.toSet());
+    return nameToSearchMetadata.stream().map(searchMetadata -> searchMetadata.url).map(this::getStub)
+            .collect(Collectors.toSet());
+
+//    // step 2 - take all search metadata de-duplicate search metadata hosted by same snapshot and
+//    // pick one
+//    Collections.shuffle(searchMetadataStore.getCached());
+//    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
+//    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
+//      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
+//    }
+//
+//    // step 3 - iterate every snapshot and map it to the search metadata
+//    return snapshotsToSearch
+//        .stream()
+//        .map(searchMetadataToQuery::get)
+//        .filter(Objects::nonNull)
+//        .map(this::getStub)
+//        .collect(Collectors.toSet());
 
     //    Set<String> filteredSnapshotsToSearch =
     //        snapshotsToSearch
