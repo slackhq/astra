@@ -135,7 +135,6 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
    */
   @SuppressWarnings("UnstableApiUsage")
   protected int assignReplicasToCacheSlots() {
-    LOG.info("In assignReplicasToCacheSlots");
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     List<CacheSlotMetadata> availableCacheSlots =
@@ -170,8 +169,6 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
             .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs))
             .map(replicaMetadata -> replicaMetadata.name)
             .collect(Collectors.toUnmodifiableList());
-
-    LOG.info("Replicas replicaIdsToAssign" + replicaIdsToAssign.size());
 
     // Report either a positive value (excess capacity) or a negative value (insufficient capacity)
     replicaAssignAvailableCapacity.set(availableCacheSlots.size() - replicaIdsToAssign.size());

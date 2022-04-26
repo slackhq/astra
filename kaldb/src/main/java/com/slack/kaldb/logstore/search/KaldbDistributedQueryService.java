@@ -131,11 +131,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-
-
-  private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotsToSearch(
-      long startTimeMs, long endTimeMs) {
-
+  protected static Set<String> getSnapshotsToSearch(
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore,
+      long startTimeMs,
+      long endTimeMs) {
     // step 1 - find all snapshots that match time window
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
@@ -151,75 +151,35 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    Set<SearchMetadata> nameToSearchMetadata = searchMetadataStore.getCached().stream()
-            .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-            .collect(Collectors.toSet());
+    // step 2 - take all search metadata and randomize the list so that when there are multiple
+    // search metadata nodes  with the same snapshot we don't always pick one of them
 
-    return nameToSearchMetadata.stream().map(searchMetadata -> searchMetadata.url).map(this::getStub)
-            .collect(Collectors.toSet());
+    // TODO: in the future, we'd have another field in search metadata to indicate if it's hosted by
+    // an indexer or cache node and
+    // it won't be a shuffle, but can be something more nuanced so that we prefer cache over indexer
+    ArrayList<SearchMetadata> querySearchMetadata =
+        new ArrayList<>(searchMetadataStore.getCached());
+    Collections.shuffle(querySearchMetadata);
 
-//    // step 2 - take all search metadata de-duplicate search metadata hosted by same snapshot and
-//    // pick one
-//    Collections.shuffle(searchMetadataStore.getCached());
-//    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
-//    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
-//      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
-//    }
-//
-//    // step 3 - iterate every snapshot and map it to the search metadata
-//    return snapshotsToSearch
-//        .stream()
-//        .map(searchMetadataToQuery::get)
-//        .filter(Objects::nonNull)
-//        .map(this::getStub)
-//        .collect(Collectors.toSet());
-
-    //    Set<String> filteredSnapshotsToSearch =
-    //        snapshotsToSearch
-    //            .stream()
-    //            .filter(
-    //                snapshotName -> !containsLiveAndNonLiveSnapshot(snapshotsToSearch,
-    // snapshotName))
-    //            .collect(Collectors.toSet());
-
-    // There will be multiple entries of search metadata with the same snapshot name ( multiple
-    // replicas )
-    // Take a list of search metadata nodes, shuffle it so that we don't always pick the first entry
-    // from it and then pick one of them
-    //    Collections.shuffle(searchMetadataStore.getCached());
-    //    HashMap<String, String> searchMetadataToQuery = new HashMap<>();
-    //    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
-    //      searchMetadataToQuery.put(searchMetadata.snapshotName, searchMetadata.url);
-    //    }
-
-    //    return searchMetadataToQuery
-    //        .entrySet()
-    //        .stream()
-    //        .filter(searchMetadataEntry ->
-    // snapshotsToSearch.contains(searchMetadataEntry.getKey()))
-    //        .map(Map.Entry::getValue)
-    //        .map(this::getStub)
-    //        .collect(Collectors.toSet());
-
-    //    return filteredSnapshotsToSearch.stream()
-    //            .map(searchMetadataToQuery::get)
-    //            .map(this::getStub)
-    //            .collect(Collectors.toSet());
-
-    //    return searchMetadataStore.getCached()
-    //        .stream()
-    //        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-    //        .map(searchMetadata -> searchMetadata.url)
-    //        .map(this::getStub)
-    //        .collect(Collectors.toSet());
+    // step 3 - iterate every snapshot and map it to the search metadata while de-duplicating search
+    // metadata with the same snapshot name
+    return querySearchMetadata
+        .stream()
+        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
+        .collect(Collectors.toSet())
+        .stream()
+        .map(searchMetadata -> searchMetadata.url)
+        .collect(Collectors.toSet());
   }
 
-  //  public boolean containsLiveAndNonLiveSnapshot(
-  //      Set<String> snapshotsToSearch, String snapshotName) {
-  //    return snapshotName.startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH)
-  //        && snapshotsToSearch.contains(
-  //            snapshotName.substring(SnapshotMetadata.LIVE_SNAPSHOT_PATH.length()));
-  //  }
+  private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
+      long startTimeMs, long endTimeMs) {
+
+    return getSnapshotsToSearch(snapshotMetadataStore, searchMetadataStore, startTimeMs, endTimeMs)
+        .stream()
+        .map(this::getStub)
+        .collect(Collectors.toSet());
+  }
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getStub(String url) {
     if (stubs.get(url) != null) {
@@ -241,7 +201,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(stubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub :
-        getSnapshotsToSearch(request.getStartTimeEpochMs(), request.getEndTimeEpochMs())) {
+        getSnapshotUrlsToSearch(request.getStartTimeEpochMs(), request.getEndTimeEpochMs())) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
