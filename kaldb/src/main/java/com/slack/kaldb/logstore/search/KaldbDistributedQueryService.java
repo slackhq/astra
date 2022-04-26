@@ -138,7 +138,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-  protected static Set<String> getSnapshotsToSearch(
+  @VisibleForTesting
+  public static Collection<String> getSnapshotsToSearch(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       long startTimeMs,
@@ -173,10 +174,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     return querySearchMetadata
         .stream()
         .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.toSet())
-        .stream()
-        .map(searchMetadata -> searchMetadata.url)
-        .collect(Collectors.toSet());
+        .collect(Collectors.toMap(SearchMetadata::getSnapshotName, SearchMetadata::getUrl))
+        .values();
   }
 
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
