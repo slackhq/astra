@@ -209,147 +209,147 @@ public class KaldbTest {
     return indexer;
   }
 
-  private KaldbConfigs.KaldbConfig getManagerConfig(String zkPrefix) {
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix(zkPrefix)
-            .setZkSessionTimeoutMs(15000)
-            .setZkConnectionTimeoutMs(15000)
-            .setSleepBetweenRetriesMs(1000)
-            .build();
-    KaldbConfigs.MetadataStoreConfig metadataStoreConfig =
-        KaldbConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
-
-    KaldbConfigs.ManagerConfig managerConfig =
-        KaldbConfigs.ManagerConfig.newBuilder()
-            .setServerConfig(
-                KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerPort(1234)
-                    .setServerAddress("localhost")
-                    .build())
-            .setScheduleInitialDelayMins(1)
-            .setEventAggregationSecs(1)
-            .setReplicaAssignmentServiceConfig(
-                KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
-                    .setSchedulePeriodMins(1)
-                    .build())
-            .setReplicaCreationServiceConfig(
-                KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-                    .setReplicaLifespanMins(5)
-                    .setReplicasPerSnapshot(1)
-                    .setSchedulePeriodMins(1)
-                    .build())
-            .setReplicaEvictionServiceConfig(
-                KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
-                    .setSchedulePeriodMins(1))
-            .setReplicaDeletionServiceConfig(
-                KaldbConfigs.ManagerConfig.ReplicaDeletionServiceConfig.newBuilder()
-                    .setSchedulePeriodMins(1))
-            .setSnapshotDeletionServiceConfig(
-                KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig.newBuilder()
-                    .setSchedulePeriodMins(1)
-                    .setSnapshotLifespanMins(60)
-                    .build())
-            .setRecoveryTaskAssignmentServiceConfig(
-                KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
-                    .setSchedulePeriodMins(1))
-            .build();
-
-    KaldbConfigs.S3Config s3Config =
-        KaldbConfigs.S3Config.newBuilder()
-            .setS3Bucket(TEST_S3_BUCKET)
-            .setS3Region("us-east-1")
-            .setS3AccessKey("")
-            .setS3SecretKey("")
-            .build();
-
-    return KaldbConfigs.KaldbConfig.newBuilder()
-        .setMetadataStoreConfig(metadataStoreConfig)
-        .setManagerConfig(managerConfig)
-        .setS3Config(s3Config)
-        .addNodeRoles(KaldbConfigs.NodeRole.MANAGER)
-        .build();
-  }
-
-  @Test
-  public void testDistributedQueryWithCacheAndIndexerNodes() throws Exception {
-    String zkPrefix = "testDistributedQueryWithCacheAndIndexerNodes";
-
-    Kaldb mannagerKaldb = new Kaldb(getManagerConfig(zkPrefix));
-    mannagerKaldb.start();
-    mannagerKaldb.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
-
-    assertThat(kafkaServer.getBroker().isRunning()).isTrue();
-
-    LOG.info("Starting query service");
-    int queryServicePort = 8887;
-    KaldbConfigs.KaldbConfig queryServiceConfig =
-        makeKaldbConfig(
-            -1,
-            queryServicePort,
-            -1,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            zkPrefix,
-            KaldbConfigs.NodeRole.QUERY,
-            1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
-    queryService.start();
-    queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
-
-    LOG.info("Starting indexer service");
-    int indexerPort = 10000;
-
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    Kaldb indexer =
-        makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, zkPrefix, 1, startTime);
-    indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
-
-    KaldbSearch.SearchResult indexerSearchResponse =
-        searchUsingGrpcApi("*:*", indexerPort, 0, 1601547099000L);
-    assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
-
-    LOG.info("Starting cache service");
-    int cacheServicePort = 5555;
-    KaldbConfigs.KaldbConfig cacheServiceConfig =
-        makeKaldbConfig(
-            -1,
-            -1,
-            cacheServicePort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            zkPrefix,
-            KaldbConfigs.NodeRole.CACHE,
-            1000);
-    Kaldb cacheService = new Kaldb(cacheServiceConfig);
-    cacheService.start();
-    cacheService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
-
-    Thread.sleep(1000 * 60);
-
-    // Query from query service.
-    KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
-
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
-
-    // Shutdown
-    LOG.info("Shutting down query service.");
-    queryService.shutdown();
-    LOG.info("Shutting down indexer.");
-    indexer.shutdown();
-  }
+//  private KaldbConfigs.KaldbConfig getManagerConfig(String zkPrefix) {
+//    KaldbConfigs.ZookeeperConfig zkConfig =
+//        KaldbConfigs.ZookeeperConfig.newBuilder()
+//            .setZkConnectString(zkServer.getConnectString())
+//            .setZkPathPrefix(zkPrefix)
+//            .setZkSessionTimeoutMs(15000)
+//            .setZkConnectionTimeoutMs(15000)
+//            .setSleepBetweenRetriesMs(1000)
+//            .build();
+//    KaldbConfigs.MetadataStoreConfig metadataStoreConfig =
+//        KaldbConfigs.MetadataStoreConfig.newBuilder().setZookeeperConfig(zkConfig).build();
+//
+//    KaldbConfigs.ManagerConfig managerConfig =
+//        KaldbConfigs.ManagerConfig.newBuilder()
+//            .setServerConfig(
+//                KaldbConfigs.ServerConfig.newBuilder()
+//                    .setServerPort(1234)
+//                    .setServerAddress("localhost")
+//                    .build())
+//            .setScheduleInitialDelayMins(1)
+//            .setEventAggregationSecs(1)
+//            .setReplicaAssignmentServiceConfig(
+//                KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+//                    .setSchedulePeriodMins(1)
+//                    .build())
+//            .setReplicaCreationServiceConfig(
+//                KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
+//                    .setReplicaLifespanMins(5)
+//                    .setReplicasPerSnapshot(1)
+//                    .setSchedulePeriodMins(1)
+//                    .build())
+//            .setReplicaEvictionServiceConfig(
+//                KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
+//                    .setSchedulePeriodMins(1))
+//            .setReplicaDeletionServiceConfig(
+//                KaldbConfigs.ManagerConfig.ReplicaDeletionServiceConfig.newBuilder()
+//                    .setSchedulePeriodMins(1))
+//            .setSnapshotDeletionServiceConfig(
+//                KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig.newBuilder()
+//                    .setSchedulePeriodMins(1)
+//                    .setSnapshotLifespanMins(60)
+//                    .build())
+//            .setRecoveryTaskAssignmentServiceConfig(
+//                KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig.newBuilder()
+//                    .setSchedulePeriodMins(1))
+//            .build();
+//
+//    KaldbConfigs.S3Config s3Config =
+//        KaldbConfigs.S3Config.newBuilder()
+//            .setS3Bucket(TEST_S3_BUCKET)
+//            .setS3Region("us-east-1")
+//            .setS3AccessKey("")
+//            .setS3SecretKey("")
+//            .build();
+//
+//    return KaldbConfigs.KaldbConfig.newBuilder()
+//        .setMetadataStoreConfig(metadataStoreConfig)
+//        .setManagerConfig(managerConfig)
+//        .setS3Config(s3Config)
+//        .addNodeRoles(KaldbConfigs.NodeRole.MANAGER)
+//        .build();
+//  }
+//
+//  @Test
+//  public void testDistributedQueryWithCacheAndIndexerNodes() throws Exception {
+//    String zkPrefix = "testDistributedQueryWithCacheAndIndexerNodes";
+//
+//    Kaldb mannagerKaldb = new Kaldb(getManagerConfig(zkPrefix));
+//    mannagerKaldb.start();
+//    mannagerKaldb.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+//
+//    assertThat(kafkaServer.getBroker().isRunning()).isTrue();
+//
+//    LOG.info("Starting query service");
+//    int queryServicePort = 8887;
+//    KaldbConfigs.KaldbConfig queryServiceConfig =
+//        makeKaldbConfig(
+//            -1,
+//            queryServicePort,
+//            -1,
+//            TEST_KAFKA_TOPIC_1,
+//            0,
+//            KALDB_TEST_CLIENT_1,
+//            zkPrefix,
+//            KaldbConfigs.NodeRole.QUERY,
+//            1000);
+//    Kaldb queryService = new Kaldb(queryServiceConfig);
+//    queryService.start();
+//    queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+//
+//    LOG.info("Starting indexer service");
+//    int indexerPort = 10000;
+//
+//    final Instant startTime =
+//        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+//    Kaldb indexer =
+//        makeIndexerAndIndexMessages(
+//            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, zkPrefix, 1, startTime);
+//    indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+//
+//    KaldbSearch.SearchResult indexerSearchResponse =
+//        searchUsingGrpcApi("*:*", indexerPort, 0, 1601547099000L);
+//    assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
+//    assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
+//    assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
+//    assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
+//
+//    LOG.info("Starting cache service");
+//    int cacheServicePort = 5555;
+//    KaldbConfigs.KaldbConfig cacheServiceConfig =
+//        makeKaldbConfig(
+//            -1,
+//            -1,
+//            cacheServicePort,
+//            TEST_KAFKA_TOPIC_1,
+//            0,
+//            KALDB_TEST_CLIENT_1,
+//            zkPrefix,
+//            KaldbConfigs.NodeRole.CACHE,
+//            1000);
+//    Kaldb cacheService = new Kaldb(cacheServiceConfig);
+//    cacheService.start();
+//    cacheService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+//
+//    Thread.sleep(1000 * 60);
+//
+//    // Query from query service.
+//    KaldbSearch.SearchResult queryServiceSearchResponse =
+//        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
+//
+//    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+//    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+//    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+//    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+//
+//    // Shutdown
+//    LOG.info("Shutting down query service.");
+//    queryService.shutdown();
+//    LOG.info("Shutting down indexer.");
+//    indexer.shutdown();
+//  }
 
   @Test
   public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
