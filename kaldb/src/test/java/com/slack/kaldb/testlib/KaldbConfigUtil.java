@@ -11,7 +11,6 @@ public class KaldbConfigUtil {
       String kafkaClientGroup,
       String s3Bucket,
       int queryPort,
-      int cachePort,
       String metadataZkConnectionString,
       String metadataZkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
@@ -75,22 +74,11 @@ public class KaldbConfigUtil {
                     .build())
             .build();
 
-    KaldbConfigs.CacheConfig cacheConfig =
-        KaldbConfigs.CacheConfig.newBuilder()
-            .setServerConfig(
-                KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerPort(cachePort)
-                    .setServerAddress("localhost")
-                    .build())
-            .setSlotsPerInstance(1)
-            .build();
-
     return KaldbConfigs.KaldbConfig.newBuilder()
         .setKafkaConfig(kafkaConfig)
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
         .setQueryConfig(queryConfig)
-        .setCacheConfig(cacheConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
         .addNodeRoles(nodeRole)
         .build();
