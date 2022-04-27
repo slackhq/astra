@@ -65,6 +65,7 @@ public class KaldbDistributedQueryServiceTest {
   @After
   public void tearDown() throws Exception {
     snapshotMetadataStore.close();
+    searchMetadataStore.close();
     zkMetadataStore.close();
     metricsRegistry.close();
     testZKServer.close();
@@ -96,12 +97,12 @@ public class KaldbDistributedQueryServiceTest {
     // create cache node entry for search metadata also serving the snapshot
     String snapshotName = snapshotMetadataStore.getCached().iterator().next().name;
     ReadOnlyChunkImpl.registerSearchMetadata(searchMetadataStore, cacheSearchContext, snapshotName);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(2);
 
     snapshots =
         getSnapshotsToSearch(
             snapshotMetadataStore, searchMetadataStore, 0, chunkCreationTime.toEpochMilli());
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.iterator().next()).isEqualTo(indexerSearchContext.toString());
   }
 
   private void createIndexerZKMetadata(Instant chunkCreationTime, Instant chunkEndTime) {
@@ -123,5 +124,9 @@ public class KaldbDistributedQueryServiceTest {
 
     snapshotMetadataStore.createSync(liveSnapshotMetadata);
     searchMetadataStore.createSync(liveSearchMetadata);
+
+    // this also ensures that when we do a .getCached() in the atual code we see these objects
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
   }
 }
