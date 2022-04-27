@@ -60,6 +60,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
 
+  private static final Random random = new Random();
+
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
   // So this should be replaced cache/index metadata store when that info is present in ZK
@@ -159,22 +161,23 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    // step 2 - take all search metadata and randomize the list so that when there are multiple
-    // search metadata nodes  with the same snapshot we don't always pick one of them
-
     // TODO: in the future, we'd have another field in search metadata to indicate if it's hosted by
     // an indexer or cache node and
     // it won't be a shuffle, but can be something more nuanced so that we prefer cache over indexer
-    ArrayList<SearchMetadata> querySearchMetadata =
-        new ArrayList<>(searchMetadataStore.getCached());
-    Collections.shuffle(querySearchMetadata);
 
-    // step 3 - iterate every snapshot and map it to the search metadata while de-duplicating search
+    // step 2 - iterate every snapshot and map it to the search metadata while de-duplicating search
     // metadata with the same snapshot name
-    return querySearchMetadata
+    return searchMetadataStore
+        .getCached()
         .stream()
         .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.toMap(SearchMetadata::getSnapshotName, SearchMetadata::getUrl))
+        // ensure we randomize the list so that when there are multiple
+        // search metadata nodes with the same snapshot we don't always pick the same one
+        .collect(
+            Collectors.toMap(
+                SearchMetadata::getSnapshotName,
+                SearchMetadata::getUrl,
+                (firstUrl, secondUrl) -> random.nextBoolean() ? firstUrl : secondUrl))
         .values();
   }
 
