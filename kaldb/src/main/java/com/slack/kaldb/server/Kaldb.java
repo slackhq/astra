@@ -157,13 +157,17 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
       services.add(
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.QUERY, List.of(searchMetadataStore, snapshotMetadataStore)));
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(
-              searchMetadataStore, snapshotMetadataStore, prometheusMeterRegistry);
+              searchMetadataStore,
+              snapshotMetadataStore,
+              serviceMetadataStore,
+              prometheusMeterRegistry);
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
