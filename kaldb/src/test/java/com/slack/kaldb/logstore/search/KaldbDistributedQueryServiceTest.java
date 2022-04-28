@@ -4,6 +4,7 @@ import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
 import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSnapshotsToSearch;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.spy;
 
@@ -35,7 +36,8 @@ public class KaldbDistributedQueryServiceTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private TestingServer testZKServer;
   private SearchContext indexerSearchContext;
-  private SearchContext cacheSearchContext;
+  private SearchContext cache1SearchContext;
+  private SearchContext cache2SearchContext;
 
   @Before
   public void setUp() throws Exception {
@@ -59,7 +61,8 @@ public class KaldbDistributedQueryServiceTest {
     snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, true));
     searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, true));
     indexerSearchContext = new SearchContext("host1", 10000);
-    cacheSearchContext = new SearchContext("host2", 20000);
+    cache1SearchContext = new SearchContext("host2", 20000);
+    cache2SearchContext = new SearchContext("host3", 20001);
   }
 
   @After
@@ -72,7 +75,31 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @Test
-  public void testSnapshotsToSearch() throws Exception {
+  public void testOneIndexer() {
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime);
+
+    Collection<String> snapshots =
+        getSnapshotsToSearch(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli());
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(snapshots.iterator().next()).isEqualTo(indexerSearchContext.toString());
+
+    snapshots =
+        getSnapshotsToSearch(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkEndTime.toEpochMilli() + 1,
+            chunkEndTime.toEpochMilli() + 100);
+    assertThat(snapshots.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testOneIndexerOneCache() throws Exception {
     Instant chunkCreationTime = Instant.ofEpochMilli(100);
     Instant chunkEndTime = Instant.ofEpochMilli(200);
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime);
@@ -96,7 +123,8 @@ public class KaldbDistributedQueryServiceTest {
 
     // create cache node entry for search metadata also serving the snapshot
     String snapshotName = snapshotMetadataStore.getCached().iterator().next().name;
-    ReadOnlyChunkImpl.registerSearchMetadata(searchMetadataStore, cacheSearchContext, snapshotName);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotName);
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(2);
 
     snapshots =
@@ -105,7 +133,55 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(snapshots.size()).isEqualTo(1);
   }
 
+  @Test
+  public void testTwoCacheNodes() throws Exception {
+    // create snapshot
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    SnapshotMetadata snapshotMetadata = createSnapshot(chunkCreationTime, chunkEndTime, false);
+
+    // create first search metadata hosted by cache1
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+
+    // assert search will always find cache1
+    Collection<String> snapshots =
+        getSnapshotsToSearch(
+            snapshotMetadataStore, searchMetadataStore, 0, chunkCreationTime.toEpochMilli());
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(snapshots.iterator().next()).isEqualTo(cache1SearchContext.toString());
+
+    // create second search metadata hosted by cache2
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(2);
+
+    // assert search will always find cache1 or cache2
+    snapshots =
+        getSnapshotsToSearch(
+            snapshotMetadataStore, searchMetadataStore, 0, chunkCreationTime.toEpochMilli());
+    assertThat(snapshots.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testNoNode() {
+    Collection<String> snapshots =
+        getSnapshotsToSearch(snapshotMetadataStore, searchMetadataStore, 0, Long.MAX_VALUE);
+    assertThat(snapshots.size()).isEqualTo(0);
+  }
+
   private void createIndexerZKMetadata(Instant chunkCreationTime, Instant chunkEndTime) {
+    SnapshotMetadata liveSnapshotMetadata = createSnapshot(chunkCreationTime, chunkEndTime, true);
+    SearchMetadata liveSearchMetadata =
+        toSearchMetadata(liveSnapshotMetadata.snapshotId, indexerSearchContext);
+
+    searchMetadataStore.createSync(liveSearchMetadata);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+  }
+
+  private SnapshotMetadata createSnapshot(
+      Instant chunkCreationTime, Instant chunkEndTime, boolean isLive) {
     ChunkInfo chunkInfo =
         new ChunkInfo(
             "chunkPrefix" + "_" + chunkCreationTime.getEpochSecond() + "_" + "logStoreId",
@@ -116,17 +192,13 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             "1",
-            SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
+    SnapshotMetadata snapshotMetadata =
+        toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
 
-    SnapshotMetadata liveSnapshotMetadata = toSnapshotMetadata(chunkInfo, LIVE_SNAPSHOT_PREFIX);
-    SearchMetadata liveSearchMetadata =
-        toSearchMetadata(liveSnapshotMetadata.snapshotId, indexerSearchContext);
-
-    snapshotMetadataStore.createSync(liveSnapshotMetadata);
-    searchMetadataStore.createSync(liveSearchMetadata);
-
-    // this also ensures that when we do a .getCached() in the atual code we see these objects
+    snapshotMetadataStore.createSync(snapshotMetadata);
     assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+
+    return snapshotMetadata;
   }
 }
