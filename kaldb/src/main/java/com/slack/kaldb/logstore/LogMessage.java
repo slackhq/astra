@@ -135,7 +135,7 @@ public class LogMessage extends LogWireMessage {
   public Long getMillisecondsSinceEpoch() {
     String s = (String) source.get(ReservedField.TIMESTAMP.fieldName);
     if (s != null) {
-      return getTimeEpochMS(s);
+      return getTimeEpochMs(s);
     }
     throw raiseException(null);
   }
@@ -144,7 +144,7 @@ public class LogMessage extends LogWireMessage {
     return ImmutableMap.copyOf(source);
   }
 
-  public static Long getTimeEpochMS(String dateStr) {
+  public static Long getTimeEpochMs(String dateStr) {
     return Instant.parse(dateStr).toEpochMilli();
   }
 
