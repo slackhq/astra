@@ -173,7 +173,7 @@ public class ChunkInfo {
   }
 
   public static boolean containsDataInTimeRange(
-      long chunkStartTimeMs, long chunkEndTimeMs, long startTimeMs, long endTimeMs) {
+      long dataStartTimeEpochMs, long dataEndTimeEpochMs, long startTimeMs, long endTimeMs) {
 
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
     ensureTrue(startTimeMs >= 0, "start timestamp should be greater than zero: " + startTimeMs);
@@ -181,9 +181,9 @@ public class ChunkInfo {
         endTimeMs - startTimeMs >= 0,
         String.format(
             "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
-    return (chunkStartTimeMs <= startTimeMs && chunkEndTimeMs >= startTimeMs)
-        || (chunkStartTimeMs <= endTimeMs && chunkEndTimeMs >= endTimeMs)
-        || (chunkStartTimeMs >= startTimeMs && chunkEndTimeMs <= endTimeMs);
+    return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
+        || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
+        || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
   }
 
   /*
