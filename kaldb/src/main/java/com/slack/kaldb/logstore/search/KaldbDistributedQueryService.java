@@ -16,6 +16,8 @@ import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.service.ServiceMetadata;
+import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
@@ -46,6 +48,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
+  private final ServiceMetadataStore serviceMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -70,9 +73,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
+      ServiceMetadataStore serviceMetadataStore,
       MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
+    this.serviceMetadataStore = serviceMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -145,7 +150,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       long startTimeMs,
-      long endTimeMs) {
+      long endTimeMs,
+      Set<String> partitions) {
     // step 1 - find all snapshots that match time window
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
@@ -158,6 +164,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                         snapshotMetadata.endTimeEpochMs,
                         startTimeMs,
                         endTimeMs))
+            .filter(snapshotMetadata -> partitions.contains(snapshotMetadata.partitionId))
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
@@ -182,9 +189,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeMs, long endTimeMs) {
+      long startTimeMs, long endTimeMs, Set<String> partitions) {
 
-    return getSnapshotsToSearch(snapshotMetadataStore, searchMetadataStore, startTimeMs, endTimeMs)
+    return getSnapshotsToSearch(
+            snapshotMetadataStore, searchMetadataStore, startTimeMs, endTimeMs, partitions)
         .stream()
         .map(this::getStub)
         .collect(Collectors.toSet());
@@ -201,6 +209,26 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
   }
 
+  public static Set<String> getPartitionsForIndexName(
+      ServiceMetadataStore serviceMetadataStore, String indexName) {
+    return serviceMetadataStore
+        .getCached()
+        .stream()
+        .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
+        .map(KaldbDistributedQueryService::getPartitionsFromServiceMetadata)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toSet());
+  }
+
+  private static Set<String> getPartitionsFromServiceMetadata(ServiceMetadata serviceMetadata) {
+    return serviceMetadata
+        .partitionConfigs
+        .stream()
+        .map(partitionConfig -> partitionConfig.partitions)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toSet());
+  }
+
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
@@ -210,7 +238,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(stubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub :
-        getSnapshotUrlsToSearch(request.getStartTimeEpochMs(), request.getEndTimeEpochMs())) {
+        getSnapshotUrlsToSearch(
+            request.getStartTimeEpochMs(),
+            request.getEndTimeEpochMs(),
+            getPartitionsForIndexName(serviceMetadataStore, request.getIndexName()))) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
