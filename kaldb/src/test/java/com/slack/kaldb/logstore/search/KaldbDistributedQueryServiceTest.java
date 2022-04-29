@@ -136,6 +136,9 @@ public class KaldbDistributedQueryServiceTest {
 
     // create cache node entry for search metadata also serving the snapshot
     String snapshotName = snapshotMetadataStore.getCached().iterator().next().name;
+    snapshotName =
+        snapshotName.substring(
+            5); // remove LIVE_ prefix for a search metadata hosted by a cache node
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache1SearchContext, snapshotName);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
@@ -268,12 +271,7 @@ public class KaldbDistributedQueryServiceTest {
 
   private SnapshotMetadata createSnapshot(
       Instant chunkCreationTime, Instant chunkEndTime, boolean isLive, String partition) {
-    String chunkName =
-        (isLive ? "LIVE_" : "")
-            + "log_"
-            + chunkCreationTime.getEpochSecond()
-            + "_"
-            + UUID.randomUUID();
+    String chunkName = "logStore_" + +chunkCreationTime.getEpochSecond() + "_" + UUID.randomUUID();
     ChunkInfo chunkInfo =
         new ChunkInfo(
             chunkName,

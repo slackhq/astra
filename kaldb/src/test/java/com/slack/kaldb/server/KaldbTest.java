@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.metadata.service.ServiceMetadata;
+import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
@@ -20,13 +25,16 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.curator.test.TestingServer;
@@ -52,6 +60,10 @@ public class KaldbTest {
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
   private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
+
+  private ServiceMetadataStore serviceMetadataStore;
+  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private SimpleMeterRegistry serviceMetadataZkRegistry;
 
   private static KaldbSearch.SearchResult searchUsingGrpcApi(
       String queryString, int port, long startTime, long endTime) {
@@ -116,11 +128,36 @@ public class KaldbTest {
     kafkaServer = new TestKafkaServer();
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
+
+    // We side load a service metadata entry telling it to create an entry with the partitions that
+    // we use in test
+    serviceMetadataZkRegistry = new SimpleMeterRegistry();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(zkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(serviceMetadataZkRegistry, zkConfig);
+    serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
+    final ServicePartitionMetadata partition =
+        new ServicePartitionMetadata(
+            Instant.now().toEpochMilli(), Long.MAX_VALUE, List.of("0", "1"));
+    final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(MessageUtil.TEST_INDEX_NAME, "serviceOwner", 1000, partitionConfigs);
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
   }
 
   @After
   public void teardown() throws Exception {
     kafkaServer.close();
+    serviceMetadataZkRegistry.close();
+    serviceMetadataStore.close();
+    zkMetadataStore.close();
     zkServer.close();
   }
 
@@ -209,7 +246,6 @@ public class KaldbTest {
   @Test
   public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
     assertThat(kafkaServer.getBroker().isRunning()).isTrue();
-    String indexerPathPrefix = "indexer1";
 
     LOG.info("Starting query service");
     int queryServicePort = 8887;
@@ -220,7 +256,7 @@ public class KaldbTest {
             TEST_KAFKA_TOPIC_1,
             0,
             KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
+            ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
             1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
@@ -234,13 +270,7 @@ public class KaldbTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     Kaldb indexer =
         makeIndexerAndIndexMessages(
-            indexerPort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
-            1,
-            startTime);
+            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, ZK_PATH_PREFIX, 1, startTime);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     KaldbSearch.SearchResult indexerSearchResponse =
@@ -304,7 +334,6 @@ public class KaldbTest {
   @Test
   public void testTwoIndexersAndOneQueryService() throws Exception {
     assertThat(kafkaServer.getBroker().isRunning()).isTrue();
-    String indexerPathPrefix = "indexer1";
 
     LOG.info("Starting query service");
     int queryServicePort = 8888;
@@ -315,7 +344,7 @@ public class KaldbTest {
             TEST_KAFKA_TOPIC_1,
             0,
             KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
+            ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
             1000);
     Kaldb queryService = new Kaldb(queryServiceConfig);
@@ -328,13 +357,7 @@ public class KaldbTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     Kaldb indexer1 =
         makeIndexerAndIndexMessages(
-            indexerPort,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            indexerPathPrefix,
-            1,
-            startTime);
+            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, ZK_PATH_PREFIX, 1, startTime);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     LOG.info("Starting indexer service 2");
@@ -347,7 +370,7 @@ public class KaldbTest {
             TEST_KAFKA_TOPIC_1,
             1,
             KALDB_TEST_CLIENT_2,
-            indexerPathPrefix,
+            ZK_PATH_PREFIX,
             2,
             startTime2);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);

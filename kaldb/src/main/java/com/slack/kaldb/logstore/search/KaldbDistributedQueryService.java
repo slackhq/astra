@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
@@ -168,24 +169,39 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    // TODO: in the future, we'd have another field in search metadata to indicate if it's hosted by
-    // an indexer or cache node and
-    // it won't be a shuffle, but can be something more nuanced so that we prefer cache over indexer
-
-    // step 2 - iterate every snapshot and map it to the search metadata while de-duplicating search
-    // metadata with the same snapshot name
+    // step 2 - iterate every snapshot and map it to the search metadata while de-duplicating
+    // search metadata with the same snapshot name
     return searchMetadataStore
         .getCached()
         .stream()
         .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        // ensure we randomize the list so that when there are multiple
-        // search metadata nodes with the same snapshot we don't always pick the same one
-        .collect(
-            Collectors.toMap(
-                SearchMetadata::getSnapshotName,
-                SearchMetadata::getUrl,
-                (firstUrl, secondUrl) -> random.nextBoolean() ? firstUrl : secondUrl))
-        .values();
+        .collect(Collectors.groupingBy(searchMetadata -> searchMetadata.snapshotName))
+        .values()
+        .stream()
+        .filter(queryableSearchMetadataNodes -> queryableSearchMetadataNodes.size() > 0)
+        .map(KaldbDistributedQueryService::pickBestSearchMetadataNode)
+        .map(searchMetadata -> searchMetadata.url)
+        .collect(Collectors.toList());
+  }
+
+  @VisibleForTesting
+  public static SearchMetadata pickBestSearchMetadataNode(
+      List<SearchMetadata> queryableSearchMetadataNodes) {
+    if (queryableSearchMetadataNodes.size() == 1) {
+      return queryableSearchMetadataNodes.get(0);
+    } else {
+      List<SearchMetadata> cacheNodeHostedSearchMetadata =
+          queryableSearchMetadataNodes
+              .stream()
+              .filter(searchMetadata -> !searchMetadata.name.startsWith(LIVE_SNAPSHOT_PATH))
+              .collect(Collectors.toList());
+      if (cacheNodeHostedSearchMetadata.size() == 1) {
+        return cacheNodeHostedSearchMetadata.get(0);
+      } else {
+        return cacheNodeHostedSearchMetadata.get(
+            random.nextInt(cacheNodeHostedSearchMetadata.size()));
+      }
+    }
   }
 
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
