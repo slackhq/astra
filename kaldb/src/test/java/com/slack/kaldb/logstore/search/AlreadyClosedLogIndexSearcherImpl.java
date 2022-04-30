@@ -1,8 +1,6 @@
-package com.slack.kaldb.com.slack.kaldb.logstore.search;
+package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.LogIndexSearcher;
-import com.slack.kaldb.logstore.search.SearchResult;
 import org.apache.lucene.store.AlreadyClosedException;
 
 public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
