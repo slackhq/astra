@@ -1,8 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.LogIndexSearcher;
-import com.slack.kaldb.logstore.search.SearchResult;
 
 public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
