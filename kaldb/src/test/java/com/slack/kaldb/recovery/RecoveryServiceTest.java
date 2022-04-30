@@ -5,6 +5,9 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
+import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.blobfs.BlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
@@ -19,18 +22,25 @@ import java.time.Instant;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 
 public class RecoveryServiceTest {
 
+  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
+  private BlobFs blobFs;
 
   @Before
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
+    blobFs = new S3BlobFs(S3_MOCK_RULE.createS3ClientV2());
+    // TODO: Fix it.
+    // KaldbConfigs.KaldbConfig kaldbConfig = KaldbConfigUtil.makeKaldbConfig();
   }
 
   @After
@@ -63,7 +73,8 @@ public class RecoveryServiceTest {
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     RecoveryService recoveryService =
-        new RecoveryService(recoveryConfig, metadataStore, meterRegistry);
+        new RecoveryService(
+            KaldbConfigs.KaldbConfig.newBuilder().build(), metadataStore, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 

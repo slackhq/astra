@@ -273,7 +273,7 @@ public class Kaldb {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(recoveryConfig, metadataStore, prometheusMeterRegistry);
+          new RecoveryService(kaldbConfig, metadataStore, prometheusMeterRegistry, blobFs);
       services.add(recoveryService);
     }
 

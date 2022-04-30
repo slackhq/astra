@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
@@ -38,6 +39,9 @@ public class RecoveryService extends AbstractIdleService {
   private final SearchContext searchContext;
   private final MetadataStore metadataStore;
   private final MeterRegistry meterRegistry;
+  // private final KaldbConfigs.RecoveryConfig recoveryConfig;
+  private final BlobFs blobFs;
+  private final KaldbConfigs.KaldbConfig kaldbConfig;
 
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
@@ -56,12 +60,16 @@ public class RecoveryService extends AbstractIdleService {
   protected final Counter recoveryNodeFailedAssignment;
 
   public RecoveryService(
-      KaldbConfigs.RecoveryConfig recoveryConfig,
+      KaldbConfigs.KaldbConfig kaldbConfig,
       MetadataStore metadataStore,
-      MeterRegistry meterRegistry) {
+      MeterRegistry meterRegistry,
+      BlobFs blobFs) {
     this.metadataStore = metadataStore;
-    this.searchContext = SearchContext.fromConfig(recoveryConfig.getServerConfig());
+    this.searchContext =
+        SearchContext.fromConfig(kaldbConfig.getRecoveryConfig().getServerConfig());
     this.meterRegistry = meterRegistry;
+    this.blobFs = blobFs;
+    this.kaldbConfig = kaldbConfig;
 
     // we use a single thread executor to allow operations for this recovery node to queue,
     // guaranteeing that they are executed in the order they were received
@@ -163,7 +171,8 @@ public class RecoveryService extends AbstractIdleService {
 
   // index between recoveryTaskMetadata.startOffset and recoveryTaskMetadata.endOffset,
   //   upload to S3, create the snapshot
-  private void handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+  private void handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata)
+      throws InterruptedException {
     // Create an recovery chunk manager from an indexing chunk manager.
     // recovery chunk manager - indexing chunk manager that stops indexing at an offset - no search
     // and no cleaner.
@@ -173,20 +182,21 @@ public class RecoveryService extends AbstractIdleService {
     //        IndexingChunkManager.fromConfig(
     //            meterRegistry,
     //            metadataStore,
+    //            // TODO: Replace with params from IndexerConfig
     //            kaldbConfig.getIndexerConfig(),
     //            blobFs,
     //            kaldbConfig.getS3Config());
-    //    // Index the data until offset.
-    //    KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
-    //    // consume messages in parallel.
-    //    kafkaConsumer.consumeMessages();
-    //
+    //    // Index the data until offset in parallel
+    //     KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
+    //    kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
+    //        KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
+    //        recoveryTaskMetadata.startOffset,
+    //        recoveryTaskMetadata.endOffset);
     //    // close and upload active chunk to S3.
     //    chunkManager.rollOverActiveChunk();
-    //
     //    // Close the indexing chunk manager and kafka consumer.
     //    kafkaConsumer.close();
-    //    chunkManager.close();
+    //    chunkManager.stopAsync();
   }
 
   @VisibleForTesting
