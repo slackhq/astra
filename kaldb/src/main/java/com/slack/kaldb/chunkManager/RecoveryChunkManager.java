@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.*;
@@ -17,7 +16,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,9 +38,7 @@ public class RecoveryChunkManager<T> {
   private final BlobFs blobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
-  private final SearchContext searchContext;
-  private final KaldbConfigs.IndexerConfig indexerConfig;
-  private final RecoveryChunkBuilder recoveryChunkBuilder;
+  private final RecoveryChunkBuilder<T> recoveryChunkBuilder;
   private boolean stopIngestion;
   private ReadWriteChunk<T> activeChunk;
 
@@ -53,7 +49,6 @@ public class RecoveryChunkManager<T> {
   public static final String LIVE_MESSAGES_INDEXED = "live_messages_indexed";
   public static final String LIVE_BYTES_INDEXED = "live_bytes_indexed";
   // TODO: Remove succcess counter?
-  private final AtomicInteger successCounter = new AtomicInteger(0);
   private final Phaser rolloverPhaser = new Phaser();
 
   // fields related to roll over
@@ -83,10 +78,24 @@ public class RecoveryChunkManager<T> {
       MeterRegistry registry,
       BlobFs blobFs,
       String s3Bucket,
+      RecoveryChunkBuilder recoveryChunkBuilder) {
+    this(
+        chunkDataPrefix,
+        chunkRollOverStrategy,
+        registry,
+        blobFs,
+        s3Bucket,
+        makeDefaultRecoveryRollOverExecutor(),
+        recoveryChunkBuilder);
+  }
+
+  public RecoveryChunkManager(
+      String chunkDataPrefix,
+      ChunkRollOverStrategy chunkRollOverStrategy,
+      MeterRegistry registry,
+      BlobFs blobFs,
+      String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      long rollOverFutureTimeoutMs,
-      SearchContext searchContext,
-      KaldbConfigs.IndexerConfig indexerConfig,
       RecoveryChunkBuilder recoveryChunkBuilder) {
 
     this.chunkRollOverStrategy = chunkRollOverStrategy;
@@ -101,18 +110,13 @@ public class RecoveryChunkManager<T> {
     this.s3Bucket = s3Bucket;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
-    this.searchContext = searchContext;
-    this.indexerConfig = indexerConfig;
     this.stopIngestion = false;
     // Register the phaser on constructor and also for every roll over. Wait for phaser in close().
     rolloverPhaser.register();
 
     activeChunk = null;
 
-    LOG.info(
-        "Created a chunk manager with prefix {} and dataDirectory {}",
-        chunkDataPrefix,
-        indexerConfig.getDataDirectory());
+    LOG.info("Created a recovery chunk manager with prefix {}", chunkDataPrefix);
   }
 
   /**
@@ -162,39 +166,29 @@ public class RecoveryChunkManager<T> {
         new RollOverChunkTask<>(
             currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
 
-    if ((rolloverFuture == null) || rolloverFuture.isDone()) {
-      rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
-      rolloverPhaser.register();
+    rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
+    rolloverPhaser.register();
 
-      Futures.addCallback(
-          rolloverFuture,
-          new FutureCallback<>() {
-            @Override
-            public void onSuccess(Boolean success) {
-              if (success == null || !success) {
-                LOG.warn("Roll over failed");
-                stopIngestion = true;
-              } else {
-                successCounter.incrementAndGet();
-              }
-              rolloverPhaser.arrive();
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              LOG.warn("Roll over failed with an exception", t);
+    Futures.addCallback(
+        rolloverFuture,
+        new FutureCallback<>() {
+          @Override
+          public void onSuccess(Boolean success) {
+            if (success == null || !success) {
+              LOG.warn("Roll over failed");
               stopIngestion = true;
-              rolloverPhaser.arrive();
             }
-          },
-          MoreExecutors.directExecutor());
-    } else {
-      throw new ChunkRollOverException(
-          String.format(
-              "The chunk roll over %s is already in progress."
-                  + "It is not recommended to index faster than we can roll over, since we may not be able to keep up",
-              currentChunk.info()));
-    }
+            rolloverPhaser.arrive();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            LOG.warn("Roll over failed with an exception", t);
+            stopIngestion = true;
+            rolloverPhaser.arrive();
+          }
+        },
+        MoreExecutors.directExecutor());
   }
 
   /*
@@ -276,8 +270,6 @@ public class RecoveryChunkManager<T> {
       }
     }
 
-    // searchMetadataStore.close();
-    // snapshotMetadataStore.close();
     LOG.info("Closed recovery chunk manager.");
   }
 
@@ -291,7 +283,7 @@ public class RecoveryChunkManager<T> {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
         ChunkRollOverStrategyImpl.fromConfig(indexerConfig);
-    // TODO: Pass these metadata stores in.
+    // TODO: Pass these metadata stores in and close them correctly.
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     SearchContext searchContext = SearchContext.fromConfig(indexerConfig.getServerConfig());
@@ -311,10 +303,6 @@ public class RecoveryChunkManager<T> {
         meterRegistry,
         blobFs,
         s3Config.getS3Bucket(),
-        makeDefaultRecoveryRollOverExecutor(),
-        DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
-        searchContext,
-        indexerConfig,
         recoveryChunkBuilder);
   }
 }
