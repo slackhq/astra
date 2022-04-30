@@ -10,7 +10,6 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
-import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
@@ -20,10 +19,10 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import io.grpc.BindableService;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -55,17 +54,10 @@ public class ArmeriaService extends AbstractIdleService {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      initializeEventLoop();
       initializeTimeouts();
       initializeCompression();
       initializeLogging();
       initializeManagementEndpoints(prometheusMeterRegistry);
-    }
-
-    private void initializeEventLoop() {
-      EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
-      EventLoopGroups.warmUp(eventLoopGroup);
-      serverBuilder.workerGroup(eventLoopGroup, true);
     }
 
     private void initializeTimeouts() {
@@ -94,6 +86,7 @@ public class ArmeriaService extends AbstractIdleService {
       serverBuilder
           .service("/health", HealthCheckService.builder().build())
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
+          .serviceUnder("/internal/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
     }
 
@@ -150,7 +143,15 @@ public class ArmeriaService extends AbstractIdleService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Shutting down");
-    server.closeAsync().get(15, TimeUnit.SECONDS);
+
+    // On server close there is an option for a graceful shutdown, which is disabled by default.
+    // When it is
+    // disabled it immediately starts rejecting requests and begins the shutdown process, which
+    // includes
+    // running any remaining AsyncClosableSupport closeAsync actions. We want to allow this to take
+    // up to the
+    // maximum permissible shutdown time to successfully close.
+    server.close();
   }
 
   @Override
