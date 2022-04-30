@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunkManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
@@ -28,6 +28,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.chunk.ReadWriteChunk;
+import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;
