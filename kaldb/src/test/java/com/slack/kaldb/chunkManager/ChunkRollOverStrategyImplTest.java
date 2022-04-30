@@ -2,8 +2,6 @@ package com.slack.kaldb.chunkManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
-import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import org.junit.Test;
