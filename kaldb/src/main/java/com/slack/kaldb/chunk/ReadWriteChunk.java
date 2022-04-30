@@ -89,6 +89,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       SearchContext searchContext,
       String kafkaPartitionId,
       Logger logger) {
+    // TODO: Add checkArgument for the fields.
     this.logStore = logStore;
     String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
     this.logSearcher =

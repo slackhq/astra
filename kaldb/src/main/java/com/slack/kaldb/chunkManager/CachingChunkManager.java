@@ -85,7 +85,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
             LOG.error("Error closing readonly chunk", e);
           }
         });
-
+    // TODO: Close all local metadata stores created.
     LOG.info("Closed caching chunk manager.");
   }
 
