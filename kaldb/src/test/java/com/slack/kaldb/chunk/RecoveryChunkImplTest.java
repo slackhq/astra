@@ -32,7 +32,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
@@ -417,8 +416,7 @@ public class RecoveryChunkImplTest {
     }
 
     @Test
-    public void testSnapshotToNonExistentS3BucketFails()
-        throws ExecutionException, InterruptedException, TimeoutException {
+    public void testSnapshotToNonExistentS3BucketFails() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -451,14 +449,13 @@ public class RecoveryChunkImplTest {
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      // No live snapshot or search metadta is published since the S3 snapshot failed.
+      // No live snapshot or search metadata is published since the S3 snapshot failed.
       assertThat(snapshotMetadataStore.listSync()).isEmpty();
       assertThat(searchMetadataStore.listSync()).isEmpty();
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
@@ -508,7 +505,7 @@ public class RecoveryChunkImplTest {
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       // Only non-live snapshots. No live snapshots.
-      assertThat(afterSnapshots.stream().filter(s -> SnapshotMetadata.isLive(s)).count()).isZero();
+      assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
       // No search nodes are added for recovery chunk.
       assertThat(searchMetadataStore.listSync()).isEmpty();
 
