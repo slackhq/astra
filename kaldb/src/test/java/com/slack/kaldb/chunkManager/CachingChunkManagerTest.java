@@ -132,4 +132,8 @@ public class CachingChunkManagerTest {
 
     metadataStore.close();
   }
+
+  // TODO: Add a unit test to ensure caching chunk manager can search messages.
+  // TODO: Add a unit test to ensure that all chunks in caching chunk manager are read only.
+  // TODO: Add a unit test to ensure that caching chunk manager can handle exceptions gracefully.
 }
