@@ -71,6 +71,9 @@ message SearchMetadata {
 
   // url
   string url = 3;
+
+  // live or non live
+  bool isLive = 4;
 }
 
 message RecoveryNodeMetadata {

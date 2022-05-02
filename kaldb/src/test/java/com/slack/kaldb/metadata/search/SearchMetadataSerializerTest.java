@@ -14,8 +14,9 @@ public class SearchMetadataSerializerTest {
     final String name = "testSearch";
     final String snapshotName = "testSnapshot";
     final String url = "http://10.10.1.1:9090";
+    final boolean isLive = true;
 
-    SearchMetadata searchMetadata = new SearchMetadata(name, snapshotName, url);
+    SearchMetadata searchMetadata = new SearchMetadata(name, snapshotName, url, isLive);
 
     String serializedSearchMetadata = serDe.toJsonStr(searchMetadata);
     assertThat(serializedSearchMetadata).isNotEmpty();
@@ -26,6 +27,7 @@ public class SearchMetadataSerializerTest {
     assertThat(deserializedSearchMetadata.name).isEqualTo(name);
     assertThat(deserializedSearchMetadata.snapshotName).isEqualTo(snapshotName);
     assertThat(deserializedSearchMetadata.url).isEqualTo(url);
+    assertThat(deserializedSearchMetadata.isLive).isEqualTo(isLive);
   }
 
   @Test

@@ -4,6 +4,7 @@ import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
 import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.groupBySnapshotName;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -26,6 +27,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -90,7 +92,7 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunkCreationTime = Instant.ofEpochMilli(100);
     Instant chunkEndTime = Instant.ofEpochMilli(200);
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
-    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     Collection<String> snapshots =
@@ -117,8 +119,9 @@ public class KaldbDistributedQueryServiceTest {
   public void testOneIndexerOneCache() throws Exception {
     Instant chunkCreationTime = Instant.ofEpochMilli(100);
     Instant chunkEndTime = Instant.ofEpochMilli(200);
-    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
+    String snapshotName =
+        createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
     Collection<String> searchNodes =
@@ -141,13 +144,17 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(searchNodes.size()).isEqualTo(0);
 
     // create cache node entry for search metadata also serving the snapshot
-    String snapshotName = snapshotMetadataStore.getCached().iterator().next().name;
-    snapshotName =
-        snapshotName.substring(
-            5); // remove LIVE_ prefix for a search metadata hosted by a cache node
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache1SearchContext, snapshotName);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    Map<String, List<SearchMetadata>> results = groupBySnapshotName(searchMetadataStore.listSync());
+    List<String> y =
+        results
+            .values()
+            .stream()
+            .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
+            .collect(Collectors.toList());
 
     searchNodes =
         getSearchNodesToQuery(
@@ -158,61 +165,6 @@ public class KaldbDistributedQueryServiceTest {
             Set.of("1"));
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
-  }
-
-  @Test
-  public void testTwoIndexerWithDifferentPartitions() {
-    // search for partition "1" only
-    Instant chunkCreationTime = Instant.ofEpochMilli(100);
-    Instant chunkEndTime = Instant.ofEpochMilli(200);
-    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
-    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
-    await().until(() -> searchMetadataStore.listSync().size() == 1);
-
-    Collection<String> snapshots =
-        getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
-            Set.of("1"));
-    assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.iterator().next()).isEqualTo(indexer1SearchContext.toString());
-
-    // search for partition "2" only
-    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
-    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
-    await().until(() -> searchMetadataStore.listSync().size() == 2);
-
-    snapshots =
-        getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
-            Set.of("2"));
-    assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.iterator().next()).isEqualTo(indexer2SearchContext.toString());
-
-    // search for partition "1 and 2"
-    snapshots =
-        getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
-            Set.of("1", "2"));
-    assertThat(snapshots.size()).isEqualTo(2);
-
-    // search for wrong partition and see if you get 0 nodes
-    snapshots =
-        getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
-            Set.of("4"));
-    assertThat(snapshots.size()).isEqualTo(0);
   }
 
   @Test
@@ -263,17 +215,19 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(snapshots.size()).isEqualTo(0);
   }
 
-  private void createIndexerZKMetadata(
+  private String createIndexerZKMetadata(
       Instant chunkCreationTime,
       Instant chunkEndTime,
       String partition,
       SearchContext searchContext) {
     SnapshotMetadata liveSnapshotMetadata =
         createSnapshot(chunkCreationTime, chunkEndTime, true, partition);
-    SearchMetadata liveSearchMetadata =
-        toSearchMetadata(liveSnapshotMetadata.name, searchContext);
+    SearchMetadata liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.name, searchContext);
 
     searchMetadataStore.createSync(liveSearchMetadata);
+
+    return liveSnapshotMetadata.name.substring(
+        5); // remove LIVE_ prefix for a search metadata hosted by a cache node
   }
 
   private SnapshotMetadata createSnapshot(
@@ -289,11 +243,17 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             partition,
-            isLive ? LIVE_SNAPSHOT_PATH : "");
+            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
     SnapshotMetadata snapshotMetadata =
         toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
 
     snapshotMetadataStore.createSync(snapshotMetadata);
+
+    if (isLive) {
+      // create non-live as well to simulate postClose of IndexingChunkImpl
+      SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
+      snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
+    }
 
     return snapshotMetadata;
   }
@@ -390,5 +350,60 @@ public class KaldbDistributedQueryServiceTest {
                 .iterator()
                 .next())
         .isEqualTo("1");
+  }
+
+  @Test
+  public void testTwoIndexerWithDifferentPartitions() {
+    // search for partition "1" only
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    Collection<String> snapshots =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            Set.of("1"));
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(snapshots.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
+    // search for partition "2" only
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    snapshots =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            Set.of("2"));
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(snapshots.iterator().next()).isEqualTo(indexer2SearchContext.toString());
+
+    // search for partition "1 and 2"
+    snapshots =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            Set.of("1", "2"));
+    assertThat(snapshots.size()).isEqualTo(2);
+
+    // search for wrong partition and see if you get 0 nodes
+    snapshots =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            Set.of("4"));
+    assertThat(snapshots.size()).isEqualTo(0);
   }
 }
