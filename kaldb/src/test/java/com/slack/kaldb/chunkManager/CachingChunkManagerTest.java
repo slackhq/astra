@@ -1,11 +1,13 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunkManager;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.chunkManager.CachingChunkManager;
+import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
+import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
