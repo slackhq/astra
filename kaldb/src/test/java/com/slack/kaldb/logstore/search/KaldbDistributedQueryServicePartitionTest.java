@@ -5,7 +5,6 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
-import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
