@@ -11,7 +11,8 @@ public class SearchMetadataSerializer implements MetadataSerializer<SearchMetada
     return new SearchMetadata(
         searchMetadataProto.getName(),
         searchMetadataProto.getSnapshotName(),
-        searchMetadataProto.getUrl());
+        searchMetadataProto.getUrl(),
+        searchMetadataProto.getIsLive());
   }
 
   private static Metadata.SearchMetadata toSearchMetadataProto(SearchMetadata metadata) {
@@ -19,6 +20,7 @@ public class SearchMetadataSerializer implements MetadataSerializer<SearchMetada
         .setName(metadata.name)
         .setSnapshotName(metadata.snapshotName)
         .setUrl(metadata.url)
+        .setIsLive(metadata.isLive)
         .build();
   }
 

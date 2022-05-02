@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
-import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
@@ -175,25 +174,38 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .getCached()
         .stream()
         .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.groupingBy(searchMetadata -> searchMetadata.snapshotName))
+        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getSnapshotName))
         .values()
         .stream()
         .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
         .collect(Collectors.toList());
   }
 
+  public static Map<String, List<SearchMetadata>> groupBySnapshotName(
+      List<SearchMetadata> searchMetadataList) {
+    return searchMetadataList
+        .stream()
+        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getSnapshotName));
+  }
+
+  private static String getSnapshotName(SearchMetadata searchMetadata) {
+    return searchMetadata.snapshotName.startsWith("LIVE")
+        ? searchMetadata.snapshotName.substring(5)
+        : searchMetadata.snapshotName;
+  }
+
   /*
    If there is only one node hosting the snapshot use that
    If there are multiple, then always prefer cache nodes. We pick any cache node at random
   */
-  private static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
+  public static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
     if (queryableSearchMetadataNodes.size() == 1) {
       return queryableSearchMetadataNodes.get(0).url;
     } else {
       List<SearchMetadata> cacheNodeHostedSearchMetadata =
           queryableSearchMetadataNodes
               .stream()
-              .filter(searchMetadata -> !searchMetadata.name.startsWith(LIVE_SNAPSHOT_PATH))
+              .filter(searchMetadata -> !searchMetadata.isLive)
               .collect(Collectors.toList());
       if (cacheNodeHostedSearchMetadata.size() == 1) {
         return cacheNodeHostedSearchMetadata.get(0).url;
