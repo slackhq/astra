@@ -15,6 +15,9 @@ import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.service.ServiceMetadata;
+import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -22,9 +25,7 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -37,6 +38,8 @@ public class KaldbDistributedQueryServiceTest {
   private MetadataStore zkMetadataStore;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
+  private ServiceMetadataStore serviceMetadataStore;
+
   private TestingServer testZKServer;
   private SearchContext indexer1SearchContext;
   private SearchContext indexer2SearchContext;
@@ -64,6 +67,8 @@ public class KaldbDistributedQueryServiceTest {
 
     snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, true));
     searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, true));
+    serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
+
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);
     cache1SearchContext = new SearchContext("cache_host1", 20000);
@@ -74,6 +79,7 @@ public class KaldbDistributedQueryServiceTest {
   public void tearDown() throws Exception {
     snapshotMetadataStore.close();
     searchMetadataStore.close();
+    serviceMetadataStore.close();
     zkMetadataStore.close();
     metricsRegistry.close();
     testZKServer.close();
@@ -289,5 +295,99 @@ public class KaldbDistributedQueryServiceTest {
     snapshotMetadataStore.createSync(snapshotMetadata);
 
     return snapshotMetadata;
+  }
+
+  @Test
+  public void testOneServiceOnePartition() {
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition =
+        new ServicePartitionMetadata(
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(90).toEpochMilli(),
+            List.of("1"));
+    final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, partitionConfigs);
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(serviceMetadataStore, name)
+                .size())
+        .isEqualTo(1);
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(serviceMetadataStore, name)
+                .iterator()
+                .next())
+        .isEqualTo("1");
+  }
+
+  @Test
+  public void testOneServiceMultiplePartition() {
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition =
+        new ServicePartitionMetadata(
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(90).toEpochMilli(),
+            List.of("1", "2"));
+    final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, partitionConfigs);
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(serviceMetadataStore, name)
+                .size())
+        .isEqualTo(2);
+  }
+
+  @Test
+  public void testMultipleServices() {
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition =
+        new ServicePartitionMetadata(
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(90).toEpochMilli(),
+            List.of("1"));
+    final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, partitionConfigs);
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    serviceMetadata = new ServiceMetadata("testService2", owner, throughputBytes, partitionConfigs);
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(serviceMetadataStore, name)
+                .size())
+        .isEqualTo(1);
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(serviceMetadataStore, name)
+                .iterator()
+                .next())
+        .isEqualTo("1");
+
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(
+                    serviceMetadataStore, "testService2")
+                .size())
+        .isEqualTo(1);
+    assertThat(
+            KaldbDistributedQueryService.getPartitionsForIndexName(
+                    serviceMetadataStore, "testService2")
+                .iterator()
+                .next())
+        .isEqualTo("1");
   }
 }
