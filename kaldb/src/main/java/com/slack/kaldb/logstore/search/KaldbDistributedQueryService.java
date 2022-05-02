@@ -140,7 +140,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   @VisibleForTesting
-  public static Collection<String> getSnapshotsToSearch(
+  public static Collection<String> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       long startTimeMs,
@@ -201,7 +201,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private Set<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
       long startTimeMs, long endTimeMs, Set<String> partitions) {
 
-    return getSnapshotsToSearch(
+    return getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, startTimeMs, endTimeMs, partitions)
         .stream()
         .map(this::getStub)

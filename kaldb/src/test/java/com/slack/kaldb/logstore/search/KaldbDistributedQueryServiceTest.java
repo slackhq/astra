@@ -3,7 +3,7 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
-import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSnapshotsToSearch;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -94,7 +94,7 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     Collection<String> snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
@@ -104,7 +104,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(snapshots.iterator().next()).isEqualTo(indexer1SearchContext.toString());
 
     snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkEndTime.toEpochMilli() + 1,
@@ -121,24 +121,24 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
-    Collection<String> snapshots =
-        getSnapshotsToSearch(
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             Set.of("1"));
-    assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
 
-    snapshots =
-        getSnapshotsToSearch(
+    searchNodes =
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkEndTime.toEpochMilli() + 1,
             chunkEndTime.toEpochMilli() + 100,
             Set.of("1"));
-    assertThat(snapshots.size()).isEqualTo(0);
+    assertThat(searchNodes.size()).isEqualTo(0);
 
     // create cache node entry for search metadata also serving the snapshot
     String snapshotName = snapshotMetadataStore.getCached().iterator().next().name;
@@ -149,14 +149,15 @@ public class KaldbDistributedQueryServiceTest {
         searchMetadataStore, cache1SearchContext, snapshotName);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
-    snapshots =
-        getSnapshotsToSearch(
+    searchNodes =
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             0,
             chunkCreationTime.toEpochMilli(),
             Set.of("1"));
-    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
   }
 
   @Test
@@ -169,7 +170,7 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     Collection<String> snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
@@ -184,7 +185,7 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
     snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
@@ -195,7 +196,7 @@ public class KaldbDistributedQueryServiceTest {
 
     // search for partition "1 and 2"
     snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
@@ -205,7 +206,7 @@ public class KaldbDistributedQueryServiceTest {
 
     // search for wrong partition and see if you get 0 nodes
     snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             chunkCreationTime.toEpochMilli(),
@@ -229,7 +230,7 @@ public class KaldbDistributedQueryServiceTest {
 
     // assert search will always find cache1
     Collection<String> snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             0,
@@ -245,7 +246,7 @@ public class KaldbDistributedQueryServiceTest {
 
     // assert search will always find cache1 or cache2
     snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             0,
@@ -257,7 +258,7 @@ public class KaldbDistributedQueryServiceTest {
   @Test
   public void testNoNode() {
     Collection<String> snapshots =
-        getSnapshotsToSearch(
+        getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, 0, Long.MAX_VALUE, Set.of("1"));
     assertThat(snapshots.size()).isEqualTo(0);
   }
@@ -270,7 +271,7 @@ public class KaldbDistributedQueryServiceTest {
     SnapshotMetadata liveSnapshotMetadata =
         createSnapshot(chunkCreationTime, chunkEndTime, true, partition);
     SearchMetadata liveSearchMetadata =
-        toSearchMetadata(liveSnapshotMetadata.snapshotId, searchContext);
+        toSearchMetadata(liveSnapshotMetadata.name, searchContext);
 
     searchMetadataStore.createSync(liveSearchMetadata);
   }
@@ -288,7 +289,7 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             1234,
             partition,
-            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
+            isLive ? LIVE_SNAPSHOT_PATH : "");
     SnapshotMetadata snapshotMetadata =
         toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
 
