@@ -178,17 +178,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .collect(Collectors.groupingBy(searchMetadata -> searchMetadata.snapshotName))
         .values()
         .stream()
-        .filter(queryableSearchMetadataNodes -> queryableSearchMetadataNodes.size() > 0)
-        .map(KaldbDistributedQueryService::pickBestSearchMetadataNode)
-        .map(searchMetadata -> searchMetadata.url)
+        .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
         .collect(Collectors.toList());
   }
 
-  @VisibleForTesting
-  public static SearchMetadata pickBestSearchMetadataNode(
-      List<SearchMetadata> queryableSearchMetadataNodes) {
+  /*
+   If there is only one node hosting the snapshot use that
+   If there are multiple, then always prefer cache nodes. We pick any cache node at random
+  */
+  private static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
     if (queryableSearchMetadataNodes.size() == 1) {
-      return queryableSearchMetadataNodes.get(0);
+      return queryableSearchMetadataNodes.get(0).url;
     } else {
       List<SearchMetadata> cacheNodeHostedSearchMetadata =
           queryableSearchMetadataNodes
@@ -196,10 +196,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               .filter(searchMetadata -> !searchMetadata.name.startsWith(LIVE_SNAPSHOT_PATH))
               .collect(Collectors.toList());
       if (cacheNodeHostedSearchMetadata.size() == 1) {
-        return cacheNodeHostedSearchMetadata.get(0);
+        return cacheNodeHostedSearchMetadata.get(0).url;
       } else {
         return cacheNodeHostedSearchMetadata.get(
-            random.nextInt(cacheNodeHostedSearchMetadata.size()));
+                random.nextInt(cacheNodeHostedSearchMetadata.size()))
+            .url;
       }
     }
   }
