@@ -67,6 +67,7 @@ public class CachingChunkManagerTest {
                     .setServerAddress("localhost")
                     .setServerPort(8080)
                     .build())
+            .setQueryTimeoutMs(5000)
             .build();
 
     KaldbConfigs.S3Config s3Config =
@@ -100,7 +101,8 @@ public class CachingChunkManagerTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
-            kaldbConfig.getCacheConfig().getSlotsPerInstance());
+            kaldbConfig.getCacheConfig().getSlotsPerInstance(),
+            kaldbConfig.getCacheConfig().getQueryTimeoutMs());
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);

@@ -1,7 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.server.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
-
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,6 +37,12 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
 
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
+  protected final long queryTimeoutMs;
+
+  public ChunkManager(long queryTimeoutMs) {
+    this.queryTimeoutMs = queryTimeoutMs;
+  }
+
   /*
    * Use an unbounded cached thread pool to service the read requests, so we can saturate the CPU.
    * Revisit the thread pool settings if this becomes a perf issue. Also, we may need
@@ -72,9 +76,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
                     CompletableFuture.supplyAsync(
                             () -> chunk.query(query),
                             currentTraceContext.executorService(queryExecutorService))
-                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader
-                        //  in the future and pass this timeout
-                        .orTimeout(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS))
+                        .orTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
@@ -99,7 +101,7 @@ public abstract class ChunkManager<T> extends AbstractIdleService {
         CompletableFutures.allAsList(queries);
     try {
       List<SearchResult<T>> searchResults =
-          searchResultFuture.get(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
+          searchResultFuture.get(queryTimeoutMs, TimeUnit.MILLISECONDS);
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))

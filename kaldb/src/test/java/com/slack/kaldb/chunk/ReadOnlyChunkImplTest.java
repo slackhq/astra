@@ -117,6 +117,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getQueryTimeoutMs(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -236,6 +237,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getQueryTimeoutMs(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -303,6 +305,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getQueryTimeoutMs(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -371,6 +374,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getQueryTimeoutMs(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -480,6 +484,7 @@ public class ReadOnlyChunkImplTest {
             Files.newTemporaryFolder(),
             Duration.ofSeconds(60),
             Duration.ofSeconds(60),
+            Duration.ofSeconds(5),
             meterRegistry);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
@@ -512,6 +517,7 @@ public class ReadOnlyChunkImplTest {
                     .setServerAddress("localhost")
                     .setServerPort(8080)
                     .build())
+            .setQueryTimeoutMs(5000)
             .build();
 
     KaldbConfigs.S3Config s3Config =

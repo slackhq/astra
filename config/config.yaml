@@ -13,6 +13,7 @@ indexerConfig:
   serverConfig:
     serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
     serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}
+  queryTimeoutMs: ${KALDB_INDEX_QUERY_TIMEOUT_MS:-4000}
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
@@ -37,6 +38,7 @@ queryConfig:
   serverConfig:
     serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}
     serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
+  queryTimeoutMs: ${KALDB_QUERY_QUERY_TIMEOUT_MS:-5000}
 
 metadataStoreConfig:
   zookeeperConfig:
@@ -52,6 +54,7 @@ cacheConfig:
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
+  queryTimeoutMs: ${KALDB_CACHE_QUERY_TIMEOUT_MS:-4000}
 
 managerConfig:
   eventAggregationSecs: ${KALDB_MANAGER_AGGREGATION_SECS:-10}

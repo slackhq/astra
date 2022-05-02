@@ -26,7 +26,9 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -116,6 +118,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       MetadataStore metadataStore,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
+    super(indexerConfig.getQueryTimeoutMs());
 
     ensureNonNullString(dataDirectory, "The data directory shouldn't be empty");
     this.dataDirectory = new File(dataDirectory);
@@ -258,7 +261,10 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       LogStore<T> logStore =
           (LogStore<T>)
               LuceneIndexStoreImpl.makeLogStore(
-                  dataDirectory, indexerConfig.getLuceneConfig(), meterRegistry);
+                  dataDirectory,
+                  indexerConfig.getLuceneConfig(),
+                  Duration.of(indexerConfig.getQueryTimeoutMs(), ChronoUnit.MILLIS),
+                  meterRegistry);
 
       ReadWriteChunk<T> newChunk =
           new IndexingChunkImpl<>(

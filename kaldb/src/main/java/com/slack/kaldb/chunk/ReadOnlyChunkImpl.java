@@ -57,6 +57,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final String s3Bucket;
   private final SearchContext searchContext;
   protected final String slotName;
+  private final long queryTimeoutMs;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -80,6 +81,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
+      long queryTimeoutMs,
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
@@ -90,6 +92,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
+    this.queryTimeoutMs = queryTimeoutMs;
 
     // we use a single thread executor to allow operations for this chunk to queue,
     // guaranteeing that they are executed in the order they were received
@@ -196,7 +199,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
       this.logSearcher =
           (LogIndexSearcher<T>)
-              new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+              new LogIndexSearcherImpl(
+                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory, queryTimeoutMs));
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {

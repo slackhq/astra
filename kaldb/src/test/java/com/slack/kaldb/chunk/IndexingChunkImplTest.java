@@ -60,6 +60,7 @@ public class IndexingChunkImplTest {
   private static final String CHUNK_DATA_PREFIX = "testDataSet";
   private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
   private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
+  private static final Duration QUERY_TIMEOUT = Duration.ofMillis(500);
 
   private static void testBeforeSnapshotState(
       SnapshotMetadataStore snapshotMetadataStore,
@@ -108,7 +109,11 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              QUERY_TIMEOUT,
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -407,7 +412,11 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              QUERY_TIMEOUT,
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,

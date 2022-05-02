@@ -162,7 +162,10 @@ public class Kaldb {
               KaldbConfigs.NodeRole.QUERY, Collections.singletonList(searchMetadataStore)));
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
-          new KaldbDistributedQueryService(searchMetadataStore, prometheusMeterRegistry);
+          new KaldbDistributedQueryService(
+              searchMetadataStore,
+              kaldbConfig.getQueryConfig().getQueryTimeoutMs(),
+              prometheusMeterRegistry);
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)

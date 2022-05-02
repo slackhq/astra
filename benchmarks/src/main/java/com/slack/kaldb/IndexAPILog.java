@@ -31,6 +31,7 @@ public class IndexAPILog {
   private Random random;
   private final Duration commitInterval = Duration.ofSeconds(5 * 60);
   private final Duration refreshInterval = Duration.ofSeconds(5 * 60);
+  private final Duration queryTimeout = Duration.ofSeconds(5);
 
   private Path tempDirectory;
   private MeterRegistry registry;
@@ -51,7 +52,7 @@ public class IndexAPILog {
             Paths.get("jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            tempDirectory.toFile(), commitInterval, refreshInterval, registry);
+            tempDirectory.toFile(), commitInterval, refreshInterval, queryTimeout, registry);
 
     apiLogFile = System.getProperty("jmh.api.log.file", "api_logs.txt");
     reader = Files.newBufferedReader(Path.of(apiLogFile));

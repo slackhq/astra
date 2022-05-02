@@ -73,6 +73,8 @@ message TracingConfig {
 // Configuration for the query service.
 message QueryServiceConfig {
   ServerConfig server_config = 1;
+  // Max query timeout
+  int64 query_timeout_ms = 2;
 }
 
 // Configuration for the indexer.
@@ -95,6 +97,8 @@ message IndexerConfig {
   // The max_offset_delay controls by how many kafka messages the indexer can be behind
   // before it needs to create a recovery task to catch up.
   int64 max_offset_delay_messages = 8;
+  // Max query timeout
+  int64 query_timeout_ms = 9;
 }
 
 // A config object containing all the lucene configs.
@@ -114,6 +118,8 @@ message CacheConfig {
   int32 slots_per_instance = 1;
   string data_directory = 2;
   ServerConfig server_config = 3;
+  // Max query timeout
+  int64 query_timeout_ms = 4;
 }
 
 // Cluster manager config. As a convention we define a config struct for

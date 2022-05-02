@@ -41,7 +41,10 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      int slotCountPerInstance) {
+      int slotCountPerInstance,
+      long queryTimeoutMs) {
+    super(queryTimeoutMs);
+
     this.meterRegistry = registry;
     this.metadataStore = metadataStore;
     this.blobFs = blobFs;
@@ -69,6 +72,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
               searchContext,
               s3Bucket,
               dataDirectoryPrefix,
+              queryTimeoutMs,
               cacheSlotMetadataStore,
               replicaMetadataStore,
               snapshotMetadataStore,
@@ -111,6 +115,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
-        cacheConfig.getSlotsPerInstance());
+        cacheConfig.getSlotsPerInstance(),
+        cacheConfig.getQueryTimeoutMs());
   }
 }

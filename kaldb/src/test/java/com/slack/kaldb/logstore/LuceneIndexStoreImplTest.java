@@ -333,6 +333,8 @@ public class LuceneIndexStoreImplTest {
   }
 
   public static class SnapshotTester {
+    Duration queryTimeout = Duration.ofSeconds(2);
+
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
         new TemporaryLogStoreAndSearcherRule(false);
@@ -406,7 +408,8 @@ public class LuceneIndexStoreImplTest {
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tempFolder.getRoot().toPath(), queryTimeout.toMillis()));
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_INDEX_NAME, "Message1", 100, 1);
       assertThat(newResults.size()).isEqualTo(1);
@@ -448,7 +451,8 @@ public class LuceneIndexStoreImplTest {
 
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
+              LogIndexSearcherImpl.searcherManagerFromPath(
+                  tempFolder.getRoot().toPath(), queryTimeout.toMillis()));
 
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_INDEX_NAME, "Message1", 100, 1);
@@ -490,10 +494,11 @@ public class LuceneIndexStoreImplTest {
 
   public static class AutoCommitTests {
     Duration commitDuration = Duration.ofSeconds(5);
+    Duration queryTimeout = Duration.ofSeconds(2);
 
     @Rule
     public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(commitDuration, commitDuration, true);
+        new TemporaryLogStoreAndSearcherRule(commitDuration, queryTimeout, commitDuration, true);
 
     public AutoCommitTests() throws IOException {}
 

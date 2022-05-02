@@ -16,10 +16,13 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.ExitableDirectoryReader;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
+import org.apache.lucene.index.QueryTimeoutImpl;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.FSDirectory;
@@ -58,12 +61,16 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final Counter refreshesCounter;
 
   public static LuceneIndexStoreImpl makeLogStore(
-      File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
+      File dataDirectory,
+      KaldbConfigs.LuceneConfig luceneConfig,
+      Duration queryTimeout,
+      MeterRegistry metricsRegistry)
       throws IOException {
     return makeLogStore(
         dataDirectory,
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
+        queryTimeout,
         metricsRegistry);
   }
 
@@ -71,6 +78,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       File dataDirectory,
       Duration commitInterval,
       Duration refreshInterval,
+      Duration queryTimeout,
       MeterRegistry metricsRegistry)
       throws IOException {
     // TODO: Move all these config values into chunk?
@@ -81,12 +89,16 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false), metricsRegistry);
+        indexStoreCfg,
+        LogDocumentBuilderImpl.build(false),
+        queryTimeout.toMillis(),
+        metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(
       LuceneIndexStoreConfig config,
       DocumentBuilder<LogMessage> documentBuilder,
+      long queryTimeoutMs,
       MeterRegistry registry)
       throws IOException {
 
@@ -99,7 +111,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
     indexDirectory = new NIOFSDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
-    this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
+
+    DirectoryReader directoryReader = DirectoryReader.open(indexWriter.get(), false, false);
+    ExitableDirectoryReader exitableDirectoryReader =
+        new ExitableDirectoryReader(directoryReader, new QueryTimeoutImpl(queryTimeoutMs));
+    this.searcherManager = new SearcherManager(exitableDirectoryReader, null);
 
     timer = new Timer(true);
     timer.schedule(

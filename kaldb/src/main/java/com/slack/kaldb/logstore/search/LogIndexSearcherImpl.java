@@ -26,6 +26,8 @@ import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.ExitableDirectoryReader;
+import org.apache.lucene.index.QueryTimeoutImpl;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -55,9 +57,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final StandardAnalyzer analyzer;
 
   @VisibleForTesting
-  public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
+  public static SearcherManager searcherManagerFromPath(Path path, long queryTimeoutMs)
+      throws IOException {
     NIOFSDirectory directory = new NIOFSDirectory(path);
-    return new SearcherManager(directory, null);
+    DirectoryReader directoryReader = DirectoryReader.open(directory);
+    ExitableDirectoryReader exitableDirectoryReader =
+        new ExitableDirectoryReader(directoryReader, new QueryTimeoutImpl(queryTimeoutMs));
+    return new SearcherManager(exitableDirectoryReader, null);
   }
 
   // todo - this is not needed once this data is on the snapshot
@@ -151,6 +157,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } catch (IOException e) {
       span.error(e);
       throw new IllegalArgumentException("Failed to acquire an index searcher.", e);
+    } catch (ExitableDirectoryReader.ExitingReaderException e) {
+      span.error(e);
+      throw new IllegalArgumentException("Directory reader timed out", e);
     } finally {
       span.finish();
     }

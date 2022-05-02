@@ -1,11 +1,8 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
-
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -54,8 +51,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
-  @VisibleForTesting
-  public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
+  private final long queryTimeoutMs;
 
   private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
 
@@ -65,8 +61,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // Whichever store we fetch the information in the future, we should also store the
   // protocol that the node can be contacted by there since we hardcode it today
   public KaldbDistributedQueryService(
-      SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
+      SearchMetadataStore searchMetadataStore, long queryTimeoutMs, MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
+    this.queryTimeoutMs = queryTimeoutMs;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -138,7 +135,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(READ_TIMEOUT_MS - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
+          stub.withDeadlineAfter(queryTimeoutMs - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .search(request);
@@ -154,7 +151,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+          searchFuture.get(queryTimeoutMs, TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
       return searchResults
