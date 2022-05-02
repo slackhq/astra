@@ -29,10 +29,10 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
   private final String s3Bucket;
   private final String dataDirectoryPrefix;
   private final int slotCountPerInstance;
-  private final ReplicaMetadataStore replicaMetadataStore;
-  private final SnapshotMetadataStore snapshotMetadataStore;
-  private final SearchMetadataStore searchMetadataStore;
-  private final CacheSlotMetadataStore cacheSlotMetadataStore;
+  private ReplicaMetadataStore replicaMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private SearchMetadataStore searchMetadataStore;
+  private CacheSlotMetadataStore cacheSlotMetadataStore;
 
   public CachingChunkManager(
       MeterRegistry registry,
@@ -41,8 +41,7 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      int slotCountPerInstance)
-      throws Exception {
+      int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.metadataStore = metadataStore;
     this.blobFs = blobFs;
@@ -50,16 +49,16 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.slotCountPerInstance = slotCountPerInstance;
-
-    replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    cacheSlotMetadataStore = new CacheSlotMetadataStore(metadataStore, false);
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
+
+    replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    cacheSlotMetadataStore = new CacheSlotMetadataStore(metadataStore, false);
 
     for (int i = 0; i < slotCountPerInstance; i++) {
       chunkList.add(
@@ -90,10 +89,11 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
           }
         });
 
-    replicaMetadataStore.close();
-    snapshotMetadataStore.close();
-    searchMetadataStore.close();
     cacheSlotMetadataStore.close();
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
+    replicaMetadataStore.close();
+
     LOG.info("Closed caching chunk manager.");
   }
 
