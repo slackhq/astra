@@ -35,7 +35,7 @@ public class RecoveryChunkManager<T> {
 
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  private final RecoveryChunkBuilder<T> recoveryChunkBuilder;
+  private final RecoveryChunkFactoryImpl<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
   private boolean stopIngestion;
   private ReadWriteChunk<T> activeChunk;
@@ -70,18 +70,18 @@ public class RecoveryChunkManager<T> {
   }
 
   public RecoveryChunkManager(
-      RecoveryChunkBuilder recoveryChunkBuilder,
+      RecoveryChunkFactoryImpl<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       MeterRegistry registry) {
     this(
-        recoveryChunkBuilder,
+        recoveryChunkFactory,
         chunkRolloverFactory,
         makeDefaultRecoveryRollOverExecutor(),
         registry);
   }
 
   public RecoveryChunkManager(
-      RecoveryChunkBuilder recoveryChunkBuilder,
+      RecoveryChunkFactoryImpl<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       ListeningExecutorService rollOverExecutorService,
       MeterRegistry registry) {
@@ -89,7 +89,7 @@ public class RecoveryChunkManager<T> {
     // TODO: Pass in id of index in LuceneIndexStore to track this info.
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
-    this.recoveryChunkBuilder = recoveryChunkBuilder;
+    this.recoveryChunkFactory = recoveryChunkFactory;
 
     this.chunkRolloverFactory = chunkRolloverFactory;
     this.rolloverExecutorService = rollOverExecutorService;
@@ -196,8 +196,8 @@ public class RecoveryChunkManager<T> {
    */
   private ReadWriteChunk<T> getOrCreateActiveChunk(String kafkaPartitionId) throws IOException {
     if (activeChunk == null) {
-      recoveryChunkBuilder.setKafkaPartitionId(kafkaPartitionId);
-      ReadWriteChunk<T> newChunk = (ReadWriteChunk<T>) recoveryChunkBuilder.build();
+      recoveryChunkFactory.setKafkaPartitionId(kafkaPartitionId);
+      ReadWriteChunk<T> newChunk = recoveryChunkFactory.makeChunk();
       chunkList.add(newChunk);
       // Run post create actions on the chunk.
       newChunk.postCreate();
@@ -273,8 +273,8 @@ public class RecoveryChunkManager<T> {
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     SearchContext searchContext = SearchContext.fromConfig(indexerConfig.getServerConfig());
 
-    RecoveryChunkBuilder<LogMessage> recoveryChunkBuilder =
-        new RecoveryChunkBuilder<>(
+    RecoveryChunkFactoryImpl<LogMessage> recoveryChunkBuilder =
+        new RecoveryChunkFactoryImpl<>(
             indexerConfig,
             CHUNK_DATA_PREFIX,
             meterRegistry,
