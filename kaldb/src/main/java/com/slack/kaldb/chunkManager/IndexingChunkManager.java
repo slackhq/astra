@@ -405,14 +405,4 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig);
   }
-
-  @VisibleForTesting
-  public SnapshotMetadataStore getSnapshotMetadataStore() {
-    return snapshotMetadataStore;
-  }
-
-  @VisibleForTesting
-  public SearchMetadataStore getSearchMetadataStore() {
-    return searchMetadataStore;
-  }
 }

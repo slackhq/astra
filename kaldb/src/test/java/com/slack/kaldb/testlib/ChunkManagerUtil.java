@@ -1,7 +1,6 @@
 package com.slack.kaldb.testlib;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
@@ -12,7 +11,6 @@ import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -21,8 +19,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -143,19 +139,7 @@ public class ChunkManagerUtil<T> {
     return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
   }
 
-  public static List<SearchMetadata> fetchSearchNodes(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSearchMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-  }
-
-  public static List<SnapshotMetadata> fetchSnapshots(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSnapshotMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public MetadataStore getMetadataStore() {
+    return metadataStore;
   }
 }
