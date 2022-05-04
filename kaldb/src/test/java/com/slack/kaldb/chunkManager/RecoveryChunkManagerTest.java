@@ -7,6 +7,7 @@ import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
@@ -38,7 +39,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
@@ -102,9 +102,8 @@ public class RecoveryChunkManagerTest {
   public void tearDown() throws TimeoutException, IOException, InterruptedException {
     metricsRegistry.close();
     if (chunkManager != null) {
-      chunkManager.close();
-      // chunkManager.stopAsync();
-      // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      chunkManager.stopAsync();
+      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     searchMetadataStore.close();
     snapshotMetadataStore.close();
@@ -114,9 +113,8 @@ public class RecoveryChunkManagerTest {
   }
 
   private void initChunkManager(
-      ChunkRollOverStrategy chunkRollOverStrategy,
-      String s3TestBucket,
-      int rollOverFutureTimeoutMs) {
+      ChunkRollOverStrategy chunkRollOverStrategy, String s3TestBucket, int rollOverFutureTimeoutMs)
+      throws TimeoutException {
     SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
 
     // KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
@@ -132,8 +130,8 @@ public class RecoveryChunkManagerTest {
     ChunkRolloverFactory chunkRolloverFactory =
         new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, s3TestBucket, metricsRegistry);
     chunkManager = new RecoveryChunkManager<>(chunkFactory, chunkRolloverFactory, metricsRegistry);
-    // chunkManager.startAsync();
-    // chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+    chunkManager.startAsync();
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
   @Test
@@ -262,8 +260,7 @@ public class RecoveryChunkManagerTest {
       int expectedLiveSnapshotSize,
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
-      int expectedInfinitySnapshotsCount)
-      throws InterruptedException, ExecutionException, TimeoutException {
+      int expectedInfinitySnapshotsCount) {
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);

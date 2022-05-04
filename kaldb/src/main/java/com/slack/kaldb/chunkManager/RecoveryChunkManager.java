@@ -220,7 +220,7 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
    *
    * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
    */
-  public void close() throws IOException, InterruptedException, TimeoutException {
+  private void close() throws InterruptedException, TimeoutException {
     LOG.info("Closing recovery chunk manager.");
 
     // Roll over active chunk.
