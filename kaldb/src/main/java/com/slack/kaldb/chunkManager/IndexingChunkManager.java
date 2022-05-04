@@ -403,11 +403,13 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         indexerConfig);
   }
 
+  @Deprecated
   @VisibleForTesting
   public SnapshotMetadataStore getSnapshotMetadataStore() {
     return snapshotMetadataStore;
   }
 
+  @Deprecated
   @VisibleForTesting
   public SearchMetadataStore getSearchMetadataStore() {
     return searchMetadataStore;

@@ -1,7 +1,10 @@
 package com.slack.kaldb.chunkManager;
 
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
@@ -10,6 +13,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -21,7 +25,9 @@ import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -32,7 +38,9 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
@@ -230,25 +238,45 @@ public class RecoveryChunkManagerTest {
                     lowerOffset + 1));
   }
 
-  //  private void testChunkManagerSearch(
-  //      ChunkManager<LogMessage> chunkManager,
-  //      String searchString,
-  //      int expectedHitCount,
-  //      int totalSnapshots,
-  //      int expectedSnapshotsWithReplicas,
-  //      long startTimeEpochMs,
-  //      long endTimeEpochMs) {
-  //
-  //    SearchQuery searchQuery =
-  //        new SearchQuery(
-  //            MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10,
-  // 1000);
-  //    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
-  //
-  //    assertThat(result.hits.size()).isEqualTo(expectedHitCount);
-  //    assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
-  //    assertThat(result.snapshotsWithReplicas).isEqualTo(expectedSnapshotsWithReplicas);
-  //  }
+  private void testChunkManagerSearch(
+      ChunkManager<LogMessage> chunkManager,
+      String searchString,
+      int expectedHitCount,
+      int totalSnapshots,
+      int expectedSnapshotsWithReplicas,
+      long startTimeEpochMs,
+      long endTimeEpochMs) {
+
+    SearchQuery searchQuery =
+        new SearchQuery(
+            MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
+
+    assertThat(result.hits.size()).isEqualTo(expectedHitCount);
+    assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
+    assertThat(result.snapshotsWithReplicas).isEqualTo(expectedSnapshotsWithReplicas);
+  }
+
+  private void checkMetadata(
+      int expectedSnapshotSize,
+      int expectedLiveSnapshotSize,
+      int expectedNonLiveSnapshotSize,
+      int expectedSearchNodeSize,
+      int expectedInfinitySnapshotsCount)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
+    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+        .containsExactlyInAnyOrderElementsOf(
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
+        .isEqualTo(expectedInfinitySnapshotsCount);
+  }
 
   //  private int searchAndGetHitCount(
   //      ChunkManager<LogMessage> chunkManager,
@@ -262,7 +290,6 @@ public class RecoveryChunkManagerTest {
   //    return chunkManager.query(searchQuery).hits.size();
   //  }
 
-  /*
   @Test
   public void testAddAndSearchMessageInMultipleSlices() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -289,7 +316,6 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
 
-    checkMetadata(3, 2, 1, 2, 1);
+    checkMetadata(1, 0, 1, 0, 0);
   }
-  */
 }

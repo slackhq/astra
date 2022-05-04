@@ -30,10 +30,8 @@ import org.slf4j.LoggerFactory;
  * the current chunk is marked as read only. At that point a new chunk is created which becomes the
  * active chunk.
  */
-public class RecoveryChunkManager<T> {
+public class RecoveryChunkManager<T> extends ChunkManager<T> {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
-
-  protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
   private final ChunkFactory<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
@@ -287,5 +285,15 @@ public class RecoveryChunkManager<T> {
             chunkRollOverStrategy, blobFs, s3Config.getS3Bucket(), meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkBuilder, chunkRolloverFactory, meterRegistry);
+  }
+
+  @Override
+  protected void startUp() throws Exception {
+    // No startup actions.
+  }
+
+  @Override
+  protected void shutDown() throws Exception {
+    close();
   }
 }

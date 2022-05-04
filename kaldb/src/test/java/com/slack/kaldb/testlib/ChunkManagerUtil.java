@@ -143,6 +143,7 @@ public class ChunkManagerUtil<T> {
     return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
   }
 
+  @Deprecated
   public static List<SearchMetadata> fetchSearchNodes(IndexingChunkManager<LogMessage> chunkManager)
       throws InterruptedException, ExecutionException, TimeoutException {
     return chunkManager
@@ -151,6 +152,7 @@ public class ChunkManagerUtil<T> {
         .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
   }
 
+  @Deprecated
   public static List<SnapshotMetadata> fetchSnapshots(IndexingChunkManager<LogMessage> chunkManager)
       throws InterruptedException, ExecutionException, TimeoutException {
     return chunkManager
