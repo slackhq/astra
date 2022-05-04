@@ -204,11 +204,11 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     return activeChunk;
   }
 
-  @VisibleForTesting
-  // TODO: Replace this future with a method to wait on phaser to advance.
-  public ListenableFuture<?> getRolloverFuture() {
-    return rolloverFuture;
-  }
+  //  @VisibleForTesting
+  //  // TODO: Replace this future with a method to wait on phaser to advance.
+  //  public ListenableFuture<?> getRolloverFuture() {
+  //    return rolloverFuture;
+  //  }
 
   /**
    * Close the chunk manager safely by finishing all the pending roll overs and closing chunks
