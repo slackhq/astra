@@ -143,8 +143,7 @@ public class KaldbTest {
     zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(serviceMetadataZkRegistry, zkConfig);
     serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
     final ServicePartitionMetadata partition =
-        new ServicePartitionMetadata(
-            Instant.now().toEpochMilli(), Long.MAX_VALUE, List.of("0", "1"));
+        new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
     ServiceMetadata serviceMetadata =
         new ServiceMetadata(MessageUtil.TEST_INDEX_NAME, "serviceOwner", 1000, partitionConfigs);

@@ -174,7 +174,6 @@ public class ChunkInfo {
 
   public static boolean containsDataInTimeRange(
       long dataStartTimeEpochMs, long dataEndTimeEpochMs, long startTimeMs, long endTimeMs) {
-
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
     ensureTrue(startTimeMs >= 0, "start timestamp should be greater than zero: " + startTimeMs);
     ensureTrue(
