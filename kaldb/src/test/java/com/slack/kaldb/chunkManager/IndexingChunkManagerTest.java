@@ -457,11 +457,10 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0); // Roll over.
-    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
 
     // Wait for roll over to complete.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
-
+    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
     checkMetadata(2, 1, 1, 1, 0);
 
     LogMessage msg3 = msgs.get(2);
