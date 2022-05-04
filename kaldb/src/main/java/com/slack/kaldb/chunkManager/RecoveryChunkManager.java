@@ -35,14 +35,11 @@ public class RecoveryChunkManager<T> {
 
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  private final BlobFs blobFs;
-  private final String s3Bucket;
-  private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final RecoveryChunkBuilder<T> recoveryChunkBuilder;
+  private final ChunkRolloverFactory chunkRolloverFactory;
   private boolean stopIngestion;
   private ReadWriteChunk<T> activeChunk;
 
-  private final MeterRegistry meterRegistry;
   private final AtomicLong liveMessagesIndexedGauge;
   private final AtomicLong liveBytesIndexedGauge;
 
@@ -73,41 +70,28 @@ public class RecoveryChunkManager<T> {
   }
 
   public RecoveryChunkManager(
-      String chunkDataPrefix,
-      ChunkRollOverStrategy chunkRollOverStrategy,
-      MeterRegistry registry,
-      BlobFs blobFs,
-      String s3Bucket,
-      RecoveryChunkBuilder recoveryChunkBuilder) {
+      RecoveryChunkBuilder recoveryChunkBuilder,
+      ChunkRolloverFactory chunkRolloverFactory,
+      MeterRegistry registry) {
     this(
-        chunkDataPrefix,
-        chunkRollOverStrategy,
-        registry,
-        blobFs,
-        s3Bucket,
+        recoveryChunkBuilder,
+        chunkRolloverFactory,
         makeDefaultRecoveryRollOverExecutor(),
-        recoveryChunkBuilder);
+        registry);
   }
 
   public RecoveryChunkManager(
-      String chunkDataPrefix,
-      ChunkRollOverStrategy chunkRollOverStrategy,
-      MeterRegistry registry,
-      BlobFs blobFs,
-      String s3Bucket,
+      RecoveryChunkBuilder recoveryChunkBuilder,
+      ChunkRolloverFactory chunkRolloverFactory,
       ListeningExecutorService rollOverExecutorService,
-      RecoveryChunkBuilder recoveryChunkBuilder) {
-
-    this.chunkRollOverStrategy = chunkRollOverStrategy;
-    this.meterRegistry = registry;
+      MeterRegistry registry) {
 
     // TODO: Pass in id of index in LuceneIndexStore to track this info.
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
     this.recoveryChunkBuilder = recoveryChunkBuilder;
 
-    this.blobFs = blobFs;
-    this.s3Bucket = s3Bucket;
+    this.chunkRolloverFactory = chunkRolloverFactory;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
     this.stopIngestion = false;
@@ -116,7 +100,7 @@ public class RecoveryChunkManager<T> {
 
     activeChunk = null;
 
-    LOG.info("Created a recovery chunk manager with prefix {}", chunkDataPrefix);
+    LOG.info("Created a recovery chunk manager");
   }
 
   /**
@@ -140,7 +124,9 @@ public class RecoveryChunkManager<T> {
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
 
     // If active chunk is full roll it over.
-    if (chunkRollOverStrategy.shouldRollOver(currentIndexedBytes, currentIndexedMessages)) {
+    if (chunkRolloverFactory
+        .getChunkRolloverStrategy()
+        .shouldRollOver(currentIndexedBytes, currentIndexedMessages)) {
       LOG.info(
           "After {} messages and {} bytes rolling over chunk {}.",
           currentIndexedMessages,
@@ -163,8 +149,7 @@ public class RecoveryChunkManager<T> {
     currentChunk.info().setChunkLastUpdatedTimeEpochMs(Instant.now().toEpochMilli());
 
     RollOverChunkTask<T> rollOverChunkTask =
-        new RollOverChunkTask<>(
-            currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
+        chunkRolloverFactory.getRollOverChunkTask(currentChunk, currentChunk.info().chunkId);
 
     rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
     rolloverPhaser.register();
@@ -297,12 +282,10 @@ public class RecoveryChunkManager<T> {
             snapshotMetadataStore,
             searchContext);
 
-    return new RecoveryChunkManager<>(
-        CHUNK_DATA_PREFIX,
-        chunkRollOverStrategy,
-        meterRegistry,
-        blobFs,
-        s3Config.getS3Bucket(),
-        recoveryChunkBuilder);
+    ChunkRolloverFactory chunkRolloverFactory =
+        new ChunkRolloverFactory(
+            chunkRollOverStrategy, blobFs, s3Config.getS3Bucket(), meterRegistry);
+
+    return new RecoveryChunkManager<>(recoveryChunkBuilder, chunkRolloverFactory, meterRegistry);
   }
 }
