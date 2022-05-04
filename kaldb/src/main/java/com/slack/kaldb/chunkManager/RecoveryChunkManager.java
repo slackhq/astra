@@ -35,7 +35,7 @@ public class RecoveryChunkManager<T> {
 
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  private final RecoveryChunkFactoryImpl<T> recoveryChunkFactory;
+  private final ChunkFactory<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
   private boolean stopIngestion;
   private ReadWriteChunk<T> activeChunk;
@@ -70,7 +70,7 @@ public class RecoveryChunkManager<T> {
   }
 
   public RecoveryChunkManager(
-      RecoveryChunkFactoryImpl<T> recoveryChunkFactory,
+      ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       MeterRegistry registry) {
     this(
@@ -81,7 +81,7 @@ public class RecoveryChunkManager<T> {
   }
 
   public RecoveryChunkManager(
-      RecoveryChunkFactoryImpl<T> recoveryChunkFactory,
+      ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       ListeningExecutorService rollOverExecutorService,
       MeterRegistry registry) {
