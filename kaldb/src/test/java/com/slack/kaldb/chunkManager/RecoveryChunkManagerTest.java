@@ -19,10 +19,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.chunk.ChunkFactory;
-import com.slack.kaldb.chunk.ChunkInfo;
-import com.slack.kaldb.chunk.RecoveryChunkFactoryImpl;
-import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.chunk.*;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
@@ -39,6 +36,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
@@ -275,18 +273,6 @@ public class RecoveryChunkManagerTest {
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
-  //  private int searchAndGetHitCount(
-  //      ChunkManager<LogMessage> chunkManager,
-  //      String searchString,
-  //      long startTimeEpochMs,
-  //      long endTimeEpochMs) {
-  //    SearchQuery searchQuery =
-  //        new SearchQuery(
-  //            MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10,
-  // 1000);
-  //    return chunkManager.query(searchQuery).hits.size();
-  //  }
-
   @Test
   public void testAddAndSearchMessageInMultipleSlices() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -314,5 +300,90 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
 
     checkMetadata(1, 0, 1, 0, 0);
+  }
+
+  @Test
+  public void testAddMessageWithPropertyTypeErrors()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+
+    // Add a valid message
+    int offset = 1;
+    LogMessage msg1 = MessageUtil.makeMessage(1);
+    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+
+    // Add an invalid message
+    LogMessage msg100 = MessageUtil.makeMessage(100);
+    MessageUtil.addFieldToMessage(msg100, LogMessage.ReservedField.HOSTNAME.fieldName, 20000);
+    chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+
+    // Commit the new chunk so we can search it.
+    chunkManager.getActiveChunk().commit();
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
+
+    // Check metadata.
+    checkMetadata(0, 0, 0, 0, 0);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testMessagesAddedToInactiveChunks()
+      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
+
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+
+    // Add a message
+    List<LogMessage> msgs = MessageUtil.makeMessagesWithTimeDifference(1, 4, 1000);
+    LogMessage msg1 = msgs.get(0);
+    LogMessage msg2 = msgs.get(1);
+    int offset = 1;
+    chunkManager.addMessage(msg1, msg1.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+    ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
+
+    chunkManager.addMessage(msg2, msg2.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0); // Roll over.
+    // Wait for roll over to complete.
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+
+    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
+    checkMetadata(1, 0, 1, 0, 0);
+
+    LogMessage msg3 = msgs.get(2);
+    LogMessage msg4 = msgs.get(3);
+    chunkManager.addMessage(msg3, msg3.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    offset++;
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+
+    chunkManager.getActiveChunk();
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
+    // Commit the new chunk so we can search it.
+    chunkManager.getActiveChunk().commit();
+    testChunkManagerSearch(chunkManager, "Message3", 1, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
+
+    checkMetadata(1, 0, 1, 0, 0);
+    // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
+    chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1);
   }
 }
