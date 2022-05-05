@@ -46,6 +46,8 @@ public class KaldbDistributedQueryServiceTest {
   private SearchContext indexer2SearchContext;
   private SearchContext cache1SearchContext;
   private SearchContext cache2SearchContext;
+  private SearchContext cache3SearchContext;
+  private SearchContext cache4SearchContext;
 
   @Before
   public void setUp() throws Exception {
@@ -74,6 +76,8 @@ public class KaldbDistributedQueryServiceTest {
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);
     cache1SearchContext = new SearchContext("cache_host1", 20000);
     cache2SearchContext = new SearchContext("cache_host2", 20001);
+    cache3SearchContext = new SearchContext("cache_host3", 20002);
+    cache4SearchContext = new SearchContext("cache_host4", 20003);
   }
 
   @After
@@ -163,7 +167,7 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @Test
-  public void testMultipleServices() {
+  public void testMultipleServicesOneTimeRange() {
 
     final String name = "testService";
     final String owner = "serviceOwner";
@@ -351,7 +355,7 @@ public class KaldbDistributedQueryServiceTest {
         searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 99, List.of("1"));
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 101, List.of("1"));
     ServiceMetadata serviceMetadata =
         new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
     serviceMetadataStore.createSync(serviceMetadata);
@@ -388,6 +392,106 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(
             searchNodeUrl.equals(cache1SearchContext.toString())
                 || searchNodeUrl.equals((cache2SearchContext.toString())))
+        .isTrue();
+  }
+
+  @Test
+  public void testMultipleServicesMultipleTimeRange() throws Exception {
+
+    // service1 snapshots/search-metadata/partitions
+    SnapshotMetadata snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "2");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition11 =
+        new ServicePartitionMetadata(100, 200, List.of("1"));
+    final ServicePartitionMetadata partition12 =
+        new ServicePartitionMetadata(201, 300, List.of("2"));
+
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, List.of(partition11, partition12));
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // service2 snapshots/search-metadata/partitions
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "2");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 3);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache3SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 3);
+
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache4SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 4);
+
+    final String name1 = "testService1";
+    final String owner1 = "serviceOwner1";
+    final long throughputBytes1 = 1;
+    final ServicePartitionMetadata partition21 =
+        new ServicePartitionMetadata(100, 200, List.of("2"));
+    final ServicePartitionMetadata partition22 =
+        new ServicePartitionMetadata(201, 300, List.of("1"));
+
+    ServiceMetadata serviceMetadata1 =
+        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition21, partition22));
+    serviceMetadataStore.createSync(serviceMetadata1);
+    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+
+    // find search nodes that will be queries for the first service
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 199, name);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    Iterator<String> iter = searchNodes.iterator();
+    String node1 = iter.next();
+    String node2 = iter.next();
+    assertThat(
+            node1.equals(cache1SearchContext.toString())
+                || node1.equals((cache2SearchContext.toString())))
+        .isTrue();
+    assertThat(
+            node2.equals(cache1SearchContext.toString())
+                || node2.equals((cache2SearchContext.toString())))
+        .isTrue();
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name1);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    iter = searchNodes.iterator();
+    node1 = iter.next();
+    node2 = iter.next();
+    assertThat(
+            node1.equals(cache3SearchContext.toString())
+                || node1.equals((cache4SearchContext.toString())))
+        .isTrue();
+    assertThat(
+            node2.equals(cache3SearchContext.toString())
+                || node2.equals((cache4SearchContext.toString())))
         .isTrue();
   }
 

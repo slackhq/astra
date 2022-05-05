@@ -194,51 +194,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .stream()
         .anyMatch(
             partitionMetadata ->
-                partitionMetadata.partitions.contains(snapshotMetadata.partitionId));
+                partitionMetadata.partitions.contains(snapshotMetadata.partitionId)
+                    && containsDataInTimeRange(
+                        partitionMetadata.startTimeEpochMs,
+                        partitionMetadata.endTimeEpochMs,
+                        snapshotMetadata.startTimeEpochMs,
+                        snapshotMetadata.endTimeEpochMs));
   }
-
-  //  @VisibleForTesting
-  //  public static Collection<String> getSearchNodesToQuery(
-  //      SnapshotMetadataStore snapshotMetadataStore,
-  //      SearchMetadataStore searchMetadataStore,
-  //      long startTimeMs,
-  //      long endTimeMs,
-  //      ServicePartitionMetadata partition) {
-  //    // step 1 - find all snapshots that match time window
-  //    Set<String> snapshotsToSearch =
-  //        snapshotMetadataStore
-  //            .getCached()
-  //            .stream()
-  //            .filter(
-  //                snapshotMetadata ->
-  //                    containsDataInTimeRange(
-  //                        snapshotMetadata.startTimeEpochMs,
-  //                        snapshotMetadata.endTimeEpochMs,
-  //                        startTimeMs,
-  //                        endTimeMs))
-  //            .filter(
-  //                snapshotMetadata ->
-  //                    containsDataInTimeRange(
-  //                            partition.startTimeEpochMs,
-  //                            partition.endTimeEpochMs,
-  //                            snapshotMetadata.startTimeEpochMs,
-  //                            snapshotMetadata.endTimeEpochMs)
-  //                        && partition.partitions.contains(snapshotMetadata.partitionId))
-  //            .map(snapshotMetadata -> snapshotMetadata.name)
-  //            .collect(Collectors.toSet());
-  //
-  //    // step 2 - iterate every snapshot and map it to the search metadata while de-duplicating
-  //    // search metadata with the same snapshot name
-  //    return searchMetadataStore
-  //        .getCached()
-  //        .stream()
-  //        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-  //        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getSnapshotName))
-  //        .values()
-  //        .stream()
-  //        .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-  //        .collect(Collectors.toList());
-  //  }
 
   private static String getSnapshotName(SearchMetadata searchMetadata) {
     return searchMetadata.snapshotName.startsWith("LIVE")
