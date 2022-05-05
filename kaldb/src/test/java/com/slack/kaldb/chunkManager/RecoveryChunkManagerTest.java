@@ -3,8 +3,7 @@ package com.slack.kaldb.chunkManager;
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
@@ -12,8 +11,7 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
@@ -36,20 +34,22 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class RecoveryChunkManagerTest {
-  // TODO: Add parallel chunk ingestion and not failure.
   // TODO: test for parallel ingestion failure in indexer.
   // TODO: Ensure clean close after all chunks are uploaded.
   // TODO: Test post snapshot for recovery.
+
+  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManagerTest.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -303,8 +303,7 @@ public class RecoveryChunkManagerTest {
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -336,8 +335,7 @@ public class RecoveryChunkManagerTest {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMessagesAddedToInactiveChunks()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMessagesAddedToInactiveChunks() throws IOException, TimeoutException {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -373,7 +371,6 @@ public class RecoveryChunkManagerTest {
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
 
-    chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
@@ -385,5 +382,111 @@ public class RecoveryChunkManagerTest {
     checkMetadata(1, 0, 1, 0, 0);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
     chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1);
+  }
+
+  @Test
+  public void testAddMessagesWithTwoParallelRollover() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+
+    int offset = 1;
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    assertThat(chunkManager.waitForRollOvers()).isTrue();
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(20);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    await().until(() -> getCount(ROLLOVERS_INITIATED, metricsRegistry) == 2);
+    await().until(() -> getCount(ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message20", 1, 2, 2, 0, MAX_TIME);
+    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+
+    // Ensure can't add messages once roll over is complete.
+    assertThatThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
+        .isInstanceOf(ChunkRollOverException.class);
+
+    // Check metadata.
+    checkMetadata(2, 0, 2, 0, 0);
+
+    // roll over active chunk on close.
+    chunkManager.shutDown();
+
+    // Can't add messages to a chunk that's shutdown.
+    assertThatThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
+        .isInstanceOf(ChunkRollOverException.class);
+
+    // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    checkMetadata(2, 0, 2, 0, 0);
+
+    chunkManager = null;
+  }
+
+  @Test
+  public void testAddMessagesWithTenParallelRollover() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+
+    int offset = 1;
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 101);
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    assertThat(chunkManager.waitForRollOvers()).isTrue();
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(11);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(101);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    await().until(() -> getCount(ROLLOVERS_INITIATED, metricsRegistry) == 11);
+    await().until(() -> getCount(ROLLOVERS_COMPLETED, metricsRegistry) == 11);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 11, 11, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message101", 1, 11, 11, 0, MAX_TIME);
+
+    // Check metadata.
+    checkMetadata(11, 0, 11, 0, 0);
+
+    // Ensure can't add messages once roll over is complete.
+    assertThatThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
+        .isInstanceOf(ChunkRollOverException.class);
+
+    // roll over active chunk on close.
+    chunkManager.shutDown();
+
+    // Can't add messages to a chunk that's shutdown.
+    assertThatThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
+        .isInstanceOf(ChunkRollOverException.class);
+
+    // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(11);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    checkMetadata(11, 0, 11, 0, 0);
+
+    chunkManager = null;
   }
 }

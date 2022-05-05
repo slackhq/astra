@@ -43,8 +43,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
 
   public static final String LIVE_MESSAGES_INDEXED = "live_messages_indexed";
   public static final String LIVE_BYTES_INDEXED = "live_bytes_indexed";
-  // TODO: Remove succcess counter?
-  private final Phaser rolloverPhaser = new Phaser();
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
@@ -93,8 +91,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
     this.stopIngestion = false;
-    // Register the phaser on constructor and also for every roll over. Wait for phaser in close().
-    rolloverPhaser.register();
 
     activeChunk = null;
 
@@ -150,7 +146,7 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
         chunkRolloverFactory.getRollOverChunkTask(currentChunk, currentChunk.info().chunkId);
 
     rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
-    rolloverPhaser.register();
+    // rolloverPhaser.register();
 
     Futures.addCallback(
         rolloverFuture,
@@ -161,14 +157,12 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
               LOG.warn("Roll over failed");
               stopIngestion = true;
             }
-            rolloverPhaser.arrive();
           }
 
           @Override
           public void onFailure(Throwable t) {
             LOG.warn("Roll over failed with an exception", t);
             stopIngestion = true;
-            rolloverPhaser.arrive();
           }
         },
         MoreExecutors.directExecutor());
@@ -204,11 +198,33 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     return activeChunk;
   }
 
-  //  @VisibleForTesting
-  //  // TODO: Replace this future with a method to wait on phaser to advance.
-  //  public ListenableFuture<?> getRolloverFuture() {
-  //    return rolloverFuture;
-  //  }
+  public boolean waitForRollOvers() {
+    LOG.info("Waiting for rollovers to complete");
+    // Stop accepting new writes to the chunks.
+    stopIngestion = true;
+
+    // Roll over active chunk.
+    if (activeChunk != null) {
+      rollOverActiveChunk();
+    }
+
+    // Stop executor service from taking on new tasks.
+    rolloverExecutorService.shutdown();
+
+    // Close roll over executor service.
+    try {
+      // A short timeout here is fine here since there are no more tasks.
+      rolloverExecutorService.awaitTermination(10, TimeUnit.MINUTES);
+      rolloverExecutorService.shutdownNow();
+    } catch (InterruptedException e) {
+      LOG.warn("Encountered error shutting down roll over executor.", e);
+      return false;
+    }
+
+    // TODO: check task status also.
+    LOG.info("All rollovers completed");
+    return true;
+  }
 
   /**
    * Close the chunk manager safely by finishing all the pending roll overs and closing chunks
@@ -223,27 +239,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
   private void close() throws InterruptedException, TimeoutException {
     LOG.info("Closing recovery chunk manager.");
 
-    // Roll over active chunk.
-    if (activeChunk != null) {
-      rollOverActiveChunk();
-    }
-
-    // Wait for all the roll overs to complete.
-    // TODO: Move timeout into a constant.
-    rolloverPhaser.awaitAdvanceInterruptibly(rolloverPhaser.arrive(), 10, TimeUnit.MINUTES);
-
-    // Stop executor service from taking on new tasks.
-    rolloverExecutorService.shutdown();
-
-    // Close roll over executor service.
-    try {
-      // A short timeout here is fine here since there are no more tasks.
-      rolloverExecutorService.awaitTermination(1, TimeUnit.SECONDS);
-      rolloverExecutorService.shutdownNow();
-    } catch (InterruptedException e) {
-      LOG.warn("Encountered error shutting down roll over executor.", e);
-    }
-
     // Close all chunks.
     for (Chunk<T> chunk : chunkList) {
       try {
@@ -254,6 +249,16 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     }
 
     LOG.info("Closed recovery chunk manager.");
+  }
+
+  @Override
+  protected void startUp() throws Exception {
+    // No startup actions.
+  }
+
+  @Override
+  protected void shutDown() throws Exception {
+    close();
   }
 
   public static RecoveryChunkManager<LogMessage> fromConfig(
@@ -285,15 +290,5 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
             chunkRollOverStrategy, blobFs, s3Config.getS3Bucket(), meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkBuilder, chunkRolloverFactory, meterRegistry);
-  }
-
-  @Override
-  protected void startUp() throws Exception {
-    // No startup actions.
-  }
-
-  @Override
-  protected void shutDown() throws Exception {
-    close();
   }
 }
