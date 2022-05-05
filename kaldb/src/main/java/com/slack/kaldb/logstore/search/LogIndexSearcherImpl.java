@@ -40,7 +40,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,13 +56,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    NIOFSDirectory directory = new NIOFSDirectory(path);
+    MMapDirectory directory = new MMapDirectory(path);
     return new SearcherManager(directory, null);
   }
 
   // todo - this is not needed once this data is on the snapshot
   public static int getNumDocs(Path path) throws IOException {
-    NIOFSDirectory directory = new NIOFSDirectory(path);
+    MMapDirectory directory = new MMapDirectory(path);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
     int numDocs = directoryReader.numDocs();
     directoryReader.close();
