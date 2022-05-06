@@ -33,6 +33,9 @@ import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -488,5 +491,41 @@ public class RecoveryChunkManagerTest {
     checkMetadata(11, 0, 11, 0, 0);
 
     chunkManager = null;
+  }
+
+  @Test
+  public void testCommitInvalidChunk() throws Exception {
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+    final List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 10, 1000, startTime);
+    messages.addAll(
+        MessageUtil.makeMessagesWithTimeDifference(
+            11, 20, 1000, startTime.plus(2, ChronoUnit.HOURS)));
+    messages.addAll(
+        MessageUtil.makeMessagesWithTimeDifference(
+            21, 30, 1000, startTime.plus(4, ChronoUnit.HOURS)));
+
+    final ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+
+    int offset = 1;
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 3);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(30);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    checkMetadata(3, 0, 3, 0, 0);
+
+    // No new chunk left to commit.
+    assertThat(chunkManager.getActiveChunk()).isNull();
   }
 }
