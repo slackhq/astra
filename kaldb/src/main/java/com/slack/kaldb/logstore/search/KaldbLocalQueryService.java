@@ -27,6 +27,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     KaldbSearch.SearchResult result = SearchResultUtils.toSearchResultProto(searchResult);
     span.tag("totalNodes", String.valueOf(result.getTotalNodes()));
     span.tag("failedNodes", String.valueOf(result.getFailedNodes()));
+    span.tag("hitCount", String.valueOf(result.getHitsCount()));
     span.finish();
     LOG.info("Finished search request: {}", request);
     return result;
