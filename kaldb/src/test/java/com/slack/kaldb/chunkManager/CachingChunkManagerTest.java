@@ -1,6 +1,7 @@
 package com.slack.kaldb.chunkManager;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -9,15 +10,16 @@ import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -36,6 +38,8 @@ public class CachingChunkManagerTest {
   private S3BlobFs s3BlobFs;
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private ZookeeperMetadataStoreImpl metadataStore;
+  private CachingChunkManager<LogMessage> cachingChunkManager;
 
   @Before
   public void startup() throws Exception {
@@ -48,14 +52,21 @@ public class CachingChunkManagerTest {
   }
 
   @After
-  public void shutdown() throws IOException {
+  public void shutdown() throws IOException, TimeoutException {
+    if (cachingChunkManager != null) {
+      cachingChunkManager.stopAsync();
+      cachingChunkManager.awaitTerminated(15, TimeUnit.SECONDS);
+    }
+    if (metadataStore != null) {
+
+      metadataStore.close();
+    }
     s3BlobFs.close();
     testingServer.close();
     meterRegistry.close();
   }
 
-  @Test
-  public void shouldHandleLifecycle() throws Exception {
+  private CachingChunkManager<LogMessage> initChunkManager() throws TimeoutException {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
@@ -90,7 +101,7 @@ public class CachingChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     CachingChunkManager<LogMessage> cachingChunkManager =
         new CachingChunkManager<>(
@@ -104,6 +115,12 @@ public class CachingChunkManagerTest {
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);
+    return cachingChunkManager;
+  }
+
+  @Test
+  public void shouldHandleLifecycle() throws Exception {
+    cachingChunkManager = initChunkManager();
 
     assertThat(cachingChunkManager.getChunkList().size()).isEqualTo(3);
 
@@ -126,11 +143,14 @@ public class CachingChunkManagerTest {
                 ((ReadOnlyChunkImpl) (readOnlyChunks.get(2)))
                     .getChunkMetadataState()
                     .equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE));
+  }
 
-    cachingChunkManager.stopAsync();
-    cachingChunkManager.awaitTerminated(15, TimeUnit.SECONDS);
-
-    metadataStore.close();
+  @Test
+  public void testAddMessageisUnsupported() throws TimeoutException {
+    cachingChunkManager = initChunkManager();
+    MessageUtil.makeMessage(1);
+    assertThatThrownBy(() -> cachingChunkManager.addMessage(MessageUtil.makeMessage(1), 10, "1", 1))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   // TODO: Add a unit test to ensure caching chunk manager can search messages.

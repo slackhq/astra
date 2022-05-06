@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * <p>Internally the chunk manager maintains a map of chunks, and includes a way to populate and
  * safely query this collection in parallel with a dedicated executor.
  */
-public abstract class ChunkManager<T> extends AbstractIdleService {
+public abstract class ChunkManager<T> extends AbstractIdleService implements ChunkManagerApi<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkManager.class);
 
   // we use a CopyOnWriteArrayList as we expect to have very few edits to this list compared

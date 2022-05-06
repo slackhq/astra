@@ -113,4 +113,11 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
         cacheConfig.getDataDirectory(),
         cacheConfig.getSlotsPerInstance());
   }
+
+  @Override
+  public void addMessage(T message, long msgSize, String kafkaPartitionId, long offset)
+      throws IOException {
+    throw new UnsupportedOperationException(
+        "Adding messages is not supported on caching chunk manager");
+  }
 }
