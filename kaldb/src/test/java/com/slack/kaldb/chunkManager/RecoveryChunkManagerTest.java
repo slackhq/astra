@@ -411,11 +411,11 @@ public class RecoveryChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
 
     // Ensure can't add messages once roll over is complete.
-    assertThatThrownBy(
+    assertThatIllegalStateException()
+        .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
-        .isInstanceOf(ChunkRollOverException.class);
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
     checkMetadata(2, 0, 2, 0, 0);
@@ -424,11 +424,11 @@ public class RecoveryChunkManagerTest {
     chunkManager.shutDown();
 
     // Can't add messages to a chunk that's shutdown.
-    assertThatThrownBy(
+    assertThatIllegalStateException()
+        .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
-        .isInstanceOf(ChunkRollOverException.class);
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
@@ -466,21 +466,21 @@ public class RecoveryChunkManagerTest {
     checkMetadata(11, 0, 11, 0, 0);
 
     // Ensure can't add messages once roll over is complete.
-    assertThatThrownBy(
+    assertThatIllegalStateException()
+        .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
-        .isInstanceOf(ChunkRollOverException.class);
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // roll over active chunk on close.
     chunkManager.shutDown();
 
     // Can't add messages to a chunk that's shutdown.
-    assertThatThrownBy(
+    assertThatIllegalStateException()
+        .isThrownBy(
             () ->
                 chunkManager.addMessage(
-                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000))
-        .isInstanceOf(ChunkRollOverException.class);
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(11);

@@ -21,9 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Chunk manager implementation that supports appending messages to open chunks. This also is
- * responsible for cleanly transitioning from a full chunk to a new chunk, and uploading that
- * contents to S3, and notifying ZK of state changes.
+ * A recovery chunk manager is the chunk manager for the recovery task. This implementation supports
+ * appending messages to open chunks. This also is responsible for cleanly transitioning from a full
+ * chunk to a new chunk, and uploading that contents to S3, and notifying ZK of state changes.
  *
  * <p>All chunks except one is considered active. The chunk manager writes the message to the
  * currently active chunk. Once a chunk reaches a roll over point(defined by a roll over strategy),
@@ -46,7 +46,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
-  private ListenableFuture<Boolean> rolloverFuture;
 
   @VisibleForTesting
   public List<Chunk<T>> getChunkList() {
@@ -89,7 +88,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
 
     this.chunkRolloverFactory = chunkRolloverFactory;
     this.rolloverExecutorService = rollOverExecutorService;
-    this.rolloverFuture = null;
     this.stopIngestion = false;
 
     activeChunk = null;
@@ -98,17 +96,21 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
   }
 
   /**
-   * This function ingests a message into a chunk in the chunk manager. It performs the following
-   * steps: 1. Find an active chunk. 2. Ingest the message into the active chunk. 3. Calls the
-   * shouldRollOver function to check if the chunk is full. 4. If the chunk is full, queue the
-   * active chunk for roll over.
+   * TODO: Change description. This function ingests a message into a chunk in the chunk manager. It
+   * performs the following steps: 1. Find an active chunk. 2. Ingest the message into the active
+   * chunk. 3. Calls the shouldRollOver function to check if the chunk is full. 4. If the chunk is
+   * full, queue the active chunk for roll over.
+   *
+   * <p>Unlike the IndexingChunkManager, in a recovery task we allow multiple chunks to be pending
+   * roll over before new messages are ingested. Also, the addMessage call on a recovery node is
+   * called from multiple threads for increased throughput.
    */
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (stopIngestion) {
-      // Currently, this flag is set on only a chunkRollOverException.
-      LOG.warn("Stopping ingestion due to a chunk roll over exception.");
-      throw new ChunkRollOverException("Stopping ingestion due to chunk roll over exception.");
+      // We stop ingestion on chunk roll over failures or if the chunk manager is shutting down.
+      LOG.warn("Ingestion is stopped since the chunk is closing or roll over failed");
+      throw new IllegalStateException("Ingestion due to shutdown or rollover failures");
     }
 
     // find the active chunk and add a message to it
@@ -145,9 +147,7 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     RollOverChunkTask<T> rollOverChunkTask =
         chunkRolloverFactory.getRollOverChunkTask(currentChunk, currentChunk.info().chunkId);
 
-    rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
-    // rolloverPhaser.register();
-
+    ListenableFuture<Boolean> rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
     Futures.addCallback(
         rolloverFuture,
         new FutureCallback<>() {
@@ -198,6 +198,7 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     return activeChunk;
   }
 
+  // We need to know the status of the roll overs. So, call this function to wait for rollovers.
   public boolean waitForRollOvers() {
     LOG.info("Waiting for rollovers to complete");
     // Stop accepting new writes to the chunks.
@@ -226,6 +227,11 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     return true;
   }
 
+  @Override
+  protected void startUp() throws Exception {
+    // No startup actions.
+  }
+
   /**
    * Close the chunk manager safely by finishing all the pending roll overs and closing chunks
    * cleanly. To ensure data integrity don't throw exceptions before chunk close.
@@ -236,8 +242,11 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
    *
    * <p>TODO: Consider implementing async close. Also, stop new writes once close is called.
    */
-  private void close() throws InterruptedException, TimeoutException {
+  @Override
+  protected void shutDown() throws Exception {
     LOG.info("Closing recovery chunk manager.");
+
+    stopIngestion = true;
 
     // Close all chunks.
     for (Chunk<T> chunk : chunkList) {
@@ -249,16 +258,6 @@ public class RecoveryChunkManager<T> extends ChunkManager<T> {
     }
 
     LOG.info("Closed recovery chunk manager.");
-  }
-
-  @Override
-  protected void startUp() throws Exception {
-    // No startup actions.
-  }
-
-  @Override
-  protected void shutDown() throws Exception {
-    close();
   }
 
   public static RecoveryChunkManager<LogMessage> fromConfig(
