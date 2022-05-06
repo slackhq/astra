@@ -1017,17 +1017,18 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
     // Adding a message after a rollover fails throws an exception.
-    final List<LogMessage> newMessage =
-        MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
-    try {
-      for (LogMessage m : newMessage) {
-        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-        offset++;
-      }
-      fail("Should have thrown chunk roll over exception");
-    } catch (Exception e) {
-      assertThat(e).isInstanceOf(ChunkRollOverException.class);
-    }
+    assertThatThrownBy(
+            () -> {
+              int newOffset = 1;
+              final List<LogMessage> newMessage =
+                  MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
+              for (LogMessage m : newMessage) {
+                chunkManager.addMessage(
+                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                newOffset++;
+              }
+            })
+        .isInstanceOf(ChunkRollOverException.class);
     checkMetadata(1, 1, 0, 1, 1);
   }
 
@@ -1065,17 +1066,18 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
     // Adding a message after a rollover fails throws an exception.
-    final List<LogMessage> newMessage =
-        MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
-    try {
-      for (LogMessage m : newMessage) {
-        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-        offset++;
-      }
-      fail("Should have throw a chunk roll over exception");
-    } catch (Exception e) {
-      assertThat(e).isInstanceOf(ChunkRollOverException.class);
-    }
+    assertThatThrownBy(
+            () -> {
+              int newOffset = 1000;
+              final List<LogMessage> newMessage =
+                  MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
+              for (LogMessage m : newMessage) {
+                chunkManager.addMessage(
+                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                newOffset++;
+              }
+            })
+        .isInstanceOf(ChunkRollOverException.class);
     checkMetadata(1, 1, 0, 1, 1);
   }
 
