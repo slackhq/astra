@@ -113,8 +113,7 @@ public class RecoveryChunkManagerTest {
     localZkServer.stop();
   }
 
-  private void initChunkManager(
-      ChunkRollOverStrategy chunkRollOverStrategy, String s3TestBucket, int rollOverFutureTimeoutMs)
+  private void initChunkManager(ChunkRollOverStrategy chunkRollOverStrategy)
       throws TimeoutException {
     SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
 
@@ -129,7 +128,7 @@ public class RecoveryChunkManagerTest {
             snapshotMetadataStore,
             searchContext);
     ChunkRolloverFactory chunkRolloverFactory =
-        new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, s3TestBucket, metricsRegistry);
+        new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, S3_TEST_BUCKET, metricsRegistry);
     chunkManager = new RecoveryChunkManager<>(chunkFactory, chunkRolloverFactory, metricsRegistry);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -141,7 +140,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     int actualChunkSize = 0;
@@ -256,24 +255,18 @@ public class RecoveryChunkManagerTest {
     assertThat(result.snapshotsWithReplicas).isEqualTo(expectedSnapshotsWithReplicas);
   }
 
-  private void checkMetadata(
-      int expectedSnapshotSize,
-      int expectedLiveSnapshotSize,
-      int expectedNonLiveSnapshotSize,
-      int expectedSearchNodeSize,
-      int expectedInfinitySnapshotsCount) {
+  private void checkMetadata(int expectedSnapshotSize, int expectedNonLiveSnapshotSize) {
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
-    assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
+    assertThat(liveSnapshots.size()).isZero();
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
-    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(searchNodes).isEmpty();
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
             searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
-        .isEqualTo(expectedInfinitySnapshotsCount);
+    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
   }
 
   @Test
@@ -281,7 +274,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     int offset = 1;
@@ -302,7 +295,7 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
 
-    checkMetadata(1, 0, 1, 0, 0);
+    checkMetadata(1, 1);
   }
 
   @Test
@@ -310,7 +303,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     // Add a valid message
     int offset = 1;
@@ -334,7 +327,7 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
 
     // Check metadata.
-    checkMetadata(0, 0, 0, 0, 0);
+    checkMetadata(0, 0);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -342,7 +335,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     // Add a message
     List<LogMessage> msgs = MessageUtil.makeMessagesWithTimeDifference(1, 4, 1000);
@@ -366,7 +359,7 @@ public class RecoveryChunkManagerTest {
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
     testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
-    checkMetadata(1, 0, 1, 0, 0);
+    checkMetadata(1, 1);
 
     LogMessage msg3 = msgs.get(2);
     LogMessage msg4 = msgs.get(3);
@@ -382,7 +375,7 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message3", 1, 2, 2, 0, MAX_TIME);
     testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
 
-    checkMetadata(1, 0, 1, 0, 0);
+    checkMetadata(1, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
     chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1);
   }
@@ -392,7 +385,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
@@ -421,7 +414,7 @@ public class RecoveryChunkManagerTest {
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
-    checkMetadata(2, 0, 2, 0, 0);
+    checkMetadata(2, 2);
 
     // roll over active chunk on close.
     chunkManager.shutDown();
@@ -436,7 +429,7 @@ public class RecoveryChunkManagerTest {
     // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    checkMetadata(2, 0, 2, 0, 0);
+    checkMetadata(2, 2);
 
     chunkManager = null;
   }
@@ -446,7 +439,7 @@ public class RecoveryChunkManagerTest {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 101);
@@ -466,7 +459,7 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message101", 1, 11, 11, 0, MAX_TIME);
 
     // Check metadata.
-    checkMetadata(11, 0, 11, 0, 0);
+    checkMetadata(11, 11);
 
     // Ensure can't add messages once roll over is complete.
     assertThatIllegalStateException()
@@ -488,7 +481,7 @@ public class RecoveryChunkManagerTest {
     // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(11);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    checkMetadata(11, 0, 11, 0, 0);
+    checkMetadata(11, 11);
 
     chunkManager = null;
   }
@@ -509,7 +502,7 @@ public class RecoveryChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET, 3000);
+    initChunkManager(chunkRollOverStrategy);
 
     int offset = 1;
     for (LogMessage m : messages) {
@@ -523,7 +516,7 @@ public class RecoveryChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    checkMetadata(3, 0, 3, 0, 0);
+    checkMetadata(3, 3);
 
     // No new chunk left to commit.
     assertThat(chunkManager.getActiveChunk()).isNull();
