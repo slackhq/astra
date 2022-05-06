@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  * the current chunk is marked as read only. At that point a new chunk is created which becomes the
  * active chunk.
  */
-public class IndexingChunkManager<T> extends ChunkManager<T> {
+public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);
 
   private final File dataDirectory;

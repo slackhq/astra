@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * Chunk manager implementation that supports loading chunks from S3. All chunks are readonly, and
  * commands to operate with the chunks are made available through ZK.
  */
-public class CachingChunkManager<T> extends ChunkManager<T> {
+public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachingChunkManager.class);
 
   private final MeterRegistry meterRegistry;
@@ -112,5 +112,12 @@ public class CachingChunkManager<T> extends ChunkManager<T> {
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
         cacheConfig.getSlotsPerInstance());
+  }
+
+  @Override
+  public void addMessage(T message, long msgSize, String kafkaPartitionId, long offset)
+      throws IOException {
+    throw new UnsupportedOperationException(
+        "Adding messages is not supported on caching chunk manager");
   }
 }
