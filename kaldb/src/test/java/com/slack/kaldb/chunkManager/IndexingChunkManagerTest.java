@@ -11,14 +11,9 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
 import static com.slack.kaldb.testlib.MetricsUtil.*;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
@@ -90,6 +85,8 @@ public class IndexingChunkManagerTest {
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private MetadataStore metadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private SearchMetadataStore searchMetadataStore;
 
   @Before
   public void setUp() throws Exception {
@@ -114,6 +111,8 @@ public class IndexingChunkManagerTest {
             .build();
 
     metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
   }
 
   @After
@@ -195,8 +194,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testAddMessage()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddMessage() throws Exception {
     final Instant creationTime = Instant.now();
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
@@ -223,8 +221,8 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration.
-    assertThat(chunkManager.getSnapshotMetadataStore().list().get().size()).isEqualTo(1);
-    assertThat(chunkManager.getSearchMetadataStore().list().get().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
@@ -241,7 +239,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataStartTimeEpochMs()).isEqualTo(messages.get(0).timeSinceEpochMilli);
     assertThat(chunkInfo.getDataEndTimeEpochMs()).isEqualTo(messages.get(99).timeSinceEpochMilli);
 
-    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(1);
@@ -254,7 +252,7 @@ public class IndexingChunkManagerTest {
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
-    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -320,13 +318,16 @@ public class IndexingChunkManagerTest {
       String searchString,
       int expectedHitCount,
       int totalSnapshots,
-      int expectedSnapshotsWithReplicas,
-      long startTimeEpochMs,
-      long endTimeEpochMs) {
+      int expectedSnapshotsWithReplicas) {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_INDEX_NAME, searchString, startTimeEpochMs, endTimeEpochMs, 10, 1000);
+            MessageUtil.TEST_INDEX_NAME,
+            searchString,
+            0,
+            com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
+            10,
+            1000);
     SearchResult<LogMessage> result = chunkManager.query(searchQuery);
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
@@ -346,8 +347,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testAddAndSearchMessageInMultipleSlices()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddAndSearchMessageInMultipleSlices() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -368,16 +368,15 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
   }
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testAddMessageWithPropertyTypeErrors() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -402,8 +401,8 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1);
+    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1);
 
     // Check metadata.
     checkMetadata(1, 1, 0, 1, 1);
@@ -414,14 +413,13 @@ public class IndexingChunkManagerTest {
       int expectedLiveSnapshotSize,
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
-      int expectedInfinitySnapshotsCount)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+      int expectedInfinitySnapshotsCount) {
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -431,8 +429,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMessagesAddedToActiveChunks()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMessagesAddedToActiveChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -457,11 +454,10 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0); // Roll over.
-    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
 
     // Wait for roll over to complete.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
-
+    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1);
     checkMetadata(2, 1, 1, 1, 0);
 
     LogMessage msg3 = msgs.get(2);
@@ -470,14 +466,13 @@ public class IndexingChunkManagerTest {
     offset++;
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
 
-    chunkManager.getActiveChunk();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
     // Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
-    testChunkManagerSearch(chunkManager, "Message3", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message3", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
@@ -485,8 +480,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testMultiThreadedChunkRollover()
-      throws IOException, InterruptedException, TimeoutException, ExecutionException {
+  public void testMultiThreadedChunkRollover() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -512,12 +506,13 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2);
     checkMetadata(3, 2, 1, 2, 1);
   }
 
+  // Adding messages to an already rolled over chunk fails.
   @Test
   public void testAddMessagesToChunkWithRollover() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -545,11 +540,11 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(3, 2, 1, 2, 1);
-    // TODO: Test commit and refresh count
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2);
 
+    // Add remaining messages to create a second chunk.
     for (LogMessage m : messages.subList(11, 25)) {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
@@ -561,9 +556,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3);
+    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3);
     checkMetadata(5, 3, 2, 3, 1);
 
     assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochMs()).isZero();
@@ -579,10 +574,10 @@ public class IndexingChunkManagerTest {
 
     // Search all messages.
     for (int i = 1; i <= 25; i++) {
-      testChunkManagerSearch(chunkManager, "Message" + i, 1, 3, 3, 0, MAX_TIME);
+      testChunkManagerSearch(chunkManager, "Message" + i, 1, 3, 3);
     }
     // No search results for this query.
-    testChunkManagerSearch(chunkManager, "Message261", 0, 3, 3, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message261", 0, 3, 3);
 
     checkMetadata(6, 3, 3, 3, 0);
     testOneFailedChunk(secondChunk);
@@ -598,16 +593,16 @@ public class IndexingChunkManagerTest {
                 .findFirst()
                 .get();
 
-    testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message18", 1, 3, 3);
     // chunk 2 which has docs 12-21 is corrupted
     // an alternate approach I tried was the statement below
     // chunk.getLogSearcher().close();
     // this worked but was kinda flaky since it messes with shutdown and refresh intervals
     chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl());
 
-    testChunkManagerSearch(chunkManager, "Message18", 0, 3, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message25", 1, 3, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message18", 0, 3, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 2);
+    testChunkManagerSearch(chunkManager, "Message25", 1, 3, 2);
   }
 
   @Test
@@ -636,9 +631,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(3, 2, 1, 2, 1);
     // TODO: Test commit and refresh count
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 2);
 
     for (LogMessage m : messages.subList(11, 25)) {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
@@ -652,25 +647,29 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(5, 3, 2, 3, 1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 3);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 3);
+    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 3);
 
+    // Close the log searcher on chunks.
     chunkManager
         .getChunkList()
         .forEach(
             chunk ->
-                ((ReadWriteChunk) chunk).setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
+                ((ReadWriteChunk<LogMessage>) chunk)
+                    .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
-    testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0, 0, MAX_TIME);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 3, 0, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0);
+    testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 3, 0);
 
+    // Query interface throws search exceptions.
     chunkManager
         .getChunkList()
         .forEach(
             chunk ->
-                ((ReadWriteChunk) chunk).setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
+                ((ReadWriteChunk<LogMessage>) chunk)
+                    .setLogSearcher(new IllegalArgumentLogIndexSearcherImpl()));
 
     Throwable throwable =
         catchThrowable(() -> searchAndGetHitCount(chunkManager, "Message1", 0, MAX_TIME));
@@ -678,8 +677,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testCommitInvalidChunk()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testCommitInvalidChunk() throws Exception {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -718,8 +716,7 @@ public class IndexingChunkManagerTest {
   // TODO: Ensure search at ms slices. Currently at sec resolution?
 
   @Test
-  public void testMultiChunkSearch()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testMultiChunkSearch() throws Exception {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -841,8 +838,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  public void testChunkRollOverInProgressExceptionIsThrown()
-      throws IOException, TimeoutException, ExecutionException, InterruptedException {
+  public void testChunkRollOverInProgressExceptionIsThrown() throws Exception {
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final List<LogMessage> messages =
@@ -856,30 +852,29 @@ public class IndexingChunkManagerTest {
         IndexingChunkManager.makeDefaultRollOverExecutor(),
         10000);
 
-    assertThat(fetchSnapshots(chunkManager)).isEmpty();
-    assertThat(fetchLiveSnapshot(fetchSnapshots(chunkManager))).isEmpty();
-    assertThat(fetchNonLiveSnapshot(fetchSnapshots(chunkManager))).isEmpty();
-    assertThat(fetchSearchNodes(chunkManager)).isEmpty();
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
+    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
+    assertThat(searchMetadataStore.listSync()).isEmpty();
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
-    try {
-      int offset = 1;
-      for (LogMessage m : messages) {
-        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-        offset++;
-      }
-      fail("Should throw exception");
-    } catch (Exception e) {
-      assertThat(e).isInstanceOf(ChunkRollOverException.class);
-    }
+    assertThatThrownBy(
+            () -> {
+              int offset = 1;
+              for (LogMessage m : messages) {
+                chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+                offset++;
+              }
+            })
+        .isInstanceOf(ChunkRollOverException.class);
 
-    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(2);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isGreaterThanOrEqualTo(2);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(2);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -983,7 +978,7 @@ public class IndexingChunkManagerTest {
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
-    // TODO: Data is lost and the indexer should use a recovery protocol to re-index this data.
+    // Data is lost and the indexer, we use recovery indexer to re-index this data.
   }
 
   @Test
@@ -1019,17 +1014,18 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
     // Adding a message after a rollover fails throws an exception.
-    final List<LogMessage> newMessage =
-        MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
-    try {
-      for (LogMessage m : newMessage) {
-        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-        offset++;
-      }
-      fail("Should have thrown chunk roll over exception");
-    } catch (Exception e) {
-      assertThat(e).isInstanceOf(ChunkRollOverException.class);
-    }
+    assertThatThrownBy(
+            () -> {
+              int newOffset = 1;
+              final List<LogMessage> newMessage =
+                  MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
+              for (LogMessage m : newMessage) {
+                chunkManager.addMessage(
+                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                newOffset++;
+              }
+            })
+        .isInstanceOf(ChunkRollOverException.class);
     checkMetadata(1, 1, 0, 1, 1);
   }
 
@@ -1067,17 +1063,18 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
 
     // Adding a message after a rollover fails throws an exception.
-    final List<LogMessage> newMessage =
-        MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
-    try {
-      for (LogMessage m : newMessage) {
-        chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
-        offset++;
-      }
-      fail("Should have throw a chunk roll over exception");
-    } catch (Exception e) {
-      assertThat(e).isInstanceOf(ChunkRollOverException.class);
-    }
+    assertThatThrownBy(
+            () -> {
+              int newOffset = 1000;
+              final List<LogMessage> newMessage =
+                  MessageUtil.makeMessagesWithTimeDifference(11, 12, 1000, startTime);
+              for (LogMessage m : newMessage) {
+                chunkManager.addMessage(
+                    m, m.toString().length(), TEST_KAFKA_PARTITION_ID, newOffset);
+                newOffset++;
+              }
+            })
+        .isInstanceOf(ChunkRollOverException.class);
     checkMetadata(1, 1, 0, 1, 1);
   }
 
