@@ -23,7 +23,7 @@ import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +97,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
     IndexWriterConfig indexWriterConfig =
         buildIndexWriterConfig(analyzer, this.snapshotDeletionPolicy, config, registry);
-    indexDirectory = new NIOFSDirectory(config.indexFolder(id).toPath());
+    indexDirectory = new MMapDirectory(config.indexFolder(id).toPath());
     indexWriter = Optional.of(new IndexWriter(indexDirectory, indexWriterConfig));
     this.searcherManager = new SearcherManager(indexWriter.get(), false, false, null);
 
