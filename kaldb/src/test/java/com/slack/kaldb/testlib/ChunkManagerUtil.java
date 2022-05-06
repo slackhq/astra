@@ -138,4 +138,8 @@ public class ChunkManagerUtil<T> {
       List<SnapshotMetadata> afterSnapshots, Predicate<SnapshotMetadata> condition) {
     return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
   }
+
+  public MetadataStore getMetadataStore() {
+    return metadataStore;
+  }
 }
