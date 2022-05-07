@@ -35,7 +35,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
   private final ChunkFactory<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
-  private boolean stopIngestion;
+  private boolean readOnly;
   private ReadWriteChunk<T> activeChunk;
 
   private final AtomicLong liveMessagesIndexedGauge;
@@ -46,6 +46,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
+  private boolean rollOverFailed;
 
   @VisibleForTesting
   public List<Chunk<T>> getChunkList() {
@@ -88,7 +89,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
     this.chunkRolloverFactory = chunkRolloverFactory;
     this.rolloverExecutorService = rollOverExecutorService;
-    this.stopIngestion = false;
+    this.rollOverFailed = false;
 
     activeChunk = null;
 
@@ -107,7 +108,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
    */
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
-    if (stopIngestion) {
+    if (rollOverFailed || readOnly) {
       // We stop ingestion on chunk roll over failures or if the chunk manager is shutting down.
       LOG.warn("Ingestion is stopped since the chunk is closing or roll over failed");
       throw new IllegalStateException("Ingestion due to shutdown or rollover failures");
@@ -155,14 +156,14 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
           public void onSuccess(Boolean success) {
             if (success == null || !success) {
               LOG.warn("Roll over failed");
-              stopIngestion = true;
+              rollOverFailed = true;
             }
           }
 
           @Override
           public void onFailure(Throwable t) {
             LOG.warn("Roll over failed with an exception", t);
-            stopIngestion = true;
+            rollOverFailed = true;
           }
         },
         MoreExecutors.directExecutor());
@@ -198,11 +199,13 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     return activeChunk;
   }
 
-  // We need to know the status of the roll overs. So, call this function to wait for rollovers.
+  // The callers need to wait for rollovers to complete and the status of the roll overs. So, we
+  // expose this function to wait for rollovers and report their status.
+  // We don't call this function during shutdown, so callers should call this function before close.
   public boolean waitForRollOvers() {
     LOG.info("Waiting for rollovers to complete");
     // Stop accepting new writes to the chunks.
-    stopIngestion = true;
+    readOnly = true;
 
     // Roll over active chunk.
     if (activeChunk != null) {
@@ -222,9 +225,13 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
       return false;
     }
 
-    // TODO: check task status also.
-    LOG.info("All rollovers completed");
-    return true;
+    if (rollOverFailed) {
+      LOG.info("Some roll rollovers failed");
+      return false;
+    } else {
+      LOG.info("All rollovers completed");
+      return true;
+    }
   }
 
   @Override
@@ -246,7 +253,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   protected void shutDown() throws Exception {
     LOG.info("Closing recovery chunk manager.");
 
-    stopIngestion = true;
+    readOnly = true;
 
     // Close all chunks.
     for (Chunk<T> chunk : chunkList) {
