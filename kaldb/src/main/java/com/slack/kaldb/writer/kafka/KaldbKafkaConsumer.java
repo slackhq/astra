@@ -10,6 +10,7 @@ import com.slack.kaldb.server.KaldbConfig;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -146,6 +147,7 @@ public class KaldbKafkaConsumer {
             kafkaAutoCommitInterval,
             kafkaSessionTimeout);
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
+    new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
   }
 
   /** Start consuming the partition from an offset. */
