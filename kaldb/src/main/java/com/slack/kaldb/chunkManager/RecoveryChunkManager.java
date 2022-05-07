@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * the current chunk is marked as read only. At that point a new chunk is created which becomes the
  * active chunk.
  */
-public class RecoveryChunkManager<T> extends ChunkManager<T> {
+public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
 
   private final ChunkFactory<T> recoveryChunkFactory;
