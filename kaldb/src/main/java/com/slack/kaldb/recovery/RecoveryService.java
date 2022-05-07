@@ -1,11 +1,17 @@
 package com.slack.kaldb.recovery;
 
+import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.protobuf.TextFormat;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.chunkManager.RecoveryChunkManager;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
@@ -14,6 +20,9 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.writer.LogMessageTransformer;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -169,34 +178,57 @@ public class RecoveryService extends AbstractIdleService {
     }
   }
 
-  // index between recoveryTaskMetadata.startOffset and recoveryTaskMetadata.endOffset,
-  //   upload to S3, create the snapshot
-  private void handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata)
-      throws InterruptedException {
-    // Create an recovery chunk manager from an indexing chunk manager.
-    // recovery chunk manager - indexing chunk manager that stops indexing at an offset - no search
-    // and no cleaner.
-    // on close upload active chunk to S3.
-    // returns bool when done.
-    //    IndexingChunkManager<LogMessage> chunkManager =
-    //        IndexingChunkManager.fromConfig(
-    //            meterRegistry,
-    //            metadataStore,
-    //            // TODO: Replace with params from IndexerConfig
-    //            kaldbConfig.getIndexerConfig(),
-    //            blobFs,
-    //            kaldbConfig.getS3Config());
-    //    // Index the data until offset in parallel
-    //     KaldbKafkaConsumer kafkaConsumer = new KaldbKafkaConsumer();
-    //    kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
-    //        KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
-    //        recoveryTaskMetadata.startOffset,
-    //        recoveryTaskMetadata.endOffset);
-    //    // close and upload active chunk to S3.
-    //    chunkManager.rollOverActiveChunk();
-    //    // Close the indexing chunk manager and kafka consumer.
-    //    kafkaConsumer.close();
-    //    chunkManager.stopAsync();
+  /**
+   * This method does the recovery work from a recovery task. A recovery task indicates the start
+   * and end offset of a kafka partition to index. To do the recovery work, we create a recovery
+   * chunk manager, create a kafka consumer for the recovery partition, indexes the data in
+   * parallel, uploads the data to S3 and closes all the components correctly. We return true if the
+   * operation succeeded.
+   */
+  @VisibleForTesting
+  public boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+    try {
+      RecoveryChunkManager<LogMessage> chunkManager =
+          RecoveryChunkManager.fromConfig(
+              meterRegistry,
+              metadataStore,
+              kaldbConfig.getIndexerConfig(),
+              blobFs,
+              kaldbConfig.getS3Config());
+      // Ingest data in parallel
+      LogMessageTransformer messageTransformer =
+          DATA_TRANSFORMER_MAP.get(kaldbConfig.getIndexerConfig().getDataTransformer());
+      LogMessageWriterImpl logMessageWriterImpl =
+          new LogMessageWriterImpl(chunkManager, messageTransformer);
+      KaldbKafkaConsumer kafkaConsumer =
+          KaldbKafkaConsumer.fromConfig(
+              makeKafkaConfig(kaldbConfig.getKafkaConfig(), recoveryTaskMetadata.partitionId),
+              logMessageWriterImpl,
+              meterRegistry);
+      kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
+          KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
+          recoveryTaskMetadata.startOffset,
+          recoveryTaskMetadata.endOffset);
+      // Wait for chunks to upload.
+      boolean success = chunkManager.waitForRollOvers();
+      // Close the recovery chunk manager and kafka consumer.
+      kafkaConsumer.close();
+      chunkManager.stopAsync();
+      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      return success;
+    } catch (Exception ex) {
+      LOG.error("Encountered exception in recovery task: {}", recoveryTaskMetadata, ex);
+      return false;
+    }
+  }
+
+  // Replace the Kafka PartitionId from the kafkaConfig added.
+  private KaldbConfigs.KafkaConfig makeKafkaConfig(
+      KaldbConfigs.KafkaConfig kafkaConfig, String partitionId) throws TextFormat.ParseException {
+    KaldbConfigs.KafkaConfig.Builder builder = KaldbConfigs.KafkaConfig.newBuilder();
+    TextFormat.merge(kafkaConfig.toString(), builder);
+    builder.setKafkaTopicPartition(partitionId);
+    return builder.build();
   }
 
   @VisibleForTesting

@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.protobuf.TextFormat;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
@@ -15,9 +16,9 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
 import java.time.Instant;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -29,23 +30,26 @@ public class RecoveryServiceTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
-  private TestingServer testingServer;
+  private TestingServer testZkServer;
   private MeterRegistry meterRegistry;
   private BlobFs blobFs;
+  private TestKafkaServer kafkaServer;
 
   @Before
   public void setup() throws Exception {
     Tracing.newBuilder().build();
+    kafkaServer = new TestKafkaServer();
     meterRegistry = new SimpleMeterRegistry();
-    testingServer = new TestingServer();
+    testZkServer = new TestingServer();
     blobFs = new S3BlobFs(S3_MOCK_RULE.createS3ClientV2());
     // TODO: Fix it.
-    // KaldbConfigs.KaldbConfig kaldbConfig = KaldbConfigUtil.makeKaldbConfig();
+    // KaldbConfigUtil.makeKaldbConfig(testZkServer.getConnectString(), )
   }
 
   @After
-  public void shutdown() throws IOException {
-    testingServer.close();
+  public void shutdown() throws Exception {
+    kafkaServer.close();
+    testZkServer.close();
     meterRegistry.close();
   }
 
@@ -53,7 +57,7 @@ public class RecoveryServiceTest {
   public void shouldHandleRecoveryNodeLifecycle() throws Exception {
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(testingServer.getConnectString())
+            .setZkConnectString(testZkServer.getConnectString())
             .setZkPathPrefix("shouldHandleRecoveryNodeLifecycle")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
@@ -65,9 +69,6 @@ public class RecoveryServiceTest {
             .setServerPort(1234)
             .setServerAddress("localhost")
             .build();
-
-    KaldbConfigs.RecoveryConfig recoveryConfig =
-        KaldbConfigs.RecoveryConfig.newBuilder().setServerConfig(serverConfig).build();
 
     SearchContext searchContext = SearchContext.fromConfig(serverConfig);
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
@@ -109,5 +110,10 @@ public class RecoveryServiceTest {
     recoveryNodeMetadataStore.close();
 
     metadataStore.close();
+  }
+
+  @Test
+  public void testShouldHandleRecoveryTask() {
+
   }
 }
