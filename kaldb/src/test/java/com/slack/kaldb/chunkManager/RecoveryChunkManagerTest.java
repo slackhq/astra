@@ -51,6 +51,8 @@ public class RecoveryChunkManagerTest {
   // TODO: test for parallel ingestion failure in indexer.
   // TODO: Ensure clean close after all chunks are uploaded.
   // TODO: Test post snapshot for recovery.
+  // TODO: Add a test for roll over failed. *
+  // TODO: Add rollover and close logic to all the unit tests. **
 
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManagerTest.class);
 
@@ -76,10 +78,8 @@ public class RecoveryChunkManagerTest {
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
-    // create an S3 client and a bucket for test
+    // create an S3 client.
     s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
-
     s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
@@ -136,6 +136,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessage() throws Exception {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     final Instant creationTime = Instant.now();
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
@@ -271,6 +272,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddAndSearchMessageInMultipleSlices() throws Exception {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -300,6 +302,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -332,6 +335,7 @@ public class RecoveryChunkManagerTest {
 
   @Test(expected = IllegalStateException.class)
   public void testMessagesAddedToInactiveChunks() throws IOException, TimeoutException {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
@@ -382,6 +386,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessagesWithTwoParallelRollover() throws Exception {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -436,6 +441,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessagesWithTenParallelRollover() throws Exception {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
@@ -488,6 +494,7 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testCommitInvalidChunk() throws Exception {
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
