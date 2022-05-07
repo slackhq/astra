@@ -275,7 +275,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     SearchContext searchContext = SearchContext.fromConfig(indexerConfig.getServerConfig());
 
-    RecoveryChunkFactoryImpl<LogMessage> recoveryChunkBuilder =
+    RecoveryChunkFactoryImpl<LogMessage> recoveryChunkFactory =
         new RecoveryChunkFactoryImpl<>(
             indexerConfig,
             CHUNK_DATA_PREFIX,
@@ -288,6 +288,6 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
         new ChunkRolloverFactory(
             chunkRollOverStrategy, blobFs, s3Config.getS3Bucket(), meterRegistry);
 
-    return new RecoveryChunkManager<>(recoveryChunkBuilder, chunkRolloverFactory, meterRegistry);
+    return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }
 }
