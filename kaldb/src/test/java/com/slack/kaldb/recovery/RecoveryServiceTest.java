@@ -1,6 +1,10 @@
 package com.slack.kaldb.recovery;
 
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -195,6 +199,11 @@ public class RecoveryServiceTest {
     assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
     assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
         .isGreaterThan(1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 
   // TODO: Chunk upload failure should fail the recovery task.
