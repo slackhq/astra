@@ -74,10 +74,20 @@ public class KaldbConfigUtil {
                     .build())
             .build();
 
+    KaldbConfigs.RecoveryConfig recoveryConfig =
+        KaldbConfigs.RecoveryConfig.newBuilder()
+            .setServerConfig(
+                KaldbConfigs.ServerConfig.newBuilder()
+                    .setServerPort(indexerPort + 3)
+                    .setServerAddress("localhost")
+                    .build())
+            .build();
+
     return KaldbConfigs.KaldbConfig.newBuilder()
         .setKafkaConfig(kafkaConfig)
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
+        .setRecoveryConfig(recoveryConfig)
         .setQueryConfig(queryConfig)
         .setMetadataStoreConfig(metadataStoreConfig)
         .addNodeRoles(nodeRole)

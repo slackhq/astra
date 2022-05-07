@@ -512,5 +512,7 @@ public class RecoveryChunkImplTest {
       chunk.close();
       chunk = null;
     }
+
+    // TODO: Add a test to ensure that data is uploaded to S3.
   }
 }

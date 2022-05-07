@@ -205,6 +205,7 @@ public class RecoveryService extends AbstractIdleService {
               makeKafkaConfig(kaldbConfig.getKafkaConfig(), recoveryTaskMetadata.partitionId),
               logMessageWriterImpl,
               meterRegistry);
+      kafkaConsumer.prepConsumerForConsumption(recoveryTaskMetadata.startOffset);
       kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
           KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
           recoveryTaskMetadata.startOffset,
