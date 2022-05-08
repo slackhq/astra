@@ -34,10 +34,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.*;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
@@ -74,6 +71,7 @@ public class RecoveryServiceTest {
     s3Client.close();
   }
 
+  @Ignore
   @Test
   public void shouldHandleRecoveryNodeLifecycle() throws Exception {
     KaldbConfigs.ZookeeperConfig zkConfig =

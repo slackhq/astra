@@ -48,7 +48,6 @@ public class RecoveryService extends AbstractIdleService {
   private final SearchContext searchContext;
   private final MetadataStore metadataStore;
   private final MeterRegistry meterRegistry;
-  // private final KaldbConfigs.RecoveryConfig recoveryConfig;
   private final BlobFs blobFs;
   private final KaldbConfigs.KaldbConfig kaldbConfig;
 
@@ -59,14 +58,13 @@ public class RecoveryService extends AbstractIdleService {
 
   private Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeLastKnownState;
 
-  public static final String RECOVERY_NODE_RECEIVED_ASSIGNMENT =
-      "recovery_node_received_assignment";
-  public static final String RECOVERY_NODE_COMPLETED_ASSIGNMENT =
-      "recovery_node_completed_assignment";
-  public static final String RECOVERY_NODE_FAILED_ASSIGNMENT = "recovery_node_failed_assignment";
-  protected final Counter recoveryNodeReceivedAssignment;
-  protected final Counter recoveryNodeCompletedAssignment;
-  protected final Counter recoveryNodeFailedAssignment;
+  public static final String RECOVERY_NODE_ASSIGNMENT_RECEIVED =
+      "recovery_node_assignment_received";
+  public static final String RECOVERY_NODE_ASSIGNMENT_SUCCESS = "recovery_node_assignment_success";
+  public static final String RECOVERY_NODE_ASSIGNMENT_FAILED = "recovery_node_assignment_failed";
+  protected final Counter recoveryNodeAssignmentReceived;
+  protected final Counter recoveryNodeAssignmentSuccess;
+  protected final Counter recoveryNodeAssignmentFailed;
 
   public RecoveryService(
       KaldbConfigs.KaldbConfig kaldbConfig,
@@ -87,12 +85,12 @@ public class RecoveryService extends AbstractIdleService {
             new ThreadFactoryBuilder().setNameFormat("recovery-service-%d").build());
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("nodeHostname", searchContext.hostname));
-    recoveryNodeReceivedAssignment =
-        meterRegistry.counter(RECOVERY_NODE_RECEIVED_ASSIGNMENT, meterTags);
-    recoveryNodeCompletedAssignment =
-        meterRegistry.counter(RECOVERY_NODE_COMPLETED_ASSIGNMENT, meterTags);
-    recoveryNodeFailedAssignment =
-        meterRegistry.counter(RECOVERY_NODE_FAILED_ASSIGNMENT, meterTags);
+    recoveryNodeAssignmentReceived =
+        meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterTags);
+    recoveryNodeAssignmentSuccess =
+        meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterTags);
+    recoveryNodeAssignmentFailed =
+        meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_FAILED, meterTags);
   }
 
   @Override
@@ -138,7 +136,7 @@ public class RecoveryService extends AbstractIdleService {
 
       if (newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)) {
         LOG.info("Recovery node - ASSIGNED received");
-        recoveryNodeReceivedAssignment.increment();
+        recoveryNodeAssignmentReceived.increment();
         if (!recoveryNodeLastKnownState.equals(
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
           LOG.warn(
@@ -154,8 +152,14 @@ public class RecoveryService extends AbstractIdleService {
 
   /**
    * This method is invoked after the cluster manager has assigned a recovery node a task. As part
-   * of handling a task assignment we should update the recovery node state as we make progress (ie,
-   * Recovering and then Free once completed).
+   * of handling a task assignment we update the recovery node state to recovering once we start the
+   * recovery process. If the recovery succeeds, we delete the recovery task and set node to free.
+   * If the recovery task fails, we set the node to free so the recovery task can be assigned to
+   * another node again.
+   *
+   * <p>TODO: Re-queuing failed re-assignment task will lead to wasted resources if recovery always
+   * fails. To break this cycle add a enqueue_count value to recovery task so we can stop recovering
+   * it if the task fails a certain number of times.
    */
   private void handleRecoveryTaskAssignment(RecoveryNodeMetadata recoveryNodeMetadata) {
     try {
@@ -163,18 +167,20 @@ public class RecoveryService extends AbstractIdleService {
       RecoveryTaskMetadata recoveryTaskMetadata =
           recoveryTaskMetadataStore.getNodeSync(recoveryNodeMetadata.recoveryTaskName);
 
-      // Process recovery task.
-      handleRecoveryTask(recoveryTaskMetadata);
-
-      // delete the completed recovery task
-      recoveryTaskMetadataStore.deleteSync(recoveryTaskMetadata.name);
-
-      setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
-      recoveryNodeCompletedAssignment.increment();
+      boolean success = handleRecoveryTask(recoveryTaskMetadata);
+      if (success) {
+        // delete the completed recovery task on success
+        recoveryTaskMetadataStore.deleteSync(recoveryTaskMetadata.name);
+        setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+        recoveryNodeAssignmentSuccess.increment();
+      } else {
+        setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+        recoveryNodeAssignmentFailed.increment();
+      }
     } catch (Exception e) {
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
       LOG.error("Failed to complete recovery node task assignment", e);
-      recoveryNodeFailedAssignment.increment();
+      recoveryNodeAssignmentFailed.increment();
     }
   }
 
