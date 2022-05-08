@@ -63,8 +63,6 @@ public class RecoveryServiceTest {
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     blobFs = new S3BlobFs(s3Client);
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
-    // TODO: Fix it.
-    // KaldbConfigUtil.makeKaldbConfig(testZkServer.getConnectString(), )
   }
 
   @After
