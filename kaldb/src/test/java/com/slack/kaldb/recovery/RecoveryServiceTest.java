@@ -139,14 +139,15 @@ public class RecoveryServiceTest {
       String clientName,
       String zkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
-      int maxOffsetDelay) {
+      int maxOffsetDelay,
+      String testS3Bucket) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
         port,
         kafkaTopic,
         kafkaPartition,
         clientName,
-        TEST_S3_BUCKET,
+        testS3Bucket,
         port + 1,
         zkServer.getConnectString(),
         zkPathPrefix,
@@ -165,7 +166,8 @@ public class RecoveryServiceTest {
             KALDB_TEST_CLIENT_1,
             "recoveryZK_",
             KaldbConfigs.NodeRole.RECOVERY,
-            10000);
+            10000,
+            TEST_S3_BUCKET);
     MetadataStore metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
