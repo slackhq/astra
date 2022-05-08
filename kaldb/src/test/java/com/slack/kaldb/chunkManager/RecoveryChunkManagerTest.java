@@ -80,6 +80,7 @@ public class RecoveryChunkManagerTest {
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client.
     s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
@@ -113,7 +114,7 @@ public class RecoveryChunkManagerTest {
     localZkServer.stop();
   }
 
-  private void initChunkManager(ChunkRollOverStrategy chunkRollOverStrategy)
+  private void initChunkManager(ChunkRollOverStrategy chunkRollOverStrategy, String s3TestBucket)
       throws TimeoutException {
     SearchContext searchContext = new SearchContext(TEST_HOST, TEST_PORT);
 
@@ -128,7 +129,7 @@ public class RecoveryChunkManagerTest {
             snapshotMetadataStore,
             searchContext);
     ChunkRolloverFactory chunkRolloverFactory =
-        new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, S3_TEST_BUCKET, metricsRegistry);
+        new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, s3TestBucket, metricsRegistry);
     chunkManager = new RecoveryChunkManager<>(chunkFactory, chunkRolloverFactory, metricsRegistry);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -136,12 +137,11 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessage() throws Exception {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     final Instant creationTime = Instant.now();
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 1000000L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     int actualChunkSize = 0;
@@ -272,11 +272,10 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddAndSearchMessageInMultipleSlices() throws Exception {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
     int offset = 1;
@@ -302,11 +301,10 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessageWithPropertyTypeErrors() throws IOException, TimeoutException {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     // Add a valid message
     int offset = 1;
@@ -335,11 +333,10 @@ public class RecoveryChunkManagerTest {
 
   @Test(expected = IllegalStateException.class)
   public void testMessagesAddedToInactiveChunks() throws IOException, TimeoutException {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 2L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     // Add a message
     List<LogMessage> msgs = MessageUtil.makeMessagesWithTimeDifference(1, 4, 1000);
@@ -359,7 +356,7 @@ public class RecoveryChunkManagerTest {
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0); // Roll over.
-    // Wait for roll over to complete.
+    // Wait for roll over to complete without using an external mechanism.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
     testChunkManagerSearch(chunkManager, "Message2", 1, 1, 1, 0, MAX_TIME);
@@ -386,11 +383,10 @@ public class RecoveryChunkManagerTest {
 
   @Test
   public void testAddMessagesWithTwoParallelRollover() throws Exception {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
@@ -422,7 +418,7 @@ public class RecoveryChunkManagerTest {
     checkMetadata(2, 2);
 
     // roll over active chunk on close.
-    chunkManager.shutDown();
+    chunkManager.stopAsync();
 
     // Can't add messages to a chunk that's shutdown.
     assertThatIllegalStateException()
@@ -431,21 +427,16 @@ public class RecoveryChunkManagerTest {
                 chunkManager.addMessage(
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
-    // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    checkMetadata(2, 2);
-
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
   }
 
   @Test
   public void testAddMessagesWithTenParallelRollover() throws Exception {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 101);
@@ -475,7 +466,7 @@ public class RecoveryChunkManagerTest {
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // roll over active chunk on close.
-    chunkManager.shutDown();
+    chunkManager.stopAsync();
 
     // Can't add messages to a chunk that's shutdown.
     assertThatIllegalStateException()
@@ -484,17 +475,12 @@ public class RecoveryChunkManagerTest {
                 chunkManager.addMessage(
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
-    // chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(11);
-    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    checkMetadata(11, 11);
-
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
   }
 
   @Test
   public void testCommitInvalidChunk() throws Exception {
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
 
@@ -509,7 +495,7 @@ public class RecoveryChunkManagerTest {
 
     final ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
-    initChunkManager(chunkRollOverStrategy);
+    initChunkManager(chunkRollOverStrategy, S3_TEST_BUCKET);
 
     int offset = 1;
     for (LogMessage m : messages) {
@@ -527,5 +513,57 @@ public class RecoveryChunkManagerTest {
 
     // No new chunk left to commit.
     assertThat(chunkManager.getActiveChunk()).isNull();
+  }
+
+  // TODO: Add a test to create roll over failure due to ZK.
+
+  @Test
+  public void testAddMessagesWithFailedRollOver() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+
+    // Use a non-existent bucket to induce roll-over failure.
+    initChunkManager(chunkRollOverStrategy, "fake_bucket");
+
+    int offset = 1;
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+
+    assertThat(chunkManager.waitForRollOvers()).isFalse();
+
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(20);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry) == 2);
+    assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2, 0, MAX_TIME);
+    testChunkManagerSearch(chunkManager, "Message20", 1, 2, 2, 0, MAX_TIME);
+
+    // Ensure can't add messages once roll over is complete.
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+
+    // Check metadata.
+    checkMetadata(0, 0);
+
+    // roll over active chunk on close.
+    chunkManager.stopAsync();
+
+    // Can't add messages to a chunk that's shutdown.
+    assertThatIllegalStateException()
+        .isThrownBy(
+            () ->
+                chunkManager.addMessage(
+                    MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
+
+    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    chunkManager = null;
   }
 }
