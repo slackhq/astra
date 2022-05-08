@@ -523,7 +523,7 @@ public class RecoveryChunkManagerTest {
         new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
 
     // Use a non-existent bucket to induce roll-over failure.
-    initChunkManager(chunkRollOverStrategy, "fake_bucket");
+    initChunkManager(chunkRollOverStrategy, "fakebucket");
 
     int offset = 1;
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 20);
@@ -565,5 +565,24 @@ public class RecoveryChunkManagerTest {
 
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testFailedRolloverStopsIngestion() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+
+    // Use a non-existent bucket to induce roll-over failure.
+    initChunkManager(chunkRollOverStrategy, "fakebucket");
+
+    int offset = 1;
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      if (offset % 10 == 0) {
+        Thread.sleep(1000);
+      }
+      offset++;
+    }
   }
 }
