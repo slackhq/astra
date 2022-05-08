@@ -181,8 +181,7 @@ public class RecoveryServiceTest {
     // Populate data in  Kafka so we can recover from it.
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    final int indexedMessagesCount =
-        produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "", ""), true)).isEmpty();
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
@@ -202,6 +201,56 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+  }
+
+  @Test
+  public void testShouldHandleRecoveryTaskFailure() throws Exception {
+    String fakeS3Bucket = "fakeBucket";
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(
+            9000,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            "recoveryZK_",
+            KaldbConfigs.NodeRole.RECOVERY,
+            10000,
+            fakeS3Bucket);
+    MetadataStore metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+    // Start recovery service
+    RecoveryService recoveryService =
+        new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Populate data in  Kafka so we can recover from it.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
+
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    // Start recovery
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+    assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isFalse();
+
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
   }
 
   // TODO: Chunk upload failure should fail the recovery task.
