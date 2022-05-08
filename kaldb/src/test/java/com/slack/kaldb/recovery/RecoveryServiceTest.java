@@ -205,4 +205,8 @@ public class RecoveryServiceTest {
   }
 
   // TODO: Chunk upload failure should fail the recovery task.
+  // TODO: Add a multi chunk recovery task.
+
+  // TODO: Add a test to test recovery task lifecycle for success and failure handle recovery task
+  // cases.
 }
