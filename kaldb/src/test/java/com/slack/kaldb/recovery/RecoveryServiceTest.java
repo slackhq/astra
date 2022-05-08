@@ -3,6 +3,7 @@ package com.slack.kaldb.recovery;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_SUCCESS;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -13,14 +14,13 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.BlobFsUtils;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
+import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -50,6 +50,8 @@ public class RecoveryServiceTest {
   private BlobFs blobFs;
   private TestKafkaServer kafkaServer;
   private S3Client s3Client;
+  private RecoveryService recoveryService;
+  private ZookeeperMetadataStoreImpl metadataStore;
 
   @Before
   public void setup() throws Exception {
@@ -64,71 +66,18 @@ public class RecoveryServiceTest {
 
   @After
   public void shutdown() throws Exception {
+    if (recoveryService != null) {
+      recoveryService.stopAsync();
+      recoveryService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    }
+    if (metadataStore != null) {
+      metadataStore.close();
+    }
     blobFs.close();
     kafkaServer.close();
     zkServer.close();
     meterRegistry.close();
     s3Client.close();
-  }
-
-  @Ignore
-  @Test
-  public void shouldHandleRecoveryNodeLifecycle() throws Exception {
-    KaldbConfigs.ZookeeperConfig zkConfig =
-        KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix("shouldHandleRecoveryNodeLifecycle")
-            .setZkSessionTimeoutMs(1000)
-            .setZkConnectionTimeoutMs(1000)
-            .setSleepBetweenRetriesMs(1000)
-            .build();
-
-    KaldbConfigs.ServerConfig serverConfig =
-        KaldbConfigs.ServerConfig.newBuilder()
-            .setServerPort(1234)
-            .setServerAddress("localhost")
-            .build();
-
-    SearchContext searchContext = SearchContext.fromConfig(serverConfig);
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-
-    RecoveryService recoveryService =
-        new RecoveryService(
-            KaldbConfigs.KaldbConfig.newBuilder().build(), metadataStore, meterRegistry, blobFs);
-    recoveryService.startAsync();
-    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStore, false);
-
-    RecoveryNodeMetadata recoveryNodeMetadata =
-        recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
-    assertThat(recoveryNodeMetadata.recoveryNodeState)
-        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
-
-    RecoveryNodeMetadata recoveryNodeAssignment =
-        new RecoveryNodeMetadata(
-            recoveryNodeMetadata.name,
-            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-            "recoveryTaskName",
-            Instant.now().toEpochMilli());
-    recoveryNodeMetadataStore.updateSync(recoveryNodeAssignment);
-
-    // todo - verify it actually indexes here before it returns back to free.
-    //  Recovery task should not exist at this point if it is complete
-
-    await()
-        .until(
-            () ->
-                recoveryNodeMetadataStore.getNodeSync(searchContext.hostname).recoveryNodeState
-                    == Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
-
-    recoveryService.stopAsync();
-    recoveryService.awaitTerminated(DEFAULT_START_STOP_DURATION);
-
-    recoveryNodeMetadataStore.close();
-
-    metadataStore.close();
   }
 
   // TODO: change the params for recovery
@@ -168,13 +117,12 @@ public class RecoveryServiceTest {
             KaldbConfigs.NodeRole.RECOVERY,
             10000,
             TEST_S3_BUCKET);
-    MetadataStore metadataStore =
+    metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    RecoveryService recoveryService =
-        new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -183,7 +131,6 @@ public class RecoveryServiceTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "", ""), true)).isEmpty();
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
     assertThat(snapshotMetadataStore.listSync().size()).isZero();
     // Start recovery
@@ -216,13 +163,12 @@ public class RecoveryServiceTest {
             KaldbConfigs.NodeRole.RECOVERY,
             10000,
             fakeS3Bucket);
-    MetadataStore metadataStore =
+    metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    RecoveryService recoveryService =
-        new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -251,6 +197,89 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
+  public void testShouldHandleRecoveryTaskAssignment() throws Exception {
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(
+            9000,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            "recoveryZK_",
+            KaldbConfigs.NodeRole.RECOVERY,
+            10000,
+            TEST_S3_BUCKET);
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+    // Start recovery service
+    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Populate data in  Kafka so we can recover data from Kafka.
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
+
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    // Create a recovery task
+    RecoveryTaskMetadataStore recoveryTaskMetadataStore =
+        new RecoveryTaskMetadataStore(metadataStore, false);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+    recoveryTaskMetadataStore.createSync(recoveryTask);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+
+    // Assign the recovery task to node.
+    RecoveryNodeMetadataStore recoveryNodeMetadataStore =
+        new RecoveryNodeMetadataStore(metadataStore, false);
+    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSync();
+    assertThat(recoveryNodes.size()).isEqualTo(1);
+    RecoveryNodeMetadata recoveryNodeMetadata = recoveryNodes.get(0);
+    assertThat(recoveryNodeMetadata.recoveryNodeState)
+        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+    recoveryNodeMetadataStore.updateSync(
+        new RecoveryNodeMetadata(
+            recoveryNodeMetadata.getName(),
+            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+            recoveryTask.getName(),
+            Instant.now().toEpochMilli()));
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+
+    await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 1);
+
+    // Check metadata
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+
+    // Post recovery checks
+    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
+        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    // 1 snapshot is published
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
+    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
+        .isGreaterThan(1);
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 
   // TODO: Chunk upload failure should fail the recovery task.

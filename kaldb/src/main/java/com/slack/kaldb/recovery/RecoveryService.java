@@ -192,7 +192,7 @@ public class RecoveryService extends AbstractIdleService {
    * operation succeeded.
    */
   @VisibleForTesting
-  public boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+  boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     try {
       RecoveryChunkManager<LogMessage> chunkManager =
           RecoveryChunkManager.fromConfig(
@@ -238,8 +238,7 @@ public class RecoveryService extends AbstractIdleService {
     return builder.build();
   }
 
-  @VisibleForTesting
-  public void setRecoveryNodeMetadataState(
+  private void setRecoveryNodeMetadataState(
       Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
     RecoveryNodeMetadata recoveryNodeMetadata =
         recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
