@@ -110,6 +110,9 @@ public class ArmeriaService extends AbstractIdleService {
           GrpcService.builder()
               .addService(grpcService)
               .enableUnframedRequests(true)
+              // if not using the client timeout header - separate, lower timeouts
+              // should be configured for indexer / cache nodes than that of the query server
+              .useClientTimeoutHeader(true)
               .useBlockingTaskExecutor(true);
       serverBuilder.decorator(
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
