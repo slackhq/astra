@@ -81,42 +81,25 @@ public class RecoveryServiceTest {
   }
 
   // TODO: change the params for recovery
-  private KaldbConfigs.KaldbConfig makeKaldbConfig(
-      int port,
-      String kafkaTopic,
-      int kafkaPartition,
-      String clientName,
-      String zkPathPrefix,
-      KaldbConfigs.NodeRole nodeRole,
-      int maxOffsetDelay,
-      String testS3Bucket) {
+  private KaldbConfigs.KaldbConfig makeKaldbConfig(String testS3Bucket) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
-        port,
-        kafkaTopic,
-        kafkaPartition,
-        clientName,
+        9000,
+        RecoveryServiceTest.TEST_KAFKA_TOPIC_1,
+        0,
+        RecoveryServiceTest.KALDB_TEST_CLIENT_1,
         testS3Bucket,
-        port + 1,
+        9000 + 1,
         zkServer.getConnectString(),
-        zkPathPrefix,
-        nodeRole,
-        maxOffsetDelay,
+        "recoveryZK_",
+        KaldbConfigs.NodeRole.RECOVERY,
+        10000,
         "api_log");
   }
 
   @Test
   public void testShouldHandleRecoveryTask() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbCfg =
-        makeKaldbConfig(
-            9000,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            "recoveryZK_",
-            KaldbConfigs.NodeRole.RECOVERY,
-            10000,
-            TEST_S3_BUCKET);
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(TEST_S3_BUCKET);
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
@@ -153,16 +136,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskFailure() throws Exception {
     String fakeS3Bucket = "fakeBucket";
-    KaldbConfigs.KaldbConfig kaldbCfg =
-        makeKaldbConfig(
-            9000,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            "recoveryZK_",
-            KaldbConfigs.NodeRole.RECOVERY,
-            10000,
-            fakeS3Bucket);
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(fakeS3Bucket);
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
@@ -201,16 +175,7 @@ public class RecoveryServiceTest {
 
   @Test
   public void testShouldHandleRecoveryTaskAssignmentSuccess() throws Exception {
-    KaldbConfigs.KaldbConfig kaldbCfg =
-        makeKaldbConfig(
-            9000,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            "recoveryZK_",
-            KaldbConfigs.NodeRole.RECOVERY,
-            10000,
-            TEST_S3_BUCKET);
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(TEST_S3_BUCKET);
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
@@ -258,8 +223,8 @@ public class RecoveryServiceTest {
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
 
     await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 1);
-    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry) == 1);
-    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 0);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry)).isZero();
 
     // Check metadata
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
@@ -287,16 +252,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskAssignmentFailure() throws Exception {
     String fakeS3Bucket = "fakeS3Bucket";
-    KaldbConfigs.KaldbConfig kaldbCfg =
-        makeKaldbConfig(
-            9000,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            "recoveryZK_",
-            KaldbConfigs.NodeRole.RECOVERY,
-            10000,
-            fakeS3Bucket);
+    KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(fakeS3Bucket);
     metadataStore =
         ZookeeperMetadataStoreImpl.fromConfig(
             meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
@@ -345,8 +301,8 @@ public class RecoveryServiceTest {
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
 
     await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
-    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry) == 1);
-    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 0);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry)).isZero();
 
     // Check metadata
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
