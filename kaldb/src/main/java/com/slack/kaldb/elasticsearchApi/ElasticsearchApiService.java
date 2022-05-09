@@ -2,7 +2,6 @@ package com.slack.kaldb.elasticsearchApi;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
@@ -23,6 +22,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
+import com.slack.kaldb.util.JsonUtil;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,9 +42,7 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings(
     "OptionalUsedAsFieldOrParameterType") // Per https://armeria.dev/docs/server-annotated-service/
 public class ElasticsearchApiService {
-
   private final KaldbServiceGrpc.KaldbServiceImplBase searcher;
-  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public ElasticsearchApiService(KaldbServiceGrpc.KaldbServiceImplBase searcher) {
     this.searcher = searcher;
@@ -75,7 +73,7 @@ public class ElasticsearchApiService {
 
     SearchResponseMetadata responseMetadata = new SearchResponseMetadata(0, responses);
     return HttpResponse.of(
-        HttpStatus.OK, MediaType.JSON_UTF_8, objectMapper.writeValueAsString(responseMetadata));
+        HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
   }
 
   private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
@@ -181,7 +179,7 @@ public class ElasticsearchApiService {
     return HttpResponse.of(
         HttpStatus.OK,
         MediaType.JSON,
-        objectMapper.writeValueAsString(
+        JsonUtil.writeAsString(
             ImmutableMap.of(
                 indexName.orElseThrow(),
                 ImmutableMap.of(

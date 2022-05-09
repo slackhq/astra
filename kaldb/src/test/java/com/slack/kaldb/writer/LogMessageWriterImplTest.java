@@ -14,7 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -24,6 +23,7 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -120,7 +120,7 @@ public class LogMessageWriterImplTest {
     String message = String.format("The identifier in this message is %s", id);
     sourceFieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
     fieldMap.put("source", sourceFieldMap);
-    String jsonLogMessage = new ObjectMapper().writeValueAsString(fieldMap);
+    String jsonLogMessage = JsonUtil.writeAsString(fieldMap);
 
     ConsumerRecord<String, byte[]> jsonRecord = consumerRecordWithValue(jsonLogMessage.getBytes());
     assertThat(messageWriter.insertRecord(jsonRecord)).isFalse();
