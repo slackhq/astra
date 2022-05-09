@@ -3,7 +3,7 @@ package com.slack.kaldb.recovery;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_SUCCESS;
+import static com.slack.kaldb.recovery.RecoveryService.*;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
@@ -200,7 +200,7 @@ public class RecoveryServiceTest {
   }
 
   @Test
-  public void testShouldHandleRecoveryTaskAssignment() throws Exception {
+  public void testShouldHandleRecoveryTaskAssignmentSuccess() throws Exception {
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(
             9000,
@@ -258,6 +258,8 @@ public class RecoveryServiceTest {
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
 
     await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry) == 1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 0);
 
     // Check metadata
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
@@ -282,9 +284,93 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 
-  // TODO: Chunk upload failure should fail the recovery task.
-  // TODO: Add a multi chunk recovery task.
+  @Test
+  public void testShouldHandleRecoveryTaskAssignmentFailure() throws Exception {
+    String fakeS3Bucket = "fakeS3Bucket";
+    KaldbConfigs.KaldbConfig kaldbCfg =
+            makeKaldbConfig(
+                    9000,
+                    TEST_KAFKA_TOPIC_1,
+                    0,
+                    KALDB_TEST_CLIENT_1,
+                    "recoveryZK_",
+                    KaldbConfigs.NodeRole.RECOVERY,
+                    10000,
+                    fakeS3Bucket);
+    metadataStore =
+            ZookeeperMetadataStoreImpl.fromConfig(
+                    meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
-  // TODO: Add a test to test recovery task lifecycle for success and failure handle recovery task
-  // cases.
+    // Start recovery service
+    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Populate data in  Kafka so we can recover data from Kafka.
+    final Instant startTime =
+            LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
+
+    // fakeS3Bucket is not present.
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    // Create a recovery task
+    RecoveryTaskMetadataStore recoveryTaskMetadataStore =
+            new RecoveryTaskMetadataStore(metadataStore, false);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
+    RecoveryTaskMetadata recoveryTask =
+            new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+    recoveryTaskMetadataStore.createSync(recoveryTask);
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+
+    // Assign the recovery task to node.
+    RecoveryNodeMetadataStore recoveryNodeMetadataStore =
+            new RecoveryNodeMetadataStore(metadataStore, false);
+    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSync();
+    assertThat(recoveryNodes.size()).isEqualTo(1);
+    RecoveryNodeMetadata recoveryNodeMetadata = recoveryNodes.get(0);
+    assertThat(recoveryNodeMetadata.recoveryNodeState)
+            .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+    recoveryNodeMetadataStore.updateSync(
+            new RecoveryNodeMetadata(
+                    recoveryNodeMetadata.getName(),
+                    Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+                    recoveryTask.getName(),
+                    Instant.now().toEpochMilli()));
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+
+    await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry) == 1);
+    assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 0);
+
+    // Check metadata
+    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
+    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+
+    // Post recovery checks
+    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
+            .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
+
+    // Recovery task still exists for re-assignment.
+    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+
+    // No snapshots are published on failure.
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+  }
+
+  // TODO: Add a multi chunk recovery task.
 }
