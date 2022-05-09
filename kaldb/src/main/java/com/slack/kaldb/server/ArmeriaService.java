@@ -35,7 +35,7 @@ import zipkin2.reporter.urlconnection.URLConnectionSender;
 public class ArmeriaService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
 
-  private static final int WORKER_EVENT_LOOP_THREADS = 16;
+  private static final int MAX_CONNECTIONS = 100;
 
   private final String serviceName;
   private final Server server;
@@ -54,14 +54,15 @@ public class ArmeriaService extends AbstractIdleService {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      initializeTimeouts();
+      initializeLimits();
       initializeCompression();
       initializeLogging();
       initializeManagementEndpoints(prometheusMeterRegistry);
     }
 
-    private void initializeTimeouts() {
+    private void initializeLimits() {
       serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+      serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
     private void initializeCompression() {
