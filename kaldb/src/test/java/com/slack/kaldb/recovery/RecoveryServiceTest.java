@@ -318,7 +318,6 @@ public class RecoveryServiceTest {
     assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
 
     // No snapshots are published on failure.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshotMetadataStore.listSync().size()).isZero();
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
