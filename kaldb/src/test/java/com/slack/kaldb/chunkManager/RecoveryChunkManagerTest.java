@@ -41,7 +41,7 @@ import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-public class SingleChunkManagerTest {
+public class RecoveryChunkManagerTest {
   // TODO: Ensure clean close after all chunks are uploaded.
   // TODO: Test post snapshot for recovery.
   // TODO: Add rollover and close logic to all the unit tests. **
@@ -50,7 +50,7 @@ public class SingleChunkManagerTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private SingleChunkManager<LogMessage> chunkManager = null;
+  private RecoveryChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
   private S3Client s3Client;
@@ -122,7 +122,7 @@ public class SingleChunkManagerTest {
 
     // KaldbConfigs.IndexerConfig indexerConfig = KaldbConfigUtil.makeIndexerConfig();
     chunkManager =
-        SingleChunkManager.fromConfig(
+        RecoveryChunkManager.fromConfig(
             metricsRegistry,
             metadataStore,
             kaldbCfg.getIndexerConfig(),

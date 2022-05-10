@@ -25,8 +25,8 @@ import org.slf4j.LoggerFactory;
  * chunk without rollover. The rollOver API sets the chunk to read only and rolls over the chunk.
  * The close call performs clean up operations and closes the chunk.
  */
-public class SingleChunkManager<T> extends ChunkManagerBase<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(SingleChunkManager.class);
+public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
   // This field controls the maximum amount of time we wait for a rollover to complete.
   private static final int MAX_ROLLOVER_MINUTES = 10;
 
@@ -45,7 +45,7 @@ public class SingleChunkManager<T> extends ChunkManagerBase<T> {
   private final ListeningExecutorService rolloverExecutorService;
   private boolean rollOverFailed;
 
-  public SingleChunkManager(
+  public RecoveryChunkManager(
       ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       MeterRegistry registry) {
@@ -194,7 +194,7 @@ public class SingleChunkManager<T> extends ChunkManagerBase<T> {
     return activeChunk;
   }
 
-  public static SingleChunkManager<LogMessage> fromConfig(
+  public static RecoveryChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
@@ -220,6 +220,6 @@ public class SingleChunkManager<T> extends ChunkManagerBase<T> {
         new ChunkRolloverFactory(
             new NeverRolloverChunkStrategyImpl(), blobFs, s3Config.getS3Bucket(), meterRegistry);
 
-    return new SingleChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
+    return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }
 }
