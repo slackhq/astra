@@ -76,7 +76,6 @@ message QueryServiceConfig {
 }
 
 // Configuration for the indexer.
-// todo: replace the fields in IndexerConfig with ChunkConfig.
 message IndexerConfig {
   // Chunk config
   int64 max_messages_per_chunk = 1;
@@ -96,27 +95,6 @@ message IndexerConfig {
   // The max_offset_delay controls by how many kafka messages the indexer can be behind
   // before it needs to create a recovery task to catch up.
   int64 max_offset_delay_messages = 8;
-}
-
-message ChunkConfig {
-  // Chunk config
-  int64 max_messages_per_chunk = 1;
-  int64 max_bytes_per_chunk = 2;
-
-  // Lucene config
-  LuceneConfig lucene_config = 3;
-
-  // Chunk cleaner task removes a chunk from indexer after a certain time.
-  // Duration after which a chunk no longer served by the indexer.
-  int64 stale_duration_secs= 4;
-  // Name of the data transformation pipeline to use when ingesting the data.
-  string data_transformer = 5;
-  // Folder where data is persisted locally on disk.
-  string data_directory = 6;
-
-  // The max_offset_delay controls by how many kafka messages the indexer can be behind
-  // before it needs to create a recovery task to catch up.
-  int64 max_offset_delay_messages = 7;
 }
 
 // A config object containing all the lucene configs.
@@ -189,9 +167,6 @@ message ManagerConfig {
 // Config for the recovery node.
 message RecoveryConfig {
   ServerConfig server_config = 1;
-
-  // Chunk config.
-  ChunkConfig chunk_config = 2;
 }
 
 // Config for the preprocessor node.
