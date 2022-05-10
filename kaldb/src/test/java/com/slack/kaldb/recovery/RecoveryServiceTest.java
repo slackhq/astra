@@ -80,7 +80,6 @@ public class RecoveryServiceTest {
     s3Client.close();
   }
 
-  // TODO: change the params for recovery
   private KaldbConfigs.KaldbConfig makeKaldbConfig(String testS3Bucket) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
