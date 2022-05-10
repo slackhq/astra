@@ -5,7 +5,9 @@ import com.slack.kaldb.chunk.ReadWriteChunk;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * A chunk rollover factory creates a rollover chunk task. TODO: Consider using partial functions.
+ * A chunk rollover factory creates a rollover chunk task.
+ *
+ * <p>TODO: Consider using partial functions in future.
  */
 public class ChunkRolloverFactory {
   private final ChunkRollOverStrategy chunkRolloverStrategy;
