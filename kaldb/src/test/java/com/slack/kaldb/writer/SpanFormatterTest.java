@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer;
 
 import static com.slack.kaldb.testlib.SpanUtil.BINARY_TAG_VALUE;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
@@ -204,14 +204,4 @@ public class SpanFormatterTest {
     assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
         .isEqualTo(BINARY_TAG_VALUE);
   }
-
-  // TODO: Remove this code once span parsing is more stable.
-  // @Test
-  // public void testFailingSpanFormat() throws InvalidProtocolBufferException {
-  //  String jsonSpan = "";
-  //  Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
-  //   JsonFormat.parser().ignoringUnknownFields().merge(jsonSpan, spanBuilder);
-  //   Trace.Span span = spanBuilder.build();
-  //  SpanFormatter.toLogMessage(span);
-  //  }
 }

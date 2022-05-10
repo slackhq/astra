@@ -1,6 +1,6 @@
 package com.slack.kaldb.preprocessor;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.ByteString;
 import com.slack.service.murron.Murron;
