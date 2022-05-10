@@ -1,7 +1,7 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
-import org.assertj.core.api.Assertions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -135,17 +134,16 @@ public class ReplicaAssignmentServiceTest {
 
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -189,17 +187,16 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(3);
 
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(-3);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -243,17 +240,16 @@ public class ReplicaAssignmentServiceTest {
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
 
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(3);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -321,17 +317,16 @@ public class ReplicaAssignmentServiceTest {
 
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -423,17 +418,16 @@ public class ReplicaAssignmentServiceTest {
 
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -490,17 +484,16 @@ public class ReplicaAssignmentServiceTest {
 
     assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(-2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -604,17 +597,16 @@ public class ReplicaAssignmentServiceTest {
                             < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
                 .collect(Collectors.toList())));
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(3);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -690,13 +682,12 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
@@ -728,17 +719,16 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(2);
   }
@@ -824,17 +814,16 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
@@ -912,17 +901,16 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
   }
@@ -1006,17 +994,16 @@ public class ReplicaAssignmentServiceTest {
                         .count()
                     == 1);
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
@@ -1083,17 +1070,16 @@ public class ReplicaAssignmentServiceTest {
                     == 2);
     assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
 
-    Assertions.assertThat(
-            MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
+    assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(-1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 

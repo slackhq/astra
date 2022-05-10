@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.cache;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;

@@ -1,7 +1,7 @@
 package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.test.TestingServer;
-import org.assertj.core.api.Assertions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -138,19 +137,19 @@ public class RecoveryTaskAssignmentServiceTest {
     assertTrue(recoveryTaskMetadataStore.listSync().isEmpty());
     assertTrue(recoveryNodeMetadataStore.listSync().isEmpty());
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -189,19 +188,19 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(3);
     assertTrue(recoveryNodeMetadataStore.listSync().isEmpty());
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(3);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -278,19 +277,19 @@ public class RecoveryTaskAssignmentServiceTest {
                 .count())
         .isEqualTo(2);
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -332,19 +331,19 @@ public class RecoveryTaskAssignmentServiceTest {
     assertTrue(recoveryTaskMetadataStore.listSync().isEmpty());
     assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(3);
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -403,19 +402,19 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED);
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -466,11 +465,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     int firstAttemptAssignment = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
     assertThat(firstAttemptAssignment).isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(2);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
@@ -506,19 +505,19 @@ public class RecoveryTaskAssignmentServiceTest {
                         .count()
                     == 3);
 
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(3);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(2);
@@ -580,19 +579,19 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
@@ -667,19 +666,19 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
         .isEqualTo(1);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASKS_INSUFFICIENT_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    Assertions.assertThat(
+    assertThat(
             MetricsUtil.getTimerCount(
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
