@@ -238,7 +238,7 @@ public class RecoveryChunkManagerTest {
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(snapshots.get(0).startTimeEpochMs).isEqualTo(messages.get(0).timeSinceEpochMilli);
-    assertThat(snapshots.get(0).endTimeEpochMs).isGreaterThan(messages.get(99).timeSinceEpochMilli);
+    assertThat(snapshots.get(0).endTimeEpochMs).isGreaterThanOrEqualTo(messages.get(99).timeSinceEpochMilli);
 
     // Can't add messages to current chunk after roll over.
     assertThatThrownBy(
