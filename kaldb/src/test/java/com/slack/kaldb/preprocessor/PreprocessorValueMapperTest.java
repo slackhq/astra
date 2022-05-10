@@ -1,10 +1,8 @@
 package com.slack.kaldb.preprocessor;
 
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
 import com.slack.service.murron.Murron;
@@ -45,26 +43,34 @@ public class PreprocessorValueMapperTest {
     assertThat(span.getDurationMicros()).isEqualTo(1);
 
     assertThat(span.getTagsList().size()).isEqualTo(6);
-    assertTrue(
-        span.getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()));
-    assertTrue(
-        span.getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("method").setVStr("verifyToken").build()));
-    assertTrue(
-        span.getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("type").setVStr(indexName).build()));
-    assertTrue(
-        span.getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("level").setVStr("info").build()));
-    assertTrue(
-        span.getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("hostname").setVStr(host).build()));
-    assertTrue(
-        span.getTagsList()
-            .contains(
-                Trace.KeyValue.newBuilder().setKey("service_name").setVStr(indexName).build()));
-    assertFalse(spanIterator.hasNext());
+    assertThat(
+            span.getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()))
+        .isTrue();
+    assertThat(
+            span.getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder().setKey("method").setVStr("verifyToken").build()))
+        .isTrue();
+    assertThat(
+            span.getTagsList()
+                .contains(Trace.KeyValue.newBuilder().setKey("type").setVStr(indexName).build()))
+        .isTrue();
+    assertThat(
+            span.getTagsList()
+                .contains(Trace.KeyValue.newBuilder().setKey("level").setVStr("info").build()))
+        .isTrue();
+    assertThat(
+            span.getTagsList()
+                .contains(Trace.KeyValue.newBuilder().setKey("hostname").setVStr(host).build()))
+        .isTrue();
+    assertThat(
+            span.getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder().setKey("service_name").setVStr(indexName).build()))
+        .isTrue();
+    assertThat(spanIterator.hasNext()).isFalse();
   }
 
   @Test
@@ -104,24 +110,31 @@ public class PreprocessorValueMapperTest {
     assertThat(mappedSpan.getDurationMicros()).isEqualTo(durationMicros);
 
     assertThat(mappedSpan.getTagsList().size()).isEqualTo(8);
-    assertTrue(
-        mappedSpan
-            .getTagsList()
-            .contains(
-                Trace.KeyValue.newBuilder()
-                    .setKey("service_name")
-                    .setVStr("test_service")
-                    .build()));
-    assertTrue(
-        mappedSpan
-            .getTagsList()
-            .contains(Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()));
-    assertTrue(
-        mappedSpan
-            .getTagsList()
-            .contains(
-                Trace.KeyValue.newBuilder().setKey("method").setVStr("callbacks.flannel").build()));
-    assertFalse(spanIterator.hasNext());
+    assertThat(
+            mappedSpan
+                .getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder()
+                        .setKey("service_name")
+                        .setVStr("test_service")
+                        .build()))
+        .isTrue();
+    assertThat(
+            mappedSpan
+                .getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder().setKey("http_method").setVStr("POST").build()))
+        .isTrue();
+    assertThat(
+            mappedSpan
+                .getTagsList()
+                .contains(
+                    Trace.KeyValue.newBuilder()
+                        .setKey("method")
+                        .setVStr("callbacks.flannel")
+                        .build()))
+        .isTrue();
+    assertThat(spanIterator.hasNext()).isFalse();
   }
 
   @Test
