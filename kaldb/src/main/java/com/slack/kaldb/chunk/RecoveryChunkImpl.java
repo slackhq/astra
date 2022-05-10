@@ -11,13 +11,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A recovery chunk is a read write chunk used in the recovery service. This chunk can be written to
- * but for now we don't allow any reads on the recovery chunk. However, instead of blocking the read
- * API, it achieves this outcome by not registering a search metadata node or a live snapshot node.
- * So, query nodes can't find the recovery node.
+ * A recovery chunk is a read write chunk used in the recovery service. A recovery chunk is
+ * optimized for indexing the data as fast as it can. So, we don't plan to expose it for reads for
+ * the time being.
  *
- * <p>A recovery chunk is optimized for indexing the data as fast as it can. So, we don't plan to
- * expose it for reads for the time being.
+ * <p>To prevent external queries, a recovery node doesn't publish any live snapshots or search
+ * nodes to be queried by query nodes. We don't block the local read API since we need it for tests
+ * and helps with code reuse.
  */
 public class RecoveryChunkImpl<T> extends ReadWriteChunk<T> {
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
