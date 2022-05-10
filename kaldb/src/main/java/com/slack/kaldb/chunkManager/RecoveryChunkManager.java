@@ -71,7 +71,6 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   public void addMessage(final T message, long msgSize, String kafkaPartitionId, long offset)
       throws IOException {
     if (readOnly) {
-      // We stop ingestion on chunk roll over failures or if the chunk manager is shutting down.
       LOG.warn("Ingestion is stopped since the chunk is in read only mode.");
       throw new IllegalStateException("Ingestion is stopped since chunk is read only.");
     }
