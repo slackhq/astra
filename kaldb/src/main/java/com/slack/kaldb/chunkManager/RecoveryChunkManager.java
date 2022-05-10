@@ -9,7 +9,6 @@ import com.slack.kaldb.chunk.*;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
@@ -21,9 +20,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A single chunk manager manages a single chunk of data. The addMessage API adds a message to the
- * chunk without rollover. The rollOver API sets the chunk to read only and rolls over the chunk.
- * The close call performs clean up operations and closes the chunk.
+ * A recovery chunk manager manages a single chunk of data. The addMessage API adds a message to the
+ * same chunk without rollover. The waitForRollOvers method kicks off a rollOver and sets the chunk
+ * to read only. The close call performs clean up operations and closes the chunk.
+ *
+ * <p>Currently, the recovery chunk manager doesn't support multiple chunks since it is very hard to
+ * handle the case when some chunks succeed uploads to S3 and some chunks fail. So, we expect each
+ * recovery tasks to be sized such that all chunks are roughly the same size.
  */
 public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
@@ -196,15 +199,13 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
   public static RecoveryChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
-      MetadataStore metadataStore,
+      SearchMetadataStore searchMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
       BlobFs blobFs,
       KaldbConfigs.S3Config s3Config)
       throws Exception {
 
-    // TODO: Pass these metadata stores in and close them correctly.
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     SearchContext searchContext = SearchContext.fromConfig(indexerConfig.getServerConfig());
 
     RecoveryChunkFactoryImpl<LogMessage> recoveryChunkFactory =

@@ -17,6 +17,8 @@ import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -41,6 +43,9 @@ import org.slf4j.LoggerFactory;
  * and then subscribing to any state changes. Upon receiving an assignment from the cluster manager
  * the recovery service will delegate the recovery task to an executor service. Once the recovery
  * task has been completed, the recovery node will make itself available again for assignment.
+ *
+ * <p>Look at handleRecoveryTaskAssignment method understand the implementation and limitations of
+ * the current implementation.
  */
 public class RecoveryService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryService.class);
@@ -54,6 +59,7 @@ public class RecoveryService extends AbstractIdleService {
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
   private final ExecutorService executorService;
 
   private Metadata.RecoveryNodeMetadata.RecoveryNodeState recoveryNodeLastKnownState;
@@ -65,6 +71,7 @@ public class RecoveryService extends AbstractIdleService {
   protected final Counter recoveryNodeAssignmentReceived;
   protected final Counter recoveryNodeAssignmentSuccess;
   protected final Counter recoveryNodeAssignmentFailed;
+  private SearchMetadataStore searchMetadataStore;
 
   public RecoveryService(
       KaldbConfigs.KaldbConfig kaldbConfig,
@@ -99,6 +106,8 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(metadataStore, false);
     recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(metadataStore, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -121,6 +130,8 @@ public class RecoveryService extends AbstractIdleService {
     // another recovery node so we don't need to wait for processing to complete.
     executorService.shutdownNow();
 
+    searchMetadataStore.close();
+    snapshotMetadataStore.close();
     recoveryNodeListenerMetadataStore.close();
     recoveryNodeMetadataStore.close();
 
@@ -156,6 +167,14 @@ public class RecoveryService extends AbstractIdleService {
    * recovery process. If the recovery succeeds, we delete the recovery task and set node to free.
    * If the recovery task fails, we set the node to free so the recovery task can be assigned to
    * another node again.
+   *
+   * <p>Currently, we expect each recovery task to create one chunk. We don't support multiple
+   * chunks per recovery task for a few reasons. It keeps the recovery protocol very simple since we
+   * don't have to deal with partial chunk upload failures. By creating only one chunk per recovery
+   * task, the runtime and resource utilization of an individual recovery task is bounded and
+   * predictable, so it's easy to plan capacity for it. We get implicit parallelism in execution by
+   * adding more recovery nodes and there is no need for additional mechanisms for parallelizing
+   * execution.
    *
    * <p>TODO: Re-queuing failed re-assignment task will lead to wasted resources if recovery always
    * fails. To break this cycle add a enqueue_count value to recovery task so we can stop recovering
@@ -197,7 +216,8 @@ public class RecoveryService extends AbstractIdleService {
       RecoveryChunkManager<LogMessage> chunkManager =
           RecoveryChunkManager.fromConfig(
               meterRegistry,
-              metadataStore,
+              searchMetadataStore,
+              snapshotMetadataStore,
               kaldbConfig.getIndexerConfig(),
               blobFs,
               kaldbConfig.getS3Config());

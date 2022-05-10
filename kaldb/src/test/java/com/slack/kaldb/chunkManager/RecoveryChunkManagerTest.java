@@ -124,7 +124,8 @@ public class RecoveryChunkManagerTest {
     chunkManager =
         RecoveryChunkManager.fromConfig(
             metricsRegistry,
-            metadataStore,
+            searchMetadataStore,
+            snapshotMetadataStore,
             kaldbCfg.getIndexerConfig(),
             s3BlobFs,
             kaldbCfg.getS3Config());

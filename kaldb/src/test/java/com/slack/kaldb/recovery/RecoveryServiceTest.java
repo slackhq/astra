@@ -326,6 +326,4 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
   }
-
-  // TODO: Add a multi chunk recovery task.
 }
