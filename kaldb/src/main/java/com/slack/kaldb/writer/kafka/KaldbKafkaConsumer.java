@@ -283,7 +283,7 @@ public class KaldbKafkaConsumer {
                     recordsFailedCounter.increment();
                   }
                 } catch (IOException e) {
-                  e.printStackTrace();
+                  LOG.error("Encountered exception processing batch", e);
                 }
               }
               // TODO: Not all threads are printing this message.
