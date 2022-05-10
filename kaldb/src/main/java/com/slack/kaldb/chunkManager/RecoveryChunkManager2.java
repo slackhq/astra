@@ -30,8 +30,8 @@ import org.slf4j.LoggerFactory;
  * the current chunk is marked as read only. At that point a new chunk is created which becomes the
  * active chunk.
  */
-public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
-  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
+public class RecoveryChunkManager2<T> extends ChunkManagerBase<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager2.class);
 
   private final ChunkFactory<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
@@ -65,7 +65,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     return MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
   }
 
-  public RecoveryChunkManager(
+  public RecoveryChunkManager2(
       ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       MeterRegistry registry) {
@@ -76,7 +76,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
         registry);
   }
 
-  public RecoveryChunkManager(
+  public RecoveryChunkManager2(
       ChunkFactory<T> recoveryChunkFactory,
       ChunkRolloverFactory chunkRolloverFactory,
       ListeningExecutorService rollOverExecutorService,
@@ -267,7 +267,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
     LOG.info("Closed recovery chunk manager.");
   }
 
-  public static RecoveryChunkManager<LogMessage> fromConfig(
+  public static RecoveryChunkManager2<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
@@ -295,6 +295,6 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
         new ChunkRolloverFactory(
             chunkRollOverStrategy, blobFs, s3Config.getS3Bucket(), meterRegistry);
 
-    return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
+    return new RecoveryChunkManager2<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }
 }

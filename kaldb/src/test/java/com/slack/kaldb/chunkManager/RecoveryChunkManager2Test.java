@@ -47,21 +47,21 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-public class RecoveryChunkManagerTest {
+public class RecoveryChunkManager2Test {
   // TODO: test for parallel ingestion failure in indexer.
   // TODO: Ensure clean close after all chunks are uploaded.
   // TODO: Test post snapshot for recovery.
   // TODO: Add a test for roll over failed. *
   // TODO: Add rollover and close logic to all the unit tests. **
 
-  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManagerTest.class);
+  private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager2Test.class);
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_CHUNK_DATA_PREFIX = "testData";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private RecoveryChunkManager<LogMessage> chunkManager = null;
+  private RecoveryChunkManager2<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
   private S3Client s3Client;
@@ -130,7 +130,7 @@ public class RecoveryChunkManagerTest {
             searchContext);
     ChunkRolloverFactory chunkRolloverFactory =
         new ChunkRolloverFactory(chunkRollOverStrategy, s3BlobFs, s3TestBucket, metricsRegistry);
-    chunkManager = new RecoveryChunkManager<>(chunkFactory, chunkRolloverFactory, metricsRegistry);
+    chunkManager = new RecoveryChunkManager2<>(chunkFactory, chunkRolloverFactory, metricsRegistry);
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
