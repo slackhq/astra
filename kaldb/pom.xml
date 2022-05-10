@@ -182,6 +182,12 @@
             <version>${jackson.databind.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-afterburner</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
         <!-- YAML config parsing dependencies -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>

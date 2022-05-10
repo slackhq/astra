@@ -1,7 +1,7 @@
 package com.slack.kaldb.elasticsearchApi;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;

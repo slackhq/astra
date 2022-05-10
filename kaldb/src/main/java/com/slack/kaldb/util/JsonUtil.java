@@ -2,8 +2,11 @@ package com.slack.kaldb.util;
 
 import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -28,9 +31,16 @@ public class JsonUtil {
     return ourInstance.mapper.readValue(s, cls);
   }
 
+  public static <T> T read(String s, TypeReference<T> valueTypeRef) throws JsonProcessingException {
+    return ourInstance.mapper.readValue(s, valueTypeRef);
+  }
+
   private JsonUtil() {
-    mapper = new ObjectMapper();
-    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    mapper.configure(Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
+    mapper =
+        JsonMapper.builder()
+            .addModule(new AfterburnerModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true)
+            .build();
   }
 }

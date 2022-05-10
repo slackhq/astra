@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer;
 
 import static com.slack.kaldb.writer.ApiLogFormatter.API_LOG_DURATION_FIELD;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;

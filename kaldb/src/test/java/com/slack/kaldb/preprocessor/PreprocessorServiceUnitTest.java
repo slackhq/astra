@@ -2,10 +2,7 @@ package com.slack.kaldb.preprocessor;
 
 import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -123,10 +120,12 @@ public class PreprocessorServiceUnitTest {
 
     // all arguments except value are currently unused for determining the partition to assign, as
     // this comes the internal partition list that is set on stream partitioner initialization
-    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, span, 0)));
-    assertTrue(partitionList.contains(streamPartitioner.partition("topic", null, span, 1)));
-    assertTrue(partitionList.contains(streamPartitioner.partition("topic", "", span, 0)));
-    assertTrue(partitionList.contains(streamPartitioner.partition("", null, span, 0)));
+    assertThat(partitionList.contains(streamPartitioner.partition("topic", null, span, 0)))
+        .isTrue();
+    assertThat(partitionList.contains(streamPartitioner.partition("topic", null, span, 1)))
+        .isTrue();
+    assertThat(partitionList.contains(streamPartitioner.partition("topic", "", span, 0))).isTrue();
+    assertThat(partitionList.contains(streamPartitioner.partition("", null, span, 0))).isTrue();
   }
 
   @Test
@@ -173,7 +172,7 @@ public class PreprocessorServiceUnitTest {
         PreprocessorService.filterValidServiceMetadata(serviceMetadataList);
 
     assertThat(serviceMetadata1.size()).isEqualTo(1);
-    assertTrue(serviceMetadata1.contains(validServiceMetadata));
+    assertThat(serviceMetadata1.contains(validServiceMetadata)).isTrue();
 
     Collections.shuffle(serviceMetadata1);
 
@@ -181,7 +180,7 @@ public class PreprocessorServiceUnitTest {
         PreprocessorService.filterValidServiceMetadata(serviceMetadataList);
 
     assertThat(serviceMetadata2.size()).isEqualTo(1);
-    assertTrue(serviceMetadata2.contains(validServiceMetadata));
+    assertThat(serviceMetadata2.contains(validServiceMetadata)).isTrue();
 
     List<ServiceMetadata> serviceMetadata3 =
         PreprocessorService.filterValidServiceMetadata(List.of());
