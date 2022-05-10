@@ -260,7 +260,7 @@ public class FixedIntervalHistogramImplTest {
     new FixedIntervalHistogramImpl(100, 99, 0);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IndexOutOfBoundsException.class)
   public void testAddingElementOutOfRange() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 5, 5);
     for (int i = 0; i < 5; i++) {
@@ -295,5 +295,41 @@ public class FixedIntervalHistogramImplTest {
       assertThat(bucket.getCount()).isEqualTo(bucketLow == 4 ? 2 : 1);
       bucketLow++;
     }
+  }
+
+  @Test
+  public void testSmallBucketSizes() {
+    FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 2, 3);
+    h.add(1);
+
+    assertThat(h.count()).isEqualTo(1);
+    assertThat(h.getBuckets().size()).isEqualTo(3);
+    assertThat(h.getBuckets().get(1).getCount()).isEqualTo(1);
+
+    FixedIntervalHistogramImpl h2 = new FixedIntervalHistogramImpl(9, 10, 10);
+    h2.add(9);
+
+    assertThat(h2.count()).isEqualTo(1);
+    assertThat(h2.getBuckets().size()).isEqualTo(10);
+    assertThat(h2.getBuckets().get(0).getCount()).isEqualTo(1);
+
+    FixedIntervalHistogramImpl h3 = new FixedIntervalHistogramImpl(9, 11, 10);
+    h3.add(10);
+
+    assertThat(h3.count()).isEqualTo(1);
+    assertThat(h3.getBuckets().size()).isEqualTo(10);
+    assertThat(h3.getBuckets().get(5).getCount()).isEqualTo(1);
+  }
+
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testOutOfBoundsHigh() {
+    FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(9, 10, 10);
+    h.add(15);
+  }
+
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testOutOfBoundsLow() {
+    FixedIntervalHistogramImpl h2 = new FixedIntervalHistogramImpl(9, 10, 10);
+    h2.add(1);
   }
 }
