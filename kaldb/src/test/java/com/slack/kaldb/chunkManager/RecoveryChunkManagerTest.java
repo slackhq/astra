@@ -44,7 +44,6 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 public class RecoveryChunkManagerTest {
   // TODO: Ensure clean close after all chunks are uploaded.
   // TODO: Test post snapshot for recovery.
-  // TODO: Add rollover and close logic to all the unit tests. **
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -120,7 +119,6 @@ public class RecoveryChunkManagerTest {
             10000,
             "api_log");
 
-    // KaldbConfigs.IndexerConfig indexerConfig = KaldbConfigUtil.makeIndexerConfig();
     chunkManager =
         RecoveryChunkManager.fromConfig(
             metricsRegistry,
