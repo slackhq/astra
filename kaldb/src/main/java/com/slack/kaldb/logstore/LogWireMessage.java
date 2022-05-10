@@ -1,6 +1,6 @@
 package com.slack.kaldb.logstore;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -26,8 +26,7 @@ public class LogWireMessage extends Message {
   @Deprecated
   static Optional<LogWireMessage> fromJson(String jsonStr) {
     try {
-      ObjectMapper objectMapper = new ObjectMapper();
-      LogWireMessage wireMessage = objectMapper.readValue(jsonStr, LogWireMessage.class);
+      LogWireMessage wireMessage = JsonUtil.read(jsonStr, LogWireMessage.class);
       return Optional.of(wireMessage);
     } catch (IOException e) {
       LOG.error("Error parsing JSON Object from string " + jsonStr, e);

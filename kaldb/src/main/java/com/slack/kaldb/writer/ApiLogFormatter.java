@@ -2,10 +2,10 @@ package com.slack.kaldb.writer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.util.ArrayList;
@@ -37,11 +37,9 @@ public class ApiLogFormatter {
         murronMsg.getType(),
         murronMsg.getMessage().toStringUtf8());
 
-    // Create mapper
-    ObjectMapper mapper = new ObjectMapper();
     TypeReference<Map<String, Object>> mapTypeRef = new TypeReference<>() {};
     Map<String, Object> jsonMsgMap =
-        mapper.readValue(murronMsg.getMessage().toStringUtf8(), mapTypeRef);
+        JsonUtil.read(murronMsg.getMessage().toStringUtf8(), mapTypeRef);
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
 
