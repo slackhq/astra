@@ -3,7 +3,6 @@ package com.slack.kaldb.clusterManager;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.spy;
@@ -186,7 +185,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(3);
 
-    assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
+    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSync())).isTrue();
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     assertThat(
@@ -239,7 +238,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
 
-    assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
+    assertThat(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync())).isTrue();
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     assertThat(
@@ -315,8 +314,8 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(5);
 
-    assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
-    assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
+    assertThat(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync())).isTrue();
+    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSync())).isTrue();
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     assertThat(
@@ -404,7 +403,7 @@ public class ReplicaAssignmentServiceTest {
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(4);
-    assertTrue(cacheSlotMetadataStore.getCached().containsAll(unmutatedSlots));
+    assertThat(cacheSlotMetadataStore.getCached().containsAll(unmutatedSlots)).isTrue();
 
     List<CacheSlotMetadata> mutatedCacheSlots =
         cacheSlotMetadataStore
@@ -416,7 +415,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(mutatedCacheSlots.get(0).name).isEqualTo(cacheSlotFree.name);
     assertThat(mutatedCacheSlots.get(0).replicaId).isEqualTo(replicaMetadataList.get(3).name);
 
-    assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
+    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSync())).isTrue();
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
@@ -482,8 +481,8 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(5);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
 
-    assertTrue(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync()));
-    assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
+    assertThat(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSync())).isTrue();
+    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSync())).isTrue();
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     assertThat(
@@ -586,16 +585,17 @@ public class ReplicaAssignmentServiceTest {
                             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
                 .count())
         .isEqualTo(3);
-    assertTrue(
-        replicaMetadataExpiredList.containsAll(
-            replicaMetadataStore
-                .listSync()
-                .stream()
-                .filter(
-                    replicaMetadata ->
-                        replicaMetadata.createdTimeEpochMs
-                            < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
-                .collect(Collectors.toList())));
+    assertThat(
+            replicaMetadataExpiredList.containsAll(
+                replicaMetadataStore
+                    .listSync()
+                    .stream()
+                    .filter(
+                        replicaMetadata ->
+                            replicaMetadata.createdTimeEpochMs
+                                < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
+                    .collect(Collectors.toList())))
+        .isTrue();
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
@@ -1068,7 +1068,7 @@ public class ReplicaAssignmentServiceTest {
                                     Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
                         .count()
                     == 2);
-    assertTrue(replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
+    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSync())).isTrue();
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);

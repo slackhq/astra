@@ -3,7 +3,6 @@ package com.slack.kaldb.clusterManager;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.spy;
@@ -134,8 +133,8 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertTrue(recoveryTaskMetadataStore.listSync().isEmpty());
-    assertTrue(recoveryNodeMetadataStore.listSync().isEmpty());
+    assertThat(recoveryTaskMetadataStore.listSync().isEmpty()).isTrue();
+    assertThat(recoveryNodeMetadataStore.listSync().isEmpty()).isTrue();
 
     assertThat(
             MetricsUtil.getCount(
@@ -186,7 +185,7 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(assignments).isEqualTo(0);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(3);
-    assertTrue(recoveryNodeMetadataStore.listSync().isEmpty());
+    assertThat(recoveryNodeMetadataStore.listSync().isEmpty()).isTrue();
 
     assertThat(
             MetricsUtil.getCount(
@@ -265,7 +264,7 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(assignments).isEqualTo(1);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(3);
-    assertTrue(recoveryNodeMetadataStore.listSync().containsAll(ineligibleRecoveryNodes));
+    assertThat(recoveryNodeMetadataStore.listSync().containsAll(ineligibleRecoveryNodes)).isTrue();
     assertThat(
             recoveryNodeMetadataStore
                 .listSync()
@@ -328,7 +327,7 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertTrue(recoveryTaskMetadataStore.listSync().isEmpty());
+    assertThat(recoveryTaskMetadataStore.listSync().isEmpty()).isTrue();
     assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(3);
 
     assertThat(
