@@ -10,7 +10,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.TextFormat;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.chunkManager.RecoveryChunkManager;
+import com.slack.kaldb.chunkManager.SingleChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
@@ -194,8 +194,8 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     try {
-      RecoveryChunkManager<LogMessage> chunkManager =
-          RecoveryChunkManager.fromConfig(
+      SingleChunkManager<LogMessage> chunkManager =
+          SingleChunkManager.fromConfig(
               meterRegistry,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
