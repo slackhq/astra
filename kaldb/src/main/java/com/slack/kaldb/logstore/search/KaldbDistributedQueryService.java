@@ -27,6 +27,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -62,8 +63,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
 
   private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
-
-  private static final Random random = new Random();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -225,7 +224,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         return cacheNodeHostedSearchMetadata.get(0).url;
       } else {
         return cacheNodeHostedSearchMetadata.get(
-                random.nextInt(cacheNodeHostedSearchMetadata.size()))
+                ThreadLocalRandom.current().nextInt(cacheNodeHostedSearchMetadata.size()))
             .url;
       }
     }
