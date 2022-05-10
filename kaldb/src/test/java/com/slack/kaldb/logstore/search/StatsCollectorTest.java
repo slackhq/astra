@@ -1,12 +1,13 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_INDEX_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.histogram.HistogramBucket;
@@ -66,7 +67,7 @@ public class StatsCollectorTest {
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(5);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-    assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+    assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+    assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
   }
 }
