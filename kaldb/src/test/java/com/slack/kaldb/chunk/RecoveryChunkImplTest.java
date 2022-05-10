@@ -26,6 +26,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -367,6 +368,7 @@ public class RecoveryChunkImplTest {
     private MetadataStore metadataStore;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private S3BlobFs s3BlobFs;
 
     @Before
     public void setUp() throws Exception {
@@ -413,6 +415,9 @@ public class RecoveryChunkImplTest {
       metadataStore.close();
       testingServer.close();
       registry.close();
+      if (s3BlobFs != null) {
+        s3BlobFs.close();
+      }
     }
 
     @Test
@@ -443,7 +448,7 @@ public class RecoveryChunkImplTest {
       // create an S3 client for test
       String bucket = "invalid-bucket";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+      s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
@@ -504,6 +509,7 @@ public class RecoveryChunkImplTest {
           snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+      assertThat(s3BlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();
       // Only non-live snapshots. No live snapshots.
       assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
       // No search nodes are added for recovery chunk.
@@ -512,7 +518,5 @@ public class RecoveryChunkImplTest {
       chunk.close();
       chunk = null;
     }
-
-    // TODO: Add a test to ensure that data is uploaded to S3.
   }
 }
