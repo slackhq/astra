@@ -114,12 +114,7 @@ public class QueryBenchmark {
   }
 
   @Benchmark
-  public void measureLogSearcherSearcherOne() {
-    logIndexSearcher.search("*", "", 0, Long.MAX_VALUE, 1, 60);
-  }
-
-  @Benchmark
-  public void measureLogSearcherSearcherFiveHundred() {
+  public void measureLogSearcherSearch() {
     logIndexSearcher.search("*", "", 0, Long.MAX_VALUE, 500, 60);
   }
 
