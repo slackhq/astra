@@ -216,7 +216,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   /*
    If there is only one node hosting the snapshot use that
-   If there are multiple, then always prefer cache nodes. We pick any cache node at random
+   If the same snapshot exists on indexer and cache node prefer cache
+   If there are multiple cache nodes, pick a cache node at random
   */
   public static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
     if (queryableSearchMetadataNodes.size() == 1) {
