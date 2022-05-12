@@ -254,7 +254,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
    2. partitions that have an overlap with the query window
   */
   @VisibleForTesting
-  public static List<ServicePartitionMetadata> findPartitionsToQuery(
+  protected static List<ServicePartitionMetadata> findPartitionsToQuery(
       ServiceMetadataStore serviceMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
