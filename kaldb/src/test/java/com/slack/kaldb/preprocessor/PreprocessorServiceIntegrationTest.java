@@ -25,6 +25,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,6 +105,8 @@ public class PreprocessorServiceIntegrationTest {
     metadataStore.close();
   }
 
+  // Ignore flaky test. This test can be potentially merged with the above test.
+  @Ignore
   @Test
   @SuppressWarnings({"rawtypes", "unchecked"})
   public void shouldProcessMessageStartToFinish() throws Exception {
