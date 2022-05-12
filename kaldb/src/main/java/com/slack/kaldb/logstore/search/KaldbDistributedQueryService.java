@@ -153,6 +153,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
       String indexName) {
+    List<ServicePartitionMetadata> partitions =
+        findPartitionsToQuery(
+            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
+
     // step 1 - find all snapshots that match time window and partition
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
@@ -168,6 +172,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                         && isSnapshotInPartition(
                             snapshotMetadata,
                             serviceMetadataStore,
+                            partitions,
                             queryStartTimeEpochMs,
                             queryEndTimeEpochMs,
                             indexName))
@@ -190,12 +195,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static boolean isSnapshotInPartition(
       SnapshotMetadata snapshotMetadata,
       ServiceMetadataStore serviceMetadataStore,
+      List<ServicePartitionMetadata> partitions,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
       String indexName) {
-    List<ServicePartitionMetadata> partitions =
-        findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
     return partitions
         .stream()
         .anyMatch(
