@@ -180,7 +180,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .getCached()
         .stream()
         .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getSnapshotName))
+        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
         .values()
         .stream()
         .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
@@ -208,7 +208,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                         snapshotMetadata.endTimeEpochMs));
   }
 
-  private static String getSnapshotName(SearchMetadata searchMetadata) {
+  private static String getRawSnapshotName(SearchMetadata searchMetadata) {
     return searchMetadata.snapshotName.startsWith("LIVE")
         ? searchMetadata.snapshotName.substring(5) // LIVE_
         : searchMetadata.snapshotName;
