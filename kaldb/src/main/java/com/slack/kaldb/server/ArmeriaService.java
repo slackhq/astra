@@ -22,6 +22,10 @@ import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import io.grpc.BindableService;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.util.concurrent.CompletableFuture;
@@ -113,7 +117,21 @@ public class ArmeriaService extends AbstractIdleService {
               // if not using the client timeout header - separate, lower timeouts
               // should be configured for indexer / cache nodes than that of the query server
               .useClientTimeoutHeader(true)
-              .useBlockingTaskExecutor(true);
+              .useBlockingTaskExecutor(true)
+              .intercept(
+                  new ServerInterceptor() {
+                    // This method call adds the Interceptor to enable compressed server responses
+                    // for all RPCs - see
+                    // https://github.com/grpc/grpc-java/tree/d4fa0ecc07495097453b0a2848765f076b9e714c/examples/src/main/java/io/grpc/examples/experimental
+                    @Override
+                    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                        ServerCall<ReqT, RespT> call,
+                        Metadata headers,
+                        ServerCallHandler<ReqT, RespT> next) {
+                      call.setCompression("gzip");
+                      return next.startCall(call, headers);
+                    }
+                  });
       serverBuilder.decorator(
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
       serverBuilder.service(searchBuilder.build());
