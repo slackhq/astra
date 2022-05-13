@@ -42,6 +42,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.datadoghq</groupId>
+            <artifactId>sketches-java</artifactId>
+            <version>0.8.2</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.30</version>
