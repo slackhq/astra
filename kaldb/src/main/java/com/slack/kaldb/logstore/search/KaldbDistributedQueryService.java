@@ -256,7 +256,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .getCached()
         .stream()
         .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
-        .flatMap(serviceMetadata -> serviceMetadata.partitionConfigs.stream())
+        .flatMap(
+            serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
         .filter(
             partitionMetadata ->
                 containsDataInTimeRange(
