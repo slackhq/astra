@@ -154,6 +154,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     };
   }
 
+  @VisibleForTesting
   public static SearchMetadata registerSearchMetadata(
       SearchMetadataStore searchMetadataStore,
       SearchContext cacheSearchContext,

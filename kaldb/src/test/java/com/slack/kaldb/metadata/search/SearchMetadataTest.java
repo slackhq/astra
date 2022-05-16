@@ -45,7 +45,6 @@ public class SearchMetadataTest {
     final String name = "testSearch";
     final String snapshotName = "testSnapshot";
     final String url = "http://10.10.1.1:9090";
-    final boolean isLive = true;
 
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new SearchMetadata("", snapshotName, url));
