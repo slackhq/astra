@@ -71,11 +71,6 @@ message SearchMetadata {
 
   // url
   string url = 3;
-
-  // is the snapshot hosted by a indexer node that is currently indexing data
-  // if yes then live=true else live=false
-  // live=false is always false for replicas hosted by cache nodes
-  bool isLive = 4;
 }
 
 message RecoveryNodeMetadata {

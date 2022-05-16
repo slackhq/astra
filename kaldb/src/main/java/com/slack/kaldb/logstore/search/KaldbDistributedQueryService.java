@@ -218,7 +218,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       List<SearchMetadata> cacheNodeHostedSearchMetadata =
           queryableSearchMetadataNodes
               .stream()
-              .filter(searchMetadata -> !searchMetadata.isLive)
+              .filter(searchMetadata -> !searchMetadata.snapshotName.startsWith("LIVE"))
               .collect(Collectors.toList());
       if (cacheNodeHostedSearchMetadata.size() == 1) {
         return cacheNodeHostedSearchMetadata.get(0).url;
