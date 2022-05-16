@@ -173,8 +173,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
-    // step 2 - iterate every snapshot and map it to the search metadata while de-duplicating
-    // search metadata with the same snapshot name
+    // step 2 - iterate every search metadata whose snapshot needs to be searched.
+    // if there are multiple search metadata nodes then pck the most on based on
+    // pickSearchNodeToQuery
     return searchMetadataStore
         .getCached()
         .stream()
