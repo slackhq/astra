@@ -169,13 +169,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                             snapshotMetadata.endTimeEpochMs,
                             queryStartTimeEpochMs,
                             queryEndTimeEpochMs)
-                        && isSnapshotInPartition(
-                            snapshotMetadata,
-                            serviceMetadataStore,
-                            partitions,
-                            queryStartTimeEpochMs,
-                            queryEndTimeEpochMs,
-                            indexName))
+                        && isSnapshotInPartition(snapshotMetadata, partitions))
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
 
@@ -193,12 +187,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   public static boolean isSnapshotInPartition(
-      SnapshotMetadata snapshotMetadata,
-      ServiceMetadataStore serviceMetadataStore,
-      List<ServicePartitionMetadata> partitions,
-      long queryStartTimeEpochMs,
-      long queryEndTimeEpochMs,
-      String indexName) {
+      SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
     return partitions
         .stream()
         .anyMatch(
@@ -222,7 +211,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
    If the same snapshot exists on indexer and cache node prefer cache
    If there are multiple cache nodes, pick a cache node at random
   */
-  public static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
+  private static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
     if (queryableSearchMetadataNodes.size() == 1) {
       return queryableSearchMetadataNodes.get(0).url;
     } else {
