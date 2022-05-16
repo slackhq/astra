@@ -127,8 +127,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     return new SearchMetadata(
         SearchMetadata.generateSearchContextSnapshotId(snapshotName, searchContext.hostname),
         snapshotName,
-        searchContext.toUrl(),
-        true);
+        searchContext.toUrl());
   }
 
   /** Index the message in the logstore and update the chunk data time range. */

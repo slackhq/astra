@@ -164,8 +164,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             SearchMetadata.generateSearchContextSnapshotId(
                 snapshotName, cacheSearchContext.hostname),
             snapshotName,
-            cacheSearchContext.toUrl(),
-            false);
+            cacheSearchContext.toUrl());
     searchMetadataStore.create(metadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     return metadata;
   }
