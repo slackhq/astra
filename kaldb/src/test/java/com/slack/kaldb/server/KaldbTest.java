@@ -11,7 +11,7 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -55,7 +55,9 @@ public class KaldbTest {
 
   private static KaldbSearch.SearchResult searchUsingGrpcApi(String queryString, int port) {
     KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
-        Clients.newClient(uri(port), KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+        GrpcClients.builder(uri(port))
+            .build(KaldbServiceGrpc.KaldbServiceBlockingStub.class)
+            .withCompression("gzip");
 
     return kaldbService.search(
         KaldbSearch.SearchRequest.newBuilder()
