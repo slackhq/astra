@@ -79,8 +79,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
       searchMetadataStore
-          .list()
-          .get()
+          .getCached()
           .forEach(searchMetadata -> latestSearchServers.add(searchMetadata.url));
 
       int currentSearchMetadataCount = stubs.size();
