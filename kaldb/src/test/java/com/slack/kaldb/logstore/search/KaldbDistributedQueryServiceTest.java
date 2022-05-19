@@ -248,6 +248,22 @@ public class KaldbDistributedQueryServiceTest {
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
+    // add another chunk on the same indexer and ensure we still find the node
+    createIndexerZKMetadata(
+        Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), "1", indexer1SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 300, indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 150, indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
     // re-add service metadata with a different time window that doesn't match any snapshot
     serviceMetadataStore.delete(serviceMetadata.name);
     await().until(() -> serviceMetadataStore.listSync().size() == 0);
