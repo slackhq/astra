@@ -389,6 +389,7 @@ public class KaldbTest {
     assertThat(indexer2SearchResponse.getHitsCount()).isEqualTo(100);
 
     // Query from query service.
+    // When we query with a limited timeline (0,1601547099000) we will only query index 1
     KaldbSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
@@ -397,6 +398,7 @@ public class KaldbTest {
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
+    // When we query with a limited timeline (0,MAX_VALUE) we will only query index 1 AND indexer 2
     queryServiceSearchResponse = searchUsingGrpcApi("*:*", queryServicePort, 0, Long.MAX_VALUE);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
