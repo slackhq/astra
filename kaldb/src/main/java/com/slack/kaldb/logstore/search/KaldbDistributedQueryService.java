@@ -275,11 +275,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-    span.tag("queryServerCount", String.valueOf(stubs.size()));
 
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub :
+    List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
         getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName())) {
+            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
+    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
+
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
