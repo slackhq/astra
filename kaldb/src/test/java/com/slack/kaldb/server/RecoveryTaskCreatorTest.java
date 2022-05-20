@@ -1442,54 +1442,54 @@ public class RecoveryTaskCreatorTest {
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
   }
 
-  //  @Test
-  //  public void testMultipleRecoveryTaskCreationWithSnapshotDelay() {
-  //    final long maxMessagesPerRecoveryTask = 500;
-  //    RecoveryTaskCreator recoveryTaskCreator =
-  //        new RecoveryTaskCreator(
-  //            snapshotMetadataStore,
-  //            recoveryTaskStore,
-  //            partitionId,
-  //            100,
-  //            maxMessagesPerRecoveryTask,
-  //            meterRegistry);
-  //
-  //    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-  //    assertThat(recoveryTaskStore.listSync()).isEmpty();
-  //    // When there is no data return -1.
-  //    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
-  //    assertThat(recoveryTaskStore.listSync()).isEmpty();
-  //
-  //    final String name = "testSnapshotId";
-  //    final String path = "/testPath_" + name;
-  //    final long startTime = 1;
-  //    final long endTime = 100;
-  //    final long maxOffset = 100;
-  //
-  //    final SnapshotMetadata partition1 =
-  //        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
-  //    snapshotMetadataStore.createSync(partition1);
-  //    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
-  //    assertThat(
-  //            getHighestDurableOffsetForPartition(
-  //                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
-  //        .isEqualTo(100);
-  //    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-  //    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
-  //    assertThat(recoveryTasks1.size()).isEqualTo(3);
-  //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
-  //        .containsExactly(101, 601, 1101);
-  //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
-  //        .containsExactly(600, 1100, 1149);
-  //    assertThat(
-  //            recoveryTasks1.stream().mapToLong(r -> r.endOffset -
-  // r.startOffset).sorted().toArray())
-  //        .containsExactly(48, 499, 499);
-  //    assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
-  //        .isEqualTo(3);
-  //    assertThatIllegalStateException()
-  //        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
-  //    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
-  //    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
-  //  }
+  @Test
+  public void testMultipleRecoveryTaskCreationWithSnapshotDelay() {
+    final long maxMessagesPerRecoveryTask = 500;
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            maxMessagesPerRecoveryTask,
+            meterRegistry);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    // When there is no data return -1.
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    //    final String name = "testSnapshotId";
+    //    final String path = "/testPath_" + name;
+    //    final long startTime = 1;
+    //    final long endTime = 100;
+    //    final long maxOffset = 100;
+    //
+    //    final SnapshotMetadata partition1 =
+    //        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    //    snapshotMetadataStore.createSync(partition1);
+    //    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    //    assertThat(
+    //            getHighestDurableOffsetForPartition(
+    //                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+    //        .isEqualTo(100);
+    //    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    //    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    //    assertThat(recoveryTasks1.size()).isEqualTo(3);
+    //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
+    //        .containsExactly(101, 601, 1101);
+    //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
+    //        .containsExactly(600, 1100, 1149);
+    //    assertThat(
+    //            recoveryTasks1.stream().mapToLong(r -> r.endOffset -
+    // r.startOffset).sorted().toArray())
+    //        .containsExactly(48, 499, 499);
+    //    assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
+    //        .isEqualTo(3);
+    //    assertThatIllegalStateException()
+    //        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+    //    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
+    //    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
+  }
 }
