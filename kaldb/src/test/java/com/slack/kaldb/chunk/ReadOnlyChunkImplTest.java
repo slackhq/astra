@@ -163,7 +163,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name)
-        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
+        .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // mark the chunk for eviction
     readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
@@ -412,7 +412,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name)
-        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
+        .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // verify we have files on disk
     assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
