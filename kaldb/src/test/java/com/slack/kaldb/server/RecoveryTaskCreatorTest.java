@@ -1458,23 +1458,23 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
-    // assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
 
-    //    final String name = "testSnapshotId";
-    //    final String path = "/testPath_" + name;
-    //    final long startTime = 1;
-    //    final long endTime = 100;
-    //    final long maxOffset = 100;
-    //
-    //    final SnapshotMetadata partition1 =
-    //        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
-    //    snapshotMetadataStore.createSync(partition1);
-    //    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
-    //    assertThat(
-    //            getHighestDurableOffsetForPartition(
-    //                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
-    //        .isEqualTo(100);
-    //    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+        .isEqualTo(100);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
     //    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
     //    assertThat(recoveryTasks1.size()).isEqualTo(3);
     //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
