@@ -1457,7 +1457,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
     // When there is no data return -1.
-    // assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
     // assertThat(recoveryTaskStore.listSync()).isEmpty();
 
     //    final String name = "testSnapshotId";
