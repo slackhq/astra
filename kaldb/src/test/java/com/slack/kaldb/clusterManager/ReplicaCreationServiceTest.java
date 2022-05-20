@@ -3,7 +3,6 @@ package com.slack.kaldb.clusterManager;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.spy;
@@ -248,7 +247,7 @@ public class ReplicaCreationServiceTest {
                         .getCached()
                         .containsAll(Arrays.asList(snapshotLive, snapshotNotLive))
                     && snapshotMetadataStore.getCached().size() == 2);
-    assertTrue(replicaMetadataStore.getCached().isEmpty());
+    assertThat(replicaMetadataStore.getCached().isEmpty()).isTrue();
 
     int assignReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
 
@@ -369,12 +368,13 @@ public class ReplicaCreationServiceTest {
             .stream()
             .map(snapshotMetadata -> snapshotMetadata.snapshotId)
             .collect(Collectors.toList());
-    assertTrue(
-        replicaMetadataStore
-            .listSync()
-            .stream()
-            .allMatch(
-                (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)));
+    assertThat(
+            replicaMetadataStore
+                .listSync()
+                .stream()
+                .allMatch(
+                    (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
+        .isTrue();
   }
 
   @Test

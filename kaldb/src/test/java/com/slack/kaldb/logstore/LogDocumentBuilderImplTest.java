@@ -1,6 +1,6 @@
 package com.slack.kaldb.logstore;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.testlib.MessageUtil;
 import java.io.IOException;
@@ -25,7 +25,7 @@ public class LogDocumentBuilderImplTest {
   @Test
   public void testWithValidMessage() throws IOException {
     Document testDocument = testBuilderAllowExceptions.fromMessage(MessageUtil.makeMessage(0));
-    assertEquals(12, testDocument.getFields().size());
+    assertThat(testDocument.getFields().size()).isEqualTo(12);
   }
 
   // TODO: Test IOException and JSONSerialization exception.

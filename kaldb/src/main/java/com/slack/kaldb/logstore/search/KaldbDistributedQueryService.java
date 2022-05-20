@@ -9,7 +9,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
@@ -79,8 +80,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
       searchMetadataStore
-          .list()
-          .get()
+          .getCached()
           .forEach(searchMetadata -> latestSearchServers.add(searchMetadata.url));
 
       int currentSearchMetadataCount = stubs.size();
@@ -122,7 +122,16 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
-    return Clients.newClient(server, KaldbServiceGrpc.KaldbServiceFutureStub.class)
+    // Increases the max number of event loops per endpoint per
+    // https://github.com/line/armeria/issues/2738
+    // Default value is 1
+    final ClientFactory factory = ClientFactory.builder().maxNumEventLoopsPerEndpoint(4).build();
+
+    return GrpcClients.builder(server)
+        .factory(factory)
+        .build(KaldbServiceGrpc.KaldbServiceFutureStub.class)
+        // This enables compression for requests
+        // Independent of this setting, servers choose whether to compress responses
         .withCompression("gzip");
   }
 
