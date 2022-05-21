@@ -1486,8 +1486,8 @@ public class RecoveryTaskCreatorTest {
         .containsExactly(48, 499, 499);
     assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
         .isEqualTo(3);
-    //    assertThatIllegalStateException()
-    //        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
+    assertThatIllegalStateException()
+        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
     //    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     //    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
   }
