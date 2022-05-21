@@ -1479,14 +1479,13 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTasks1.size()).isEqualTo(3);
     assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
         .containsExactly(101, 601, 1101);
-    //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
-    //        .containsExactly(600, 1100, 1149);
-    //    assertThat(
-    //            recoveryTasks1.stream().mapToLong(r -> r.endOffset -
-    // r.startOffset).sorted().toArray())
-    //        .containsExactly(48, 499, 499);
-    //    assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
-    //        .isEqualTo(3);
+    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
+        .containsExactly(600, 1100, 1149);
+    assertThat(
+            recoveryTasks1.stream().mapToLong(r -> r.endOffset - r.startOffset).sorted().toArray())
+        .containsExactly(48, 499, 499);
+    assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
+        .isEqualTo(3);
     //    assertThatIllegalStateException()
     //        .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
     //    assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
