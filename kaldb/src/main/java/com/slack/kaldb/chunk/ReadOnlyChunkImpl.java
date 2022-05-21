@@ -154,14 +154,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     };
   }
 
-  private void registerSearchMetadata(String snapshotName)
+  @VisibleForTesting
+  public static SearchMetadata registerSearchMetadata(
+      SearchMetadataStore searchMetadataStore,
+      SearchContext cacheSearchContext,
+      String snapshotName)
       throws ExecutionException, InterruptedException, TimeoutException {
-    this.searchMetadata =
+    SearchMetadata metadata =
         new SearchMetadata(
-            SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
+            SearchMetadata.generateSearchContextSnapshotId(
+                snapshotName, cacheSearchContext.hostname),
             snapshotName,
-            searchContext.toUrl());
-    searchMetadataStore.create(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            cacheSearchContext.toUrl());
+    searchMetadataStore.create(metadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    return metadata;
   }
 
   private void unregisterSearchMetadata()
@@ -203,7 +209,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
-      registerSearchMetadata(snapshotMetadata.name);
+      searchMetadata =
+          registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
       assignmentTimer.stop(chunkAssignmentTimerSuccess);
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
