@@ -1475,10 +1475,10 @@ public class RecoveryTaskCreatorTest {
                 snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    //    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
-    //    assertThat(recoveryTasks1.size()).isEqualTo(3);
-    //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
-    //        .containsExactly(101, 601, 1101);
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks1.size()).isEqualTo(3);
+    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
+        .containsExactly(101, 601, 1101);
     //    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
     //        .containsExactly(600, 1100, 1149);
     //    assertThat(
