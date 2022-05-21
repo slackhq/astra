@@ -10,7 +10,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -132,13 +131,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
-    // Increases the max number of event loops per endpoint per
-    // https://github.com/line/armeria/issues/2738
-    // Default value is 1
-    final ClientFactory factory = ClientFactory.builder().maxNumEventLoopsPerEndpoint(4).build();
-
     return GrpcClients.builder(server)
-        .factory(factory)
         .build(KaldbServiceGrpc.KaldbServiceFutureStub.class)
         // This enables compression for requests
         // Independent of this setting, servers choose whether to compress responses
