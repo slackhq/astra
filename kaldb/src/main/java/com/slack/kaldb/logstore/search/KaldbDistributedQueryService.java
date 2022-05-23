@@ -146,11 +146,21 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
       String indexName) {
+    ScopedSpan span =
+        Tracing.currentTracer()
+            .startScopedSpan(
+                "KaldbDistributedQueryService.distributedSearch.getSearchNodesToQuery");
+
+    long startTime = System.nanoTime();
     List<ServicePartitionMetadata> partitions =
         findPartitionsToQuery(
             serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
+    span.tag(
+        "findPartitionsToQuery",
+        String.valueOf(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
 
     // step 1 - find all snapshots that match time window and partition
+    startTime = System.nanoTime();
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
             .getCached()
@@ -165,19 +175,30 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                         && isSnapshotInPartition(snapshotMetadata, partitions))
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
+    span.tag(
+        "snapshotsToSearch",
+        String.valueOf(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
 
     // step 2 - iterate every search metadata whose snapshot needs to be searched.
     // if there are multiple search metadata nodes then pck the most on based on
     // pickSearchNodeToQuery
-    return searchMetadataStore
-        .getCached()
-        .stream()
-        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
-        .values()
-        .stream()
-        .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-        .collect(Collectors.toList());
+    startTime = System.nanoTime();
+    var nodes =
+        searchMetadataStore
+            .getCached()
+            .stream()
+            .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
+            .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
+            .values()
+            .stream()
+            .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
+            .collect(Collectors.toList());
+    span.tag(
+        "pickSearchNodeToQuery",
+        String.valueOf(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
+
+    span.finish();
+    return nodes;
   }
 
   public static boolean isSnapshotInPartition(
