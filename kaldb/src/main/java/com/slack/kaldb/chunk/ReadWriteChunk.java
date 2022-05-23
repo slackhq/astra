@@ -122,10 +122,9 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   /** preClose method is called before the chunk is closed. */
   public abstract void preClose();
 
-  @VisibleForTesting
-  public static SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
+  private SearchMetadata toSearchMetadata(String snapshotName, SearchContext searchContext) {
     return new SearchMetadata(
-        SearchMetadata.generateSearchContextSnapshotId(snapshotName, searchContext.hostname),
+        SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
         snapshotName,
         searchContext.toUrl());
   }
