@@ -1,6 +1,9 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ChunkInfo.*;
+import static com.slack.kaldb.chunk.ChunkInfo.DEFAULT_MAX_OFFSET;
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.chunk.ChunkInfo.fromSnapshotMetadata;
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -155,12 +158,6 @@ public class ChunkInfoTest {
     assertThat(info.getDataEndTimeEpochMs()).isEqualTo(startTimePlus2MinMilli);
 
     assertThat(info.containsDataInTimeRange(1, 10)).isFalse();
-    // sanity check if the extended method also works. No point repeating all the tests
-    assertThat(
-            containsDataInTimeRange(
-                info.getDataStartTimeEpochMs(), info.getDataEndTimeEpochMs(), 1, 10))
-        .isFalse();
-
     assertThat(
             info.containsDataInTimeRange(
                 startTime.minusMinutes(5).toInstant(ZoneOffset.UTC).toEpochMilli(),

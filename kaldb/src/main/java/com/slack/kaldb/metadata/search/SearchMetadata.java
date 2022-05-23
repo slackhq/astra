@@ -18,16 +18,8 @@ public class SearchMetadata extends KaldbMetadata {
     this.url = url;
   }
 
-  public static String generateSearchContextSnapshotId(String snapshotName, String hostname) {
+  public static String getSnapshotName(String snapshotName, String hostname) {
     return snapshotName + "_" + hostname;
-  }
-
-  public String getSnapshotName() {
-    return snapshotName;
-  }
-
-  public String getUrl() {
-    return url;
   }
 
   @Override

@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
 import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
@@ -13,21 +12,19 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -48,8 +45,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
   private final SearchMetadataStore searchMetadataStore;
-  private final SnapshotMetadataStore snapshotMetadataStore;
-  private final ServiceMetadataStore serviceMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -70,13 +65,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // Whichever store we fetch the information in the future, we should also store the
   // protocol that the node can be contacted by there since we hardcode it today
   public KaldbDistributedQueryService(
-      SearchMetadataStore searchMetadataStore,
-      SnapshotMetadataStore snapshotMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
-      MeterRegistry meterRegistry) {
+      SearchMetadataStore searchMetadataStore, MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
-    this.snapshotMetadataStore = snapshotMetadataStore;
-    this.serviceMetadataStore = serviceMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -138,144 +128,15 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .withCompression("gzip");
   }
 
-  @VisibleForTesting
-  public static Collection<String> getSearchNodesToQuery(
-      SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
-      long queryStartTimeEpochMs,
-      long queryEndTimeEpochMs,
-      String indexName) {
-    List<ServicePartitionMetadata> partitions =
-        findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
-
-    // step 1 - find all snapshots that match time window and partition
-    Set<String> snapshotsToSearch =
-        snapshotMetadataStore
-            .getCached()
-            .stream()
-            .filter(
-                snapshotMetadata ->
-                    containsDataInTimeRange(
-                            snapshotMetadata.startTimeEpochMs,
-                            snapshotMetadata.endTimeEpochMs,
-                            queryStartTimeEpochMs,
-                            queryEndTimeEpochMs)
-                        && isSnapshotInPartition(snapshotMetadata, partitions))
-            .map(snapshotMetadata -> snapshotMetadata.name)
-            .collect(Collectors.toSet());
-
-    // step 2 - iterate every search metadata whose snapshot needs to be searched.
-    // if there are multiple search metadata nodes then pck the most on based on
-    // pickSearchNodeToQuery
-    return searchMetadataStore
-        .getCached()
-        .stream()
-        .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-        .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
-        .values()
-        .stream()
-        .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-        .collect(Collectors.toList());
-  }
-
-  public static boolean isSnapshotInPartition(
-      SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
-    return partitions
-        .stream()
-        .anyMatch(
-            partitionMetadata ->
-                partitionMetadata.partitions.contains(snapshotMetadata.partitionId)
-                    && containsDataInTimeRange(
-                        partitionMetadata.startTimeEpochMs,
-                        partitionMetadata.endTimeEpochMs,
-                        snapshotMetadata.startTimeEpochMs,
-                        snapshotMetadata.endTimeEpochMs));
-  }
-
-  private static String getRawSnapshotName(SearchMetadata searchMetadata) {
-    return searchMetadata.snapshotName.startsWith("LIVE")
-        ? searchMetadata.snapshotName.substring(5) // LIVE_
-        : searchMetadata.snapshotName;
-  }
-
-  /*
-   If there is only one node hosting the snapshot use that
-   If the same snapshot exists on indexer and cache node prefer cache
-   If there are multiple cache nodes, pick a cache node at random
-  */
-  private static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
-    if (queryableSearchMetadataNodes.size() == 1) {
-      return queryableSearchMetadataNodes.get(0).url;
-    } else {
-      List<SearchMetadata> cacheNodeHostedSearchMetadata =
-          queryableSearchMetadataNodes
-              .stream()
-              .filter(searchMetadata -> !searchMetadata.snapshotName.startsWith("LIVE"))
-              .collect(Collectors.toList());
-      if (cacheNodeHostedSearchMetadata.size() == 1) {
-        return cacheNodeHostedSearchMetadata.get(0).url;
-      } else {
-        return cacheNodeHostedSearchMetadata.get(
-                ThreadLocalRandom.current().nextInt(cacheNodeHostedSearchMetadata.size()))
-            .url;
-      }
-    }
-  }
-
-  private KaldbServiceGrpc.KaldbServiceFutureStub getStub(String url) {
-    if (stubs.get(url) != null) {
-      return stubs.get(url);
-    } else {
-      LOG.warn(
-          "snapshot {} is not cached. ZK listener on searchMetadataStore should have cached the stub",
-          url);
-      return null;
-    }
-  }
-
-  /*
-   get partitions that match on two criteria
-   1. index name
-   2. partitions that have an overlap with the query window
-  */
-  @VisibleForTesting
-  protected static List<ServicePartitionMetadata> findPartitionsToQuery(
-      ServiceMetadataStore serviceMetadataStore,
-      long startTimeEpochMs,
-      long endTimeEpochMs,
-      String indexName) {
-    return serviceMetadataStore
-        .getCached()
-        .stream()
-        .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
-        .flatMap(
-            serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
-        .filter(
-            partitionMetadata ->
-                containsDataInTimeRange(
-                    partitionMetadata.startTimeEpochMs,
-                    partitionMetadata.endTimeEpochMs,
-                    startTimeEpochMs,
-                    endTimeEpochMs))
-        .collect(Collectors.toList());
-  }
-
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
     List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+    span.tag("queryServerCount", String.valueOf(stubs.size()));
 
-    List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
-        getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
-    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
-
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
-
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : stubs.values()) {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
@@ -313,20 +174,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
-  }
-
-  private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeEpochMs, long endTimeEpochMs, String indexName) {
-    return getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            serviceMetadataStore,
-            startTimeEpochMs,
-            endTimeEpochMs,
-            indexName)
-        .stream()
-        .map(this::getStub)
-        .collect(Collectors.toList());
   }
 
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
