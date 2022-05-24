@@ -8,6 +8,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
@@ -20,6 +21,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -51,8 +55,16 @@ import org.slf4j.LoggerFactory;
 public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private static final Logger LOG = LoggerFactory.getLogger(LogIndexSearcherImpl.class);
 
+  // number of threads to use transforming the results
+  private static final int PARALLEL_THREADS = 12;
+
   private final SearcherManager searcherManager;
   private final StandardAnalyzer analyzer;
+
+  private final ExecutorService executorService =
+      Executors.newFixedThreadPool(
+          PARALLEL_THREADS,
+          new ThreadFactoryBuilder().setNameFormat("log-index-searcher-%d").build());
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
@@ -122,10 +134,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         if (howMany > 0) {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
           results =
-              Stream.of(hits)
-                  .parallel()
-                  .map(hit -> buildLogMessage(searcher, hit))
-                  .collect(Collectors.toList());
+              executorService
+                  .submit(
+                      () ->
+                          Stream.of(hits)
+                              .parallel()
+                              .map(hit -> buildLogMessage(searcher, hit))
+                              .collect(Collectors.toList()))
+                  .get();
         } else {
           results = Collections.emptyList();
         }
@@ -142,6 +158,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             0,
             1,
             1);
+      } catch (ExecutionException | InterruptedException e) {
+        throw new IllegalStateException(e);
       } finally {
         searcherManager.release(searcher);
       }
