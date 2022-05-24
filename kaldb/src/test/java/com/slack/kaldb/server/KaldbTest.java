@@ -25,7 +25,8 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,7 +64,7 @@ public class KaldbTest {
 
   private ServiceMetadataStore serviceMetadataStore;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
-  private SimpleMeterRegistry serviceMetadataZkRegistry;
+  private PrometheusMeterRegistry meterRegistry;
 
   private static KaldbSearch.SearchResult searchUsingGrpcApi(
       String queryString, int port, long startTime, long endTime) {
@@ -131,7 +132,7 @@ public class KaldbTest {
 
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
-    serviceMetadataZkRegistry = new SimpleMeterRegistry();
+    meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(zkServer.getConnectString())
@@ -140,7 +141,7 @@ public class KaldbTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
             .build();
-    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(serviceMetadataZkRegistry, zkConfig);
+    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
     serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
     final ServicePartitionMetadata partition =
         new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
@@ -154,7 +155,7 @@ public class KaldbTest {
   @After
   public void teardown() throws Exception {
     kafkaServer.close();
-    serviceMetadataZkRegistry.close();
+    meterRegistry.close();
     serviceMetadataStore.close();
     zkMetadataStore.close();
     zkServer.close();
@@ -210,7 +211,7 @@ public class KaldbTest {
             KaldbConfigs.NodeRole.INDEX,
             1000);
 
-    Kaldb indexer = new Kaldb(indexerConfig, s3Client);
+    Kaldb indexer = new Kaldb(indexerConfig, s3Client, meterRegistry);
     indexer.start();
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == indexerCount);
 
@@ -223,7 +224,7 @@ public class KaldbTest {
         .until(
             () -> {
               try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexer.prometheusMeterRegistry);
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry);
                 LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
                 return count == indexedMessagesCount;
               } catch (MeterNotFoundException e) {
@@ -231,13 +232,8 @@ public class KaldbTest {
               }
             });
 
-    await()
-        .until(
-            () ->
-                getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexer.prometheusMeterRegistry)
-                    == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexer.prometheusMeterRegistry))
-        .isZero();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, meterRegistry) == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, meterRegistry)).isZero();
 
     return indexer;
   }
@@ -258,7 +254,7 @@ public class KaldbTest {
             ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
             1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
+    Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
@@ -308,7 +304,7 @@ public class KaldbTest {
         KaldbConfig.fromYamlConfig(
             substitute.replace(Files.readString(Path.of("../config/config.yaml"))));
 
-    Kaldb kaldb = new Kaldb(kaldbConfig);
+    Kaldb kaldb = new Kaldb(kaldbConfig, meterRegistry);
     LOG.info("Starting kalDb with the resolved configs: {}", kaldbConfig);
     kaldb.start();
 
@@ -346,7 +342,7 @@ public class KaldbTest {
             ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
             1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
+    Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 

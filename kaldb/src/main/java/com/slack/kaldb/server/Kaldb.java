@@ -1,6 +1,5 @@
 package com.slack.kaldb.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
@@ -34,6 +33,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
@@ -62,34 +62,26 @@ public class Kaldb {
   public static final String KALDB_METRICS_PREFIX = "kaldb.";
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
-  @VisibleForTesting
-  final PrometheusMeterRegistry prometheusMeterRegistry =
-      new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+  private final PrometheusMeterRegistry prometheusMeterRegistry;
 
   private final KaldbConfigs.KaldbConfig kaldbConfig;
   private final S3Client s3Client;
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) {
-    // Configure prometheus meter registry
-    prometheusMeterRegistry
-        .config()
-        .meterFilter(
-            new MeterFilter() {
-              @Override
-              public Meter.Id map(Meter.Id id) {
-                return id.withName(KALDB_METRICS_PREFIX + id.getName());
-              }
-            });
-    Metrics.addRegistry(prometheusMeterRegistry);
+  Kaldb(
+      KaldbConfigs.KaldbConfig kaldbConfig,
+      S3Client s3Client,
+      PrometheusMeterRegistry prometheusMeterRegistry) {
+    this.prometheusMeterRegistry = prometheusMeterRegistry;
     this.kaldbConfig = kaldbConfig;
     this.s3Client = s3Client;
+    Metrics.addRegistry(prometheusMeterRegistry);
     LOG.info("Started Kaldb process with config: {}", kaldbConfig);
   }
 
-  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig) {
-    this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()));
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, PrometheusMeterRegistry prometheusMeterRegistry) {
+    this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()), prometheusMeterRegistry);
   }
 
   public static void main(String[] args) throws Exception {
@@ -99,8 +91,23 @@ public class Kaldb {
     Path configFilePath = Path.of(args[0]);
 
     KaldbConfig.initFromFile(configFilePath);
-    Kaldb kalDb = new Kaldb(KaldbConfig.get());
+    Kaldb kalDb = new Kaldb(KaldbConfig.get(), initPrometheusMeterRegistry());
     kalDb.start();
+  }
+
+  static PrometheusMeterRegistry initPrometheusMeterRegistry() {
+    PrometheusMeterRegistry prometheusMeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    prometheusMeterRegistry
+        .config()
+        .meterFilter(
+            new MeterFilter() {
+              @Override
+              public Meter.Id map(Meter.Id id) {
+                return id.withName(KALDB_METRICS_PREFIX + id.getName());
+              }
+            });
+    return prometheusMeterRegistry;
   }
 
   public void start() throws Exception {
@@ -126,7 +133,7 @@ public class Kaldb {
       MetadataStore metadataStore,
       KaldbConfigs.KaldbConfig kaldbConfig,
       BlobFs blobFs,
-      PrometheusMeterRegistry prometheusMeterRegistry)
+      PrometheusMeterRegistry meterRegistry)
       throws Exception {
     Set<Service> services = new HashSet<>();
 
@@ -135,7 +142,7 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.INDEX)) {
       IndexingChunkManager<LogMessage> chunkManager =
           IndexingChunkManager.fromConfig(
-              prometheusMeterRegistry,
+              meterRegistry,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
               blobFs,
@@ -154,13 +161,13 @@ public class Kaldb {
               metadataStore,
               kaldbConfig.getIndexerConfig(),
               kaldbConfig.getKafkaConfig(),
-              prometheusMeterRegistry);
+              meterRegistry);
       services.add(indexer);
 
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbIndex", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbIndex", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(searcher)
               .build();
@@ -177,13 +184,10 @@ public class Kaldb {
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(
-              searchMetadataStore,
-              snapshotMetadataStore,
-              serviceMetadataStore,
-              prometheusMeterRegistry);
+              searchMetadataStore, snapshotMetadataStore, serviceMetadataStore, meterRegistry);
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbQuery", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
@@ -194,7 +198,7 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.CACHE)) {
       CachingChunkManager<LogMessage> chunkManager =
           CachingChunkManager.fromConfig(
-              prometheusMeterRegistry,
+              meterRegistry,
               metadataStore,
               kaldbConfig.getS3Config(),
               kaldbConfig.getCacheConfig(),
@@ -204,7 +208,7 @@ public class Kaldb {
       KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
       final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbCache", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbCache", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(searcher)
               .build();
@@ -226,7 +230,7 @@ public class Kaldb {
       ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbManager", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
               .build();
@@ -244,39 +248,32 @@ public class Kaldb {
 
       ReplicaCreationService replicaCreationService =
           new ReplicaCreationService(
-              replicaMetadataStore, snapshotMetadataStore, managerConfig, prometheusMeterRegistry);
+              replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
       services.add(replicaCreationService);
 
       ReplicaEvictionService replicaEvictionService =
           new ReplicaEvictionService(
-              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
       services.add(replicaEvictionService);
 
       ReplicaDeletionService replicaDeletionService =
           new ReplicaDeletionService(
-              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
       services.add(replicaDeletionService);
 
       RecoveryTaskAssignmentService recoveryTaskAssignmentService =
           new RecoveryTaskAssignmentService(
-              recoveryTaskMetadataStore,
-              recoveryNodeMetadataStore,
-              managerConfig,
-              prometheusMeterRegistry);
+              recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
       services.add(recoveryTaskAssignmentService);
 
       ReplicaAssignmentService replicaAssignmentService =
           new ReplicaAssignmentService(
-              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, prometheusMeterRegistry);
+              cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
       services.add(replicaAssignmentService);
 
       SnapshotDeletionService snapshotDeletionService =
           new SnapshotDeletionService(
-              replicaMetadataStore,
-              snapshotMetadataStore,
-              blobFs,
-              managerConfig,
-              prometheusMeterRegistry);
+              replicaMetadataStore, snapshotMetadataStore, blobFs, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
     }
 
@@ -285,13 +282,13 @@ public class Kaldb {
       final int serverPort = recoveryConfig.getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbRecovery", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbRecovery", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(recoveryConfig, metadataStore, prometheusMeterRegistry);
+          new RecoveryService(recoveryConfig, metadataStore, meterRegistry);
       services.add(recoveryService);
     }
 
@@ -301,15 +298,14 @@ public class Kaldb {
       final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", prometheusMeterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
               .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
               .build();
       services.add(armeriaService);
 
       ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
       PreprocessorService preprocessorService =
-          new PreprocessorService(
-              serviceMetadataStore, preprocessorConfig, prometheusMeterRegistry);
+          new PreprocessorService(serviceMetadataStore, preprocessorConfig, meterRegistry);
       services.add(preprocessorService);
     }
 
@@ -351,7 +347,7 @@ public class Kaldb {
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
-  private static void setupSystemMetrics(PrometheusMeterRegistry prometheusMeterRegistry) {
+  private static void setupSystemMetrics(MeterRegistry prometheusMeterRegistry) {
     // Expose JVM metrics.
     new ClassLoaderMetrics().bindTo(prometheusMeterRegistry);
     new JvmMemoryMetrics().bindTo(prometheusMeterRegistry);
