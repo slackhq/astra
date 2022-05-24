@@ -31,4 +31,9 @@ public class SearchContext {
   public String toUrl() {
     return GRPC_PROTOCOL + hostname + ":" + port;
   }
+
+  @Override
+  public String toString() {
+    return toUrl();
+  }
 }
