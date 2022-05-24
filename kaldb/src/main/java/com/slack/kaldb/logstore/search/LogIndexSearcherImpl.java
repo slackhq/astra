@@ -18,11 +18,10 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
@@ -121,10 +120,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         List<LogMessage> results;
         if (howMany > 0) {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
-          results =
-              Stream.of(hits)
-                  .map(hit -> buildLogMessage(searcher, hit))
-                  .collect(Collectors.toList());
+          results = new ArrayList<>(hits.length);
+          for (ScoreDoc hit : hits) {
+            results.add(buildLogMessage(searcher, hit));
+          }
         } else {
           results = Collections.emptyList();
         }
