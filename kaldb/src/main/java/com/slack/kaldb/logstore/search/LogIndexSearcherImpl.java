@@ -123,7 +123,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
           results =
               Stream.of(hits)
-                  .parallel()
                   .map(hit -> buildLogMessage(searcher, hit))
                   .collect(Collectors.toList());
         } else {
