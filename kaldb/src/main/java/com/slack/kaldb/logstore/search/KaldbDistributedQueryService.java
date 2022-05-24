@@ -7,7 +7,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -149,18 +148,16 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       String indexName) {
     ScopedSpan span =
         Tracing.currentTracer()
-            .startScopedSpan(
-                "KaldbDistributedQueryService.distributedSearch.getSearchNodesToQuery");
+            .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
-    Stopwatch elapsedTime = Stopwatch.createStarted();
     List<ServicePartitionMetadata> partitions =
         findPartitionsToQuery(
             serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
-    elapsedTime.stop();
-    span.tag("findPartitionsToQuery", String.valueOf(elapsedTime.elapsed(TimeUnit.MILLISECONDS)));
+    span.finish();
 
     // step 1 - find all snapshots that match time window and partition
-    elapsedTime = Stopwatch.createStarted();
+    span =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
     Set<String> snapshotsToSearch =
         snapshotMetadataStore
             .getCached()
@@ -175,13 +172,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                         && isSnapshotInPartition(snapshotMetadata, partitions))
             .map(snapshotMetadata -> snapshotMetadata.name)
             .collect(Collectors.toSet());
-    elapsedTime.stop();
-    span.tag("snapshotsToSearch", String.valueOf(elapsedTime.elapsed(TimeUnit.MILLISECONDS)));
+    span.finish();
 
     // step 2 - iterate every search metadata whose snapshot needs to be searched.
     // if there are multiple search metadata nodes then pck the most on based on
     // pickSearchNodeToQuery
-    elapsedTime = Stopwatch.createStarted();
+    span =
+        Tracing.currentTracer()
+            .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
     var nodes =
         searchMetadataStore
             .getCached()
@@ -192,10 +190,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .stream()
             .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
             .collect(Collectors.toList());
-    elapsedTime.stop();
-    span.tag("pickSearchNodeToQuery", String.valueOf(elapsedTime.elapsed(TimeUnit.MILLISECONDS)));
-
     span.finish();
+
     return nodes;
   }
 
