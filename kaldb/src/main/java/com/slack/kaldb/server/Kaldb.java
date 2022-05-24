@@ -33,12 +33,14 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
+import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.file.Path;
@@ -58,6 +60,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * http server, register monitoring libraries, create config manager etc..
  */
 public class Kaldb {
+  public static final String KALDB_METRICS_PREFIX = "kaldb.";
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
   @VisibleForTesting
@@ -70,6 +73,16 @@ public class Kaldb {
   protected MetadataStore metadataStore;
 
   Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, S3Client s3Client) {
+    // Configure prometheus meter registry
+    prometheusMeterRegistry
+        .config()
+        .meterFilter(
+            new MeterFilter() {
+              @Override
+              public Meter.Id map(Meter.Id id) {
+                return id.withName(KALDB_METRICS_PREFIX + id.getName());
+              }
+            });
     Metrics.addRegistry(prometheusMeterRegistry);
     this.kaldbConfig = kaldbConfig;
     this.s3Client = s3Client;
