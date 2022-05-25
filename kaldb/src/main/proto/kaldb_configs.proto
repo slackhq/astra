@@ -101,6 +101,20 @@ message IndexerConfig {
 message LuceneConfig {
   int64 commit_duration_secs = 1;
   int64 refresh_duration_secs = 2;
+  FieldConfig field_config = 3;
+}
+
+message FieldConfig {
+  repeated  PropertyConfig property_config = 1;
+}
+
+message PropertyConfig {
+  string field_name = 1;
+  string field_type = 2;
+  bool is_stored = 3;
+  bool is_indexed = 4;
+  bool is_analyzed = 5;
+  bool should_store_numeric_doc_value = 6;
 }
 
 // ServerConfig contains the address and port info of a Kaldb service.
