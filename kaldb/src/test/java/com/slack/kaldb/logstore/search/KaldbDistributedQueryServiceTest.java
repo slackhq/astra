@@ -27,6 +27,8 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -613,5 +615,47 @@ public class KaldbDistributedQueryServiceTest {
     }
 
     return snapshotMetadata;
+  }
+
+  private void createSnapshots(String indexName, int n) {
+    for (int i = 0; i < n; i++) {
+      createIndexerZKMetadata(
+          Instant.ofEpochMilli(1), Instant.ofEpochMilli(i + 1), "1", indexer1SearchContext);
+    }
+    await().until(() -> snapshotMetadataStore.listSync().size() == n * 2);
+    await().until(() -> searchMetadataStore.listSync().size() == n);
+
+    // api log has 200 partitions
+    List<String> partitions = new ArrayList<>(200);
+    IntStream.rangeClosed(1, 200).forEach(value -> partitions.add(String.valueOf(value)));
+
+    ServicePartitionMetadata partition =
+        new ServicePartitionMetadata(1, Long.MAX_VALUE, partitions);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+  }
+
+  // @Ignore("to be run manually only for local testing")
+  @Test
+  public void testOperationTime() {
+    String indexName = "testIndex";
+    createSnapshots(indexName, 2500);
+    long startTime = System.nanoTime();
+    for (int i = 0; i < 100; i++) {
+      var searchNodes =
+          getSearchNodesToQuery(
+              snapshotMetadataStore,
+              searchMetadataStore,
+              serviceMetadataStore,
+              1,
+              Long.MAX_VALUE,
+              indexName);
+      assertThat(searchNodes.size()).isEqualTo(1);
+    }
+    System.out.println(
+        "KaldbDistributedQueryService.totalTime="
+            + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
   }
 }
