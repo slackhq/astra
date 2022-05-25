@@ -187,7 +187,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .values()
             .stream()
             .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
     pickSearchNodeToQuerySpan.finish();
 
     return nodes;
