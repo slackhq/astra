@@ -158,20 +158,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     // step 1 - find all snapshots that match time window and partition
     ScopedSpan snapshotsToSearchSpan =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
-    Set<String> snapshotsToSearch =
-        snapshotMetadataStore
-            .getCached()
-            .stream()
-            .filter(
-                snapshotMetadata ->
-                    containsDataInTimeRange(
-                            snapshotMetadata.startTimeEpochMs,
-                            snapshotMetadata.endTimeEpochMs,
-                            queryStartTimeEpochMs,
-                            queryEndTimeEpochMs)
-                        && isSnapshotInPartition(snapshotMetadata, partitions))
-            .map(snapshotMetadata -> snapshotMetadata.name)
-            .collect(Collectors.toSet());
+    Set<String> snapshotsToSearch = new HashSet<>();
+    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCached()) {
+      if (containsDataInTimeRange(
+              snapshotMetadata.startTimeEpochMs,
+              snapshotMetadata.endTimeEpochMs,
+              queryStartTimeEpochMs,
+              queryEndTimeEpochMs)
+          && isSnapshotInPartition(snapshotMetadata, partitions)) {
+        snapshotsToSearch.add(snapshotMetadata.name);
+      }
+    }
     snapshotsToSearchSpan.finish();
 
     // step 2 - iterate every search metadata whose snapshot needs to be searched.
@@ -180,6 +177,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan pickSearchNodeToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
+    // TODO: Re-write this code using a for loop.
     var nodes =
         searchMetadataStore
             .getCached()
@@ -189,7 +187,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .values()
             .stream()
             .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
     pickSearchNodeToQuerySpan.finish();
 
     return nodes;
