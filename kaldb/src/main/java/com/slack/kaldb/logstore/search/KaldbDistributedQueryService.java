@@ -177,6 +177,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan pickSearchNodeToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
+    // TODO: Re-write this code using a for loop.
     var nodes =
         searchMetadataStore
             .getCached()
