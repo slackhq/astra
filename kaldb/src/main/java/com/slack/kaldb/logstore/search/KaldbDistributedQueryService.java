@@ -158,7 +158,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     // step 1 - find all snapshots that match time window and partition
     ScopedSpan snapshotsToSearchSpan =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
-    Set<String> snapshotsToSearch = new HashSet<>(256);
+    Set<String> snapshotsToSearch = new HashSet<>();
     for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCached()) {
       if (containsDataInTimeRange(
               snapshotMetadata.startTimeEpochMs,
