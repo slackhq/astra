@@ -133,7 +133,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private KaldbServiceGrpc.KaldbServiceFutureStub getKaldbServiceGrpcClient(String server) {
     return GrpcClients.builder(server)
         .build(KaldbServiceGrpc.KaldbServiceFutureStub.class)
-        .withInterceptors(GrpcTracing.create(Tracing.current()).newClientInterceptor())
         // This enables compression for requests
         // Independent of this setting, servers choose whether to compress responses
         .withCompression("gzip");
