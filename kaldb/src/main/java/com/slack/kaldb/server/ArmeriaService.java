@@ -4,6 +4,7 @@ import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
 
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
+import brave.grpc.GrpcTracing;
 import brave.handler.SpanHandler;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
@@ -52,11 +53,32 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
-    private SpanHandler spanHandler = new SpanHandler() {};
+    private final Tracing tracing;
 
-    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
+    public Builder(
+        int port,
+        String serviceName,
+        String tracingEndpoint,
+        PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
+      SpanHandler spanHandler = new SpanHandler() {};
+      if (tracingEndpoint != null && !tracingEndpoint.isBlank()) {
+        LOG.info(String.format("Trace reporting enabled: %s", tracingEndpoint));
+        Sender sender = URLConnectionSender.create(tracingEndpoint);
+        spanHandler = AsyncZipkinSpanHandler.create(sender);
+      }
+
+      this.tracing =
+          Tracing.newBuilder()
+              .localServiceName(serviceName)
+              .currentTraceContext(
+                  RequestContextCurrentTraceContext.builder()
+                      .addScopeDecorator(ThreadContextScopeDecorator.get())
+                      .build())
+              .addSpanHandler(spanHandler)
+              .build();
+      serverBuilder.decorator(BraveService.newDecorator(tracing));
 
       initializeLimits();
       initializeCompression();
@@ -95,15 +117,6 @@ public class ArmeriaService extends AbstractIdleService {
           .serviceUnder("/docs", new DocService());
     }
 
-    public Builder withTracingEndpoint(String endpoint) {
-      if (endpoint != null && !endpoint.isBlank()) {
-        LOG.info(String.format("Trace reporting enabled: %s", endpoint));
-        Sender sender = URLConnectionSender.create(endpoint);
-        spanHandler = AsyncZipkinSpanHandler.create(sender);
-      }
-      return this;
-    }
-
     public Builder withAnnotatedService(Object service) {
       serverBuilder.annotatedService(service);
       return this;
@@ -118,6 +131,7 @@ public class ArmeriaService extends AbstractIdleService {
               // should be configured for indexer / cache nodes than that of the query server
               .useClientTimeoutHeader(true)
               .useBlockingTaskExecutor(true)
+              .intercept(GrpcTracing.create(tracing).newServerInterceptor())
               .intercept(
                   new ServerInterceptor() {
                     // This method call adds the Interceptor to enable compressed server responses
@@ -139,18 +153,6 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public ArmeriaService build() {
-      // always add tracing, even if it's not being reported to an endpoint
-      serverBuilder.decorator(
-          BraveService.newDecorator(
-              Tracing.newBuilder()
-                  .localServiceName(serviceName)
-                  .currentTraceContext(
-                      RequestContextCurrentTraceContext.builder()
-                          .addScopeDecorator(ThreadContextScopeDecorator.get())
-                          .build())
-                  .addSpanHandler(spanHandler)
-                  .build()));
-
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }
   }
