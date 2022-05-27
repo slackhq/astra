@@ -29,15 +29,15 @@ import org.slf4j.LoggerFactory;
 public class RecoveryTaskCreator {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskCreator.class);
   private static final int SNAPSHOT_OPERATION_TIMEOUT_SECS = 10;
+  public static final String STALE_SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
+  public static final String STALE_SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
+  public static final String RECOVERY_TASKS_CREATED = "recovery_tasks_created";
 
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private final String partitionId;
   private final long maxOffsetDelay;
-
-  public static final String STALE_SNAPSHOT_DELETE_SUCCESS = "stale_snapshot_delete_success";
-  public static final String STALE_SNAPSHOT_DELETE_FAILED = "stale_snapshot_delete_failed";
-  public static final String RECOVERY_TASKS_CREATED = "recovery_tasks_created";
+  private final long maxMessagesPerRecoveryTask;
 
   private final Counter snapshotDeleteSuccess;
   private final Counter snapshotDeleteFailed;
@@ -48,18 +48,23 @@ public class RecoveryTaskCreator {
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       String partitionId,
       long maxOffsetDelay,
+      long maxMessagesPerRecoveryTask,
       MeterRegistry meterRegistry) {
     checkArgument(
         partitionId != null && !partitionId.isEmpty(), "partitionId shouldn't be null or empty");
     checkArgument(maxOffsetDelay > 0, "maxOffsetDelay should be a positive number");
+    checkArgument(
+        maxMessagesPerRecoveryTask > 0, "Max messages per recovery task should be positive number");
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.recoveryTaskMetadataStore = recoveryTaskMetadataStore;
     this.partitionId = partitionId;
     this.maxOffsetDelay = maxOffsetDelay;
+    this.maxMessagesPerRecoveryTask = maxMessagesPerRecoveryTask;
 
     snapshotDeleteSuccess = meterRegistry.counter(STALE_SNAPSHOT_DELETE_SUCCESS);
     snapshotDeleteFailed = meterRegistry.counter(STALE_SNAPSHOT_DELETE_FAILED);
-    recoveryTasksCreated = meterRegistry.counter(RECOVERY_TASKS_CREATED);
+    recoveryTasksCreated =
+        meterRegistry.counter(RECOVERY_TASKS_CREATED, "partitionId", partitionId);
   }
 
   @VisibleForTesting
@@ -193,26 +198,17 @@ public class RecoveryTaskCreator {
 
     // Create a recovery task if needed.
     if (currentHeadOffsetForPartition - highestDurableOffsetForPartition > maxOffsetDelay) {
-      final long creationTimeEpochMs = Instant.now().toEpochMilli();
-      final String recoveryTaskName = getRecoveryTaskName(creationTimeEpochMs, partitionId);
       LOG.info(
           "Recovery task needed. The current position {} and head location {} are higher than max"
               + " offset {}",
           highestDurableOffsetForPartition,
           currentHeadOffsetForPartition,
           maxOffsetDelay);
-      recoveryTaskMetadataStore.createSync(
-          new RecoveryTaskMetadata(
-              recoveryTaskName,
-              partitionId,
-              nextOffsetForPartition,
-              currentHeadOffsetForPartition - 1,
-              creationTimeEpochMs));
-      LOG.info(
-          "Created recovery task {} to catchup. Moving the starting offset to head at {}",
-          recoveryTaskName,
-          currentHeadOffsetForPartition);
-      recoveryTasksCreated.increment();
+      createRecoveryTasks(
+          partitionId,
+          nextOffsetForPartition,
+          currentHeadOffsetForPartition - 1,
+          maxMessagesPerRecoveryTask);
       return currentHeadOffsetForPartition;
     } else {
       LOG.info(
@@ -224,6 +220,43 @@ public class RecoveryTaskCreator {
           nextOffsetForPartition);
       return nextOffsetForPartition;
     }
+  }
+
+  /**
+   * Currently, a recovery task will index all the messages into a single chunk. So, if we create a
+   * recovery task with a large offset range, it will result in large chunks. So, we create multiple
+   * recovery tasks where each task indexes maxMessagesPerRecoveryTask worth of messages. This keeps
+   * all the recovery task chunk sizes roughly the same size.
+   */
+  @VisibleForTesting
+  void createRecoveryTasks(
+      final String partitionId,
+      final long startOffset,
+      final long endOffset,
+      final long maxMessagesPerRecoveryTask) {
+    long beginingOffset = startOffset;
+    // Create tasks until there are no messages left to be indexed. Offsets are inclusive so adding
+    // +1 to count messages to be indexed.
+    while ((endOffset - beginingOffset + 1) > 0) {
+      createRecoveryTask(
+          partitionId,
+          beginingOffset,
+          Math.min(beginingOffset + maxMessagesPerRecoveryTask - 1, endOffset));
+      beginingOffset = beginingOffset + maxMessagesPerRecoveryTask;
+    }
+  }
+
+  private void createRecoveryTask(String partitionId, long startOffset, long endOffset) {
+    final long creationTimeEpochMs = Instant.now().toEpochMilli();
+    final String recoveryTaskName = getRecoveryTaskName(creationTimeEpochMs, partitionId);
+    recoveryTaskMetadataStore.createSync(
+        new RecoveryTaskMetadata(
+            recoveryTaskName, partitionId, startOffset, endOffset, creationTimeEpochMs));
+    LOG.info(
+        "Created recovery task {} to catchup. Moving the starting offset to head at {}",
+        recoveryTaskName,
+        endOffset);
+    recoveryTasksCreated.increment();
   }
 
   private int deleteSnapshots(
