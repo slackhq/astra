@@ -9,7 +9,7 @@ import brave.grpc.GrpcTracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -26,8 +26,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -65,10 +63,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
 
   private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
-
-  private static ExecutorService executorService =
-      Executors.newCachedThreadPool(
-          new ThreadFactoryBuilder().setNameFormat("distributed-query-service-%d").build());
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -308,7 +302,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           Futures.transform(
               searchRequest,
               searchRequestTransform::apply,
-              RequestContext.current().makeContextAware(executorService)));
+              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
     }
 
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
