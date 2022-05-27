@@ -1,5 +1,7 @@
 package com.slack.kaldb.server;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.grpc.Status;
@@ -15,16 +17,18 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
   public void search(
       KaldbSearch.SearchRequest request,
       StreamObserver<KaldbSearch.SearchResult> responseObserver) {
-
     LOG.info(
         String.format("Search request received: '%s'", request.toString().replace("\n", ", ")));
 
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbQueryServiceBase.search");
     try {
       responseObserver.onNext(doSearch(request));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error completing search request", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    } finally {
+      span.finish();
     }
   }
 
