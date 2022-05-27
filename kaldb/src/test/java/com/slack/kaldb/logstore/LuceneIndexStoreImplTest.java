@@ -4,11 +4,12 @@ import static com.slack.kaldb.logstore.BlobFsUtils.DELIMITER;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToLocalPath;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.findAllMessages;
@@ -72,8 +73,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, forgivingLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
 
     @Test
@@ -124,8 +125,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, forgivingLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
 
     @Test
@@ -138,8 +139,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, forgivingLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(results.get(0).id).isEqualTo(msgs.get(msgs.size() - 1).id);
     }
 
@@ -156,8 +157,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, forgivingLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
 
     @Test
@@ -173,8 +174,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, forgivingLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
   }
 
@@ -198,8 +199,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     }
 
     @Test
@@ -215,8 +216,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     }
 
     @Test
@@ -229,8 +230,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
       // Counters not set since no commit.
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(0);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(0);
     }
 
     @Test
@@ -304,8 +305,8 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
     }
   }
 
@@ -327,8 +328,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, testLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, testLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry)).isEqualTo(1);
     }
   }
 
@@ -363,8 +364,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
       Path dirPath = logStore.getDirectory().toAbsolutePath();
       IndexCommit indexCommit = logStore.getIndexCommit();
@@ -428,8 +429,8 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
 
       Path dirPath = logStore.getDirectory().toAbsolutePath();
       IndexCommit indexCommit = logStore.getIndexCommit();
@@ -503,8 +504,8 @@ public class LuceneIndexStoreImplTest {
       addMessages(testLogStore.logStore, 1, 100, false);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(COMMITS_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
+      assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
+      assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
 
       Thread.sleep(2 * commitDuration.toMillis());
       Collection<LogMessage> results =
@@ -513,10 +514,10 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, testLogStore.metricsRegistry))
+      assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry))
           .isGreaterThanOrEqualTo(1)
           .isLessThanOrEqualTo(3);
-      assertThat(getCount(COMMITS_COUNTER, testLogStore.metricsRegistry))
+      assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry))
           .isGreaterThanOrEqualTo(1)
           .isLessThanOrEqualTo(3);
     }
