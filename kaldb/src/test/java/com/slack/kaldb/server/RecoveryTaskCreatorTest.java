@@ -41,6 +41,7 @@ import org.junit.Test;
 
 @SuppressWarnings("UnstableApiUsage")
 public class RecoveryTaskCreatorTest {
+  private static final long TEST_MAX_MESSAGES_PER_RECOVERY_TASK = 10000;
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
@@ -175,7 +176,12 @@ public class RecoveryTaskCreatorTest {
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            1,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
     assertThat(recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
     assertThat(snapshotMetadataStore.listSync())
@@ -234,7 +240,12 @@ public class RecoveryTaskCreatorTest {
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            1,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     // Throw exceptions on delete.
     doReturn(Futures.immediateFailedFuture(new RuntimeException()))
@@ -285,7 +296,12 @@ public class RecoveryTaskCreatorTest {
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            1,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -526,20 +542,47 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(
             () ->
                 new RecoveryTaskCreator(
-                    snapshotMetadataStore, recoveryTaskStore, partitionId, 0, meterRegistry));
+                    snapshotMetadataStore,
+                    recoveryTaskStore,
+                    partitionId,
+                    0,
+                    TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+                    meterRegistry));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 new RecoveryTaskCreator(
-                    snapshotMetadataStore, recoveryTaskStore, "", 100, meterRegistry));
+                    snapshotMetadataStore,
+                    recoveryTaskStore,
+                    "",
+                    100,
+                    TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+                    meterRegistry));
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryTaskCreator(
+                    snapshotMetadataStore, recoveryTaskStore, partitionId, 100, 0, meterRegistry));
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new RecoveryTaskCreator(
+                    snapshotMetadataStore, recoveryTaskStore, partitionId, 100, -1, meterRegistry));
   }
 
   @Test
   public void testDetermineStartOffsetReturnsNegativeWhenNoOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 1, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            1,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -587,7 +630,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetOnlyRecoveryNotBehind() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -635,7 +683,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetOnlyRecoveryBehind() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -674,7 +727,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetOnlyMultipleRecoveryBehind() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -722,7 +780,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetMultiplePartitionRecoveriesBehind() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -784,7 +847,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetOnlySnapshotsNoDelay() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -887,7 +955,12 @@ public class RecoveryTaskCreatorTest {
   public void testDetermineStartingOffsetOnlySnapshotsWithDelay() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1077,7 +1150,12 @@ public class RecoveryTaskCreatorTest {
   public void testRecoveryTaskCreationFailureFailsDetermineStartOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1121,7 +1199,12 @@ public class RecoveryTaskCreatorTest {
       throws ExecutionException, InterruptedException {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1165,7 +1248,12 @@ public class RecoveryTaskCreatorTest {
       throws ExecutionException, InterruptedException {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1209,7 +1297,12 @@ public class RecoveryTaskCreatorTest {
       throws ExecutionException, InterruptedException {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
-            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, meterRegistry);
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
+            meterRegistry);
 
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
@@ -1257,5 +1350,141 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
     assertThat(snapshotMetadataStore.list().get())
         .containsExactlyInAnyOrder(partition1, livePartition1);
+  }
+
+  @Test
+  public void testChunkingRecoveryTaskLongRange() {
+    final long maxMessagesPerRecoveryTask = 100;
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            maxMessagesPerRecoveryTask,
+            meterRegistry);
+
+    // Long range - 1 chunk
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    recoveryTaskCreator.createRecoveryTasks("1", 10, 100, maxMessagesPerRecoveryTask);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(1);
+    assertThat(recoveryTasks.get(0).startOffset).isEqualTo(10);
+    assertThat(recoveryTasks.get(0).endOffset).isEqualTo(100);
+    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(partitionId);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
+  public void testChunkingRecoveryOneChunk() {
+    final long maxMessagesPerRecoveryTask = 100;
+    final String testPartitionId = "2";
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            testPartitionId,
+            100,
+            maxMessagesPerRecoveryTask,
+            meterRegistry);
+
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    recoveryTaskCreator.createRecoveryTasks(testPartitionId, 100, 101, maxMessagesPerRecoveryTask);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(1);
+    assertThat(recoveryTasks.get(0).startOffset).isEqualTo(100);
+    assertThat(recoveryTasks.get(0).endOffset).isEqualTo(101);
+    assertThat((recoveryTasks.get(0)).partitionId).isEqualTo(testPartitionId);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
+  public void testChunkingRecoveryTasksSameSizeTasks() {
+    final String testPartitionId = "3";
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore, recoveryTaskStore, testPartitionId, 100, 2, meterRegistry);
+
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    recoveryTaskCreator.createRecoveryTasks(testPartitionId, 100, 105, 2);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(3);
+    assertThat(recoveryTasks.stream().mapToLong(r -> r.startOffset).sorted().toArray())
+        .containsExactly(100, 102, 104);
+    assertThat(recoveryTasks.stream().mapToLong(r -> r.endOffset).sorted().toArray())
+        .containsExactly(101, 103, 105);
+    assertThat(recoveryTasks.stream().mapToLong(r -> r.endOffset - r.startOffset).toArray())
+        .containsExactly(1, 1, 1);
+    assertThat(recoveryTasks.stream().filter(r -> r.partitionId.equals(testPartitionId)).count())
+        .isEqualTo(3);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
+  }
+
+  @Test
+  public void testChunkingRecoveryTasksWithOddSizeTask() {
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore, recoveryTaskStore, partitionId, 100, 2, meterRegistry);
+
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    recoveryTaskCreator.createRecoveryTasks(partitionId, 100, 104, 2);
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks.size()).isEqualTo(3);
+    assertThat(recoveryTasks.stream().mapToLong(r -> r.startOffset).sorted().toArray())
+        .containsExactly(100, 102, 104);
+    assertThat(recoveryTasks.stream().mapToLong(r -> r.endOffset).sorted().toArray())
+        .containsExactly(101, 103, 104);
+    assertThat(
+            recoveryTasks.stream().mapToLong(r -> r.endOffset - r.startOffset).sorted().toArray())
+        .containsExactly(0, 1, 1);
+    assertThat(recoveryTasks.stream().filter(r -> r.partitionId.equals(partitionId)).count())
+        .isEqualTo(3);
+    assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
+  }
+
+  @Test
+  public void testMultipleRecoveryTaskCreationWithSnapshotDelay() {
+    final long maxMessagesPerRecoveryTask = 500;
+    RecoveryTaskCreator recoveryTaskCreator =
+        new RecoveryTaskCreator(
+            snapshotMetadataStore,
+            recoveryTaskStore,
+            partitionId,
+            100,
+            maxMessagesPerRecoveryTask,
+            meterRegistry);
+
+    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    // When there is no data return -1.
+    assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
+    assertThat(recoveryTaskStore.listSync()).isEmpty();
+
+    final String name = "testSnapshotId";
+    final String path = "/testPath_" + name;
+    final long startTime = 1;
+    final long endTime = 100;
+    final long maxOffset = 100;
+
+    final SnapshotMetadata partition1 =
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+    snapshotMetadataStore.createSync(partition1);
+    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(
+            getHighestDurableOffsetForPartition(
+                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+        .isEqualTo(100);
+    assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    assertThat(recoveryTasks1.size()).isEqualTo(3);
+    assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
+        .containsExactly(101, 601, 1101);
+    assertThat(recoveryTasks1.stream().mapToLong(r -> r.endOffset).sorted().toArray())
+        .containsExactly(600, 1100, 1149);
+    assertThat(
+            recoveryTasks1.stream().mapToLong(r -> r.endOffset - r.startOffset).sorted().toArray())
+        .containsExactly(48, 499, 499);
+    assertThat(recoveryTasks1.stream().filter(r -> r.partitionId.equals(partitionId)).count())
+        .isEqualTo(3);
   }
 }

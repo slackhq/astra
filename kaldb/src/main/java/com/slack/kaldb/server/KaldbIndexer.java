@@ -98,12 +98,15 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();
 
+    // TODO: Move this to it's own config var.
+    final long maxMessagesPerRecoveryTask = indexerConfig.getMaxMessagesPerChunk();
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
             recoveryTaskMetadataStore,
             partitionId,
             maxOffsetDelay,
+            maxMessagesPerRecoveryTask,
             meterRegistry);
 
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
