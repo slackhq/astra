@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer;
 
-import static com.slack.kaldb.writer.ApiLogFormatter.API_LOG_DURATION_FIELD;
-import static com.slack.kaldb.writer.ApiLogFormatter.ENVOY_DURATION_FIELD;
+import static com.slack.kaldb.writer.MurronLogFormatter.API_LOG_DURATION_FIELD;
+import static com.slack.kaldb.writer.MurronLogFormatter.ENVOY_DURATION_FIELD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.Test;
 
-public class ApiLogFormatterTest {
+public class MurronLogFormatterTest {
   public Object getTagValue(List<Trace.KeyValue> tags, String key) {
     for (Trace.KeyValue tag : tags) {
       if (tag.getKey().equals(key)) {
@@ -56,7 +56,7 @@ public class ApiLogFormatterTest {
         .setTimestamp(timestamp);
     Murron.MurronMessage testMurronMsg = testMurronMsgBuilder.build();
 
-    Trace.Span apiSpan = ApiLogFormatter.fromApiLog(testMurronMsg);
+    Trace.Span apiSpan = MurronLogFormatter.fromApiLog(testMurronMsg);
     assertThat(apiSpan.getDurationMicros()).isEqualTo(1418L);
     assertThat(apiSpan.getName()).isEqualTo(indexName);
     assertThat(apiSpan.getId().toString().contains(host)).isTrue();
@@ -92,7 +92,7 @@ public class ApiLogFormatterTest {
         .setTimestamp(timestamp);
     Murron.MurronMessage testMurronMsg = testMurronMsgBuilder.build();
 
-    Trace.Span apiSpan = ApiLogFormatter.fromApiLog(testMurronMsg);
+    Trace.Span apiSpan = MurronLogFormatter.fromApiLog(testMurronMsg);
     assertThat(apiSpan.getName()).isEqualTo("api_log");
     assertThat(apiSpan.getDurationMicros()).isEqualTo(14168L);
     assertThat(apiSpan.getId().toString().contains(host)).isTrue();
@@ -113,12 +113,12 @@ public class ApiLogFormatterTest {
 
   @Test
   public void testNullMurronMessage() throws JsonProcessingException {
-    ApiLogFormatter.fromApiLog(null);
+    MurronLogFormatter.fromApiLog(null);
   }
 
   @Test(expected = MismatchedInputException.class)
   public void testEmptyMurronMessage() throws JsonProcessingException {
-    ApiLogFormatter.fromApiLog(Murron.MurronMessage.newBuilder().build());
+    MurronLogFormatter.fromApiLog(Murron.MurronMessage.newBuilder().build());
   }
 
   @Test
@@ -139,7 +139,7 @@ public class ApiLogFormatterTest {
         .setTimestamp(timestamp);
     Murron.MurronMessage testMurronMsg = testMurronMsgBuilder.build();
 
-    Trace.Span apiSpan = ApiLogFormatter.fromEnvoyLog(testMurronMsg);
+    Trace.Span apiSpan = MurronLogFormatter.fromEnvoyLog(testMurronMsg);
     assertThat(apiSpan.getName()).isEqualTo(indexName);
     assertThat(apiSpan.getDurationMicros()).isEqualTo(36000L);
     assertThat(apiSpan.getId().toStringUtf8()).isEqualTo(requestId);

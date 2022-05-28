@@ -15,8 +15,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ApiLogFormatter {
-  public static final Logger LOG = LoggerFactory.getLogger(ApiLogFormatter.class);
+public class MurronLogFormatter {
+  public static final Logger LOG = LoggerFactory.getLogger(MurronLogFormatter.class);
 
   public static final String API_LOG_DURATION_FIELD = "microtime_elapsed";
   public static final String ENVOY_DURATION_FIELD = "duration";

@@ -58,7 +58,7 @@ public class LogMessageWriterImpl implements MessageWriter {
   public static final LogMessageTransformer apiLogTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
         final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
-        Trace.Span apiSpan = ApiLogFormatter.fromApiLog(murronMsg);
+        Trace.Span apiSpan = MurronLogFormatter.fromApiLog(murronMsg);
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
       };
 
@@ -66,7 +66,7 @@ public class LogMessageWriterImpl implements MessageWriter {
   public static final LogMessageTransformer envoyLogTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
         final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
-        Trace.Span apiSpan = ApiLogFormatter.fromEnvoyLog(murronMsg);
+        Trace.Span apiSpan = MurronLogFormatter.fromEnvoyLog(murronMsg);
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
       };
 
