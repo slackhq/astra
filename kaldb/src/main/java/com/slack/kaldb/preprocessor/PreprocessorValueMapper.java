@@ -30,7 +30,7 @@ public class PreprocessorValueMapper {
   public static final MessageTransformer apiLogTransformer =
       record -> {
         final Murron.MurronMessage murronMsg = toMurronMessage(record);
-        return List.of(ApiLogFormatter.toSpan(murronMsg));
+        return List.of(ApiLogFormatter.fromApiLog(murronMsg));
       };
 
   // A single trace record consists of a list of spans wrapped in a murron message.

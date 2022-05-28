@@ -58,7 +58,15 @@ public class LogMessageWriterImpl implements MessageWriter {
   public static final LogMessageTransformer apiLogTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
         final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
-        Trace.Span apiSpan = ApiLogFormatter.toSpan(murronMsg);
+        Trace.Span apiSpan = ApiLogFormatter.fromApiLog(murronMsg);
+        return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
+      };
+
+  // An envoy log message is a json blob wrapped in a murron message.
+  public static final LogMessageTransformer envoyLogTransformer =
+      (ConsumerRecord<String, byte[]> record) -> {
+        final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
+        Trace.Span apiSpan = ApiLogFormatter.fromEnvoyLog(murronMsg);
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
       };
 
