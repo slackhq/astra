@@ -195,16 +195,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   public static boolean isSnapshotInPartition(
       SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
-    return partitions
-        .stream()
-        .anyMatch(
-            partitionMetadata ->
-                partitionMetadata.partitions.contains(snapshotMetadata.partitionId)
-                    && containsDataInTimeRange(
-                        partitionMetadata.startTimeEpochMs,
-                        partitionMetadata.endTimeEpochMs,
-                        snapshotMetadata.startTimeEpochMs,
-                        snapshotMetadata.endTimeEpochMs));
+    for (ServicePartitionMetadata partition : partitions) {
+      if (partition.partitions.contains(snapshotMetadata.partitionId)
+          && containsDataInTimeRange(
+              partition.startTimeEpochMs,
+              partition.endTimeEpochMs,
+              snapshotMetadata.startTimeEpochMs,
+              snapshotMetadata.endTimeEpochMs)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static String getRawSnapshotName(SearchMetadata searchMetadata) {
