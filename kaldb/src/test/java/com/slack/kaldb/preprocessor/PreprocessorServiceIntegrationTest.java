@@ -80,6 +80,7 @@ public class PreprocessorServiceIntegrationTest {
             .setServerConfig(serverConfig)
             .setPreprocessorInstanceCount(1)
             .setDataTransformer("api_log")
+            .setRateLimiterMaxBurstSeconds(1)
             .build();
 
     PreprocessorService preprocessorService =
