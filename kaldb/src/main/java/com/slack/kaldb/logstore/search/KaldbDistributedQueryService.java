@@ -223,7 +223,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     if (queryableSearchMetadataNodes.size() == 1) {
       return queryableSearchMetadataNodes.get(0).url;
     } else {
-      // Fix the initial;
       List<SearchMetadata> cacheNodeHostedSearchMetadata = new ArrayList<>();
       for (SearchMetadata searchMetadata : queryableSearchMetadataNodes) {
         if (!searchMetadata.snapshotName.startsWith("LIVE")) {
