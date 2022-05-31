@@ -51,6 +51,8 @@ public class PreprocessorService extends AbstractService {
   private static final Logger LOG = LoggerFactory.getLogger(PreprocessorService.class);
   private static final long MAX_TIME = Long.MAX_VALUE;
 
+  private static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
+
   private final ServiceMetadataStore serviceMetadataStore;
   private final PreprocessorRateLimiter rateLimiter;
   private final Properties kafkaProperties;
@@ -81,7 +83,8 @@ public class PreprocessorService extends AbstractService {
         new PreprocessorRateLimiter(
             meterRegistry,
             preprocessorConfig.getPreprocessorInstanceCount(),
-            preprocessorConfig.getRateLimitSmoothingMicros());
+            preprocessorConfig.getRateLimiterMaxBurstSeconds(),
+            INITIALIZE_RATE_LIMIT_WARM);
   }
 
   @Override
