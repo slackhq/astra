@@ -222,11 +222,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     if (queryableSearchMetadataNodes.size() == 1) {
       return queryableSearchMetadataNodes.get(0).url;
     } else {
-      List<SearchMetadata> cacheNodeHostedSearchMetadata =
-          queryableSearchMetadataNodes
-              .stream()
-              .filter(searchMetadata -> !searchMetadata.snapshotName.startsWith("LIVE"))
-              .collect(Collectors.toList());
+      // Fix the initial;
+      List<SearchMetadata> cacheNodeHostedSearchMetadata = new ArrayList<>();
+      for (SearchMetadata searchMetadata : queryableSearchMetadataNodes) {
+        if (!searchMetadata.snapshotName.startsWith("LIVE")) {
+          cacheNodeHostedSearchMetadata.add(searchMetadata);
+        }
+      }
       if (cacheNodeHostedSearchMetadata.size() == 1) {
         return cacheNodeHostedSearchMetadata.get(0).url;
       } else {
