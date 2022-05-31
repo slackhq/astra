@@ -93,4 +93,4 @@ preprocessorConfig:
   downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
-  rateLimitSmoothingMicros: ${PREPROCESSOR_RATE_LIMIT_SMOOTHING_MICROS:-0}
+  rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
