@@ -311,10 +311,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
-      return searchResults
-          .stream()
-          .map(searchResult -> searchResult == null ? SearchResult.empty() : searchResult)
-          .collect(Collectors.toList());
+      ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
+      for (SearchResult<LogMessage> searchResult : searchResults) {
+        result.add(searchResult == null ? SearchResult.empty() : searchResult);
+      }
+      return result;
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
@@ -330,16 +331,20 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
       long startTimeEpochMs, long endTimeEpochMs, String indexName) {
-    return getSearchNodesToQuery(
+    Collection<String> searchNodeUrls =
+        getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             serviceMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
-            indexName)
-        .stream()
-        .map(this::getStub)
-        .collect(Collectors.toList());
+            indexName);
+    ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
+        new ArrayList<>(searchNodeUrls.size());
+    for (String searchNodeUrl : searchNodeUrls) {
+      stubs.add(getStub(searchNodeUrl));
+    }
+    return stubs;
   }
 
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
