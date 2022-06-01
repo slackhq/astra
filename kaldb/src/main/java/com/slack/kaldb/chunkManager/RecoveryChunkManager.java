@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryChunkManager.class);
   // This field controls the maximum amount of time we wait for a rollover to complete.
-  private static final int MAX_ROLLOVER_MINUTES = 10;
+  private static final int MAX_ROLLOVER_MINUTES = 20;
 
   private final ChunkFactory<T> recoveryChunkFactory;
   private final ChunkRolloverFactory chunkRolloverFactory;
