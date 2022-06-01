@@ -156,8 +156,8 @@ public class KaldbKafkaConsumerTest {
       // Assign doesn't create a consumer group.
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
     }
-
-    // TODO: Test batch ingestion with roll over.
+    // TODO: Test batch ingestion with roll over. Not adding a test yet, since this functionality is
+    // not needed by the recovery indexer yet.
   }
 
   public static class TimeoutTests {
