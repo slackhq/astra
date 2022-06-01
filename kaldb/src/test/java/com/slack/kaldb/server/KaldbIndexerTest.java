@@ -151,7 +151,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -188,7 +188,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -234,7 +234,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -270,7 +270,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -320,7 +320,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -372,7 +372,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(50, "api_log"),
+            makeIndexerConfig(50, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -431,7 +431,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(50, "api_log"),
+            makeIndexerConfig(50, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -494,7 +494,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();
@@ -542,7 +542,7 @@ public class KaldbIndexerTest {
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
             zkMetadataStore,
-            makeIndexerConfig(1000, "api_log"),
+            makeIndexerConfig(1000, "trace_span"),
             getKafkaConfig(),
             metricsRegistry);
     kaldbIndexer.startAsync();

@@ -7,7 +7,7 @@ indexerConfig:
     commitDurationSecs: 10
     refreshDurationSecs: 11
   staleDurationSecs: 7200
-  dataTransformer: "api_log"
+  dataTransformer: "trace_span"
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
   serverConfig:

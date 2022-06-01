@@ -62,7 +62,7 @@ public class KaldbConfigTest {
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log");
+            .put("dataTransformer", "trace_span");
     ObjectNode kafkaConfig =
         mapper.createObjectNode().put("kafkaTopicPartition", 1).put("kafkaSessionTimeout", 30000);
     ObjectNode node = mapper.createObjectNode();
@@ -88,7 +88,7 @@ public class KaldbConfigTest {
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log");
+            .put("dataTransformer", "trace_span");
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
@@ -110,7 +110,7 @@ public class KaldbConfigTest {
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log")
+            .put("dataTransformer", "trace_span")
             .put("ignoredField", "ignore");
     ObjectNode kafkaConfig =
         mapper
@@ -182,7 +182,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(indexerConfig.getDataTransformer()).isEqualTo("trace_span");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
@@ -311,7 +311,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getCommitDurationSecs()).isEqualTo(10);
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isEqualTo(11);
     assertThat(indexerConfig.getStaleDurationSecs()).isEqualTo(7200);
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(indexerConfig.getDataTransformer()).isEqualTo("trace_span");
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10001);
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
@@ -421,7 +421,7 @@ public class KaldbConfigTest {
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config =
         KaldbConfig.fromJsonConfig(
-            "{nodeRoles: [INDEX], " + "indexerConfig:{dataTransformer:api_log}}");
+            "{nodeRoles: [INDEX], " + "indexerConfig:{dataTransformer:trace_span}}");
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
@@ -447,7 +447,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(indexerConfig.getDataTransformer()).isEqualTo("trace_span");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
@@ -535,7 +535,7 @@ public class KaldbConfigTest {
   public void testEmptyYamlStringInit()
       throws InvalidProtocolBufferException, JsonProcessingException {
     String yamlCfgString =
-        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: api_log";
+        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: trace_span";
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig(yamlCfgString);
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
@@ -562,7 +562,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
-    assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(indexerConfig.getDataTransformer()).isEqualTo("trace_span");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
@@ -650,7 +650,7 @@ public class KaldbConfigTest {
         .isThrownBy(() -> KaldbConfig.fromYamlConfig("nodeRoles: [index]"));
 
     String yamlCfgString =
-        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: api_log";
+        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: trace_span";
     List<KaldbConfigs.NodeRole> roles =
         KaldbConfig.fromYamlConfig(yamlCfgString).getNodeRolesList();
     assertThat(roles.size()).isEqualTo(1);
