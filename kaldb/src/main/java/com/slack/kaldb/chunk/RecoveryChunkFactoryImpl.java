@@ -12,6 +12,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 
+/**
+ * The RecoveryChunkFactoryImpl is a chunk factory that contains the context needed to create a
+ * recovery chunk.
+ *
+ * @param <T> Type of messages stored in chunk.
+ */
 public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
 
   private final String chunkDataPrefix;
