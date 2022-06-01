@@ -15,19 +15,46 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ApiLogFormatter {
-  public static final Logger LOG = LoggerFactory.getLogger(ApiLogFormatter.class);
+public class MurronLogFormatter {
+  public static final Logger LOG = LoggerFactory.getLogger(MurronLogFormatter.class);
 
   public static final String API_LOG_DURATION_FIELD = "microtime_elapsed";
-  public static final Set<String> nonTagFields =
+  public static final String ENVOY_DURATION_FIELD = "duration";
+  public static final String ENVOY_REQUEST_ID = "request_id";
+  static final Set<String> nonTagFields =
       ImmutableSet.of(
           LogMessage.ReservedField.PARENT_ID.fieldName,
           LogMessage.ReservedField.TRACE_ID.fieldName,
           API_LOG_DURATION_FIELD);
   private static final String TYPE_TAG = "type";
 
-  // TODO: Catch exception in a separate wrapper method?
-  public static Trace.Span toSpan(Murron.MurronMessage murronMsg) throws JsonProcessingException {
+  public static Trace.Span fromEnvoyLog(Murron.MurronMessage murronMsg)
+      throws JsonProcessingException {
+    return toSpan(
+        murronMsg, TYPE_TAG, ENVOY_DURATION_FIELD, 1000, ENVOY_REQUEST_ID, ENVOY_REQUEST_ID);
+  }
+
+  public static Trace.Span fromApiLog(Murron.MurronMessage murronMsg)
+      throws JsonProcessingException {
+    return toSpan(
+        murronMsg,
+        TYPE_TAG,
+        API_LOG_DURATION_FIELD,
+        1,
+        LogMessage.ReservedField.TRACE_ID.fieldName,
+        "");
+  }
+
+  // TODO: Take duration unit as input.
+  // TODO: Take a generic field mapping dictionary as input for fields.
+  private static Trace.Span toSpan(
+      Murron.MurronMessage murronMsg,
+      String typeTag,
+      String durationField,
+      int durationTimeMuiltiplier,
+      String traceIdFieldName,
+      String idField)
+      throws JsonProcessingException {
     if (murronMsg == null) return null;
 
     LOG.trace(
@@ -44,18 +71,19 @@ public class ApiLogFormatter {
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
 
     // Set the type tag as the span name.
-    spanBuilder.setName((String) jsonMsgMap.getOrDefault(TYPE_TAG, ""));
+    String typeName = (String) jsonMsgMap.getOrDefault(typeTag, "");
+    spanBuilder.setName(typeName.isEmpty() ? murronMsg.getType() : typeName);
 
     String parentId =
         (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.PARENT_ID.fieldName, "");
     spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
 
-    String traceId =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.TRACE_ID.fieldName, "");
+    String traceId = (String) jsonMsgMap.getOrDefault(traceIdFieldName, "");
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
 
     spanBuilder.setStartTimestampMicros(murronMsg.getTimestamp() / 1000);
-    spanBuilder.setDurationMicros((int) jsonMsgMap.getOrDefault(API_LOG_DURATION_FIELD, 1));
+    spanBuilder.setDurationMicros(
+        (int) jsonMsgMap.getOrDefault(durationField, 1) * durationTimeMuiltiplier);
 
     List<Trace.KeyValue> tags = new ArrayList<>(jsonMsgMap.size());
     for (Map.Entry<String, Object> entry : jsonMsgMap.entrySet()) {
@@ -96,7 +124,13 @@ public class ApiLogFormatter {
             .build());
 
     // Create a message id.
-    String msgId = murronMsg.getHost() + ":" + murronMsg.getPid() + ":" + murronMsg.getOffset();
+    String msgId = "";
+    if (!idField.isEmpty()) {
+      msgId = (String) jsonMsgMap.getOrDefault(idField, "");
+    }
+    if (msgId.isEmpty()) {
+      msgId = murronMsg.getHost() + ":" + murronMsg.getPid() + ":" + murronMsg.getOffset();
+    }
     spanBuilder.setId(ByteString.copyFrom(msgId.getBytes()));
 
     // Replace hyphens with underscore since lucene doesn't like it.

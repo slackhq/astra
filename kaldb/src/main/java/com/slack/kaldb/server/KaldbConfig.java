@@ -94,6 +94,8 @@ public class KaldbConfig {
       ImmutableMap.of(
           "api_log",
           LogMessageWriterImpl.apiLogTransformer,
+          "envoy_log",
+          LogMessageWriterImpl.envoyLogTransformer,
           "spans",
           LogMessageWriterImpl.spanTransformer,
           "json",

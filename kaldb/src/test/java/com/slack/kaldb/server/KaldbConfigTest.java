@@ -253,6 +253,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -381,6 +382,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -515,6 +517,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
@@ -624,6 +627,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();

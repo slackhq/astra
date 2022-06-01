@@ -199,6 +199,6 @@ message PreprocessorConfig {
   // Used for calculating target throughput per instance
   int32 preprocessor_instance_count = 6;
 
-  // Amount of time in microseconds the rate limiter can wait for acquire
-  int64 rateLimitSmoothingMicros = 7;
+  // Amount of time in seconds the rate limiter can burst
+  int32 rate_limiter_max_burst_seconds = 7;
 }

@@ -4,7 +4,7 @@ import static com.slack.kaldb.writer.LogMessageWriterImpl.toMurronMessage;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.slack.kaldb.writer.ApiLogFormatter;
+import com.slack.kaldb.writer.MurronLogFormatter;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
@@ -30,7 +30,7 @@ public class PreprocessorValueMapper {
   public static final MessageTransformer apiLogTransformer =
       record -> {
         final Murron.MurronMessage murronMsg = toMurronMessage(record);
-        return List.of(ApiLogFormatter.toSpan(murronMsg));
+        return List.of(MurronLogFormatter.fromApiLog(murronMsg));
       };
 
   // A single trace record consists of a list of spans wrapped in a murron message.

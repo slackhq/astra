@@ -168,12 +168,20 @@ public class ChunkInfo {
 
   // Return true if chunk contains data in this time range.
   public boolean containsDataInTimeRange(long startTimeMs, long endTimeMs) {
+    return containsDataInTimeRange(
+        dataStartTimeEpochMs, dataEndTimeEpochMs, startTimeMs, endTimeMs);
+  }
+
+  public static boolean containsDataInTimeRange(
+      long dataStartTimeEpochMs, long dataEndTimeEpochMs, long startTimeMs, long endTimeMs) {
     ensureTrue(endTimeMs >= 0, "end timestamp should be greater than zero: " + endTimeMs);
     ensureTrue(startTimeMs >= 0, "start timestamp should be greater than zero: " + startTimeMs);
-    ensureTrue(
-        endTimeMs - startTimeMs >= 0,
-        String.format(
-            "end timestamp %d can't be less than the start timestamp %d.", endTimeMs, startTimeMs));
+    if (endTimeMs - startTimeMs < 0) {
+      throw new IllegalArgumentException(
+          String.format(
+              "end timestamp %d can't be less than the start timestamp %d.",
+              endTimeMs, startTimeMs));
+    }
     return (dataStartTimeEpochMs <= startTimeMs && dataEndTimeEpochMs >= startTimeMs)
         || (dataStartTimeEpochMs <= endTimeMs && dataEndTimeEpochMs >= endTimeMs)
         || (dataStartTimeEpochMs >= startTimeMs && dataEndTimeEpochMs <= endTimeMs);
