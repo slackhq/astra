@@ -215,10 +215,10 @@ public class KaldbKafkaConsumer {
 
   /**
    * The default offer method on array blocking queue class fails an insert an element when the
-   * queue reaches capacity. So, we override the offer method here so we wait to insert the item
-   * until the queue has enough capacity again. While this blocking behaviour is ideal in general,
-   * in this specific case, the blocking call acts as a back pressure mechanism pausing the kafka
-   * message consumption from the broker.
+   * queue is full. So, we override the offer method here to wait when inserting the item until the
+   * queue has enough capacity again. While this blocking behaviour is not ideal in the general
+   * case, in this specific case, the blocking call acts as a back pressure mechanism pausing the
+   * kafka message consumption from the broker.
    */
   private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
     public BlockingArrayBlockingQueue(int capacity) {
