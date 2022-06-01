@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer.kafka;
 
-import static com.slack.kaldb.server.KaldbConfig.DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.server.KaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -60,7 +60,7 @@ public class KaldbKafkaConsumerTest {
 
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
+              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("spans"));
       testConsumer =
           new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
@@ -147,7 +147,7 @@ public class KaldbKafkaConsumerTest {
 
       logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, DATA_TRANSFORMER_MAP.get("spans"));
+              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("spans"));
     }
 
     @After
