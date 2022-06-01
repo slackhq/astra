@@ -83,7 +83,8 @@ public class MurronLogFormatter {
 
     spanBuilder.setStartTimestampMicros(murronMsg.getTimestamp() / 1000);
     spanBuilder.setDurationMicros(
-        (int) jsonMsgMap.getOrDefault(durationField, 1) * durationTimeMuiltiplier);
+        Long.parseLong(String.valueOf(jsonMsgMap.getOrDefault(durationField, "1")))
+            * durationTimeMuiltiplier);
 
     List<Trace.KeyValue> tags = new ArrayList<>(jsonMsgMap.size());
     for (Map.Entry<String, Object> entry : jsonMsgMap.entrySet()) {
