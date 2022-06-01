@@ -91,7 +91,11 @@ public class KaldbConfig {
 
   @VisibleForTesting
   public static final Map<String, LogMessageTransformer> INDEXER_DATA_TRANSFORMER_MAP =
-      ImmutableMap.of("trace_span", LogMessageWriterImpl.traceSpanTransformer);
+      ImmutableMap.of(
+          "api_log",
+          LogMessageWriterImpl.apiLogTransformer,
+          "trace_span",
+          LogMessageWriterImpl.traceSpanTransformer);
 
   public static void validateDataTransformerConfig(String dataTransformerConfig) {
     checkArgument(
