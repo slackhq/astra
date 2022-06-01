@@ -90,16 +90,10 @@ public class KaldbConfig {
   }
 
   @VisibleForTesting
-  public static final Map<String, LogMessageTransformer> DATA_TRANSFORMER_MAP =
+  public static final Map<String, LogMessageTransformer> INDEXER_DATA_TRANSFORMER_MAP =
       ImmutableMap.of(
           "api_log",
           LogMessageWriterImpl.apiLogTransformer,
-          "envoy_log",
-          LogMessageWriterImpl.envoyLogTransformer,
-          "spans",
-          LogMessageWriterImpl.spanTransformer,
-          "json",
-          LogMessageWriterImpl.jsonLogMessageTransformer,
           "trace_span",
           LogMessageWriterImpl.traceSpanTransformer);
 
@@ -108,7 +102,7 @@ public class KaldbConfig {
         dataTransformerConfig != null && !dataTransformerConfig.isEmpty(),
         "IndexerConfig can't have an empty dataTransformer config.");
     checkArgument(
-        DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
+        INDEXER_DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
         "Invalid data transformer config: " + dataTransformerConfig);
   }
 
