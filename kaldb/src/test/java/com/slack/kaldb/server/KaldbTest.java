@@ -279,7 +279,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-    searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
+        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
