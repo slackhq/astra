@@ -1,5 +1,6 @@
 package com.slack.kaldb.writer.kafka;
 
+import static com.slack.kaldb.chunkManager.RecoveryChunkManager.LIVE_MESSAGES_INDEXED;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.KaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
@@ -64,7 +65,7 @@ public class KaldbKafkaConsumerTest {
 
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("spans"));
+              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("trace_span"));
       testConsumer =
           new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,

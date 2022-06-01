@@ -1,6 +1,6 @@
 package com.slack.kaldb.writer;
 
-import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.preprocessor.KaldbSerdes;
 import com.slack.service.murron.Murron;
@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
 public class LogMessageWriterImpl implements MessageWriter {
   private static final Logger LOG = LoggerFactory.getLogger(LogMessageWriterImpl.class);
 
-  private static Deserializer<Murron.MurronMessage> murronMessageDeserializer =
+  private static final Deserializer<Murron.MurronMessage> murronMessageDeserializer =
       KaldbSerdes.MurronMurronMessage().deserializer();
 
   // An apiLog message is a json blob wrapped in a murron message.
