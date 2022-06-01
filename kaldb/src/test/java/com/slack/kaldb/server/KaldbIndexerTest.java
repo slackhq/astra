@@ -8,6 +8,7 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static com.slack.kaldb.testlib.TestKafkaServer.produceSpansToKafka;
 import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,6 +119,7 @@ public class KaldbIndexerTest {
   }
 
   private KaldbConfigs.KafkaConfig getKafkaConfig() {
+    //noinspection OptionalGetWithoutIsPresent
     return makeKafkaConfig(
         TEST_KAFKA_TOPIC,
         TEST_KAFKA_PARTITION,
@@ -380,7 +382,7 @@ public class KaldbIndexerTest {
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce more messages since the recovery task is created for head.
-    produceMessagesToKafka(kafkaServer.getBroker(), startTime);
+    produceSpansToKafka(kafkaServer.getBroker(), startTime);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
 

@@ -9,6 +9,7 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
+import com.slack.service.murron.trace.Trace;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -87,6 +88,41 @@ public class TestKafkaServer {
         .setOffset(offset)
         .setMessage(ByteString.copyFromUtf8(jsonStr))
         .build();
+  }
+
+  public static void produceSpansToKafka(EphemeralKafkaBroker broker, Instant startTime)
+      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
+  }
+
+  // Create messages, format them into murron protobufs, write them to kafka
+  public static int produceSpansToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
+      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+    List<Trace.Span> spans =
+        MessageUtil.makeSpanMessagesWithTimeDifference(1, 100, 1000, startTime);
+
+    int indexedCount = 0;
+    // Insert messages into Kafka.
+    try (KafkaProducer<String, byte[]> producer =
+        broker.createProducer(new StringSerializer(), new ByteArraySerializer(), null)) {
+      for (Trace.Span span : spans) {
+        // Kafka producer creates only a partition 0 on first message. So, set the partition to 0
+        // always.
+        Future<RecordMetadata> result =
+            producer.send(
+                new ProducerRecord<>(
+                    kafkaTopic, partitionId, String.valueOf(indexedCount), span.toByteArray()));
+
+        RecordMetadata metadata = result.get(500L, TimeUnit.MILLISECONDS);
+        assertThat(metadata).isNotNull();
+        assertThat(metadata.topic()).isEqualTo(kafkaTopic);
+        indexedCount++;
+      }
+    }
+    LOG.info(
+        "Total messages produced={} to topic={} and partition={}", indexedCount, kafkaTopic, 0);
+    return indexedCount;
   }
 
   private final EphemeralKafkaBroker broker;

@@ -4,8 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
-import java.io.IOException;
-import java.net.ServerSocket;
+import com.slack.service.murron.trace.Trace;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -152,9 +151,23 @@ public class MessageUtil {
     return result;
   }
 
-  // TODO: Move this to TestKafkaServer class.
-  public int getPort() throws IOException {
-    ServerSocket socket = new ServerSocket(0);
-    return socket.getLocalPort();
+  public static List<Trace.Span> makeSpanMessagesWithTimeDifference(
+      int low, int high, long timeDeltaMills, Instant start) {
+    List<Trace.Span> result = new ArrayList<>();
+    for (int i = 0; i <= (high - low); i++) {
+      result.add(
+          MessageUtil.makeSpanMessage(
+              low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i).toEpochMilli()));
+    }
+    return result;
+  }
+
+  private static Trace.Span makeSpanMessage(int i, long timestampMillis) {
+    final String serviceName = "test_service";
+    final String name = "testSpanName";
+    final String msgType = "test_message_type";
+    final String id = DEFAULT_MESSAGE_PREFIX + i;
+    return SpanUtil.makeSpan(
+        id, id, "", timestampMillis * 1000, 1000 * 500, name, serviceName, msgType);
   }
 }
