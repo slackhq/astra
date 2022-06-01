@@ -123,10 +123,20 @@ public class MurronLogFormatterTest {
 
   @Test
   public void testEnvoySpanWithTraceContextConversion() throws JsonProcessingException {
-    final String message =
-        "{\"unique_id\":\"d009c63c-be2f-47fa-8c53\",\"http_header_upgrade\":null,\"grpc_status\":null,\"tcpip_remote_ip\":\"10.232.200.31\",\"duration\":36,\"req_method\":\"POST\",\"tcpip_local_with_port\":\"10.219.290.121:81\",\"tcpip_remote_with_port\":\"101.22.228.30:36884\",\"upstream_hostname\":\"slack-www-hhvm-main-iad-sss2\",\"downstream_host_with_port\":\"10.47.47.46:0\",\"request_id\":\"d009c63c-be2f-47fa-8c53\",\"path\":\"/api/eventlog.history\",\"bytes_sent\":69,\"region\":\"us-east-1\",\"http_header_connection\":null,\"zone\":\"us-east-1g\",\"timestamp\":\"2022-05-27T18:15:10.971Z\",\"authority\":\"slack.com\",\"bytes_received\":325,\"listener\":\"nebula\",\"forwarder\":\"127.47.47.40\",\"app\":\"envoy-www\",\"response_code\":200,\"service_time\":\"35\",\"protocol\":\"HTTP/1.1\",\"platform\":\"chef\",\"tcpip_local_ip\":\"10.1.1.1\",\"user_agent\":\"com.t.co/22.05.10 (iPhone; iOS 15.4.1; Scale/3.00)\",\"route_name\":\"main_default\",\"upstream_cluster\":\"main_normal\",\"zone_id\":\"use1-az4\",\"response_flags\":\"via_upstream:-\",\"grpc_unique_id\":null}";
+    // duration as a string
+    testEnvoySpanWithTraceContextConversion(
+        "{\"unique_id\":\"d009c63c-be2f-47fa-8c53\",\"http_header_upgrade\":null,\"grpc_status\":null,\"tcpip_remote_ip\":\"10.232.200.31\",\"duration\":\"36\",\"req_method\":\"POST\",\"tcpip_local_with_port\":\"10.219.290.121:81\",\"tcpip_remote_with_port\":\"101.22.228.30:36884\",\"upstream_hostname\":\"slack-www-hhvm-main-iad-sss2\",\"downstream_host_with_port\":\"10.47.47.46:0\",\"request_id\":\"d009c63c-be2f-47fa-8c53\",\"path\":\"/api/eventlog.history\",\"bytes_sent\":69,\"region\":\"us-east-1\",\"http_header_connection\":null,\"zone\":\"us-east-1g\",\"timestamp\":\"2022-05-27T18:15:10.971Z\",\"authority\":\"slack.com\",\"bytes_received\":325,\"listener\":\"nebula\",\"forwarder\":\"127.47.47.40\",\"app\":\"envoy-www\",\"response_code\":200,\"service_time\":\"35\",\"protocol\":\"HTTP/1.1\",\"platform\":\"chef\",\"tcpip_local_ip\":\"10.1.1.1\",\"user_agent\":\"com.t.co/22.05.10 (iPhone; iOS 15.4.1; Scale/3.00)\",\"route_name\":\"main_default\",\"upstream_cluster\":\"main_normal\",\"zone_id\":\"use1-az4\",\"response_flags\":\"via_upstream:-\",\"grpc_unique_id\":null}",
+        true);
+    // duration as a int
+    testEnvoySpanWithTraceContextConversion(
+        "{\"unique_id\":\"d009c63c-be2f-47fa-8c53\",\"http_header_upgrade\":null,\"grpc_status\":null,\"tcpip_remote_ip\":\"10.232.200.31\",\"duration\":36,\"req_method\":\"POST\",\"tcpip_local_with_port\":\"10.219.290.121:81\",\"tcpip_remote_with_port\":\"101.22.228.30:36884\",\"upstream_hostname\":\"slack-www-hhvm-main-iad-sss2\",\"downstream_host_with_port\":\"10.47.47.46:0\",\"request_id\":\"d009c63c-be2f-47fa-8c53\",\"path\":\"/api/eventlog.history\",\"bytes_sent\":69,\"region\":\"us-east-1\",\"http_header_connection\":null,\"zone\":\"us-east-1g\",\"timestamp\":\"2022-05-27T18:15:10.971Z\",\"authority\":\"slack.com\",\"bytes_received\":325,\"listener\":\"nebula\",\"forwarder\":\"127.47.47.40\",\"app\":\"envoy-www\",\"response_code\":200,\"service_time\":\"35\",\"protocol\":\"HTTP/1.1\",\"platform\":\"chef\",\"tcpip_local_ip\":\"10.1.1.1\",\"user_agent\":\"com.t.co/22.05.10 (iPhone; iOS 15.4.1; Scale/3.00)\",\"route_name\":\"main_default\",\"upstream_cluster\":\"main_normal\",\"zone_id\":\"use1-az4\",\"response_flags\":\"via_upstream:-\",\"grpc_unique_id\":null}",
+        false);
+  }
+
+  private void testEnvoySpanWithTraceContextConversion(String message, boolean isDurationAsString)
+      throws JsonProcessingException {
     final String indexName = "envoy";
-    final String host = "slack-www-hhvm-dev-dev-callbacks-iad-j8zj";
+    final String host = "myserver-server-j8zj";
     final long timestamp = 1612550512340953000L;
     final String requestId = "d009c63c-be2f-47fa-8c53";
 
@@ -151,7 +161,11 @@ public class MurronLogFormatterTest {
     assertThat(getTagValue(tags, "req_method")).isEqualTo("POST");
     assertThat(getTagValue(tags, "bytes_sent")).isEqualTo(69L);
     assertThat(getTagValue(tags, "path")).isEqualTo("/api/eventlog.history");
-    assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo(36L);
+    if (isDurationAsString) {
+      assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo("36");
+    } else {
+      assertThat(getTagValue(tags, ENVOY_DURATION_FIELD)).isEqualTo(36L);
+    }
     assertThat(getTagValue(tags, LogMessage.ReservedField.PARENT_ID.fieldName)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.TRACE_ID.fieldName)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.HOSTNAME.fieldName)).isEqualTo(host);

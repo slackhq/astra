@@ -1,8 +1,8 @@
 package com.slack.kaldb.writer;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.chunkManager.ChunkManager;
+import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.preprocessor.KaldbSerdes;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,31 +55,30 @@ import org.slf4j.LoggerFactory;
 public class LogMessageWriterImpl implements MessageWriter {
   private static final Logger LOG = LoggerFactory.getLogger(LogMessageWriterImpl.class);
 
+  private static Deserializer<Murron.MurronMessage> murronMessageDeserializer =
+      KaldbSerdes.MurronMurronMessage().deserializer();
+
   // An apiLog message is a json blob wrapped in a murron message.
+  @Deprecated
   public static final LogMessageTransformer apiLogTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
-        final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
+        final Murron.MurronMessage murronMsg =
+            murronMessageDeserializer.deserialize("", record.value());
         Trace.Span apiSpan = MurronLogFormatter.fromApiLog(murronMsg);
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
       };
 
-  // An envoy log message is a json blob wrapped in a murron message.
-  public static final LogMessageTransformer envoyLogTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        final Murron.MurronMessage murronMsg = toMurronMessage(record.value());
-        Trace.Span apiSpan = MurronLogFormatter.fromEnvoyLog(murronMsg);
-        return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
-      };
-
   // A single trace record consists of a list of spans wrapped in a murron message.
+  @Deprecated
   public static final LogMessageTransformer spanTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
-        Murron.MurronMessage murronMsg = toMurronMessage(record.value());
+        Murron.MurronMessage murronMsg = murronMessageDeserializer.deserialize("", record.value());
         Trace.ListOfSpans spanList = SpanFormatter.fromMurronMessage(murronMsg);
         return SpanFormatter.toLogMessage(spanList);
       };
 
   // A json blob with a few fields.
+  @Deprecated
   public static final LogMessageTransformer jsonLogMessageTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
         Optional<LogMessage> msg =
@@ -128,23 +128,5 @@ public class LogMessageWriterImpl implements MessageWriter {
           logMessage, avgMsgSize, String.valueOf(record.partition()), record.offset());
     }
     return true;
-  }
-
-  /**
-   * Move all Kafka message serializers to common class
-   *
-   * @see com.slack.kaldb.preprocessor.KaldbSerdes
-   */
-  @Deprecated
-  public static Murron.MurronMessage toMurronMessage(byte[] recordStr) {
-    Murron.MurronMessage murronMsg = null;
-    if (recordStr == null || recordStr.length == 0) return null;
-
-    try {
-      murronMsg = Murron.MurronMessage.parseFrom(recordStr);
-    } catch (InvalidProtocolBufferException e) {
-      LOG.info("Error parsing byte string into MurronMessage: {}", new String(recordStr), e);
-    }
-    return murronMsg;
   }
 }
