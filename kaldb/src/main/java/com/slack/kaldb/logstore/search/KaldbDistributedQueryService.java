@@ -277,6 +277,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         .collect(Collectors.toList());
   }
 
+  private static int determineDownStreamFetchSize(int shardCount, int howMany) {
+    if (shardCount > 20) {
+      return Math.max(howMany / shardCount, 50);
+    }
+    return howMany;
+  }
+
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
@@ -289,15 +296,27 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
+    KaldbSearch.SearchRequest.Builder downstreamRequestBuilder =
+        KaldbSearch.SearchRequest.newBuilder()
+            .setChunkId(request.getChunkId())
+            .setIndexName(request.getIndexName())
+            .setQueryString(request.getQueryString())
+            .setStartTimeEpochMs(request.getStartTimeEpochMs())
+            .setEndTimeEpochMs(request.getEndTimeEpochMs())
+            .setBucketCount(request.getBucketCount());
+    KaldbSearch.SearchRequest downstreamRequest =
+        downstreamRequestBuilder
+            .setHowMany(determineDownStreamFetchSize(queryStubs.size(), request.getHowMany()))
+            .build();
 
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
           stub.withDeadlineAfter(READ_TIMEOUT_MS - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .search(request);
+              .search(downstreamRequest);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
       queryServers.add(
@@ -313,7 +332,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
-      ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
+      ArrayList<SearchResult<LogMessage>> result = new ArrayList<>(searchResults.size());
       for (SearchResult<LogMessage> searchResult : searchResults) {
         result.add(searchResult == null ? SearchResult.empty() : searchResult);
       }
