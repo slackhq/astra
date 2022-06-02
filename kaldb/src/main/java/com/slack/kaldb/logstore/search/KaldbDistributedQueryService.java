@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -24,9 +25,16 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -289,6 +297,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
+    // todo - add config option
+    int minResults = (int) Math.min(stubs.size() - 1, Math.floor(stubs.size() * 0.95));
+    CountDownLatch minNodesReporting = new CountDownLatch(minResults);
+    CountDownLatch allNodesReporting = new CountDownLatch(stubs.size());
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
@@ -300,18 +312,40 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               .search(request);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
-      queryServers.add(
-          Futures.transform(
-              searchRequest,
-              searchRequestTransform::apply,
-              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
+
+      ListenableFuture<SearchResult<LogMessage>> future = Futures.transform(
+          searchRequest,
+          searchRequestTransform::apply,
+          RequestContext.current().makeContextAware(MoreExecutors.directExecutor()));
+      future.addListener(
+          () -> {
+            minNodesReporting.countDown();
+            allNodesReporting.countDown();
+          },
+          RequestContext.current().makeContextAware(MoreExecutors.directExecutor()));
+      queryServers.add(future);
     }
 
-    Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
+    ListenableFuture<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
-      List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
+      // todo - add a config option
+      // wait for at least 2 seconds for all nodes to report
+      boolean allNodes = allNodesReporting.await(100, TimeUnit.MILLISECONDS);
+      boolean minNodes = true;
+      if (!allNodes) {
+        // if all nodes haven't come back in 2 seconds, wait for the min amount up until the read
+        // timeout
+        minNodes = minNodesReporting.await(READ_TIMEOUT_MS - 100, TimeUnit.MILLISECONDS);
+      }
+      List<SearchResult<LogMessage>> searchResults = searchFuture.get(0, TimeUnit.MILLISECONDS);
+      searchFuture.cancel(false);
+      LOG.info(
+          "searchResults.size={} allNodes={} minNodes={} minResults={}, stubSize={}",
+          searchResults.size(),
+          allNodes,
+          minNodes,
+          minResults,
+          stubs.size());
 
       ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
       for (SearchResult<LogMessage> searchResult : searchResults) {
