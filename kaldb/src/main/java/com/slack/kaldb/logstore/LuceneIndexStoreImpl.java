@@ -21,6 +21,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
@@ -139,6 +141,12 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setIndexSort(
+                new Sort(
+                    new SortField(
+                        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                        SortField.Type.LONG,
+                        true)))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
     if (config.enableTracing) {
