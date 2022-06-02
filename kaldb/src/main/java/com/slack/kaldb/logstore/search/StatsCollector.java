@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore.search;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import java.io.IOException;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.search.Collector;
@@ -24,8 +23,7 @@ public class StatsCollector implements Collector {
 
   @Override
   public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
-    LeafReader reader = context.reader();
-    docValues = reader.getNumericDocValues(SystemField.TIME_SINCE_EPOCH.fieldName);
+    docValues = context.reader().getNumericDocValues(SystemField.TIME_SINCE_EPOCH.fieldName);
 
     return new LeafCollector() {
       @Override
@@ -39,6 +37,10 @@ public class StatsCollector implements Collector {
         }
       }
     };
+  }
+
+  public Histogram getHistogram() {
+    return histogram;
   }
 
   @Override
