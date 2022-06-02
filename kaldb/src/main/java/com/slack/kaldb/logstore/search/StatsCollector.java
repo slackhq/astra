@@ -5,12 +5,10 @@ import com.slack.kaldb.logstore.LogMessage.SystemField;
 import java.io.IOException;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.search.Collector;
-import org.apache.lucene.search.LeafCollector;
-import org.apache.lucene.search.Scorable;
 import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.SimpleCollector;
 
-public class StatsCollector implements Collector {
+public class StatsCollector extends SimpleCollector {
 
   public final Histogram histogram;
   private NumericDocValues docValues;
@@ -22,21 +20,8 @@ public class StatsCollector implements Collector {
   }
 
   @Override
-  public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
+  protected void doSetNextReader(final LeafReaderContext context) throws IOException {
     docValues = context.reader().getNumericDocValues(SystemField.TIME_SINCE_EPOCH.fieldName);
-
-    return new LeafCollector() {
-      @Override
-      public void setScorer(Scorable scorer) {}
-
-      @Override
-      public void collect(int doc) throws IOException {
-        if (docValues != null && docValues.advanceExact(doc)) {
-          long timestamp = docValues.longValue();
-          histogram.add(timestamp);
-        }
-      }
-    };
   }
 
   public Histogram getHistogram() {
@@ -46,5 +31,13 @@ public class StatsCollector implements Collector {
   @Override
   public ScoreMode scoreMode() {
     return ScoreMode.COMPLETE_NO_SCORES;
+  }
+
+  @Override
+  public void collect(int doc) throws IOException {
+    if (docValues != null && docValues.advanceExact(doc)) {
+      long timestamp = docValues.longValue();
+      histogram.add(timestamp);
+    }
   }
 }
