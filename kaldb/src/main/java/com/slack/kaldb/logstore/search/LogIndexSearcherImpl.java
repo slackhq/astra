@@ -121,7 +121,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany);
+              buildTopFieldCollector(howMany, bucketCount > 0);
           MultiCollectorManager collectorManager = new MultiCollectorManager(topFieldCollector);
           if (bucketCount > 0) {
             collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
@@ -178,10 +178,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
-  private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(int howMany) {
+  private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(
+      int howMany, boolean useMaxHitsThreshold) {
     if (howMany > 0) {
       SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
-      return TopFieldCollector.createSharedManager(new Sort(sortField), howMany, null, howMany);
+      // if we need an accurate totalResults count then useMaxHitsThreshold should be true,
+      // otherwise false will allow the search to early exit
+      return TopFieldCollector.createSharedManager(
+          new Sort(sortField), howMany, null, useMaxHitsThreshold ? Integer.MAX_VALUE : howMany);
     } else {
       return null;
     }
