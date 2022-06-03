@@ -312,6 +312,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               .search(request);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
+      
       Futures.addCallback(searchRequest, new FutureCallback<>() {
         @Override
         public void onSuccess(KaldbSearch.SearchResult result) {
