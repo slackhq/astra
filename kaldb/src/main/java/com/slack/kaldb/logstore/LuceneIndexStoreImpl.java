@@ -143,6 +143,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
             .setRAMBufferSizeMB(config.ramBufferSizeMB)
             .setUseCompoundFile(false)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            // we sort by timestamp descending, as that is the order we expect to return results the
+            // majority of the time
             .setIndexSort(
                 new Sort(
                     new SortField(

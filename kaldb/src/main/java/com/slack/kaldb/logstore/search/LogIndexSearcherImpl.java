@@ -8,7 +8,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
@@ -23,13 +22,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -39,7 +35,6 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiCollectorManager;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.SearcherFactory;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -63,18 +58,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
-    class CachedThreadPoolSearchFactory extends SearcherFactory {
-      private final ExecutorService executorService =
-          Executors.newCachedThreadPool(
-              new ThreadFactoryBuilder().setNameFormat("log-searcher-impl-%d").build());
-
-      @Override
-      public IndexSearcher newSearcher(IndexReader reader, IndexReader previousReader) {
-        return new IndexSearcher(reader, executorService);
-      }
-    }
-
-    return new SearcherManager(directory, new CachedThreadPoolSearchFactory());
+    return new SearcherManager(directory, null);
   }
 
   // todo - this is not needed once this data is on the snapshot
@@ -129,19 +113,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       // This is a useful optimization for indexes that are static.
       IndexSearcher searcher = searcherManager.acquire();
       try {
-        CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-            buildTopFieldCollector(howMany);
+        List<LogMessage> results;
+        Histogram histogram = new NoOpHistogramImpl();
+
         CollectorManager<StatsCollector, Histogram> statsCollector =
             buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
 
-        MultiCollectorManager collectorManager = new MultiCollectorManager(topFieldCollector);
-        if (bucketCount > 0) {
-          collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
-        }
-
-        List<LogMessage> results;
-        Histogram histogram = new NoOpHistogramImpl();
         if (howMany > 0) {
+          CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
+              buildTopFieldCollector(howMany);
+          MultiCollectorManager collectorManager = new MultiCollectorManager(topFieldCollector);
+          if (bucketCount > 0) {
+            collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
+          }
           Object[] collector = searcher.search(query, collectorManager);
 
           ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
