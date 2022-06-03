@@ -276,11 +276,11 @@ public class KaldbKafkaConsumer {
               LOG.info("ingesting a batch");
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  throw new KafkaOffsetBoundsExceededException(
+                  throw new IllegalArgumentException(
                       "Record is outside of start offset range: " + startOffsetInclusive);
                 }
                 if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  throw new KafkaOffsetBoundsExceededException(
+                  throw new IllegalArgumentException(
                       "Record is outside of start offset range: " + startOffsetInclusive);
                 }
                 try {
