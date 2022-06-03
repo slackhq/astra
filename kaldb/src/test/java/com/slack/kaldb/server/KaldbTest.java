@@ -168,7 +168,8 @@ public class KaldbTest {
       String clientName,
       String zkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
-      int maxOffsetDelay) {
+      int maxOffsetDelay,
+      int recoveryPort) {
     return KaldbConfigUtil.makeKaldbConfig(
         "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
         indexPort,
@@ -182,7 +183,7 @@ public class KaldbTest {
         nodeRole,
         maxOffsetDelay,
         "api_log",
-        indexPort + 3);
+        recoveryPort);
   }
 
   private Kaldb makeIndexerAndIndexMessages(
@@ -209,7 +210,8 @@ public class KaldbTest {
             kafkaClient,
             indexerPathPrefix,
             KaldbConfigs.NodeRole.INDEX,
-            1000);
+            1000,
+            9003);
 
     Kaldb indexer = new Kaldb(indexerConfig, s3Client);
     indexer.start();
@@ -258,7 +260,8 @@ public class KaldbTest {
             KALDB_TEST_CLIENT_1,
             ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
-            1000);
+            1000,
+            -1);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
@@ -346,7 +349,8 @@ public class KaldbTest {
             KALDB_TEST_CLIENT_1,
             ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
-            1000);
+            1000,
+            -1);
     Kaldb queryService = new Kaldb(queryServiceConfig);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
