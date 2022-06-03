@@ -299,9 +299,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     // todo - add config option
-    int minResults = (int) Math.max(Math.min(stubs.size() - 1, Math.floor(stubs.size() * 0.95)), 1);
+    int minResults = (int) Math.max(Math.min(queryStubs.size() - 1, Math.floor(queryStubs.size() * 0.95)), 1);
     CountDownLatch minNodesReporting = new CountDownLatch(minResults);
-    CountDownLatch allNodesReporting = new CountDownLatch(stubs.size());
+    CountDownLatch allNodesReporting = new CountDownLatch(queryStubs.size());
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
