@@ -299,8 +299,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     // todo - add config option
-    int minResults = (int) Math.min(stubs.size() - 1, Math.floor(stubs.size() * 0.95));
+    int minResults = (int) Math.max(Math.min(stubs.size() - 1, Math.floor(stubs.size() * 0.95)), 1);
     CountDownLatch minNodesReporting = new CountDownLatch(minResults);
+    CountDownLatch allNodesReporting = new CountDownLatch(stubs.size());
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
@@ -312,16 +313,18 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               .search(request);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
-      
+
       Futures.addCallback(searchRequest, new FutureCallback<>() {
         @Override
         public void onSuccess(KaldbSearch.SearchResult result) {
           minNodesReporting.countDown();
+          allNodesReporting.countDown();
         }
 
         @Override
         public void onFailure(Throwable t) {
           minNodesReporting.countDown();
+          allNodesReporting.countDown();
         }
       }, MoreExecutors.directExecutor());
 
@@ -337,15 +340,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // wait for at least 2 seconds for all nodes to report
       List<SearchResult<LogMessage>> searchResults = searchFuture.get(100, TimeUnit.MILLISECONDS);
       boolean minNodes = true;
-      if (searchResults.size() < minResults) {
+      boolean allNodes = allNodesReporting.await(0, TimeUnit.MILLISECONDS);
+      if (!allNodes) {
         minNodes = minNodesReporting.await(READ_TIMEOUT_MS - 100, TimeUnit.MILLISECONDS);
         searchResults = searchFuture.get(0, TimeUnit.MILLISECONDS);
         searchFuture.cancel(false);
       }
 
       LOG.info(
-          "searchResults.size={} minNodes={} minResults={}, stubSize={}",
+          "searchResults.size={} allNodes={} minNodes={} minResults={}, stubSize={}",
           searchResults.size(),
+          allNodes,
           minNodes,
           minResults,
           stubs.size());
