@@ -78,7 +78,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
+            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), 8, false);
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
@@ -140,6 +140,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
+            .setRAMBufferSizeMB(config.ramBufferSizeMB)
+            .setUseCompoundFile(false)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
             .setIndexSort(
                 new Sort(

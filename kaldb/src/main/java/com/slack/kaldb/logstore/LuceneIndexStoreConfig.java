@@ -26,6 +26,9 @@ public class LuceneIndexStoreConfig {
   // The name of the lucene log file.
   public final String logFileName;
 
+  // Config to set the IndexWriterConfig.setRAMBufferSizeMB.
+  public final int ramBufferSizeMB;
+
   // A flag that turns on internal logging.
   public final boolean enableTracing;
 
@@ -44,8 +47,18 @@ public class LuceneIndexStoreConfig {
   }
 
   public LuceneIndexStoreConfig(
-      Duration commitDuration, Duration refreshDuration, String indexRoot, boolean enableTracing) {
-    this(commitDuration, refreshDuration, indexRoot, DEFAULT_LOG_FILE_NAME, enableTracing);
+      Duration commitDuration,
+      Duration refreshDuration,
+      String indexRoot,
+      int ramBufferSizeMB,
+      boolean enableTracing) {
+    this(
+        commitDuration,
+        refreshDuration,
+        indexRoot,
+        DEFAULT_LOG_FILE_NAME,
+        ramBufferSizeMB,
+        enableTracing);
   }
 
   public LuceneIndexStoreConfig(
@@ -53,6 +66,7 @@ public class LuceneIndexStoreConfig {
       Duration refreshDuration,
       String indexRoot,
       String logFileName,
+      int ramBufferSizeMB,
       boolean enableTracing) {
     ensureTrue(
         !(commitDuration.isZero() || commitDuration.isNegative()),
@@ -64,6 +78,7 @@ public class LuceneIndexStoreConfig {
     this.refreshDuration = refreshDuration;
     this.indexRoot = indexRoot;
     this.logFileName = logFileName;
+    this.ramBufferSizeMB = ramBufferSizeMB;
     this.enableTracing = enableTracing;
   }
 

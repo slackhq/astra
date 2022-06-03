@@ -73,7 +73,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public static LuceneIndexStoreConfig getIndexStoreConfig(
       Duration commitInterval, Duration refreshInterval, File tempFolder) throws IOException {
     return new LuceneIndexStoreConfig(
-        commitInterval, refreshInterval, tempFolder.getCanonicalPath(), false);
+        commitInterval, refreshInterval, tempFolder.getCanonicalPath(), 8, false);
   }
 
   @Override
