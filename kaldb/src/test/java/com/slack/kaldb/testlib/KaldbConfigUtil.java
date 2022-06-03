@@ -15,7 +15,8 @@ public class KaldbConfigUtil {
       String metadataZkPathPrefix,
       KaldbConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
-      String dataTransformerConfig) {
+      String dataTransformerConfig,
+      int recoveryPort) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -78,7 +79,7 @@ public class KaldbConfigUtil {
         KaldbConfigs.RecoveryConfig.newBuilder()
             .setServerConfig(
                 KaldbConfigs.ServerConfig.newBuilder()
-                    .setServerPort(indexerPort + 3)
+                    .setServerPort(recoveryPort)
                     .setServerAddress("localhost")
                     .build())
             .build();

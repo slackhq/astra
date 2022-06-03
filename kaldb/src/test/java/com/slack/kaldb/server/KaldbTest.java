@@ -181,7 +181,8 @@ public class KaldbTest {
         zkPathPrefix,
         nodeRole,
         maxOffsetDelay,
-        "api_log");
+        "api_log",
+        indexPort + 3);
   }
 
   private Kaldb makeIndexerAndIndexMessages(
