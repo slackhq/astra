@@ -7,6 +7,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -300,7 +301,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     // todo - add config option
     int minResults = (int) Math.min(stubs.size() - 1, Math.floor(stubs.size() * 0.95));
     CountDownLatch minNodesReporting = new CountDownLatch(minResults);
-    CountDownLatch allNodesReporting = new CountDownLatch(stubs.size());
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
@@ -312,37 +312,39 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
               .search(request);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
+      Futures.addCallback(searchRequest, new FutureCallback<>() {
+        @Override
+        public void onSuccess(KaldbSearch.SearchResult result) {
+          minNodesReporting.countDown();
+        }
 
-      ListenableFuture<SearchResult<LogMessage>> future = Futures.transform(
+        @Override
+        public void onFailure(Throwable t) {
+          minNodesReporting.countDown();
+        }
+      }, MoreExecutors.directExecutor());
+
+      queryServers.add(Futures.transform(
           searchRequest,
           searchRequestTransform::apply,
-          RequestContext.current().makeContextAware(MoreExecutors.directExecutor()));
-      future.addListener(
-          () -> {
-            minNodesReporting.countDown();
-            allNodesReporting.countDown();
-          },
-          RequestContext.current().makeContextAware(MoreExecutors.directExecutor()));
-      queryServers.add(future);
+          RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
     }
 
     ListenableFuture<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       // todo - add a config option
       // wait for at least 2 seconds for all nodes to report
-      boolean allNodes = allNodesReporting.await(100, TimeUnit.MILLISECONDS);
+      List<SearchResult<LogMessage>> searchResults = searchFuture.get(100, TimeUnit.MILLISECONDS);
       boolean minNodes = true;
-      if (!allNodes) {
-        // if all nodes haven't come back in 2 seconds, wait for the min amount up until the read
-        // timeout
+      if (searchResults.size() < minResults) {
         minNodes = minNodesReporting.await(READ_TIMEOUT_MS - 100, TimeUnit.MILLISECONDS);
+        searchResults = searchFuture.get(0, TimeUnit.MILLISECONDS);
+        searchFuture.cancel(false);
       }
-      List<SearchResult<LogMessage>> searchResults = searchFuture.get(0, TimeUnit.MILLISECONDS);
-      searchFuture.cancel(false);
+
       LOG.info(
-          "searchResults.size={} allNodes={} minNodes={} minResults={}, stubSize={}",
+          "searchResults.size={} minNodes={} minResults={}, stubSize={}",
           searchResults.size(),
-          allNodes,
           minNodes,
           minResults,
           stubs.size());
