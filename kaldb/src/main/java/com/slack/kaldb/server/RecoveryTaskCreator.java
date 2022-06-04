@@ -103,8 +103,8 @@ public class RecoveryTaskCreator {
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
   }
 
-  private static String getRecoveryTaskName(long creationTimeEpochMs, String partitionId) {
-    return "recoveryTask_" + partitionId + "_" + creationTimeEpochMs;
+  private static String getRecoveryTaskName(String partitionId) {
+    return "recoveryTask_" + partitionId + "_" + Instant.now().getNano();
   }
 
   @VisibleForTesting
@@ -248,7 +248,7 @@ public class RecoveryTaskCreator {
 
   private void createRecoveryTask(String partitionId, long startOffset, long endOffset) {
     final long creationTimeEpochMs = Instant.now().toEpochMilli();
-    final String recoveryTaskName = getRecoveryTaskName(creationTimeEpochMs, partitionId);
+    final String recoveryTaskName = getRecoveryTaskName(partitionId);
     recoveryTaskMetadataStore.createSync(
         new RecoveryTaskMetadata(
             recoveryTaskName, partitionId, startOffset, endOffset, creationTimeEpochMs));
