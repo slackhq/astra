@@ -99,6 +99,11 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>com.linecorp.armeria</groupId>
+            <artifactId>armeria-protobuf</artifactId>
+            <version>${armeria.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.netty.incubator</groupId>
             <artifactId>netty-incubator-transport-native-io_uring</artifactId>
             <version>0.0.14.Final</version>

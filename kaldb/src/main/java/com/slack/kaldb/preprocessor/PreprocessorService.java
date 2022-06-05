@@ -10,6 +10,7 @@ import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.writer.OpenZipkinSpanFormatter;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -21,6 +22,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
@@ -33,6 +36,7 @@ import org.apache.kafka.streams.kstream.ValueMapper;
 import org.apache.kafka.streams.processor.StreamPartitioner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zipkin2.proto3.ListOfSpans;
 
 /**
  * The PreprocessorService consumes from multiple upstream topics, applies rate limiting, transforms
@@ -168,6 +172,24 @@ public class PreprocessorService extends AbstractService {
       loadTimer.stop(configReloadTimer);
     } catch (Exception e) {
       notifyFailed(e);
+    }
+  }
+
+  /**
+   * Adds the given openZipkinSpansList to the down stream topic.
+   *
+   * @param openZipkinSpansList The openZipkinSpansList to be added to the topic.
+   */
+  public void addSpan(final ListOfSpans openZipkinSpansList) {
+    final List<Trace.Span> spans = OpenZipkinSpanFormatter.toSpans(openZipkinSpansList);
+    try (final KafkaProducer<String, Trace.Span> producer =
+        new KafkaProducer<>(this.kafkaProperties)) {
+      spans
+          .stream()
+          .forEach(
+              span -> {
+                producer.send(new ProducerRecord<>(this.downstreamTopic, span));
+              });
     }
   }
 
