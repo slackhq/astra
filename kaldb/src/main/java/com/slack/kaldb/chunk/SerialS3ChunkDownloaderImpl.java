@@ -5,9 +5,7 @@ import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
 import com.slack.kaldb.blobfs.BlobFs;
 import java.nio.file.Path;
 
-/**
- * This downloader downloads all the chunk related data from S3 in a serial fashion.
- */
+/** This downloader downloads all the chunk related data from S3 in a serial fashion. */
 public class SerialS3ChunkDownloaderImpl implements ChunkDownloader {
   private final String s3Bucket;
   private final String snapshotId;
