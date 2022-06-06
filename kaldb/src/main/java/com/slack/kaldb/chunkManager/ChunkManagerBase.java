@@ -57,12 +57,12 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+
+    List<Chunk<T>> chunks = getChunksForQuery(query);
+
     List<CompletableFuture<SearchResult<T>>> queries =
-        chunkList
+        chunks
             .stream()
-            .filter(
-                chunk ->
-                    chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(
@@ -110,6 +110,26 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
       // mayInterruptIfRunning has no effect
       searchResultFuture.cancel(true);
     }
+  }
+
+  // If specific chunks are requested in query only query those chunks. Otherwise, query the chunks
+  // in the time range.
+  private List<Chunk<T>> getChunksForQuery(SearchQuery query) {
+    List<Chunk<T>> chunks = new ArrayList<>();
+    if (query.chunkIds.isEmpty()) {
+      for (Chunk<T> chunk : chunkList) {
+        if (chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs)) {
+          chunks.add(chunk);
+        }
+      }
+    } else {
+      for (Chunk<T> chunk : chunkList) {
+        if (query.chunkIds.contains(chunk.info().chunkId)) {
+          chunks.add(chunk);
+        }
+      }
+    }
+    return chunks;
   }
 
   private SearchResult<T> incrementNodeCount(SearchResult<T> searchResult) {

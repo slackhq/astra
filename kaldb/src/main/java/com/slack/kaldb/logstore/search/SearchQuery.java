@@ -11,6 +11,7 @@ public class SearchQuery {
   public final long endTimeEpochMs;
   public final int howMany;
   public final int bucketCount;
+  public final List<String> chunkIds;
 
   public SearchQuery(
       List<String> chunkIds,
@@ -20,6 +21,7 @@ public class SearchQuery {
       long endTimeEpochMs,
       int howMany,
       int bucketCount) {
+    this.chunkIds = chunkIds;
     this.indexName = indexName;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
@@ -45,6 +47,8 @@ public class SearchQuery {
         + howMany
         + ", bucketCount="
         + bucketCount
+        + ", chunkIds="
+        + chunkIds
         + '}';
   }
 }

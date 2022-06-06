@@ -1235,4 +1235,6 @@ public class IndexingChunkManagerTest {
       }
     }
   }
+
+  // TODO: Add a test for search using chunk ids.
 }

@@ -389,4 +389,6 @@ public class RecoveryChunkManagerTest {
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManager = null;
   }
+
+  // TODO: Add a test for search query via chunk ids.
 }
