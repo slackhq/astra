@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
+import java.util.List;
+
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
   public final String indexName;
@@ -11,6 +13,7 @@ public class SearchQuery {
   public final int bucketCount;
 
   public SearchQuery(
+      List<String> chunkIds,
       String indexName,
       String queryStr,
       long startTimeEpochMs,

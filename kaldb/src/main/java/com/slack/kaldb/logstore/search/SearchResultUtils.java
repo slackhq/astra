@@ -11,12 +11,14 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class SearchResultUtils {
 
   public static SearchQuery fromSearchRequest(KaldbSearch.SearchRequest searchRequest) {
     return new SearchQuery(
+        Collections.emptyList(),
         searchRequest.getIndexName(),
         searchRequest.getQueryString(),
         searchRequest.getStartTimeEpochMs(),

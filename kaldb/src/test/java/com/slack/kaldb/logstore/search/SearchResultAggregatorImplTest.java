@@ -70,6 +70,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             histogramStartMs,
@@ -125,6 +126,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             histogramStartMs,
@@ -191,6 +193,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             histogramStartMs,
@@ -240,6 +243,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             searchStartMs,
@@ -293,6 +297,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             histogramStartMs,
@@ -341,7 +346,13 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_INDEX_NAME, "Message1", startTimeMs, endTimeMs, howMany, bucketCount);
+            Collections.emptyList(),
+            MessageUtil.TEST_INDEX_NAME,
+            "Message1",
+            startTimeMs,
+            endTimeMs,
+            howMany,
+            bucketCount);
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -389,6 +400,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "Message1",
             histogramStartMs,

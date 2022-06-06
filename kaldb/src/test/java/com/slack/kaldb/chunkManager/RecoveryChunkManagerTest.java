@@ -32,6 +32,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -160,7 +161,14 @@ public class RecoveryChunkManagerTest {
 
     // Search query
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_INDEX_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(
+            Collections.emptyList(),
+            MessageUtil.TEST_INDEX_NAME,
+            "Message1",
+            0,
+            MAX_TIME,
+            10,
+            1000);
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -191,7 +199,13 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_INDEX_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                        Collections.emptyList(),
+                        MessageUtil.TEST_INDEX_NAME,
+                        "Message101",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -214,7 +228,13 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_INDEX_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                        Collections.emptyList(),
+                        MessageUtil.TEST_INDEX_NAME,
+                        "Message102",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -260,6 +280,7 @@ public class RecoveryChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             searchString,
             0,

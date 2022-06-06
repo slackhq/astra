@@ -29,6 +29,7 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,7 @@ public class LogMessageWriterImplTest {
 
   private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) {
     return chunkManagerUtil.chunkManager.query(
-        new SearchQuery(indexName, queryString, 0, MAX_TIME, 10, 1000));
+        new SearchQuery(Collections.emptyList(), indexName, queryString, 0, MAX_TIME, 10, 1000));
   }
 
   @Test
@@ -518,7 +519,9 @@ public class LogMessageWriterImplTest {
 
     assertThat(
             chunkManager
-                .query(new SearchQuery(serviceName, "", 0, MAX_TIME, 100, 1000))
+                .query(
+                    new SearchQuery(
+                        Collections.emptyList(), serviceName, "", 0, MAX_TIME, 100, 1000))
                 .hits
                 .size())
         .isEqualTo(15);

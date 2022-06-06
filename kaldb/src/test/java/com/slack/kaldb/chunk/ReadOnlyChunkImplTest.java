@@ -42,6 +42,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
@@ -140,6 +141,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
             new SearchQuery(
+                Collections.emptyList(),
                 MessageUtil.TEST_INDEX_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
@@ -181,6 +183,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
             new SearchQuery(
+                Collections.emptyList(),
                 MessageUtil.TEST_INDEX_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
@@ -395,6 +398,7 @@ public class ReadOnlyChunkImplTest {
 
     SearchQuery query =
         new SearchQuery(
+            Collections.emptyList(),
             MessageUtil.TEST_INDEX_NAME,
             "*:*",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),

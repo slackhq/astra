@@ -5,13 +5,13 @@ package slack.proto.kaldb;
 option java_package = "com.slack.kaldb.proto.service";
 
 message SearchRequest {
-  string chunk_id = 1;
-  string index_name = 2;
-  string query_string = 3;
-  int64 start_time_epoch_ms = 4;
-  int64 end_time_epoch_ms = 5;
-  int32 how_many = 6;
-  int32 bucket_count = 7;
+  string index_name = 1;
+  string query_string = 2;
+  int64 start_time_epoch_ms = 3;
+  int64 end_time_epoch_ms = 4;
+  int32 how_many = 5;
+  int32 bucket_count = 6;
+  repeated string chunk_id = 7;
 }
 
 message SearchResult {

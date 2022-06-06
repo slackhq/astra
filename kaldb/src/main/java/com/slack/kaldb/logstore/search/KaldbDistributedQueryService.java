@@ -290,7 +290,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
-
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
@@ -313,7 +312,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
-      ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
+      ArrayList<SearchResult<LogMessage>> result = new ArrayList<>(searchResults.size());
       for (SearchResult<LogMessage> searchResult : searchResults) {
         result.add(searchResult == null ? SearchResult.empty() : searchResult);
       }
