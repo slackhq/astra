@@ -193,8 +193,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      SerialS3SnapshotDownloaderImpl snapshotDownloader =
-          new SerialS3SnapshotDownloaderImpl(
+      SerialS3ChunkDownloaderImpl snapshotDownloader =
+          new SerialS3ChunkDownloaderImpl(
               s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
       if (snapshotDownloader.download()) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
