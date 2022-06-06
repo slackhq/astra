@@ -1,7 +1,5 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
@@ -195,7 +193,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory).length == 0) {
+      SerialS3SnapshotDownloaderImpl snapshotDownloader =
+          new SerialS3SnapshotDownloaderImpl(
+              s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory);
+      if (snapshotDownloader.download()) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
