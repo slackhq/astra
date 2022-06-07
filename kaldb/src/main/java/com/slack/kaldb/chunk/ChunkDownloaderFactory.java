@@ -12,18 +12,15 @@ import java.util.concurrent.Executors;
 public class ChunkDownloaderFactory {
   private final String s3Bucket;
   private final BlobFs blobFs;
-  private final Path localDataDirectory;
   private final ExecutorService executor;
 
-  public ChunkDownloaderFactory(
-      String s3Bucket, BlobFs blobFs, Path localDataDirectory, int maxParallelDownloads) {
+  public ChunkDownloaderFactory(String s3Bucket, BlobFs blobFs, int maxParallelDownloads) {
     this.s3Bucket = s3Bucket;
     this.blobFs = blobFs;
-    this.localDataDirectory = localDataDirectory;
     this.executor = Executors.newFixedThreadPool(maxParallelDownloads);
   }
 
-  public ChunkDownloader makeChunkDownloader(String snapshotId) {
+  public ChunkDownloader makeChunkDownloader(String snapshotId, Path localDataDirectory) {
     ChunkDownloader serialDownloader =
         new SerialS3ChunkDownloaderImpl(s3Bucket, snapshotId, blobFs, localDataDirectory);
     return new RateLimitedChunkDownloaderImpl(serialDownloader, executor);
