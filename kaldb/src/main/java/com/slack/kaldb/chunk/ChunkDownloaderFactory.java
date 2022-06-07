@@ -1,9 +1,13 @@
 package com.slack.kaldb.chunk;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.slack.kaldb.blobfs.BlobFs;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.annotation.Nonnull;
 
 /**
  * ChunkDownloaderFactory creates ChunkDownloaders based on the config. This also simplifies code by
@@ -14,10 +18,15 @@ public class ChunkDownloaderFactory {
   private final BlobFs blobFs;
   private final ExecutorService executor;
 
-  public ChunkDownloaderFactory(String s3Bucket, BlobFs blobFs, int maxParallelDownloads) {
+  public ChunkDownloaderFactory(
+      String s3Bucket, @Nonnull BlobFs blobFs, int maxParallelCacheSlotDownloads) {
+    checkNotNull(blobFs, "blobFs can't be null");
+    checkState(
+        maxParallelCacheSlotDownloads > 0,
+        "maxParallelCacheSlotDownloads should be a non-zero value.");
     this.s3Bucket = s3Bucket;
     this.blobFs = blobFs;
-    this.executor = Executors.newFixedThreadPool(maxParallelDownloads);
+    this.executor = Executors.newFixedThreadPool(maxParallelCacheSlotDownloads);
   }
 
   public ChunkDownloader makeChunkDownloader(String snapshotId, Path localDataDirectory) {

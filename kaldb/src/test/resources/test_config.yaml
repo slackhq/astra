@@ -45,6 +45,7 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
+  maxParallelCacheSlotDownloads: 6
   dataDirectory: "/tmp"
   serverConfig:
     serverPort: 8082

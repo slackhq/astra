@@ -101,9 +101,9 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       KaldbConfigs.CacheConfig cacheConfig,
       BlobFs blobFs)
       throws Exception {
-    // TODO: Make the maxParallelDownloads a config var.
     ChunkDownloaderFactory chunkDownloaderFactory =
-        new ChunkDownloaderFactory(s3Config.getS3Bucket(), blobFs, 2);
+        new ChunkDownloaderFactory(
+            s3Config.getS3Bucket(), blobFs, cacheConfig.getMaxParallelCacheSlotDownloads());
     return new CachingChunkManager<>(
         meterRegistry,
         metadataStore,
