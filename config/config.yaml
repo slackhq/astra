@@ -49,6 +49,7 @@ metadataStoreConfig:
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
+  maxParallelCacheSlotDownloads: ${KALDB_CACHE_MAX_PARALLEL_CACHE_SLOT_DOWNLOADS:-3}
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
