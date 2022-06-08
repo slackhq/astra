@@ -35,6 +35,12 @@ public class JsonUtil {
     return ourInstance.mapper.readValue(s, valueTypeRef);
   }
 
+  public static <T> String writeJsonValues(String jsonString) {
+    int first = jsonString.indexOf("[");
+    int last = jsonString.lastIndexOf("]");
+    return jsonString.substring(first, last + 1);
+  }
+
   private JsonUtil() {
     mapper =
         JsonMapper.builder()

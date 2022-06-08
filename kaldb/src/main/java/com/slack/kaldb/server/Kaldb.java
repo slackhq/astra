@@ -15,6 +15,7 @@ import com.slack.kaldb.clusterManager.ReplicaDeletionService;
 import com.slack.kaldb.clusterManager.ReplicaEvictionService;
 import com.slack.kaldb.clusterManager.SnapshotDeletionService;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
+import com.slack.kaldb.elasticsearchApi.ZipkinService;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
@@ -199,6 +200,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
+              .withAnnotatedService(new ZipkinService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
