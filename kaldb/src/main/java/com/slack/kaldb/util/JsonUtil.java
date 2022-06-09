@@ -35,7 +35,12 @@ public class JsonUtil {
     return ourInstance.mapper.readValue(s, valueTypeRef);
   }
 
-  public static <T> String writeJsonValues(String jsonString) {
+
+  /*
+  * The Zipkin API requires an output of type Json Array instead of Json Object.
+  * This function converts Json Object outputted by the writeAsString function is converted to a Json Array
+  * */
+  public static <T> String writeJsonArray(String jsonString) {
     int first = jsonString.indexOf("[");
     int last = jsonString.lastIndexOf("]");
     return jsonString.substring(first, last + 1);
