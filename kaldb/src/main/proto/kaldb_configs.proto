@@ -111,9 +111,13 @@ message ServerConfig {
 
 // Configuration for cache node.
 message CacheConfig {
+  // Number of slots per cache instance.
   int32 slots_per_instance = 1;
-  string data_directory = 2;
-  ServerConfig server_config = 3;
+  // Maximum number slots that can download chunks in parallel.
+  int32 max_parallel_cache_slot_downloads = 2;
+  // Path on local disk to store downloaded files.
+  string data_directory = 3;
+  ServerConfig server_config = 4;
 }
 
 // Cluster manager config. As a convention we define a config struct for
@@ -199,6 +203,6 @@ message PreprocessorConfig {
   // Used for calculating target throughput per instance
   int32 preprocessor_instance_count = 6;
 
-  // Amount of time in microseconds the rate limiter can wait for acquire
-  int64 rateLimitSmoothingMicros = 7;
+  // Amount of time in seconds the rate limiter can burst
+  int32 rate_limiter_max_burst_seconds = 7;
 }

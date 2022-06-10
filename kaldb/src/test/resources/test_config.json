@@ -55,6 +55,7 @@
   "cacheConfig": {
     "slotsPerInstance": 10,
     "dataDirectory": "/tmp",
+    "maxParallelCacheSlotDownloads": 3,
     "serverConfig": {
       "serverPort": 8082,
       "serverAddress": "localhost"
@@ -109,6 +110,7 @@
     "upstreamTopics": ["test-topic"],
     "downstreamTopic": "test-topic-out",
     "preprocessorInstanceCount": 1,
-    "dataTransformer": "api_log"
+    "dataTransformer": "api_log",
+    "rateLimiterMaxBurstSeconds": 2
   }
 }

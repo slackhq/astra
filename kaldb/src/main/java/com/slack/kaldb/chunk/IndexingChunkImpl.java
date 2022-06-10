@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * manage it. Instead, when a chunk in created, it registers a live snapshot and a live search node
  * in the postCreation method.
  *
- * <p>Once the chunk is full, it will be snapshotted. Once snapshotted the chunk is not open for
+ * <p>Once the chunk is full, it will be snapshotted. Once snapshotted, the chunk is not open for
  * writing anymore. When a chunk is snapshotted, a non-live snapshot is created which is assigned to
  * a cache node by the cluster manager. The live snapshot is updated with the end time of the chunk
  * so it only receives the queries for the data within it's time range. As long as the chunk is up,
@@ -60,7 +60,7 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
 
   @Override
   public void postSnapshot() {
-    LOG.info("Start Post snapshot chunk {}", chunkInfo);
+    LOG.info("Start post snapshot chunk {}", chunkInfo);
     // Publish a persistent snapshot for this chunk.
     SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
     snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
@@ -78,7 +78,7 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
 
-    LOG.info("Post snapshot operation completed for RW chunk {}", chunkInfo);
+    LOG.info("Post snapshot operation completed for indexing RW chunk {}", chunkInfo);
   }
 
   @Override

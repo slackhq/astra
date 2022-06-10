@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkDownloaderFactory;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -107,11 +108,10 @@ public class CachingChunkManagerTest {
         new CachingChunkManager<>(
             meterRegistry,
             metadataStore,
-            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
-            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
-            kaldbConfig.getCacheConfig().getSlotsPerInstance());
+            kaldbConfig.getCacheConfig().getSlotsPerInstance(),
+            new ChunkDownloaderFactory(s3Config.getS3Bucket(), s3BlobFs, 1));
 
     cachingChunkManager.startAsync();
     cachingChunkManager.awaitRunning(15, TimeUnit.SECONDS);

@@ -1,10 +1,7 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -53,8 +50,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private Path dataDirectory;
   private Metadata.CacheSlotMetadata.CacheSlotState cacheSlotLastKnownState;
 
+  private final ChunkDownloaderFactory chunkDownloaderFactory;
   private final String dataDirectoryPrefix;
-  private final String s3Bucket;
   private final SearchContext searchContext;
   protected final String slotName;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
@@ -63,7 +60,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
   private final ExecutorService executorService;
-  private final BlobFs blobFs;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -76,20 +72,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       MetadataStore metadataStore,
       MeterRegistry meterRegistry,
-      BlobFs blobFs,
       SearchContext searchContext,
-      String s3Bucket,
       String dataDirectoryPrefix,
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore)
+      SearchMetadataStore searchMetadataStore,
+      ChunkDownloaderFactory chunkDownloaderFactory)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
-    this.blobFs = blobFs;
-    this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
+    this.chunkDownloaderFactory = chunkDownloaderFactory;
 
     // we use a single thread executor to allow operations for this chunk to queue,
     // guaranteeing that they are executed in the order they were received
@@ -195,7 +189,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, blobFs, dataDirectory).length == 0) {
+      ChunkDownloader chunkDownloader =
+          chunkDownloaderFactory.makeChunkDownloader(snapshotMetadata.snapshotId, dataDirectory);
+      if (chunkDownloader.download()) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 

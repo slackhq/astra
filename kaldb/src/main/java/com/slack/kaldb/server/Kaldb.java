@@ -288,7 +288,7 @@ public class Kaldb {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(recoveryConfig, metadataStore, meterRegistry);
+          new RecoveryService(kaldbConfig, metadataStore, meterRegistry, blobFs);
       services.add(recoveryService);
     }
 
