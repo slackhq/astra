@@ -58,7 +58,6 @@ import software.amazon.awssdk.services.s3.S3Client;
  * http server, register monitoring libraries, create config manager etc..
  */
 public class Kaldb {
-  public static final String KALDB_METRICS_PREFIX = "kaldb.";
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
   private final PrometheusMeterRegistry prometheusMeterRegistry;
@@ -111,13 +110,13 @@ public class Kaldb {
   }
 
   private static String getComponentTag(KaldbConfigs.KaldbConfig config) {
-    String component = "";
+    String component;
     if (config.getNodeRolesList().size() == 1) {
       component = config.getNodeRolesList().get(0).toString();
     } else {
       component = Strings.join(config.getNodeRolesList(), '-');
     }
-    return component;
+    return Strings.toRootLowerCase(component);
   }
 
   public void start() throws Exception {
