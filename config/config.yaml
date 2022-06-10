@@ -76,6 +76,10 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
 
+clusterConfig:
+  clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
+  env: ${KALDB_CLUSTER_ENV:-local}
+
 recoveryConfig:
   serverConfig:
     serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}

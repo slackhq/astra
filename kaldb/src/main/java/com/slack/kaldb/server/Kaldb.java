@@ -101,7 +101,12 @@ public class Kaldb {
     prometheusMeterRegistry
         .config()
         .commonTags(
-            "kaldb_cluster_name", "", "kaldb_env", "", "kaldb_component", getComponentTag(config));
+            "kaldb_cluster_name",
+            config.getClusterConfig().getClusterName(),
+            "kaldb_env",
+            config.getClusterConfig().getEnv(),
+            "kaldb_component",
+            getComponentTag(config));
     return prometheusMeterRegistry;
   }
 

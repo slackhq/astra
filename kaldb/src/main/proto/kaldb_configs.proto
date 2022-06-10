@@ -29,6 +29,15 @@ message KaldbConfig {
   ManagerConfig manager_config = 9;
   RecoveryConfig recovery_config = 10;
   PreprocessorConfig preprocessor_config = 11;
+  ClusterConfig cluster_config = 12;
+}
+
+// Static configuration for the Kaldb cluster.
+message ClusterConfig {
+  // A string representing name of the cluster.
+  string cluster_name = 1;
+  // A string representing the environment the cluster is running in.
+  string env = 2;
 }
 
 // todo - move this to a nested IndexerConfig message, and refactor as KafkaConsumerConfig
