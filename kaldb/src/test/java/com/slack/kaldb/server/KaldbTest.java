@@ -214,7 +214,9 @@ public class KaldbTest {
             1000,
             9003);
 
-    Kaldb indexer = new Kaldb(indexerConfig, s3Client, meterRegistry);
+    PrometheusMeterRegistry indexerMeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    Kaldb indexer = new Kaldb(indexerConfig, s3Client, indexerMeterRegistry);
     indexer.start();
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == indexerCount);
 
@@ -227,7 +229,7 @@ public class KaldbTest {
         .until(
             () -> {
               try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry);
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
                 LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
                 return count == indexedMessagesCount;
               } catch (MeterNotFoundException e) {
@@ -235,8 +237,8 @@ public class KaldbTest {
               }
             });
 
-    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, meterRegistry) == 1);
-    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, meterRegistry)).isZero();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
 
     return indexer;
   }
