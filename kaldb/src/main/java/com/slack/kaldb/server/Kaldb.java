@@ -32,7 +32,6 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
-import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -40,7 +39,6 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.file.Path;
@@ -50,6 +48,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -91,23 +90,29 @@ public class Kaldb {
     Path configFilePath = Path.of(args[0]);
 
     KaldbConfig.initFromFile(configFilePath);
-    Kaldb kalDb = new Kaldb(KaldbConfig.get(), initPrometheusMeterRegistry());
+    KaldbConfigs.KaldbConfig config = KaldbConfig.get();
+    Kaldb kalDb = new Kaldb(KaldbConfig.get(), initPrometheusMeterRegistry(config));
     kalDb.start();
   }
 
-  static PrometheusMeterRegistry initPrometheusMeterRegistry() {
+  static PrometheusMeterRegistry initPrometheusMeterRegistry(KaldbConfigs.KaldbConfig config) {
     PrometheusMeterRegistry prometheusMeterRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     prometheusMeterRegistry
         .config()
-        .meterFilter(
-            new MeterFilter() {
-              @Override
-              public Meter.Id map(Meter.Id id) {
-                return id.withName(KALDB_METRICS_PREFIX + id.getName());
-              }
-            });
+        .commonTags(
+            "kaldb_cluster_name", "", "kaldb_env", "", "kaldb_component", getComponentTag(config));
     return prometheusMeterRegistry;
+  }
+
+  private static String getComponentTag(KaldbConfigs.KaldbConfig config) {
+    String component = "";
+    if (config.getNodeRolesList().size() == 1) {
+      component = config.getNodeRolesList().get(0).toString();
+    } else {
+      component = Strings.join(config.getNodeRolesList(), '-');
+    }
+    return component;
   }
 
   public void start() throws Exception {
