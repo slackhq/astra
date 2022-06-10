@@ -345,14 +345,9 @@ public class KaldbTest {
             KALDB_TEST_CLIENT_1,
             ZK_PATH_PREFIX,
             KaldbConfigs.NodeRole.QUERY,
-<<<<<<< HEAD
-            1000);
-    Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
-=======
             1000,
             -1);
-    Kaldb queryService = new Kaldb(queryServiceConfig);
->>>>>>> master
+    Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
