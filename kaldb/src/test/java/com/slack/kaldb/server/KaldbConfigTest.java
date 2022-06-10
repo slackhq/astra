@@ -244,6 +244,10 @@ public class KaldbConfigTest {
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
 
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEqualTo("test_kaldb_json_cluster");
+    assertThat(clusterConfig.getEnv()).isEqualTo("env_test");
+
     final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
     final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
     assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
@@ -341,6 +345,10 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
     assertThat(managerConfig.getEventAggregationSecs()).isEqualTo(10);
     assertThat(managerConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEqualTo("test_kaldb_cluster");
+    assertThat(clusterConfig.getEnv()).isEqualTo("test_kaldb_env");
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
@@ -500,6 +508,10 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEmpty();
+    assertThat(clusterConfig.getEnv()).isEmpty();
 
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();

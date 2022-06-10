@@ -92,3 +92,7 @@ preprocessorConfig:
   preprocessorInstanceCount: 1
   dataTransformer: "api_log"
   rateLimiterMaxBurstSeconds: 2
+
+clusterConfig:
+  clusterName: "test_kaldb_cluster"
+  env: "test_kaldb_env"

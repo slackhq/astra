@@ -112,5 +112,9 @@
     "preprocessorInstanceCount": 1,
     "dataTransformer": "api_log",
     "rateLimiterMaxBurstSeconds": 2
+  },
+  "clusterConfig": {
+    "clusterName": "test_kaldb_json_cluster",
+    "env": "env_test"
   }
 }
