@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.KaldbConfig;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -30,7 +32,7 @@ import org.slf4j.LoggerFactory;
  */
 public class KaldbKafkaConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
-  private static final int KAFKA_POLL_TIMEOUT_MS = 100;
+  public static final int KAFKA_POLL_TIMEOUT_MS = 100;
   private final LogMessageWriterImpl logMessageWriterImpl;
 
   public static KaldbKafkaConsumer fromConfig(
@@ -191,7 +193,7 @@ public class KaldbKafkaConsumer {
     consumeMessages(KAFKA_POLL_TIMEOUT_MS);
   }
 
-  public void consumeMessages(long kafkaPollTimeoutMs) throws IOException {
+  public void consumeMessages(final long kafkaPollTimeoutMs) throws IOException {
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
     int recordCount = records.count();
@@ -209,6 +211,97 @@ public class KaldbKafkaConsumer {
           recordCount - recordFailures,
           recordFailures);
     }
+  }
+
+  /**
+   * The default offer method on array blocking queue class fails an insert an element when the
+   * queue is full. So, we override the offer method here to wait when inserting the item until the
+   * queue has enough capacity again. While this blocking behaviour is not ideal in the general
+   * case, in this specific case, the blocking call acts as a back pressure mechanism pausing the
+   * kafka message consumption from the broker.
+   */
+  private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
+    public BlockingArrayBlockingQueue(int capacity) {
+      super(capacity);
+    }
+
+    @Override
+    public boolean offer(E element) {
+      try {
+        return super.offer(element, Long.MAX_VALUE, TimeUnit.MINUTES);
+      } catch (InterruptedException ex) {
+        LOG.error("Exception in blocking array queue", ex);
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Consume messages between the given start and end offset as fast as possible. This method is
+   * called in the catchup indexer whose operations are idempotent. Further, we want to index the
+   * data using all the available cpu power, so we should index it from multiple threads. But kafka
+   * consumer is not thread safe, instead of calling the consumer from multiple threads, we will
+   * decouple the consumption from processing using a blocking queue as recommended by the kafka
+   * documentation.
+   */
+  public boolean consumeMessagesBetweenOffsetsInParallel(
+      final long kafkaPollTimeoutMs, final long startOffsetInclusive, final long endOffsetInclusive)
+      throws InterruptedException {
+    final int maxPoolSize = 16;
+    final int poolSize = Math.min(Runtime.getRuntime().availableProcessors() * 2, maxPoolSize);
+    LOG.info("Pool size for queue is: {}", poolSize);
+
+    // TODO: Track and log errors and success better.
+    BlockingArrayBlockingQueue<Runnable> queue = new BlockingArrayBlockingQueue<>(100);
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            poolSize,
+            poolSize,
+            0L,
+            TimeUnit.MILLISECONDS,
+            queue,
+            new ThreadFactoryBuilder().setNameFormat("recovery-task-%d").build());
+
+    final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
+    long messagesIndexed = 0;
+    while (messagesIndexed <= messagesToIndex) {
+      ConsumerRecords<String, byte[]> records =
+          kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
+      int recordCount = records.count();
+      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+      if (recordCount > 0) {
+        messagesIndexed += recordCount;
+        executor.submit(
+            () -> {
+              LOG.info("ingesting a batch");
+              for (ConsumerRecord<String, byte[]> record : records) {
+                if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
+                  throw new IllegalArgumentException(
+                      "Record is outside of start offset range: " + startOffsetInclusive);
+                }
+                if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                  throw new IllegalArgumentException(
+                      "Record is outside of start offset range: " + startOffsetInclusive);
+                }
+                try {
+                  if (logMessageWriterImpl.insertRecord(record)) {
+                    recordsReceivedCounter.increment();
+                  } else {
+                    recordsFailedCounter.increment();
+                  }
+                } catch (IOException e) {
+                  LOG.error("Encountered exception processing batch", e);
+                }
+              }
+              // TODO: Not all threads are printing this message.
+              LOG.info("finished ingesting a batch");
+            });
+        LOG.debug("Queued");
+      }
+    }
+    executor.shutdown();
+    LOG.info("Shut down");
+    return executor.awaitTermination(1, TimeUnit.MINUTES);
   }
 
   @VisibleForTesting

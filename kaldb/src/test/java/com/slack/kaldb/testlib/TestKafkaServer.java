@@ -40,9 +40,10 @@ public class TestKafkaServer {
 
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
-      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId, int count)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, count, 1000, startTime);
 
     int indexedCount = 0;
     // Insert messages into Kafka.
@@ -71,9 +72,16 @@ public class TestKafkaServer {
     return indexedCount;
   }
 
-  public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
+  // Create messages, format them into murron protobufs, write them to kafka
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
+    return produceMessagesToKafka(broker, startTime, kafkaTopic, partitionId, 100);
+  }
+
+  public static int produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
+      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+    return produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
   }
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)

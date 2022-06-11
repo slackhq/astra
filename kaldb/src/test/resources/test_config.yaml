@@ -45,6 +45,7 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
+  maxParallelCacheSlotDownloads: 6
   dataDirectory: "/tmp"
   serverConfig:
     serverPort: 8082
@@ -90,3 +91,8 @@ preprocessorConfig:
   downstreamTopic: test-topic-out
   preprocessorInstanceCount: 1
   dataTransformer: "api_log"
+  rateLimiterMaxBurstSeconds: 2
+
+clusterConfig:
+  clusterName: "test_kaldb_cluster"
+  env: "test_kaldb_env"

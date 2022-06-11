@@ -203,6 +203,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
+    assertThat(cacheConfig.getMaxParallelCacheSlotDownloads()).isEqualTo(3);
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -243,6 +244,10 @@ public class KaldbConfigTest {
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
 
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEqualTo("test_kaldb_json_cluster");
+    assertThat(clusterConfig.getEnv()).isEqualTo("env_test");
+
     final KaldbConfigs.RecoveryConfig recoveryConfig = config.getRecoveryConfig();
     final KaldbConfigs.ServerConfig recoveryServerConfig = recoveryConfig.getServerConfig();
     assertThat(recoveryServerConfig.getServerPort()).isEqualTo(8084);
@@ -253,6 +258,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -331,6 +337,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isEqualTo(10);
+    assertThat(cacheConfig.getMaxParallelCacheSlotDownloads()).isEqualTo(6);
     assertThat(cacheServerConfig.getServerPort()).isEqualTo(8082);
     assertThat(cacheConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(cacheServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -338,6 +345,10 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig managerConfig = config.getManagerConfig();
     assertThat(managerConfig.getEventAggregationSecs()).isEqualTo(10);
     assertThat(managerConfig.getScheduleInitialDelayMins()).isEqualTo(1);
+
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEqualTo("test_kaldb_cluster");
+    assertThat(clusterConfig.getEnv()).isEqualTo("test_kaldb_env");
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
@@ -381,6 +392,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEqualTo(List.of("test-topic"));
     assertThat(preprocessorConfig.getDownstreamTopic()).isEqualTo("test-topic-out");
     assertThat(preprocessorConfig.getDataTransformer()).isEqualTo("api_log");
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isEqualTo(2);
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isEqualTo(8085);
@@ -465,6 +477,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
+    assertThat(cacheConfig.getMaxParallelCacheSlotDownloads()).isZero();
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
@@ -496,6 +509,10 @@ public class KaldbConfigTest {
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
 
+    final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
+    assertThat(clusterConfig.getClusterName()).isEmpty();
+    assertThat(clusterConfig.getEnv()).isEmpty();
+
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();
     assertThat(snapshotDeletionServiceConfig.getSchedulePeriodMins()).isZero();
@@ -515,6 +532,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();
@@ -579,6 +597,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.CacheConfig cacheConfig = config.getCacheConfig();
     final KaldbConfigs.ServerConfig cacheServerConfig = cacheConfig.getServerConfig();
     assertThat(cacheConfig.getSlotsPerInstance()).isZero();
+    assertThat(cacheConfig.getMaxParallelCacheSlotDownloads()).isZero();
     assertThat(cacheConfig.getDataDirectory()).isEmpty();
     assertThat(cacheServerConfig.getServerPort()).isZero();
     assertThat(cacheServerConfig.getServerAddress()).isEmpty();
@@ -624,6 +643,7 @@ public class KaldbConfigTest {
     assertThat(preprocessorConfig.getUpstreamTopicsList()).isEmpty();
     assertThat(preprocessorConfig.getDownstreamTopic()).isEmpty();
     assertThat(preprocessorConfig.getDataTransformer()).isEmpty();
+    assertThat(preprocessorConfig.getRateLimiterMaxBurstSeconds()).isZero();
 
     final KaldbConfigs.ServerConfig preprocessorServerConfig = preprocessorConfig.getServerConfig();
     assertThat(preprocessorServerConfig.getServerPort()).isZero();

@@ -5,8 +5,9 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,7 +28,10 @@ public class PreprocessorRateLimiter {
 
   private final MeterRegistry meterRegistry;
   private final int preprocessorCount;
-  private final Duration rateLimitDuration;
+
+  private final int maxBurstSeconds;
+
+  private final boolean initializeWarm;
 
   public static final String MESSAGES_DROPPED = "preprocessor_rate_limit_messages_dropped";
   public static final String BYTES_DROPPED = "preprocessor_rate_limit_bytes_dropped";
@@ -41,15 +45,61 @@ public class PreprocessorRateLimiter {
   public PreprocessorRateLimiter(
       final MeterRegistry meterRegistry,
       final int preprocessorCount,
-      final long rateLimitSmoothingMicros) {
+      final int maxBurstSeconds,
+      final boolean initializeWarm) {
     Preconditions.checkArgument(preprocessorCount > 0, "Preprocessor count must be greater than 0");
     Preconditions.checkArgument(
-        rateLimitSmoothingMicros >= 0,
-        "Preprocessor rateLimitSmoothingMicros must be greater than or equal to 0");
+        maxBurstSeconds >= 1, "Preprocessor maxBurstSeconds must be greater than or equal to 1");
 
     this.meterRegistry = meterRegistry;
     this.preprocessorCount = preprocessorCount;
-    this.rateLimitDuration = Duration.of(rateLimitSmoothingMicros, ChronoUnit.MICROS);
+    this.maxBurstSeconds = maxBurstSeconds;
+    this.initializeWarm = initializeWarm;
+  }
+
+  /**
+   * Creates a burstable rate limiter based on Guava rate limiting. This is supported by Guava, but
+   * isn't exposed due to some philosophical arguments about needing a major refactor first -
+   * https://github.com/google/guava/issues/1707.
+   *
+   * @param permitsPerSecond how many permits to grant per second - will require warmup period
+   * @param maxBurstSeconds how many seconds permits can be accumulated - default guava value is 1s
+   * @param initializeWarm if stored permits are initialized to the max value that can be
+   *     accumulated
+   */
+  protected static RateLimiter smoothBurstyRateLimiter(
+      double permitsPerSecond, double maxBurstSeconds, boolean initializeWarm) {
+    try {
+      Class<?> sleepingStopwatchClass =
+          Class.forName("com.google.common.util.concurrent.RateLimiter$SleepingStopwatch");
+      Method createFromSystemTimerMethod =
+          sleepingStopwatchClass.getDeclaredMethod("createFromSystemTimer");
+      createFromSystemTimerMethod.setAccessible(true);
+      Object stopwatch = createFromSystemTimerMethod.invoke(null);
+
+      Class<?> burstyRateLimiterClass =
+          Class.forName("com.google.common.util.concurrent.SmoothRateLimiter$SmoothBursty");
+      Constructor<?> burstyRateLimiterConstructor =
+          burstyRateLimiterClass.getDeclaredConstructors()[0];
+      burstyRateLimiterConstructor.setAccessible(true);
+
+      RateLimiter result =
+          (RateLimiter) burstyRateLimiterConstructor.newInstance(stopwatch, maxBurstSeconds);
+      result.setRate(permitsPerSecond);
+
+      if (initializeWarm) {
+        Field storedPermitsField =
+            result.getClass().getSuperclass().getDeclaredField("storedPermits");
+        storedPermitsField.setAccessible(true);
+        storedPermitsField.set(result, permitsPerSecond * maxBurstSeconds);
+      }
+
+      return result;
+    } catch (Exception e) {
+      LOG.error(
+          "Error creating smooth bursty rate limiter, defaulting to non-bursty rate limiter", e);
+      return RateLimiter.create(permitsPerSecond);
+    }
   }
 
   public Predicate<String, Trace.Span> createRateLimiter(
@@ -69,7 +119,8 @@ public class PreprocessorRateLimiter {
                           permitsPerSecond,
                           entry.getValue(),
                           preprocessorCount);
-                      return RateLimiter.create(permitsPerSecond);
+                      return smoothBurstyRateLimiter(
+                          permitsPerSecond, maxBurstSeconds, initializeWarm);
                     })));
 
     return (key, value) -> {
@@ -108,7 +159,7 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      if (rateLimiterMap.get(serviceName).tryAcquire(bytes, rateLimitDuration)) {
+      if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
         return true;
       }
 

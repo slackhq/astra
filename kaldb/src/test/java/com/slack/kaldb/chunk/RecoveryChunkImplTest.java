@@ -1,13 +1,8 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD;
-import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD_FAILED;
-import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
+import static com.slack.kaldb.chunk.ReadWriteChunk.*;
 import static com.slack.kaldb.chunk.ReadWriteChunk.SNAPSHOT_TIMER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.*;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
@@ -21,7 +16,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -32,21 +26,17 @@ import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -54,7 +44,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 @RunWith(Enclosed.class)
-public class IndexingChunkImplTest {
+public class RecoveryChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_HOST = "localhost";
   private static final int TEST_PORT = 34567;
@@ -62,35 +52,23 @@ public class IndexingChunkImplTest {
   private static final Duration COMMIT_INTERVAL = Duration.ofSeconds(5 * 60);
   private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5 * 60);
 
-  private static void testBeforeSnapshotState(
-      SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore,
-      ReadWriteChunk<LogMessage> chunk)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
-        .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-    final List<SearchMetadata> beforeSearchNodes =
-        searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-    assertThat(beforeSearchNodes.size()).isEqualTo(1);
-    assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
-    assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-  }
-
   public static class BasicTests {
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    private boolean closeChunk = true;
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private MetadataStore metadataStore;
+    private SnapshotMetadataStore snapshotMetadataStore;
+    private SearchMetadataStore searchMetadataStore;
 
     @Before
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
 
       testingServer = new TestingServer();
+      registry = new SimpleMeterRegistry();
+
       KaldbConfigs.ZookeeperConfig zkConfig =
           KaldbConfigs.ZookeeperConfig.newBuilder()
               .setZkConnectString(testingServer.getConnectString())
@@ -99,19 +77,16 @@ public class IndexingChunkImplTest {
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
               .build();
-
-      registry = new SimpleMeterRegistry();
-
       metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+      searchMetadataStore = new SearchMetadataStore(metadataStore, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new IndexingChunkImpl<>(
+          new RecoveryChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -121,14 +96,16 @@ public class IndexingChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
-      closeChunk = true;
-      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSync()).isEmpty();
     }
 
     @After
     public void tearDown() throws IOException, TimeoutException {
-      if (closeChunk) chunk.close();
+      if (chunk != null) chunk.close();
 
+      searchMetadataStore.close();
+      snapshotMetadataStore.close();
       metadataStore.close();
       testingServer.close();
       registry.close();
@@ -136,6 +113,10 @@ public class IndexingChunkImplTest {
 
     @Test
     public void testAddAndSearchChunk() {
+      // test no metadata stores are created post create.
+      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -163,6 +144,9 @@ public class IndexingChunkImplTest {
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
+
+      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
     }
 
     @Test
@@ -177,7 +161,7 @@ public class IndexingChunkImplTest {
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
       assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
     }
 
     @Test
@@ -382,9 +366,9 @@ public class IndexingChunkImplTest {
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
     private MetadataStore metadataStore;
-    private boolean closeChunk;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
+    private S3BlobFs s3BlobFs;
 
     @Before
     public void setUp() throws Exception {
@@ -410,7 +394,7 @@ public class IndexingChunkImplTest {
           LuceneIndexStoreImpl.makeLogStore(
               temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
       chunk =
-          new IndexingChunkImpl<>(
+          new RecoveryChunkImpl<>(
               logStore,
               CHUNK_DATA_PREFIX,
               registry,
@@ -419,29 +403,25 @@ public class IndexingChunkImplTest {
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
-      closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(searchNodes.size()).isEqualTo(1);
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSync()).isEmpty();
     }
 
     @After
     public void tearDown() throws IOException, TimeoutException {
-      if (closeChunk) chunk.close();
+      if (chunk != null) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
       metadataStore.close();
       testingServer.close();
       registry.close();
+      if (s3BlobFs != null) {
+        s3BlobFs.close();
+      }
     }
 
     @Test
-    public void testSnapshotToNonExistentS3BucketFails()
-        throws ExecutionException, InterruptedException, TimeoutException {
-      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
+    public void testSnapshotToNonExistentS3BucketFails() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -468,35 +448,21 @@ public class IndexingChunkImplTest {
       // create an S3 client for test
       String bucket = "invalid-bucket";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+      s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      // Metadata checks
-      List<SnapshotMetadata> afterSnapshots =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(afterSnapshots.size()).isEqualTo(1);
-      assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-      assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
-      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-
-      List<SearchMetadata> afterSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(afterSearchNodes.size()).isEqualTo(1);
-      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
-          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+      // No live snapshot or search metadata is published since the S3 snapshot failed.
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSync()).isEmpty();
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
 
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
-      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
       for (LogMessage m : messages) {
@@ -541,28 +507,16 @@ public class IndexingChunkImplTest {
       // Metadata checks
       List<SnapshotMetadata> afterSnapshots =
           snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(afterSnapshots.size()).isEqualTo(2);
+      assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
-      SnapshotMetadata liveSnapshot =
-          afterSnapshots
-              .stream()
-              .filter(s -> s.snapshotPath.equals(SnapshotMetadata.LIVE_SNAPSHOT_PATH))
-              .findFirst()
-              .get();
-      assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-      assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
-      assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-
-      List<SearchMetadata> afterSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-      assertThat(afterSearchNodes.size()).isEqualTo(1);
-      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
-          .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+      assertThat(s3BlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();
+      // Only non-live snapshots. No live snapshots.
+      assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
+      // No search nodes are added for recovery chunk.
+      assertThat(searchMetadataStore.listSync()).isEmpty();
 
       chunk.close();
-      closeChunk = false;
+      chunk = null;
     }
   }
 }

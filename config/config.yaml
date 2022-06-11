@@ -49,6 +49,7 @@ metadataStoreConfig:
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
+  maxParallelCacheSlotDownloads: ${KALDB_CACHE_MAX_PARALLEL_CACHE_SLOT_DOWNLOADS:-3}
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
@@ -75,6 +76,10 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
 
+clusterConfig:
+  clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
+  env: ${KALDB_CLUSTER_ENV:-local}
+
 recoveryConfig:
   serverConfig:
     serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
@@ -93,4 +98,4 @@ preprocessorConfig:
   downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
-  rateLimitSmoothingMicros: ${PREPROCESSOR_RATE_LIMIT_SMOOTHING_MICROS:-0}
+  rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}

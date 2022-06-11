@@ -40,8 +40,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexStoreImpl.class);
   public static final String MESSAGES_RECEIVED_COUNTER = "messages_received";
   public static final String MESSAGES_FAILED_COUNTER = "messages_failed";
-  public static final String COMMITS_COUNTER = "commits";
-  public static final String REFRESHES_COUNTER = "refreshes";
+  public static final String COMMITS_TIMER = "kaldb_index_commits";
+  public static final String REFRESHES_TIMER = "kaldb_index_refreshes";
 
   private final SearcherManager searcherManager;
   private final DocumentBuilder<LogMessage> documentBuilder;
@@ -53,8 +53,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   // Stats counters.
   private final Counter messagesReceivedCounter;
   private final Counter messagesFailedCounter;
-  private final Counter commitsCounter;
-  private final Counter refreshesCounter;
+  private final io.micrometer.core.instrument.Timer commitsTimer;
+  private final io.micrometer.core.instrument.Timer refreshesTimer;
 
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
@@ -76,7 +76,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), 8, false);
+            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
@@ -123,8 +123,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     // Initialize stats counters
     messagesReceivedCounter = registry.counter(MESSAGES_RECEIVED_COUNTER);
     messagesFailedCounter = registry.counter(MESSAGES_FAILED_COUNTER);
-    commitsCounter = registry.counter(COMMITS_COUNTER);
-    refreshesCounter = registry.counter(REFRESHES_COUNTER);
+    commitsTimer = registry.timer(COMMITS_TIMER);
+    refreshesTimer = registry.timer(REFRESHES_TIMER);
 
     LOG.info(
         "Created a lucene index {} at: {}", id, indexDirectory.getDirectory().toAbsolutePath());
@@ -138,8 +138,6 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
-            .setRAMBufferSizeMB(config.ramBufferSizeMB)
-            .setUseCompoundFile(false)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
@@ -201,26 +199,30 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   @Override
   public void commit() {
-    LOG.debug("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
-    try {
-      syncCommit();
-      LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
-      commitsCounter.increment();
-    } catch (IOException e) {
-      handleNonFatal(e);
-    }
+    commitsTimer.record(
+        () -> {
+          LOG.debug("Indexer starting commit for: " + indexDirectory.getDirectory().toString());
+          try {
+            syncCommit();
+            LOG.debug("Indexer finished commit for: " + indexDirectory.getDirectory().toString());
+          } catch (IOException e) {
+            handleNonFatal(e);
+          }
+        });
   }
 
   @Override
   public void refresh() {
-    LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
-    try {
-      syncRefresh();
-      LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
-      refreshesCounter.increment();
-    } catch (IOException e) {
-      handleNonFatal(e);
-    }
+    refreshesTimer.record(
+        () -> {
+          LOG.debug("Indexer starting refresh for: " + indexDirectory.getDirectory().toString());
+          try {
+            syncRefresh();
+            LOG.debug("Indexer finished refresh for: " + indexDirectory.getDirectory().toString());
+          } catch (IOException e) {
+            handleNonFatal(e);
+          }
+        });
   }
 
   @Override

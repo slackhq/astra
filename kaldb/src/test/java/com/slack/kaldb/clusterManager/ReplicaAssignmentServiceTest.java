@@ -1086,4 +1086,64 @@ public class ReplicaAssignmentServiceTest {
     replicaAssignmentService.stopAsync();
     replicaAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
   }
+
+  @Test
+  public void shouldPreferNewerReplicasIfLackingCapacity() throws Exception {
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+            .setSchedulePeriodMins(1)
+            .build();
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(1)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
+            .build();
+
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
+            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+
+    Instant now = Instant.now();
+    ReplicaMetadata olderReplicaMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli());
+    replicaMetadataStore.create(olderReplicaMetadata);
+
+    ReplicaMetadata newerReplicaMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            now.toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli());
+    replicaMetadataStore.create(newerReplicaMetadata);
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    CacheSlotMetadata cacheSlotMetadata =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+            "",
+            Instant.now().toEpochMilli());
+
+    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    await()
+        .until(
+            () -> {
+              List<CacheSlotMetadata> cacheSlotMetadataList = cacheSlotMetadataStore.getCached();
+              return cacheSlotMetadataList.size() == 1
+                  && cacheSlotMetadataList.get(0).cacheSlotState
+                      == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
+            });
+
+    List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSync();
+    assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
+  }
 }

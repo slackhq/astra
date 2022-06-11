@@ -219,7 +219,7 @@ public class KaldbDistributedQueryServiceTest {
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 101, List.of("1"));
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 300, List.of("1"));
     ServiceMetadata serviceMetadata =
         new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
     serviceMetadataStore.createSync(serviceMetadata);
