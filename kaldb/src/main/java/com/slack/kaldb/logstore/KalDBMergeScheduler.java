@@ -1,4 +1,4 @@
-package com.slack.kaldb.logstore.index;
+package com.slack.kaldb.logstore;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
