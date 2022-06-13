@@ -37,11 +37,9 @@ public class KaldbConfig {
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
   // is used for controlling lucene future timeouts.
-  public static final Duration ARMERIA_TIMEOUT_DURATION = Duration.of(10, ChronoUnit.SECONDS);
-  public static Duration DISTRIBUTED_QUERY_TIMEOUT_DURATION =
-      ARMERIA_TIMEOUT_DURATION.minus(Duration.of(2, ChronoUnit.SECONDS));
-  public static Duration LOCAL_QUERY_TIMEOUT_DURATION =
-      DISTRIBUTED_QUERY_TIMEOUT_DURATION.minus(Duration.of(2, ChronoUnit.SECONDS));
+  public static final Duration ARMERIA_TIMEOUT_DURATION = Duration.of(5000, ChronoUnit.MILLIS);
+  public static Duration DISTRIBUTED_QUERY_TIMEOUT_DURATION = Duration.of(2000, ChronoUnit.MILLIS);
+  public static Duration LOCAL_QUERY_TIMEOUT_DURATION = Duration.of(1500, ChronoUnit.MILLIS);
 
   private static KaldbConfig _instance = null;
 
