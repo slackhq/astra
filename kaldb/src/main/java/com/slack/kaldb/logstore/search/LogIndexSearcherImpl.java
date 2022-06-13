@@ -121,10 +121,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany, bucketCount > 0);
-          MultiCollectorManager collectorManager = new MultiCollectorManager(topFieldCollector);
+              buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
+          MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
             collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
+          } else {
+            collectorManager = new MultiCollectorManager(topFieldCollector);
           }
           Object[] collector = searcher.search(query, collectorManager);
 
@@ -178,14 +180,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
+  /**
+   * Builds a top field collector for the requested amount of results, with the option to set the
+   * totalHitsThreshold. If the totalHitsThreshold is set to Integer.MAX_VALUE it will force a
+   * ScoreMode.COMPLETE, iterating over all documents at the expense of a longer query time. This
+   * value can be set to equal howMany to allow early exiting (ScoreMode.TOP_SCORES), but should
+   * only be done when all collectors are tolerant of an early exit.
+   */
   private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(
-      int howMany, boolean useMaxHitsThreshold) {
+      int howMany, int totalHitsThreshold) {
     if (howMany > 0) {
       SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
-      // if we need an accurate totalResults count then useMaxHitsThreshold should be true,
-      // otherwise false will allow the search to early exit
       return TopFieldCollector.createSharedManager(
-          new Sort(sortField), howMany, null, useMaxHitsThreshold ? Integer.MAX_VALUE : howMany);
+          new Sort(sortField), howMany, null, totalHitsThreshold);
     } else {
       return null;
     }
