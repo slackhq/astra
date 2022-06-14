@@ -43,9 +43,9 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * different thread pools for indexer and cache nodes in the future.
    */
   private static ExecutorService queryThreadPool() {
-    int threadPoolSize = Math.max(4, Runtime.getRuntime().availableProcessors() * 2);
     return Executors.newFixedThreadPool(
-        threadPoolSize, new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
+        Runtime.getRuntime().availableProcessors(),
+        new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 
   /*
