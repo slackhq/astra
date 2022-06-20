@@ -94,6 +94,11 @@
     "snapshotDeletionServiceConfig": {
       "schedulePeriodMins": 15,
       "snapshotLifespanMins": 10080
+    },
+    "replicaRestoreServiceConfig": {
+      "schedulePeriodMins": 15,
+      "maxReplicasPerRequest": 200,
+      "replicaLifespanMins": 60
     }
   },
   "recoveryConfig": {

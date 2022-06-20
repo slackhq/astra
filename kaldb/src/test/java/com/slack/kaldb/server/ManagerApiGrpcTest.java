@@ -9,10 +9,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
+import com.slack.kaldb.clusterManager.ReplicaRestoreService;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -20,6 +23,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.testlib.MetricsUtil;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -47,6 +51,9 @@ public class ManagerApiGrpcTest {
 
   private MetadataStore metadataStore;
   private DatasetMetadataStore datasetMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private ReplicaMetadataStore replicaMetadataStore;
+  private ReplicaRestoreService replicaRestoreService;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
   @Before
@@ -66,11 +73,30 @@ public class ManagerApiGrpcTest {
 
     metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
     datasetMetadataStore = spy(new DatasetMetadataStore(metadataStore, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(metadataStore, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
+
+    KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
+            .setMaxReplicasPerRequest(200)
+            .setReplicaLifespanMins(60)
+            .setSchedulePeriodMins(30)
+            .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaRestoreServiceConfig(replicaRecreationServiceConfig)
+            .build();
+
+    replicaRestoreService =
+        new ReplicaRestoreService(replicaMetadataStore, meterRegistry, managerConfig);
 
     grpcCleanup.register(
         InProcessServerBuilder.forName(this.getClass().toString())
             .directExecutor()
-            .addService(new ManagerApiGrpc(datasetMetadataStore))
+            .addService(
+                new ManagerApiGrpc(
+                    datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
             .build()
             .start());
     ManagedChannel channel =
@@ -537,5 +563,94 @@ public class ManagerApiGrpcTest {
                     partiallyOverlapsStartEndTimeIncluded,
                     overlapsEndTimeIncluded)))
         .isTrue();
+  }
+
+  @Test
+  public void shouldRestoreReplicaSinglePartition() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata snapshotIncluded =
+        new SnapshotMetadata("g", "g", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata snapshotExcluded =
+        new SnapshotMetadata("h", "h", startTime + 10, startTime + 15, 0, "b");
+
+    snapshotMetadataStore.createSync(snapshotIncluded);
+    snapshotMetadataStore.createSync(snapshotExcluded);
+
+    DatasetMetadata serviceWithDataInPartitionA =
+        new DatasetMetadata(
+            "foo",
+            "a",
+            1,
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+
+    datasetMetadataStore.createSync(serviceWithDataInPartitionA);
+
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 2);
+
+    managerApiStub.restoreReplica(
+        ManagerApi.RestoreReplicaRequest.newBuilder()
+            .setServiceName("foo")
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 1);
+    await()
+        .until(
+            () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry) == 1);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void shouldRestoreReplicasMultiplePartitions() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata snapshotIncluded =
+        new SnapshotMetadata("a", "a", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata snapshotIncluded2 =
+        new SnapshotMetadata("b", "b", startTime + 10, startTime + 15, 0, "b");
+    SnapshotMetadata snapshotExcluded =
+        new SnapshotMetadata("c", "c", startTime + 10, startTime + 15, 0, "c");
+
+    snapshotMetadataStore.createSync(snapshotIncluded);
+    snapshotMetadataStore.createSync(snapshotIncluded2);
+    snapshotMetadataStore.createSync(snapshotExcluded);
+
+    DatasetMetadata serviceWithDataInPartitionA =
+        new DatasetMetadata(
+            "foo",
+            "a",
+            1,
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a", "b"))));
+
+    datasetMetadataStore.createSync(serviceWithDataInPartitionA);
+
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 3);
+
+    replicaRestoreService.startAsync();
+    replicaRestoreService.awaitRunning();
+
+    managerApiStub.restoreReplica(
+        ManagerApi.RestoreReplicaRequest.newBuilder()
+            .setServiceName("foo")
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(2);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+
+    replicaRestoreService.stopAsync();
   }
 }
