@@ -4,19 +4,24 @@ import static com.slack.kaldb.metadata.service.ServiceMetadataSerializer.toServi
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.metadata.service.ServiceMetadata;
 import com.slack.kaldb.metadata.service.ServiceMetadataSerializer;
 import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,6 +169,54 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       LOG.error("Error updating partition assignment", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
+  }
+
+  /**
+   * Fetches all SnapshotMetadata between startTimeEpochMs and endTimeEpochMs that contain data from
+   * the queried service
+   *
+   * @return List of SnapshotMetadata that are within specified timeframe and from queried service
+   */
+  protected static List<SnapshotMetadata> fetchSnapshots(
+      List<SnapshotMetadata> snapshotMetadataList,
+      ServiceMetadataStore serviceMetadataStore,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      String serviceName) {
+    Set<String> partitionIdsWithQueriedData = new HashSet<>();
+    List<ServicePartitionMetadata> partitionMetadataList =
+        ServicePartitionMetadata.findPartitionsToQuery(
+            serviceMetadataStore, startTimeEpochMs, endTimeEpochMs, serviceName);
+
+    // flatten all partition ids into one list
+    for (ServicePartitionMetadata servicePartitionMetadata : partitionMetadataList) {
+      partitionIdsWithQueriedData.addAll(servicePartitionMetadata.partitions);
+    }
+
+    List<SnapshotMetadata> snapshotMetadata = new ArrayList<>();
+
+    for (SnapshotMetadata snapshot : snapshotMetadataList) {
+      if (snapshotContainsRequestedDataAndIsWithinTimeframe(
+          startTimeEpochMs, endTimeEpochMs, partitionIdsWithQueriedData, snapshot)) {
+        snapshotMetadata.add(snapshot);
+      }
+    }
+
+    return snapshotMetadata;
+  }
+
+  /**
+   * Returns true if the given Snapshot: 1. contains data between startTimeEpochMs and
+   * endTimeEpochMs; AND 2. is from one of the partitions containing data from the queried service
+   */
+  private static boolean snapshotContainsRequestedDataAndIsWithinTimeframe(
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      Set<String> partitionIdsWithQueriedData,
+      SnapshotMetadata snapshot) {
+    return ChunkInfo.containsDataInTimeRange(
+            snapshot.startTimeEpochMs, snapshot.endTimeEpochMs, startTimeEpochMs, endTimeEpochMs)
+        && partitionIdsWithQueriedData.contains(snapshot.partitionId);
   }
 
   /**

@@ -165,7 +165,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
     List<ServicePartitionMetadata> partitions =
-        findPartitionsToQuery(
+        ServicePartitionMetadata.findPartitionsToQuery(
             serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
@@ -262,33 +262,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           url);
       return null;
     }
-  }
-
-  /*
-   get partitions that match on two criteria
-   1. index name
-   2. partitions that have an overlap with the query window
-  */
-  @VisibleForTesting
-  protected static List<ServicePartitionMetadata> findPartitionsToQuery(
-      ServiceMetadataStore serviceMetadataStore,
-      long startTimeEpochMs,
-      long endTimeEpochMs,
-      String dataset) {
-    return serviceMetadataStore
-        .getCached()
-        .stream()
-        .filter(serviceMetadata -> serviceMetadata.name.equals(dataset))
-        .flatMap(
-            serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
-        .filter(
-            partitionMetadata ->
-                containsDataInTimeRange(
-                    partitionMetadata.startTimeEpochMs,
-                    partitionMetadata.endTimeEpochMs,
-                    startTimeEpochMs,
-                    endTimeEpochMs))
-        .collect(Collectors.toList());
   }
 
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
