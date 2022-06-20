@@ -513,6 +513,7 @@ public class KaldbIndexerTest {
 
     // Shutting down is idempotent. So, doing it twice shouldn't throw an error.
     kaldbIndexer.stopAsync();
+    chunkManagerUtil.chunkManager.stopAsync();
     kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     chunkManagerUtil.chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
 

@@ -31,7 +31,6 @@ public class KaldbConfig {
   public static final int DEFAULT_ZK_TIMEOUT_SECS = 15;
 
   public static final String CHUNK_DATA_PREFIX = "log";
-  public static final long DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS = 30000;
 
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
