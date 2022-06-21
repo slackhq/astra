@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.KaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
@@ -79,7 +80,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     LOG.info("Starting Kaldb indexer.");
     long startOffset = indexerPreStart();
     // ensure the chunk manager is available to receive messages
-    chunkManager.awaitRunning();
+    chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     // Set the Kafka offset and pre consumer for consumption.
     kafkaConsumer.prepConsumerForConsumption(startOffset);
     LOG.info("Started Kaldb indexer.");
@@ -157,6 +158,9 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
     } catch (Exception e) {
       LOG.warn("Failed to close kafka consumer cleanly because of an exception.", e);
     }
+
+    // We don't need to explicitly close the chunkManager, as it will attempt to close itself and
+    // will persist the appropriate offset into ZK if it can complete an upload in time
 
     LOG.info("Kaldb indexer is closed.");
   }
