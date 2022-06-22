@@ -1,7 +1,7 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -27,6 +27,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -69,7 +70,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
-  private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
 
   /**
@@ -112,7 +112,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       BlobFs blobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      long rollOverFutureTimeoutMs,
       MetadataStore metadataStore,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
@@ -131,7 +130,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.s3Bucket = s3Bucket;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
-    this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
     this.metadataStore = metadataStore;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
@@ -347,7 +345,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     if (rolloverFuture != null && !rolloverFuture.isDone()) {
       try {
         LOG.info("Waiting for roll over to complete before closing..");
-        rolloverFuture.get(rolloverFutureTimeoutMs, MILLISECONDS);
+        rolloverFuture.get(DEFAULT_START_STOP_DURATION.get(ChronoUnit.SECONDS), TimeUnit.SECONDS);
         LOG.info("Roll over completed successfully. Closing rollover task.");
       } catch (Exception e) {
         LOG.warn("Roll over failed with Exception", e);
@@ -357,14 +355,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       LOG.info("Roll over future completed successfully.");
     }
 
-    // Close roll over executor service.
-    try {
-      // A short timeout here is fine here since there are no more tasks.
-      rolloverExecutorService.awaitTermination(1, TimeUnit.SECONDS);
-      rolloverExecutorService.shutdownNow();
-    } catch (InterruptedException e) {
-      LOG.warn("Encountered error shutting down roll over executor.", e);
-    }
+    // Forcefully close rollover executor service. There may be a pending rollover, but we have
+    // reached the max time.
+    rolloverExecutorService.shutdownNow();
 
     for (Chunk<T> chunk : chunkList) {
       try {
@@ -397,7 +390,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         blobFs,
         s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
-        DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
         metadataStore,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig);
