@@ -16,6 +16,9 @@ public class EsSearchResponse {
   @JsonProperty("_shards")
   private final Map<String, Integer> shardsMetadata;
 
+  @JsonProperty("_debug")
+  private final Map<String, String> debugMetadata;
+
   @JsonProperty("hits")
   private final HitsMetadata hitsMetadata;
 
@@ -29,12 +32,14 @@ public class EsSearchResponse {
       long took,
       boolean timedOut,
       Map<String, Integer> shardsMetadata,
+      Map<String, String> debugMetadata,
       HitsMetadata hitsMetadata,
       Map<String, AggregationResponse> aggregations,
       int status) {
     this.took = took;
     this.timedOut = timedOut;
     this.shardsMetadata = shardsMetadata;
+    this.debugMetadata = debugMetadata;
     this.hitsMetadata = hitsMetadata;
     this.aggregations = aggregations;
     this.status = status;
@@ -68,6 +73,7 @@ public class EsSearchResponse {
     private long took;
     private boolean timedOut;
     private Map<String, Integer> shardsMetadata = new HashMap<>();
+    private Map<String, String> debugMetadata = new HashMap<>();
     private HitsMetadata hitsMetadata;
     private Map<String, AggregationResponse> aggregations = new HashMap<>();
     private int status;
@@ -84,6 +90,11 @@ public class EsSearchResponse {
 
     public Builder shardsMetadata(Map<String, Integer> shardsMetadata) {
       this.shardsMetadata = shardsMetadata;
+      return this;
+    }
+
+    public Builder debugMetadata(Map<String, String> debugMetadata) {
+      this.debugMetadata = debugMetadata;
       return this;
     }
 
@@ -113,6 +124,7 @@ public class EsSearchResponse {
           this.took,
           this.timedOut,
           this.shardsMetadata,
+          this.debugMetadata,
           this.hitsMetadata,
           this.aggregations,
           this.status);

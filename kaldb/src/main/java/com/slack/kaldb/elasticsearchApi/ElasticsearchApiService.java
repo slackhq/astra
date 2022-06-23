@@ -103,6 +103,8 @@ public class ElasticsearchApiService {
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
+          .debugMetadata(
+              Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
           .status(200)
           .build();
     } finally {
