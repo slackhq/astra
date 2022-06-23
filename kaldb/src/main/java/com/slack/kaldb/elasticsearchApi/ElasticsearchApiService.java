@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Elasticsearch compatible API service, for use in Grafana
@@ -42,6 +44,7 @@ import java.util.Optional;
 @SuppressWarnings(
     "OptionalUsedAsFieldOrParameterType") // Per https://armeria.dev/docs/server-annotated-service/
 public class ElasticsearchApiService {
+  private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchApiService.class);
   private final KaldbQueryServiceBase searcher;
 
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
@@ -59,14 +62,10 @@ public class ElasticsearchApiService {
   @Blocking
   @Path("/_msearch")
   public HttpResponse multiSearch(String postBody) throws IOException {
+    LOG.debug("Search request: {}", postBody);
+
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
     List<EsSearchResponse> responses = new ArrayList<>();
-
-    Tracing.current()
-        .tracer()
-        .currentSpanCustomizer()
-        .tag("postBody", postBody)
-        .tag("multiSearchRequests", String.valueOf(requests.size()));
 
     for (EsSearchRequest request : requests) {
       responses.add(doSearch(request));
