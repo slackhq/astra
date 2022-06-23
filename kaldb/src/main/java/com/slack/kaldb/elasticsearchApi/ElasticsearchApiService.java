@@ -24,6 +24,8 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -105,6 +107,8 @@ public class ElasticsearchApiService {
           .aggregations(aggregations)
           .debugMetadata(
               Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
+          .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
+          .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .status(200)
           .build();
     } finally {

@@ -88,8 +88,11 @@ public class EsSearchResponse {
       return this;
     }
 
-    public Builder shardsMetadata(Map<String, Integer> shardsMetadata) {
-      this.shardsMetadata = shardsMetadata;
+    public Builder shardsMetadata(int total, int failed) {
+      this.shardsMetadata =
+          Map.of(
+              "total", total,
+              "failed", failed);
       return this;
     }
 
