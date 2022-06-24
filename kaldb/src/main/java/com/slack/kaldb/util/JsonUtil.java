@@ -35,9 +35,7 @@ public class JsonUtil {
     return ourInstance.mapper.readValue(s, valueTypeRef);
   }
 
-
   /*
-  * */
    * The Zipkin API requires an output of type Json Array instead of Json Object.
    * This function converts Json Object outputted by the writeAsString function is converted to a Json Array
    * */
