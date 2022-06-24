@@ -7,7 +7,6 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.grpc.GrpcTracing;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -67,18 +66,15 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   public static final String DISTRIBUTED_QUERY_TOTAL_NODES = "distributed_query_total_nodes";
   public static final String DISTRIBUTED_QUERY_FAILED_NODES = "distributed_query_failed_nodes";
-  public static final String DISTRIBUTED_QUERY_NODES_SUCCESS_RATE =
-      "distributed_query_nodes_success_rate";
   public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
       "distributed_query_total_snapshots";
   public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
       "distributed_query_snapshots_with_replicas";
 
-  private final AtomicInteger distributedQueryTotalNodes;
-  private final AtomicInteger distributedQueryFailedNodes;
-  private final AtomicDouble distributedQueryNodeSuccessRate;
-  private final AtomicInteger distributedQueryTotalSnapshots;
-  private final AtomicInteger distributedQuerySnapshotsWithReplicas;
+  private final Counter distributedQueryTotalNodes;
+  private final Counter distributedQueryFailedNodes;
+  private final Counter distributedQueryTotalSnapshots;
+  private final Counter distributedQuerySnapshotsWithReplicas;
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -96,16 +92,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
-    this.distributedQueryTotalNodes =
-        meterRegistry.gauge(DISTRIBUTED_QUERY_TOTAL_NODES, new AtomicInteger(0));
-    this.distributedQueryFailedNodes =
-        meterRegistry.gauge(DISTRIBUTED_QUERY_FAILED_NODES, new AtomicInteger(0));
-    this.distributedQueryNodeSuccessRate =
-        meterRegistry.gauge(DISTRIBUTED_QUERY_NODES_SUCCESS_RATE, new AtomicDouble(0));
-    this.distributedQueryTotalSnapshots =
-        meterRegistry.gauge(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS, new AtomicInteger(0));
+    this.distributedQueryTotalNodes = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_NODES);
+    this.distributedQueryFailedNodes = meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_NODES);
+    this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
-        meterRegistry.gauge(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS, new AtomicInteger(0));
+        meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
 
     // first time call this function manually so that we initialize stubs
     updateStubs();
@@ -384,15 +375,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
               .aggregate(searchResults);
 
-      distributedQueryTotalNodes.set(aggregatedResult.totalNodes);
-      distributedQueryFailedNodes.set(aggregatedResult.failedNodes);
-      if (aggregatedResult.totalNodes > 0) {
-        distributedQueryNodeSuccessRate.set(
-            (aggregatedResult.totalNodes - aggregatedResult.failedNodes)
-                / (double) aggregatedResult.totalNodes);
-      }
-      distributedQueryTotalSnapshots.set(aggregatedResult.totalSnapshots);
-      distributedQuerySnapshotsWithReplicas.set(aggregatedResult.snapshotsWithReplicas);
+      distributedQueryTotalNodes.increment(aggregatedResult.totalNodes);
+      distributedQueryFailedNodes.increment(aggregatedResult.failedNodes);
+      distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
+      distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
 
       LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
