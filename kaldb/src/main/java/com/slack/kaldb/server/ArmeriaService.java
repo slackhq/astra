@@ -4,7 +4,9 @@ import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
 
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
+import brave.handler.MutableSpan;
 import brave.handler.SpanHandler;
+import brave.propagation.TraceContext;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
@@ -21,6 +23,7 @@ import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.grpc.BindableService;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -28,6 +31,8 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -52,7 +57,7 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
-    private SpanHandler spanHandler = new SpanHandler() {};
+    private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
     public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
@@ -95,12 +100,25 @@ public class ArmeriaService extends AbstractIdleService {
           .serviceUnder("/docs", new DocService());
     }
 
-    public Builder withTracingEndpoint(String endpoint) {
-      if (endpoint != null && !endpoint.isBlank()) {
-        LOG.info(String.format("Trace reporting enabled: %s", endpoint));
-        Sender sender = URLConnectionSender.create(endpoint);
-        spanHandler = AsyncZipkinSpanHandler.create(sender);
+    public Builder withTracing(KaldbConfigs.TracingConfig tracingConfig) {
+      // span handlers is an ordered list, so we need to be careful with ordering
+      if (tracingConfig.getCommonTagsCount() > 0) {
+        spanHandlers.add(
+            new SpanHandler() {
+              @Override
+              public boolean begin(TraceContext context, MutableSpan span, TraceContext parent) {
+                tracingConfig.getCommonTagsMap().forEach(span::tag);
+                return true;
+              }
+            });
       }
+
+      if (!tracingConfig.getZipkinEndpoint().isBlank()) {
+        LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));
+        Sender sender = URLConnectionSender.create(tracingConfig.getZipkinEndpoint());
+        spanHandlers.add(AsyncZipkinSpanHandler.create(sender));
+      }
+
       return this;
     }
 
@@ -139,17 +157,15 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public ArmeriaService build() {
-      // always add tracing, even if it's not being reported to an endpoint
-      serverBuilder.decorator(
-          BraveService.newDecorator(
-              Tracing.newBuilder()
-                  .localServiceName(serviceName)
-                  .currentTraceContext(
-                      RequestContextCurrentTraceContext.builder()
-                          .addScopeDecorator(ThreadContextScopeDecorator.get())
-                          .build())
-                  .addSpanHandler(spanHandler)
-                  .build()));
+      Tracing.Builder tracingBuilder =
+          Tracing.newBuilder()
+              .localServiceName(serviceName)
+              .currentTraceContext(
+                  RequestContextCurrentTraceContext.builder()
+                      .addScopeDecorator(ThreadContextScopeDecorator.get())
+                      .build());
+      spanHandlers.forEach(tracingBuilder::addSpanHandler);
+      serverBuilder.decorator(BraveService.newDecorator(tracingBuilder.build()));
 
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }

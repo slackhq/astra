@@ -35,6 +35,11 @@ s3Config:
   s3EndPoint: "localhost:9090"
   s3Bucket: "test-s3-bucket"
 
+tracingConfig:
+  zipkinEndpoint: "http://localhost:9411/api/v2/spans"
+  commonTags:
+    clusterName: "kaldb_local"
+
 metadataStoreConfig:
   zookeeperConfig:
     zkConnectString: "1.2.3.4:9092"
