@@ -32,6 +32,13 @@ message KeyValue {
   bytes     v_binary  = 7;
 }
 
+/*
+message Trace {
+  repeated ListOfSpans trace = 1;
+}
+
+ */
+
 // A span defines a single event in a trace.
 // This span format is inspired by the zipkin span design at:
 // https://github.com/openzipkin/zipkin-api/blob/master/zipkin.proto
@@ -84,3 +91,5 @@ message ListOfSpans {
 service TraceService {
   rpc SendTrace(ListOfSpans) returns (google.protobuf.Empty);
 }
+
+

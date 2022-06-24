@@ -18,8 +18,10 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -29,9 +31,12 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -611,4 +616,253 @@ public class LogMessageWriterImplTest {
 
     assertThat(messageWriter.insertRecord(null)).isFalse();
   }
+
+  @Test
+  public void testDoubleServicesSpan() throws IOException {
+    final String traceId = "t";
+    final int id = 1;
+    final long timestampMicros = 1612550512340953L;
+    final long durationMicros = 500000L;
+    final String serviceName = "service";
+    final String name = "span ";
+    final Trace.Span span1 =
+        makeSpan(
+            traceId + "1",
+            String.valueOf(id),
+            "0",
+            timestampMicros,
+            durationMicros,
+            name + "1",
+            serviceName + "1",
+            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+    final Trace.Span span2 =
+        makeSpan(
+            traceId + "1",
+            String.valueOf(id + 1),
+            String.valueOf(id),
+            timestampMicros,
+            durationMicros,
+            name + "2",
+            serviceName + "1",
+            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+    final Trace.Span span3 =
+        makeSpan(
+            traceId + "2",
+            String.valueOf(id + 2),
+            "0",
+            timestampMicros,
+            durationMicros,
+            name + "3",
+            serviceName + "2",
+            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+
+    final Trace.Span span4 =
+        makeSpan(
+            traceId + "2",
+            String.valueOf(id + 3),
+            String.valueOf(id + 2),
+            timestampMicros,
+            durationMicros,
+            name + "4",
+            serviceName + "2",
+            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+    List<Trace.Span> trace1 = List.of(span1, span2);
+    List<Trace.Span> trace2 = List.of(span3, span4);
+    ByteString serializedMessage1 =
+        Trace.ListOfSpans.newBuilder().addAllSpans(trace1).build().toByteString();
+    ByteString serializedMessage2 =
+        Trace.ListOfSpans.newBuilder().addAllSpans(trace2).build().toByteString();
+    ConsumerRecord<String, byte[]> spanRecord1 =
+        consumerRecordWithMurronMessage(
+            Murron.MurronMessage.newBuilder()
+                .setMessage(serializedMessage1)
+                .setType("service1")
+                .setHost("testHost")
+                .setTimestamp(1612550512340953000L)
+                .build());
+    ConsumerRecord<String, byte[]> spanRecord2 =
+        consumerRecordWithMurronMessage(
+            Murron.MurronMessage.newBuilder()
+                .setMessage(serializedMessage2)
+                .setType("service2")
+                .setHost("testHost")
+                .setTimestamp(1612550512340953000L)
+                .build());
+
+    LogMessageWriterImpl messageWriter =
+        new LogMessageWriterImpl(
+            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
+
+    assertThat(messageWriter.insertRecord(spanRecord1)).isTrue();
+    assertThat(messageWriter.insertRecord(spanRecord2)).isTrue();
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(4);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    chunkManagerUtil.chunkManager.getActiveChunk().commit();
+
+    assertThat(searchChunkManager("service1", "trace_id:t1").hits.size()).isEqualTo(2);
+    assertThat(searchChunkManager("service1", "trace_id:t3").hits.size()).isEqualTo(0);
+    assertThat(searchChunkManager("service2", "trace_id:t2").hits.size()).isEqualTo(2);
+    assertThat(searchChunkManager("service1", "trace_id:t3").hits.size()).isEqualTo(0);
+    SearchResult<LogMessage> traceResults = searchChunkManager("service1", "trace_id:t1");
+
+    List<LogMessage> traces1 = searchChunkManager("service1", "trace_id:t1").hits;
+    LogMessage message1 = traces1.get(0); // convert to span object
+    LogMessage message2 = traces1.get(1);
+
+    // [Q] Double check that indexName doesn't matter as of now?
+    List<LogMessage> traces2 = searchChunkManager("service2", "trace_id:t2").hits;
+    // TODO: consider how to qualify the query variables
+    Map<String, Object> source1 = message1.getSource();
+    final String traceId1 = (String) source1.get("trace_id");
+    final String id1 = message1.id;
+    final String parentId1 = (String) source1.get("parent_id");
+    // [Q]timestamp not completely correct
+    final String timestamp1 = (String) source1.get("@timestamp");
+    Instant instant1 = Instant.parse(timestamp1);
+    final long timestampMicros1 =
+        TimeUnit.SECONDS.toMicros(instant1.getEpochSecond())
+            + TimeUnit.NANOSECONDS.toMicros(instant1.getNano());
+    final long durationMicros1 = ((Number) source1.get("duration_ms")).longValue();
+    final String serviceName1 = (String) source1.get("service_name");
+    final String name1 = (String) source1.get("name");
+    // [Q]what to put for msgtype
+    final String msgType1 = "test message type";
+    final Trace.Span spanmessage1 =
+        makeSpan(
+            traceId1,
+            id1,
+            parentId1,
+            timestampMicros1,
+            durationMicros1,
+            name1,
+            serviceName1,
+            msgType1);
+    Map<String, Object> source2 = message2.getSource();
+    final String traceId2 = (String) source2.get("trace_id");
+    final String id2 = message1.id;
+    final String parentId2 = (String) source2.get("parent_id");
+    // timestamp not completely correct
+    final String timestamp2 = (String) source2.get("@timestamp");
+    Instant instant2 = Instant.parse(timestamp2);
+    final long timestampMicros2 =
+        TimeUnit.SECONDS.toMicros(instant2.getEpochSecond())
+            + TimeUnit.NANOSECONDS.toMicros(instant2.getNano());
+    final long durationMicros2 = ((Number) source2.get("duration_ms")).longValue();
+    final String serviceName2 = (String) source2.get("service_name");
+    final String name2 = (String) source2.get("name");
+    final String msgType2 = "test message type";
+
+    final Trace.Span spanmessage2 =
+        makeSpan(
+            traceId2,
+            id2,
+            parentId2,
+            timestampMicros2,
+            durationMicros2,
+            name2,
+            serviceName2,
+            msgType2);
+    /*
+    Trace trace = Trace..newBuilder().addAllSpans(spanmessage1, spanmessage2).build();
+    List<String> spanMessages =
+            ImmutableList.of(
+                    JsonUtil.writeJsonArray(JsonUtil.writeAsString(spanmessage1)),
+                    JsonUtil.writeJsonArray(JsonUtil.writeAsString(spanmessage2)));
+    String trace = String.valueOf(spanMessages);
+    System.out.println(trace);
+
+     */
+  }
+
+  // locally setup grafana
+
+
+    @Test
+    public void testQueryInternalLogic() throws IOException {
+      String serviceName = ;
+      String spanName = ;
+      String annotationQuery = "first and h=/ and retried and hi and fh=wef";
+      int minDuration = ;
+      int maxDuration = ;
+      //[Q] what format is endTs?
+      long endTs = 1612550512340953L;
+      //[Q] double check that lookback <= endTs?
+      long lookback = 1612550512340953L;
+      int limit = 10;
+
+
+      String s = "";
+      Map<String, String> kv = new HashMap<>();
+      List<String> words = new ArrayList<>();
+      String k = "";
+      String v = "";
+      int equal = 2;
+      int equalIndex = 0;
+      int cIndex = 0;
+      int startIndex = 0;
+      int endIndex = 0;
+
+      while (cIndex < annotationQuery.length()) {
+        char c = annotationQuery.charAt(cIndex);
+        if (cIndex == annotationQuery.length() - 1) {
+          if (equal == 0) {
+            words.add(annotationQuery.substring(startIndex, cIndex + 1));
+          } else if (equal == 1) {
+            k = annotationQuery.substring(startIndex, equalIndex);
+            v = annotationQuery.substring(equalIndex + 1, cIndex + 1);
+            kv.put(k, v);
+          }
+
+        }
+        if (c != 32) { //checks if it's space
+          s = s + c;
+          if (c == 61) { //checks if contains =
+            equal = 1;
+            equalIndex = cIndex;
+          }
+          cIndex++;
+        } else {//it is space but could be before or after "and"
+          if (equal == 2) {
+            equal = 0;
+          }
+          endIndex = cIndex;
+          if (equal == 1) {
+            k = annotationQuery.substring(startIndex, equalIndex);
+            v = annotationQuery.substring(equalIndex + 1, endIndex);
+            kv.put(k, v);
+
+          } else if (equal == 0) {
+            words.add(s);
+          }
+          equal = 2;
+          cIndex += 5;
+          startIndex = cIndex;
+          s = "";
+        }
+      }
+
+
+
+      KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
+              new KaldbLocalQueryService(chunkManagerUtil.chunkManager); //[Q] Only using this for testing purposes
+      elasticSearchApiService
+      KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+      KaldbSearch.SearchResult response =
+              kaldbLocalQueryService.doSearch(
+                      searchRequestBuilder
+                              .setIndexName(MessageUtil.TEST_INDEX_NAME) //[Q] as of now we don't need to worry about index?
+                              .setQueryString("Message100")
+                              .setStartTimeEpochMs(lookback) //[Q] double check that these correspond to lookback and endTs not min and max Duration
+                              .setEndTimeEpochMs(endTs)
+                              //[Q] difference between howmany and bucketcount?
+                              .setHowMany(limit)
+                              .setBucketCount()
+                              .build());
+    }
+
+
+
+
+
+
 }

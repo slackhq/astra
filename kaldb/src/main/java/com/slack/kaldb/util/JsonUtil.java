@@ -37,9 +37,10 @@ public class JsonUtil {
 
 
   /*
-  * The Zipkin API requires an output of type Json Array instead of Json Object.
-  * This function converts Json Object outputted by the writeAsString function is converted to a Json Array
   * */
+   * The Zipkin API requires an output of type Json Array instead of Json Object.
+   * This function converts Json Object outputted by the writeAsString function is converted to a Json Array
+   * */
   public static <T> String writeJsonArray(String jsonString) {
     int first = jsonString.indexOf("[");
     int last = jsonString.lastIndexOf("]");

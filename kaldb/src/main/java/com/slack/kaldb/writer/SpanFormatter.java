@@ -60,6 +60,7 @@ public class SpanFormatter {
         if (key.equals(LogMessage.ReservedField.SERVICE_NAME.fieldName)) {
           indexName = tag.getVStr();
           // Also, add service name to the map so can search by service name also.
+          // [Q] What's the point of adding this kv pair, isn't it already in?
           jsonMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName);
         }
         if (key.equals(LogMessage.SystemField.TYPE.fieldName)) {

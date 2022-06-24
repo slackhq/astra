@@ -1,7 +1,10 @@
 package com.slack.kaldb.zipkinApi;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.HashMap;
+import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Span {
 
   private final String id;
@@ -9,10 +12,12 @@ public class Span {
   private final String parentId;
   private final String name;
   private final long timestamp;
-  private final int duration;
+  private final long duration;
   private final String kind;
   private final HashMap<String, Object> localEndpoint;
   private final HashMap<String, Object> remoteEndpoint;
+
+  private final List<HashMap<String, Object>> annotations;
   private final HashMap<String, String> tags;
 
   public Span(
@@ -21,10 +26,11 @@ public class Span {
       String parentId,
       String name,
       long timestamp,
-      int duration,
+      long duration,
       String kind,
       HashMap<String, Object> localEndpoint,
       HashMap<String, Object> remoteEndpoint,
+      List<HashMap<String, Object>> annotations,
       HashMap<String, String> tags) {
     this.id = id;
     this.traceId = traceId;
@@ -35,6 +41,7 @@ public class Span {
     this.kind = kind;
     this.localEndpoint = localEndpoint;
     this.remoteEndpoint = remoteEndpoint;
+    this.annotations = annotations;
     this.tags = tags;
   }
 
@@ -58,7 +65,7 @@ public class Span {
     return this.timestamp;
   }
 
-  public int getDuration() {
+  public long getDuration() {
     return this.duration;
   }
 
@@ -72,6 +79,10 @@ public class Span {
 
   public HashMap<String, Object> getRemoteEndpoint() {
     return this.remoteEndpoint;
+  }
+
+  public List<HashMap<String, Object>> getAnnotations() {
+    return this.annotations;
   }
 
   public HashMap<String, String> getTags() {
