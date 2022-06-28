@@ -32,12 +32,12 @@ message KeyValue {
   bytes     v_binary  = 7;
 }
 
-/*
-message Trace {
+
+message TraceProto {
   repeated ListOfSpans trace = 1;
 }
 
- */
+
 
 // A span defines a single event in a trace.
 // This span format is inspired by the zipkin span design at:
