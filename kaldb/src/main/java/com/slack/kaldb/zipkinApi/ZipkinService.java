@@ -82,7 +82,54 @@ public class ZipkinService {
     */
 
     // TODO: consider how to qualify the query variables
-    return null;
+    String queryString = "serviceName:" + serviceName;
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+    KaldbSearch.SearchResult searchResult =
+        searcher.doSearch(
+            searchRequestBuilder
+                .setIndexName("testindex") // [Q] as of now we don't need to worry about index?
+                .setQueryString(queryString) // query everything
+                // startTime: endTs - lookback (conversion)
+                .setStartTimeEpochMs(
+                    1234567) // [Q] double check that these correspond to lookback and
+                // endTs not
+                // min and max Duration
+                .setEndTimeEpochMs(1234567)
+                // [Q] difference between howmany and bucketcount?
+                .setHowMany(10)
+                .setBucketCount(0)
+                .build());
+    List<LogMessage> messages = searchResultToLogMessage(searchResult);
+    List<String> messageStrings = new ArrayList<>();
+    for (LogMessage message : messages) {
+      Map<String, Object> source = message.getSource();
+      final String messageTraceId = (String) source.get("trace_id");
+      final String messageId = message.id;
+      final String messageParentId = (String) source.get("parent_id");
+      // [Q]timestamp not completely correct
+      final String messageTimestamp = (String) source.get("@timestamp");
+      Instant instant = Instant.parse(messageTimestamp);
+      final long messageTimestampMicros =
+          TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
+              + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
+      final long messageDurationMicros = ((Number) source.get("duration_ms")).longValue();
+      final String messageServiceName = (String) source.get("service_name");
+      final String messageName = (String) source.get("name");
+      // [Q]what to put for msgtype
+      final String messageMsgType = "test message type";
+      final com.slack.service.murron.trace.Trace.Span messageSpan =
+          makeSpan(
+              messageTraceId,
+              messageId,
+              messageParentId,
+              messageTimestampMicros,
+              messageDurationMicros,
+              messageName,
+              messageServiceName,
+              messageMsgType);
+      messageStrings.add(JsonUtil.writeAsString(messageSpan));
+    }
+    return String.valueOf(messageStrings);
   }
 
   public static void main(String[] args) throws JsonProcessingException {
@@ -324,6 +371,13 @@ public class ZipkinService {
       }
     }
 
+    String queryString =
+        "serviceName:"
+            + serviceName
+            + "and duration <= "
+            + maxDuration
+            + " and duration >= "
+            + minDuration;
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
@@ -339,13 +393,7 @@ public class ZipkinService {
                 .setHowMany(limit)
                 .setBucketCount(0)
                 .build());
-    List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
-    List<LogMessage> messages = new ArrayList<>();
-    for (ByteString byteString : hitsByteList) {
-      LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
-      LogMessage message = LogMessage.fromWireMessage(hit);
-      messages.add(message);
-    }
+    List<LogMessage> messages = searchResultToLogMessage(searchResult);
     List<String> messageStrings = new ArrayList<>();
 
     for (LogMessage message : messages) {
@@ -374,10 +422,23 @@ public class ZipkinService {
               messageName,
               messageServiceName,
               messageMsgType);
+      // NEED TO CONVERT A LIST OF TRACES
       messageStrings.add(JsonUtil.writeJsonArray(JsonUtil.writeAsString(messageSpan)));
     }
 
     return String.valueOf(messageStrings);
+  }
+
+  public static List<LogMessage> searchResultToLogMessage(KaldbSearch.SearchResult searchResult)
+      throws IOException {
+    List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
+    List<LogMessage> messages = new ArrayList<>();
+    for (ByteString byteString : hitsByteList) {
+      LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
+      LogMessage message = LogMessage.fromWireMessage(hit);
+      messages.add(message);
+    }
+    return messages;
   }
 
   // [Q] COPIED THESE TWO FUNCTIONS FROM SPANUTIL BECAUSE THERE WAS AN IMPORT ISSUE BUT WILL FIX

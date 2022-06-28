@@ -18,10 +18,8 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
-import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -32,7 +30,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -776,93 +773,95 @@ public class LogMessageWriterImplTest {
 
   // locally setup grafana
 
-
-    @Test
-    public void testQueryInternalLogic() throws IOException {
-      String serviceName = ;
-      String spanName = ;
-      String annotationQuery = "first and h=/ and retried and hi and fh=wef";
-      int minDuration = ;
-      int maxDuration = ;
-      //[Q] what format is endTs?
-      long endTs = 1612550512340953L;
-      //[Q] double check that lookback <= endTs?
-      long lookback = 1612550512340953L;
-      int limit = 10;
-
-
-      String s = "";
-      Map<String, String> kv = new HashMap<>();
-      List<String> words = new ArrayList<>();
-      String k = "";
-      String v = "";
-      int equal = 2;
-      int equalIndex = 0;
-      int cIndex = 0;
-      int startIndex = 0;
-      int endIndex = 0;
-
-      while (cIndex < annotationQuery.length()) {
-        char c = annotationQuery.charAt(cIndex);
-        if (cIndex == annotationQuery.length() - 1) {
-          if (equal == 0) {
-            words.add(annotationQuery.substring(startIndex, cIndex + 1));
-          } else if (equal == 1) {
-            k = annotationQuery.substring(startIndex, equalIndex);
-            v = annotationQuery.substring(equalIndex + 1, cIndex + 1);
-            kv.put(k, v);
-          }
-
-        }
-        if (c != 32) { //checks if it's space
-          s = s + c;
-          if (c == 61) { //checks if contains =
-            equal = 1;
-            equalIndex = cIndex;
-          }
-          cIndex++;
-        } else {//it is space but could be before or after "and"
-          if (equal == 2) {
-            equal = 0;
-          }
-          endIndex = cIndex;
-          if (equal == 1) {
-            k = annotationQuery.substring(startIndex, equalIndex);
-            v = annotationQuery.substring(equalIndex + 1, endIndex);
-            kv.put(k, v);
-
-          } else if (equal == 0) {
-            words.add(s);
-          }
-          equal = 2;
-          cIndex += 5;
-          startIndex = cIndex;
-          s = "";
-        }
-      }
+  /*
+     @Test
+     public void testQueryInternalLogic() throws IOException {
+       String serviceName = ;
+       String spanName = ;
+       String annotationQuery = "first and h=/ and retried and hi and fh=wef";
+       int minDuration = ;
+       int maxDuration = ;
+       //[Q] what format is endTs?
+       long endTs = 1612550512340953L;
+       //[Q] double check that lookback <= endTs?
+       long lookback = 1612550512340953L;
+       int limit = 10;
 
 
+       String s = "";
+       Map<String, String> kv = new HashMap<>();
+       List<String> words = new ArrayList<>();
+       String k = "";
+       String v = "";
+       int equal = 2;
+       int equalIndex = 0;
+       int cIndex = 0;
+       int startIndex = 0;
+       int endIndex = 0;
 
-      KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
-              new KaldbLocalQueryService(chunkManagerUtil.chunkManager); //[Q] Only using this for testing purposes
-      elasticSearchApiService
-      KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
-      KaldbSearch.SearchResult response =
-              kaldbLocalQueryService.doSearch(
-                      searchRequestBuilder
-                              .setIndexName(MessageUtil.TEST_INDEX_NAME) //[Q] as of now we don't need to worry about index?
-                              .setQueryString("Message100")
-                              .setStartTimeEpochMs(lookback) //[Q] double check that these correspond to lookback and endTs not min and max Duration
-                              .setEndTimeEpochMs(endTs)
-                              //[Q] difference between howmany and bucketcount?
-                              .setHowMany(limit)
-                              .setBucketCount()
-                              .build());
-    }
+       while (cIndex < annotationQuery.length()) {
+         char c = annotationQuery.charAt(cIndex);
+         if (cIndex == annotationQuery.length() - 1) {
+           if (equal == 0) {
+             words.add(annotationQuery.substring(startIndex, cIndex + 1));
+           } else if (equal == 1) {
+             k = annotationQuery.substring(startIndex, equalIndex);
+             v = annotationQuery.substring(equalIndex + 1, cIndex + 1);
+             kv.put(k, v);
+           }
+
+         }
+         if (c != 32) { //checks if it's space
+           s = s + c;
+           if (c == 61) { //checks if contains =
+             equal = 1;
+             equalIndex = cIndex;
+           }
+           cIndex++;
+         } else {//it is space but could be before or after "and"
+           if (equal == 2) {
+             equal = 0;
+           }
+           endIndex = cIndex;
+           if (equal == 1) {
+             k = annotationQuery.substring(startIndex, equalIndex);
+             v = annotationQuery.substring(equalIndex + 1, endIndex);
+             kv.put(k, v);
+
+           } else if (equal == 0) {
+             words.add(s);
+           }
+           equal = 2;
+           cIndex += 5;
+           startIndex = cIndex;
+           s = "";
+         }
+       }
+       private final KaldbQueryServiceBase searcher;
+       KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
+       KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
+
+       KaldbSearch.SearchResult KaldbQueryServiceBase.doSearch
+
+       KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
+               new KaldbLocalQueryService(chunkManagerUtil.chunkManager); //[Q] Only using this for testing purposes
+       KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+       KaldbSearch.SearchResult response =
+               kaldbLocalQueryService.doSearch(
+                       searchRequestBuilder
+                               .setIndexName(MessageUtil.TEST_INDEX_NAME) //[Q] as of now we don't need to worry about index?
+                               .setQueryString("") //query everything
+                               //startTime: endTs - lookback (conversion)
+                               .setStartTimeEpochMs(lookback) //[Q] double check that these correspond to lookback and endTs not min and max Duration
+                               .setEndTimeEpochMs(endTs)
+                               //[Q] difference between howmany and bucketcount?
+                               .setHowMany(limit)
+                               .setBucketCount(0)
+                               .build());
+     }
 
 
 
-
-
+  */
 
 }
