@@ -374,7 +374,9 @@ public class ZipkinService {
     String queryString =
         "serviceName:"
             + serviceName
-            + "and duration <= "
+            + " and spanName:"
+            + spanName
+            + " and duration <= "
             + maxDuration
             + " and duration >= "
             + minDuration;
