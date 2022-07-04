@@ -29,6 +29,7 @@
         <curator.version>5.2.1</curator.version>
         <log4j.version>2.17.2</log4j.version>
         <aws.sdk.version>2.17.181</aws.sdk.version>
+        <duckdb.version>0.4.0</duckdb.version>
     </properties>
 
     <repositories>
@@ -332,7 +333,7 @@
         <dependency>
             <groupId>org.duckdb</groupId>
             <artifactId>duckdb_jdbc</artifactId>
-            <version>0.3.2</version>
+            <version>${duckdb.version}</version>
         </dependency>
 
         <!-- Protobuf dependency -->
