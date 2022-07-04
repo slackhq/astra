@@ -3,11 +3,12 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
 import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -71,8 +72,7 @@ public class ReadOnlyChunkImplTest {
 
     S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
-    s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    s3BlobFs = new S3BlobFs(s3Client);
   }
 
   @After
@@ -114,14 +114,13 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
-            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
-            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
 
     // wait for chunk to register
     await()
@@ -163,7 +162,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name)
-        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
+        .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // mark the chunk for eviction
     readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
@@ -233,14 +232,13 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
-            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
-            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
 
     // wait for chunk to register
     await()
@@ -300,14 +298,13 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
-            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
-            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
 
     // wait for chunk to register
     await()
@@ -368,14 +365,13 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
-            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
-            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore);
+            searchMetadataStore,
+            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
 
     // wait for chunk to register
     await()
@@ -412,7 +408,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(searchMetadataStore.getCached().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
     assertThat(searchMetadataStore.getCached().get(0).name)
-        .isEqualTo(SearchMetadata.getSnapshotName(snapshotId, "localhost"));
+        .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // verify we have files on disk
     assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
@@ -485,8 +481,8 @@ public class ReadOnlyChunkImplTest {
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
-    assertThat(getCount(REFRESHES_COUNTER, meterRegistry)).isEqualTo(1);
-    assertThat(getCount(COMMITS_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(getTimerCount(REFRESHES_TIMER, meterRegistry)).isEqualTo(1);
+    assertThat(getTimerCount(COMMITS_TIMER, meterRegistry)).isEqualTo(1);
 
     Path dirPath = logStore.getDirectory().toAbsolutePath();
     IndexCommit indexCommit = logStore.getIndexCommit();

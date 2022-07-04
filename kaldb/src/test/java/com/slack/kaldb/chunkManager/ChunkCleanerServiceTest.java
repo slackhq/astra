@@ -1,26 +1,23 @@
-package com.slack.kaldb.chunk;
+package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSearchNodes;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchSnapshots;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.slack.kaldb.chunkManager.ChunkCleanerService;
-import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.chunk.Chunk;
+import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -32,7 +29,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.assertj.core.data.Offset;
@@ -46,12 +42,14 @@ public class ChunkCleanerServiceTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
+  private SearchMetadataStore searchMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
 
   @Before
   public void setUp() throws Exception {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(
+        makeChunkManagerUtil(
             S3_MOCK_RULE,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
@@ -59,6 +57,8 @@ public class ChunkCleanerServiceTest {
             KaldbConfigUtil.makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+    searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getMetadataStore(), false);
+    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getMetadataStore(), false);
   }
 
   @After
@@ -70,8 +70,7 @@ public class ChunkCleanerServiceTest {
   }
 
   @Test
-  public void testDeleteStaleDataOn1Chunk()
-      throws IOException, ExecutionException, InterruptedException, TimeoutException {
+  public void testDeleteStaleDataOn1Chunk() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final Instant creationTime = Instant.now();
     ChunkCleanerService<LogMessage> chunkCleanerService =
@@ -96,7 +95,7 @@ public class ChunkCleanerServiceTest {
     assertThat(chunk.isReadOnly()).isFalse();
     assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isZero();
 
-    testBasicSnapshotMetadata(chunkManager, creationTime);
+    testBasicSnapshotMetadata(creationTime);
 
     // try to delete active chunk
     assertThat(chunkCleanerService.deleteStaleData(Instant.now().plusSeconds(100))).isEqualTo(0);
@@ -110,7 +109,7 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
 
-    List<SnapshotMetadata> afterSnapshots = fetchSnapshots(chunkManager);
+    List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
     assertThat(afterSnapshots.size()).isEqualTo(2);
     assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
     SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots).get(0);
@@ -131,7 +130,7 @@ public class ChunkCleanerServiceTest {
     assertThat(nonLiveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
 
-    List<SearchMetadata> afterSearchNodes = fetchSearchNodes(chunkManager);
+    List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSync();
     assertThat(afterSearchNodes.size()).isEqualTo(1);
     assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -160,7 +159,7 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isZero();
 
     // Check metadata after chunk is deleted.
-    List<SnapshotMetadata> chunkDeletedSnapshots = fetchSnapshots(chunkManager);
+    List<SnapshotMetadata> chunkDeletedSnapshots = snapshotMetadataStore.listSync();
     assertThat(chunkDeletedSnapshots.size()).isEqualTo(1);
     SnapshotMetadata nonLiveSnapshotAfterChunkDelete =
         fetchNonLiveSnapshot(chunkDeletedSnapshots).get(0);
@@ -177,13 +176,11 @@ public class ChunkCleanerServiceTest {
         .isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMs)
         .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
-    assertThat(fetchSearchNodes(chunkManager)).isEmpty();
+    assertThat(searchMetadataStore.listSync()).isEmpty();
   }
 
-  private static void testBasicSnapshotMetadata(
-      IndexingChunkManager<LogMessage> chunkManager, Instant creationTime)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    final List<SnapshotMetadata> snapshotNodes = fetchSnapshots(chunkManager);
+  private void testBasicSnapshotMetadata(Instant creationTime) {
+    final List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSync();
     assertThat(snapshotNodes.size()).isEqualTo(1);
     assertThat(snapshotNodes.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).maxOffset).isEqualTo(0);
@@ -192,7 +189,7 @@ public class ChunkCleanerServiceTest {
     assertThat(snapshotNodes.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
     assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
-    final List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    final List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -200,8 +197,7 @@ public class ChunkCleanerServiceTest {
   }
 
   @Test
-  public void testDeleteStateDataOn2Chunks()
-      throws IOException, ExecutionException, InterruptedException, TimeoutException {
+  public void testDeleteStateDataOn2Chunks() throws IOException {
     Instant creationTime = Instant.now();
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     ChunkCleanerService<LogMessage> chunkCleanerService =
@@ -220,7 +216,7 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(9);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    testBasicSnapshotMetadata(chunkManager, creationTime);
+    testBasicSnapshotMetadata(creationTime);
 
     final ReadWriteChunk<LogMessage> chunk1 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isFalse();
@@ -239,7 +235,7 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
 
-    checkMetadata(chunkManager, 3, 2, 1, 2, 1);
+    checkMetadata(3, 2, 1, 2, 1);
 
     final ReadWriteChunk<LogMessage> chunk2 = chunkManager.getActiveChunk();
     assertThat(chunk1.isReadOnly()).isTrue();
@@ -257,9 +253,10 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
 
-    checkMetadata(chunkManager, 4, 2, 2, 2, 0);
+    checkMetadata(4, 2, 2, 2, 0);
     assertThat(
-            fetchSnapshots(chunkManager)
+            snapshotMetadataStore
+                .listSync()
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
@@ -293,9 +290,10 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().contains(chunk1)).isTrue();
     assertThat(chunkManager.getChunkList().contains(chunk2)).isFalse();
 
-    checkMetadata(chunkManager, 3, 1, 2, 1, 0);
+    checkMetadata(3, 1, 2, 1, 0);
     assertThat(
-            fetchSnapshots(chunkManager)
+            snapshotMetadataStore
+                .listSync()
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
@@ -309,9 +307,10 @@ public class ChunkCleanerServiceTest {
         .isEqualTo(1);
     assertThat(chunkManager.getChunkList().size()).isZero();
 
-    checkMetadata(chunkManager, 2, 0, 2, 0, 0);
+    checkMetadata(2, 0, 2, 0, 0);
     assertThat(
-            fetchSnapshots(chunkManager)
+            snapshotMetadataStore
+                .listSync()
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
@@ -320,19 +319,17 @@ public class ChunkCleanerServiceTest {
   }
 
   private void checkMetadata(
-      IndexingChunkManager<LogMessage> chunkManager,
       int expectedSnapshotSize,
       int expectedLiveSnapshotSize,
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
-      int expectedInfinitySnapshotSize)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    List<SnapshotMetadata> snapshots = fetchSnapshots(chunkManager);
+      int expectedInfinitySnapshotSize) {
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = fetchSearchNodes(chunkManager);
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -342,8 +339,7 @@ public class ChunkCleanerServiceTest {
   }
 
   @Test
-  public void testDeleteStaleDataOnMultipleChunks()
-      throws IOException, ExecutionException, InterruptedException, TimeoutException {
+  public void testDeleteStaleDataOnMultipleChunks() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
     final long startTimeSecs = 1580515200; // Sat, 01 Feb 2020 00:00:00 UTC
     ChunkCleanerService<LogMessage> chunkCleanerService =
@@ -388,7 +384,7 @@ public class ChunkCleanerServiceTest {
       assertThat(c.info().getChunkSnapshotTimeEpochMs()).isNotZero();
     }
 
-    checkMetadata(chunkManager, 8, 4, 4, 4, 0);
+    checkMetadata(8, 4, 4, 4, 0);
 
     final Instant snapshotTime = Instant.now();
     // Modify snapshot time on chunks
@@ -406,7 +402,7 @@ public class ChunkCleanerServiceTest {
                 snapshotTime.minusSeconds(3600 * 3).plusSeconds(100)))
         .isEqualTo(1);
 
-    checkMetadata(chunkManager, 7, 3, 4, 3, 0);
+    checkMetadata(7, 3, 4, 3, 0);
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(3);
     assertThat(
@@ -414,11 +410,11 @@ public class ChunkCleanerServiceTest {
         .isEqualTo(2);
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
 
-    checkMetadata(chunkManager, 5, 1, 4, 1, 0);
+    checkMetadata(5, 1, 4, 1, 0);
 
     assertThat(chunkCleanerService.deleteStaleData(snapshotTime.plusSeconds(100))).isEqualTo(1);
     assertThat(chunkManager.getChunkList().size()).isZero();
 
-    checkMetadata(chunkManager, 4, 0, 4, 0, 0);
+    checkMetadata(4, 0, 4, 0, 0);
   }
 }

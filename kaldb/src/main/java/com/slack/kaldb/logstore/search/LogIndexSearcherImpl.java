@@ -18,11 +18,11 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
@@ -30,9 +30,9 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery.Builder;
-import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MultiCollector;
+import org.apache.lucene.search.MultiCollectorManager;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.SearcherManager;
@@ -40,7 +40,8 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,13 +57,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
-    NIOFSDirectory directory = new NIOFSDirectory(path);
+    MMapDirectory directory = new MMapDirectory(path);
     return new SearcherManager(directory, null);
   }
 
   // todo - this is not needed once this data is on the snapshot
   public static int getNumDocs(Path path) throws IOException {
-    NIOFSDirectory directory = new NIOFSDirectory(path);
+    MMapDirectory directory = new MMapDirectory(path);
     DirectoryReader directoryReader = DirectoryReader.open(directory);
     int numDocs = directoryReader.numDocs();
     directoryReader.close();
@@ -112,30 +113,41 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       // This is a useful optimization for indexes that are static.
       IndexSearcher searcher = searcherManager.acquire();
       try {
-        TopFieldCollector topFieldCollector = buildTopFieldCollector(howMany);
-        StatsCollector statsCollector =
-            buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
-        Collector collectorChain = MultiCollector.wrap(topFieldCollector, statsCollector);
-
-        searcher.search(query, collectorChain);
         List<LogMessage> results;
+        Histogram histogram = new NoOpHistogramImpl();
+
+        CollectorManager<StatsCollector, Histogram> statsCollector =
+            buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
+
         if (howMany > 0) {
-          ScoreDoc[] hits = topFieldCollector.topDocs().scoreDocs;
-          results =
-              Stream.of(hits)
-                  .map(hit -> buildLogMessage(searcher, hit))
-                  .collect(Collectors.toList());
+          CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
+              buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
+          MultiCollectorManager collectorManager;
+          if (bucketCount > 0) {
+            collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
+          } else {
+            collectorManager = new MultiCollectorManager(topFieldCollector);
+          }
+          Object[] collector = searcher.search(query, collectorManager);
+
+          ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
+          results = new ArrayList<>(hits.length);
+          for (ScoreDoc hit : hits) {
+            results.add(buildLogMessage(searcher, hit));
+          }
+          if (bucketCount > 0) {
+            histogram = ((Histogram) collector[1]);
+          }
         } else {
           results = Collections.emptyList();
+          histogram = searcher.search(query, statsCollector);
         }
-
-        Histogram histogram = statsCollector.histogram;
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            histogram.count(),
+            bucketCount > 0 ? histogram.count() : results.size(),
             histogram.getBuckets(),
             0,
             0,
@@ -168,22 +180,50 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
   }
 
-  private TopFieldCollector buildTopFieldCollector(int howMany) {
+  /**
+   * Builds a top field collector for the requested amount of results, with the option to set the
+   * totalHitsThreshold. If the totalHitsThreshold is set to Integer.MAX_VALUE it will force a
+   * ScoreMode.COMPLETE, iterating over all documents at the expense of a longer query time. This
+   * value can be set to equal howMany to allow early exiting (ScoreMode.TOP_SCORES), but should
+   * only be done when all collectors are tolerant of an early exit.
+   */
+  private CollectorManager<TopFieldCollector, TopFieldDocs> buildTopFieldCollector(
+      int howMany, int totalHitsThreshold) {
     if (howMany > 0) {
       SortField sortField = new SortField(SystemField.TIME_SINCE_EPOCH.fieldName, Type.LONG, true);
-      return TopFieldCollector.create(new Sort(sortField), howMany, howMany);
+      return TopFieldCollector.createSharedManager(
+          new Sort(sortField), howMany, null, totalHitsThreshold);
     } else {
       return null;
     }
   }
 
-  private StatsCollector buildStatsCollector(
+  private CollectorManager<StatsCollector, Histogram> buildStatsCollector(
       int bucketCount, long startTimeMsEpoch, long endTimeMsEpoch) {
     Histogram histogram =
         bucketCount > 0
             ? new FixedIntervalHistogramImpl(startTimeMsEpoch, endTimeMsEpoch, bucketCount)
             : new NoOpHistogramImpl();
-    return new StatsCollector(histogram);
+
+    return new CollectorManager<>() {
+      @Override
+      public StatsCollector newCollector() {
+        return new StatsCollector(histogram);
+      }
+
+      @Override
+      public Histogram reduce(Collection<StatsCollector> collectors) {
+        Histogram histogram = null;
+        for (StatsCollector collector : collectors) {
+          if (histogram == null) {
+            histogram = collector.getHistogram();
+          } else {
+            histogram.mergeHistogram(collector.getHistogram().getBuckets());
+          }
+        }
+        return histogram;
+      }
+    };
   }
 
   private Query buildQuery(

@@ -9,6 +9,7 @@ indexerConfig:
   staleDurationSecs: 7200
   dataTransformer: "api_log"
   dataDirectory: "/tmp"
+  maxOffsetDelayMessages: 10001
   serverConfig:
     serverPort: 8080
     serverAddress: "localhost"
@@ -34,6 +35,11 @@ s3Config:
   s3EndPoint: "localhost:9090"
   s3Bucket: "test-s3-bucket"
 
+tracingConfig:
+  zipkinEndpoint: "http://localhost:9411/api/v2/spans"
+  commonTags:
+    clusterName: "kaldb_local"
+
 metadataStoreConfig:
   zookeeperConfig:
     zkConnectString: "1.2.3.4:9092"
@@ -44,6 +50,7 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
+  maxParallelCacheSlotDownloads: 6
   dataDirectory: "/tmp"
   serverConfig:
     serverPort: 8082
@@ -75,3 +82,22 @@ recoveryConfig:
   serverConfig:
     serverPort: 8084
     serverAddress: localhost
+
+preprocessorConfig:
+  kafkaStreamConfig:
+    bootstrapServers: localhost:9092
+    applicationId: kaldb_preprocessor
+    numStreamThreads: 2
+    processingGuarantee: at_least_once
+  serverConfig:
+    serverPort: 8085
+    serverAddress: localhost
+  upstreamTopics: [test-topic]
+  downstreamTopic: test-topic-out
+  preprocessorInstanceCount: 1
+  dataTransformer: "api_log"
+  rateLimiterMaxBurstSeconds: 2
+
+clusterConfig:
+  clusterName: "test_kaldb_cluster"
+  env: "test_kaldb_env"

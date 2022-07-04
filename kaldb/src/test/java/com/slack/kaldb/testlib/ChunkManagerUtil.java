@@ -1,7 +1,6 @@
 package com.slack.kaldb.testlib;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
@@ -12,7 +11,6 @@ import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -21,8 +19,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -49,21 +45,32 @@ public class ChunkManagerUtil<T> {
   private final TestingServer zkServer;
   private final MetadataStore metadataStore;
 
-  public ChunkManagerUtil(
+  public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockRule s3MockRule,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
       long maxMessagesPerChunk,
       KaldbConfigs.IndexerConfig indexerConfig)
       throws Exception {
-    this(
+    TestingServer zkServer = new TestingServer();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(zkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(30000)
+            .setZkConnectionTimeoutMs(30000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+
+    return new ChunkManagerUtil<>(
         s3MockRule,
         meterRegistry,
-        new TestingServer(),
+        zkServer,
         maxBytesPerChunk,
         maxMessagesPerChunk,
         new SearchContext(TEST_HOST, TEST_PORT),
-        null,
+        metadataStore,
         indexerConfig);
   }
 
@@ -83,8 +90,7 @@ public class ChunkManagerUtil<T> {
     s3Client = s3MockRule.createS3ClientV2();
     s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
-    S3BlobFs s3BlobFs = new S3BlobFs();
-    s3BlobFs.init(s3Client);
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
     this.zkServer = zkServer;
     // noop if zk has already been started by the caller
     this.zkServer.start();
@@ -92,21 +98,6 @@ public class ChunkManagerUtil<T> {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
 
-    zkServer = new TestingServer();
-    zkServer.start();
-
-    if (metadataStore == null) {
-      KaldbConfigs.ZookeeperConfig zkConfig =
-          KaldbConfigs.ZookeeperConfig.newBuilder()
-              .setZkConnectString(zkServer.getConnectString())
-              .setZkPathPrefix(ZK_PATH_PREFIX)
-              .setZkSessionTimeoutMs(15000)
-              .setZkConnectionTimeoutMs(15000)
-              .setSleepBetweenRetriesMs(1000)
-              .build();
-
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    }
     this.metadataStore = metadataStore;
 
     chunkManager =
@@ -118,7 +109,6 @@ public class ChunkManagerUtil<T> {
             s3BlobFs,
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
-            10000,
             metadataStore,
             searchContext,
             indexerConfig);
@@ -148,19 +138,7 @@ public class ChunkManagerUtil<T> {
     return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
   }
 
-  public static List<SearchMetadata> fetchSearchNodes(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSearchMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-  }
-
-  public static List<SnapshotMetadata> fetchSnapshots(IndexingChunkManager<LogMessage> chunkManager)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    return chunkManager
-        .getSnapshotMetadataStore()
-        .list()
-        .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+  public MetadataStore getMetadataStore() {
+    return metadataStore;
   }
 }

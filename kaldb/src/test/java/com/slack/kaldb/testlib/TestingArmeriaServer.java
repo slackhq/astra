@@ -1,4 +1,4 @@
-package com.slack.kaldb.server;
+package com.slack.kaldb.testlib;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.server.Server;

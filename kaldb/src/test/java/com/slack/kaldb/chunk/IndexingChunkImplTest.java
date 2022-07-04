@@ -4,12 +4,13 @@ import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD;
 import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD_FAILED;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.SNAPSHOT_TIMER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -160,8 +161,8 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
     @Test
@@ -175,8 +176,8 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
     @Test
@@ -195,8 +196,8 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
 
       final long expectedEndTimeEpochMs = messageStartTimeMs + (99 * 1000);
       // Ensure chunk info is correct.
@@ -236,8 +237,8 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(200);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(2);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(2);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(2);
 
       assertThat(chunk.info().getDataStartTimeEpochMs()).isEqualTo(messageStartTimeMs);
       assertThat(chunk.info().getDataEndTimeEpochMs())
@@ -309,8 +310,8 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
     @Test(expected = IllegalStateException.class)
@@ -459,16 +460,15 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "invalid-bucket";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs();
-      s3BlobFs.init(s3Client);
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
@@ -515,16 +515,15 @@ public class IndexingChunkImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(0);
-      assertThat(getCount(REFRESHES_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(COMMITS_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(0);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
 
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
       S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-      S3BlobFs s3BlobFs = new S3BlobFs();
-      s3BlobFs.init(s3Client);
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
@@ -532,7 +531,7 @@ public class IndexingChunkImplTest {
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
-      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(15);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(4);
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
       assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
 

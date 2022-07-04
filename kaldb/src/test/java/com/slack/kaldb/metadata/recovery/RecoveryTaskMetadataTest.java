@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.Instant;
 import org.junit.Test;
@@ -57,12 +57,18 @@ public class RecoveryTaskMetadataTest {
   }
 
   @Test
+  public void testSingleMessageRecoveryTask() {
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata("name", "partitionId", 10, 10, Instant.now().toEpochMilli());
+    assertThat(recoveryTask.startOffset).isEqualTo(recoveryTask.endOffset);
+
+    RecoveryTaskMetadata recoveryTask2 =
+        new RecoveryTaskMetadata("name", "partitionId", 0, 0, Instant.now().toEpochMilli());
+    assertThat(recoveryTask2.startOffset).isEqualTo(recoveryTask2.endOffset);
+  }
+
+  @Test
   public void invalidArgumentsShouldThrow() {
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                new RecoveryTaskMetadata(
-                    "name", "partitionId", 0, 0, Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new RecoveryTaskMetadata("name", "", 0, 1, Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()

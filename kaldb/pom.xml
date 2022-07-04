@@ -13,19 +13,22 @@
         <javac.target>11</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.13</http.client.version>
-        <http.core.version>4.4.14</http.core.version>
-        <protobuf.version>3.17.3</protobuf.version>
-        <grpc.version>1.40.1</grpc.version>
-        <armeria.version>1.14.1</armeria.version>
-        <micrometer.version>1.5.1</micrometer.version>
-        <jackson.version>2.10.5</jackson.version>
-        <!-- remove special databind version when jackson.version is the same -->
-        <jackson.databind.version>${jackson.version}.1</jackson.databind.version>
+        <http.core.version>4.4.15</http.core.version>
+        <protobuf.version>3.20.1</protobuf.version>
+        <grpc.version>1.46.0</grpc.version>
+        <armeria.version>1.16.0</armeria.version>
+        <micrometer.version>1.8.5</micrometer.version>
+        <kafka.version>2.5.1</kafka.version>
+        <jackson.version>2.13.3</jackson.version>
+        <jackson.databind.version>2.10.5.1</jackson.databind.version>
         <lucene.version>8.4.1</lucene.version>
         <curator.version>5.1.0</curator.version>
         <log4j.version>2.17.1</log4j.version>
         <aws.sdk.version>2.16.72</aws.sdk.version>
         <parquet.version>1.12.2</parquet.version>
+        <curator.version>5.2.1</curator.version>
+        <log4j.version>2.17.2</log4j.version>
+        <aws.sdk.version>2.17.181</aws.sdk.version>
     </properties>
 
     <repositories>
@@ -44,7 +47,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.30</version>
+            <version>1.7.36</version>
         </dependency>
 
         <!-- Binding for Log4J -->
@@ -98,6 +101,12 @@
                     <artifactId>grpc-core</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.netty.incubator</groupId>
+            <artifactId>netty-incubator-transport-native-io_uring</artifactId>
+            <version>0.0.14.Final</version>
+            <classifier>linux-x86_64</classifier>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -154,7 +163,13 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>2.5.1</version>
+            <version>${kafka.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-streams</artifactId>
+            <version>${kafka.version}</version>
         </dependency>
 
         <!-- Jackson JSON parser dependencies -->
@@ -176,6 +191,12 @@
             <version>${jackson.databind.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-afterburner</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
         <!-- YAML config parsing dependencies -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -192,7 +213,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>30.0-jre</version>
+            <version>31.1-jre</version>
         </dependency>
 
         <!-- micrometer dependencies -->
@@ -211,7 +232,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.7</version>
+            <version>2.11.0</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -347,13 +368,13 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
-            <version>4.1.0</version>
+            <version>4.2.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -366,13 +387,13 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.17.2</version>
+            <version>3.22.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>3.11.2</version>
+            <version>3.12.4</version>
             <scope>test</scope>
         </dependency>
 
@@ -391,7 +412,7 @@
         <dependency>
             <groupId>javax.xml.bind</groupId>
             <artifactId>jaxb-api</artifactId>
-            <version>2.3.0</version>
+            <version>2.3.1</version>
             <scope>test</scope>
         </dependency>
         
@@ -442,7 +463,7 @@
         <dependency>
             <groupId>org.codehaus.woodstox</groupId>
             <artifactId>stax2-api</artifactId>
-            <version>4.2</version>
+            <version>4.2.1</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.github.charithe/kafka-junit -->
@@ -466,20 +487,20 @@
         <dependency>
             <groupId>com.spotify</groupId>
             <artifactId>completable-futures</artifactId>
-            <version>0.3.1</version>
+            <version>0.3.5</version>
         </dependency>
 
         <!-- Zipkin -->
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-instrumentation-grpc</artifactId>
-            <version>5.13.3</version>
+            <version>5.13.8</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-context-log4j2</artifactId>
-            <version>5.13.3</version>
+            <version>5.13.8</version>
         </dependency>
 
         <dependency>

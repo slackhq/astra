@@ -1,7 +1,6 @@
 package com.slack.kaldb.testlib;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
@@ -56,7 +55,7 @@ public class MessageUtil {
     sourceFieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     fieldMap.put("source", sourceFieldMap);
 
-    return new ObjectMapper().writeValueAsString(fieldMap);
+    return JsonUtil.writeAsString(fieldMap);
   }
 
   public static LogWireMessage makeWireMessage(int i, String ts) {

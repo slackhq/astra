@@ -11,7 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -52,7 +52,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final MeterRegistry meterRegistry;
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs s3BlobFs;
 
   @VisibleForTesting protected int futuresListTimeoutSecs;
 
@@ -73,7 +73,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   public SnapshotDeletionService(
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      S3BlobFs s3BlobFs,
+      BlobFs s3BlobFs,
       KaldbConfigs.ManagerConfig managerConfig,
       MeterRegistry meterRegistry) {
 

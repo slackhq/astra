@@ -1,8 +1,7 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.blobfs.s3.S3BlobFs.getS3BlobFsClient;
 import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -12,7 +11,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
 import com.slack.kaldb.chunk.ReadWriteChunk;
@@ -28,6 +27,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -46,16 +46,14 @@ import org.slf4j.LoggerFactory;
  * the current chunk is marked as read only. At that point a new chunk is created which becomes the
  * active chunk.
  */
-public class IndexingChunkManager<T> extends ChunkManager<T> {
+public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(IndexingChunkManager.class);
 
   private final File dataDirectory;
 
-  // TODO: ChunkDataPrefix can be moved to KaldbConfig?
   private final String chunkDataPrefix;
 
-  // TODO: Pass a reference to BlobFS instead of S3BlobFS.
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
   private final MetadataStore metadataStore;
@@ -72,7 +70,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
-  private final long rolloverFutureTimeoutMs;
   private ListenableFuture<Boolean> rolloverFuture;
 
   /**
@@ -112,10 +109,9 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       String dataDirectory,
       ChunkRollOverStrategy chunkRollOverStrategy,
       MeterRegistry registry,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      long rollOverFutureTimeoutMs,
       MetadataStore metadataStore,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
@@ -130,11 +126,10 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
 
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
-    this.rolloverFutureTimeoutMs = rollOverFutureTimeoutMs;
     this.metadataStore = metadataStore;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
@@ -201,7 +196,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
 
     RollOverChunkTask<T> rollOverChunkTask =
         new RollOverChunkTask<>(
-            currentChunk, meterRegistry, s3BlobFs, s3Bucket, currentChunk.info().chunkId);
+            currentChunk, meterRegistry, blobFs, s3Bucket, currentChunk.info().chunkId);
 
     if ((rolloverFuture == null) || rolloverFuture.isDone()) {
       rolloverFuture = rolloverExecutorService.submit(rollOverChunkTask);
@@ -257,8 +252,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
   private ReadWriteChunk<T> getOrCreateActiveChunk(
       String kafkaPartitionId, KaldbConfigs.IndexerConfig indexerConfig) throws IOException {
     if (activeChunk == null) {
-      // TODO: Rewrite makeLogStore to not read from kaldb config after initialization since it
-      //  complicates unit tests.
       @SuppressWarnings("unchecked")
       LogStore<T> logStore =
           (LogStore<T>)
@@ -328,9 +321,6 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     searchMetadataStore = new SearchMetadataStore(metadataStore, false);
     snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
 
-    // todo - we should reconsider what it means to be initialized, vs running
-    // todo - potentially defer threadpool creation until the startup has been called?
-    // prevents use of chunk manager until the service has started
     stopIngestion = false;
   }
 
@@ -355,7 +345,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
     if (rolloverFuture != null && !rolloverFuture.isDone()) {
       try {
         LOG.info("Waiting for roll over to complete before closing..");
-        rolloverFuture.get(rolloverFutureTimeoutMs, MILLISECONDS);
+        rolloverFuture.get(DEFAULT_START_STOP_DURATION.get(ChronoUnit.SECONDS), TimeUnit.SECONDS);
         LOG.info("Roll over completed successfully. Closing rollover task.");
       } catch (Exception e) {
         LOG.warn("Roll over failed with Exception", e);
@@ -365,14 +355,9 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       LOG.info("Roll over future completed successfully.");
     }
 
-    // Close roll over executor service.
-    try {
-      // A short timeout here is fine here since there are no more tasks.
-      rolloverExecutorService.awaitTermination(1, TimeUnit.SECONDS);
-      rolloverExecutorService.shutdownNow();
-    } catch (InterruptedException e) {
-      LOG.warn("Encountered error shutting down roll over executor.", e);
-    }
+    // Forcefully close rollover executor service. There may be a pending rollover, but we have
+    // reached the max time.
+    rolloverExecutorService.shutdownNow();
 
     for (Chunk<T> chunk : chunkList) {
       try {
@@ -391,6 +376,7 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
       MeterRegistry meterRegistry,
       MetadataStore metadataStore,
       KaldbConfigs.IndexerConfig indexerConfig,
+      BlobFs blobFs,
       KaldbConfigs.S3Config s3Config) {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -401,22 +387,11 @@ public class IndexingChunkManager<T> extends ChunkManager<T> {
         indexerConfig.getDataDirectory(),
         chunkRollOverStrategy,
         meterRegistry,
-        getS3BlobFsClient(s3Config),
+        blobFs,
         s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
-        DEFAULT_ROLLOVER_FUTURE_TIMEOUT_MS,
         metadataStore,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig);
-  }
-
-  @VisibleForTesting
-  public SnapshotMetadataStore getSnapshotMetadataStore() {
-    return snapshotMetadataStore;
-  }
-
-  @VisibleForTesting
-  public SearchMetadataStore getSearchMetadataStore() {
-    return searchMetadataStore;
   }
 }

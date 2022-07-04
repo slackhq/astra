@@ -1,6 +1,6 @@
 package com.slack.kaldb.server;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.slack.kaldb.histogram.HistogramBucket;

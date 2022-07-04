@@ -12,6 +12,8 @@ public class FixedIntervalHistogramImpl implements Histogram {
   private final double low;
   private final double high;
   private final int bucketCount;
+
+  private final double bucketSize;
   /**
    * Once the histogram is initialized, the buckets can't be changed since we rely on insertion
    * order of buckets for the findBucket function.
@@ -29,6 +31,7 @@ public class FixedIntervalHistogramImpl implements Histogram {
     this.high = high;
     this.bucketCount = bucketCount;
     this.count = 0;
+    this.bucketSize = (high - low) / bucketCount;
     this.buckets = makeHistogram(low, high, bucketCount);
   }
 
@@ -53,11 +56,15 @@ public class FixedIntervalHistogramImpl implements Histogram {
   public void add(long value) {
     // The histogram contains inclusive ranges but the buckets don't. So, make an exception for
     // high value and count it towards the last bucket.
-    if (value == high) {
+    if (value > high || value < low) {
+      throw new IndexOutOfBoundsException();
+    } else if (value == high) {
       buckets.get(bucketCount - 1).increment(1);
+    } else if (value == low) {
+      buckets.get(0).increment(1);
     } else {
-      int bucketIdx = findMatchingBucket(buckets, 0, bucketCount, (double) value);
-      buckets.get(bucketIdx).increment(1);
+      int index = (int) Math.floor((value - low) / bucketSize);
+      buckets.get(index).increment(1);
     }
     count++;
   }
@@ -93,24 +100,6 @@ public class FixedIntervalHistogramImpl implements Histogram {
       }
     }
     return Optional.empty();
-  }
-
-  /**
-   * Runs a binary search to find the correct bucket for the value being inserted and return it's
-   * index. Binary search works since ArrayList preserves the order of the elements inserted.
-   */
-  private int findMatchingBucket(
-      ArrayList<HistogramBucket> buckets, int start, int end, double value) {
-    if (start == end) {
-      throw new IllegalStateException(
-          String.format("Value out of bounds for histogram (%f %f %f)", value, low, high));
-    } else {
-      int mid = start + ((end - start - 1) / 2);
-      int valueComparator = buckets.get(mid).compareTo(value);
-      if (valueComparator < 0) return findMatchingBucket(buckets, mid + 1, end, value);
-      if (valueComparator > 0) return findMatchingBucket(buckets, start, mid, value);
-      return mid;
-    }
   }
 
   @Override

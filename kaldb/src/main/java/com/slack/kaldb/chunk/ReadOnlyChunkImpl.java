@@ -1,10 +1,7 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.logstore.BlobFsUtils.copyFromS3;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -53,8 +50,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private Path dataDirectory;
   private Metadata.CacheSlotMetadata.CacheSlotState cacheSlotLastKnownState;
 
+  private final ChunkDownloaderFactory chunkDownloaderFactory;
   private final String dataDirectoryPrefix;
-  private final String s3Bucket;
   private final SearchContext searchContext;
   protected final String slotName;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
@@ -63,7 +60,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
   private final ExecutorService executorService;
-  private final S3BlobFs s3BlobFs;
 
   public static final String CHUNK_ASSIGNMENT_TIMER = "chunk_assignment_timer";
   public static final String CHUNK_EVICTION_TIMER = "chunk_eviction_timer";
@@ -76,20 +72,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public ReadOnlyChunkImpl(
       MetadataStore metadataStore,
       MeterRegistry meterRegistry,
-      S3BlobFs s3BlobFs,
       SearchContext searchContext,
-      String s3Bucket,
       String dataDirectoryPrefix,
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore)
+      SearchMetadataStore searchMetadataStore,
+      ChunkDownloaderFactory chunkDownloaderFactory)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
-    this.s3BlobFs = s3BlobFs;
-    this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
+    this.chunkDownloaderFactory = chunkDownloaderFactory;
 
     // we use a single thread executor to allow operations for this chunk to queue,
     // guaranteeing that they are executed in the order they were received
@@ -154,14 +148,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     };
   }
 
-  private void registerSearchMetadata(String snapshotName)
+  @VisibleForTesting
+  public static SearchMetadata registerSearchMetadata(
+      SearchMetadataStore searchMetadataStore,
+      SearchContext cacheSearchContext,
+      String snapshotName)
       throws ExecutionException, InterruptedException, TimeoutException {
-    this.searchMetadata =
+    SearchMetadata metadata =
         new SearchMetadata(
-            SearchMetadata.getSnapshotName(snapshotName, searchContext.hostname),
+            SearchMetadata.generateSearchContextSnapshotId(
+                snapshotName, cacheSearchContext.hostname),
             snapshotName,
-            searchContext.toUrl());
-    searchMetadataStore.create(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            cacheSearchContext.toUrl());
+    searchMetadataStore.create(metadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    return metadata;
   }
 
   private void unregisterSearchMetadata()
@@ -189,7 +189,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       SnapshotMetadata snapshotMetadata = getSnapshotMetadata(cacheSlotMetadata.replicaId);
-      if (copyFromS3(s3Bucket, snapshotMetadata.snapshotId, s3BlobFs, dataDirectory).length == 0) {
+      ChunkDownloader chunkDownloader =
+          chunkDownloaderFactory.makeChunkDownloader(snapshotMetadata.snapshotId, dataDirectory);
+      if (chunkDownloader.download()) {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
@@ -203,7 +205,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
-      registerSearchMetadata(snapshotMetadata.name);
+      searchMetadata =
+          registerSearchMetadata(searchMetadataStore, searchContext, snapshotMetadata.name);
       assignmentTimer.stop(chunkAssignmentTimerSuccess);
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,

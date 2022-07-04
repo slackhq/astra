@@ -7,7 +7,6 @@ import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertEquals;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
@@ -173,7 +172,7 @@ public class ZookeeperCachedMetadataStoreImplTest {
     assertThat(countDownLatch.await(3000, TimeUnit.MILLISECONDS)).isTrue();
 
     // verify that we still did not see any executions
-    assertEquals(0, listenerExecutions.get());
+    assertThat(listenerExecutions.get()).isZero();
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")

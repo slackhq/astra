@@ -17,3 +17,6 @@ benchmarks/jmh-output/
 *logs*.txt
 *logs*.tar.gz
 *log*.tar.gz
+
+# Test files
+indices/

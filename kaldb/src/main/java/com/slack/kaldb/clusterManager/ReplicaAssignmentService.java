@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -147,6 +148,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                         Metadata.CacheSlotMetadata.CacheSlotState.FREE))
             .collect(Collectors.toList());
 
+    // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
+    // assigned chunks that matches all recent queries. This should help balance out the load
+    // across all available hosts.
+    Collections.shuffle(availableCacheSlots);
+
     Set<String> assignedReplicaIds =
         cacheSlotMetadataStore
             .getCached()
@@ -166,7 +172,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                     replicaMetadata.expireAfterEpochMs > nowMilli
                         && !assignedReplicaIds.contains(replicaMetadata.name))
             // sort the list by the newest replicas first, in case we run out of available slots
-            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs))
+            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
             .map(replicaMetadata -> replicaMetadata.name)
             .collect(Collectors.toUnmodifiableList());
 

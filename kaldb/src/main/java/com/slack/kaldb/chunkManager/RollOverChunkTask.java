@@ -1,9 +1,10 @@
 package com.slack.kaldb.chunkManager;
 
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.concurrent.Callable;
 import org.slf4j.Logger;
@@ -21,39 +22,48 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
   public static final String ROLLOVERS_COMPLETED = "rollovers_completed";
   public static final String ROLLOVERS_FAILED = "rollovers_failed";
   public static final String ROLLOVERS_INITIATED = "rollovers_initiated";
+  public static final String ROLLOVER_TIMER = "rollover_timer";
 
   private final Counter rolloversInitiatedCounter;
   private final Counter rolloversCompletedCounter;
   private final Counter rolloversFailedCounter;
+  private final Timer rollOverTimer;
 
   private final ReadWriteChunk<T> chunk;
   private final String s3Bucket;
   private final String s3BucketPrefix;
-  private final S3BlobFs s3BlobFs;
+  private final BlobFs blobFs;
+  private final MeterRegistry meterRegistry;
 
   public RollOverChunkTask(
       ReadWriteChunk<T> chunk,
       MeterRegistry meterRegistry,
-      S3BlobFs s3BlobFs,
+      BlobFs blobFs,
       String s3Bucket,
       String s3BucketPrefix) {
     this.chunk = chunk;
-    this.s3BlobFs = s3BlobFs;
+    this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.s3BucketPrefix = s3BucketPrefix;
+    this.meterRegistry = meterRegistry;
     rolloversInitiatedCounter = meterRegistry.counter(ROLLOVERS_INITIATED);
     rolloversCompletedCounter = meterRegistry.counter(ROLLOVERS_COMPLETED);
     rolloversFailedCounter = meterRegistry.counter(ROLLOVERS_FAILED);
+    rollOverTimer = meterRegistry.timer(ROLLOVER_TIMER);
   }
 
   @Override
-  public Boolean call() {
+  public Boolean call() throws Exception {
+    return rollOverTimer.recordCallable(() -> doRollover());
+  }
+
+  private Boolean doRollover() {
     try {
       LOG.info("Start chunk roll over {}", chunk.info());
       rolloversInitiatedCounter.increment();
       // Run pre-snapshot and upload chunk to blob store.
       chunk.preSnapshot();
-      if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, s3BlobFs)) {
+      if (!chunk.snapshotToS3(s3Bucket, s3BucketPrefix, blobFs)) {
         LOG.warn("Failed to snapshot the chunk to S3");
         rolloversFailedCounter.increment();
         return false;

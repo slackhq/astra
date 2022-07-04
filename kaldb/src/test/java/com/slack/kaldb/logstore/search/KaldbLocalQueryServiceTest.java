@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,12 +47,12 @@ public class KaldbLocalQueryServiceTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
-        new ChunkManagerUtil<>(
+        makeChunkManagerUtil(
             S3_MOCK_RULE,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             100,
-            KaldbConfigUtil.makeIndexerConfig(1000));
+            KaldbConfigUtil.makeIndexerConfig(1000, 1000, "log_message", 100));
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     kaldbLocalQueryService = new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);

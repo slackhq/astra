@@ -11,6 +11,7 @@ enum NodeRole {
   CACHE = 2;
   MANAGER = 3;
   RECOVERY = 4;
+  PREPROCESSOR = 5;
 };
 
 // KalDb is a single binary consisting of multiple components.
@@ -27,9 +28,21 @@ message KaldbConfig {
   CacheConfig cache_config = 8;
   ManagerConfig manager_config = 9;
   RecoveryConfig recovery_config = 10;
+  PreprocessorConfig preprocessor_config = 11;
+  ClusterConfig cluster_config = 12;
 }
 
-// Configuration for Kafka producer and consumer.
+// Static configuration for the Kaldb cluster.
+message ClusterConfig {
+  // A string representing name of the cluster.
+  string cluster_name = 1;
+  // A string representing the environment the cluster is running in.
+  string env = 2;
+}
+
+// todo - move this to a nested IndexerConfig message, and refactor as KafkaConsumerConfig
+// todo - this is only ever used by the indexer and should have reduced visibility
+// Configuration for Kafka consumer.
 message KafkaConfig {
   string kafka_topic = 1;
   string kafka_topic_partition = 2;
@@ -64,6 +77,7 @@ message S3Config {
 
 message TracingConfig {
   string zipkin_endpoint = 1;
+  map<string, string> common_tags = 2;
 }
 
 // Configuration for the query service.
@@ -88,6 +102,9 @@ message IndexerConfig {
   string data_directory = 6;
   // Indexer server config.
   ServerConfig server_config = 7;
+  // The max_offset_delay controls by how many kafka messages the indexer can be behind
+  // before it needs to create a recovery task to catch up.
+  int64 max_offset_delay_messages = 8;
 }
 
 // A config object containing all the lucene configs.
@@ -104,9 +121,13 @@ message ServerConfig {
 
 // Configuration for cache node.
 message CacheConfig {
+  // Number of slots per cache instance.
   int32 slots_per_instance = 1;
-  string data_directory = 2;
-  ServerConfig server_config = 3;
+  // Maximum number slots that can download chunks in parallel.
+  int32 max_parallel_cache_slot_downloads = 2;
+  // Path on local disk to store downloaded files.
+  string data_directory = 3;
+  ServerConfig server_config = 4;
 }
 
 // Cluster manager config. As a convention we define a config struct for
@@ -160,4 +181,38 @@ message ManagerConfig {
 // Config for the recovery node.
 message RecoveryConfig {
   ServerConfig server_config = 1;
+}
+
+// Config for the preprocessor node.
+message PreprocessorConfig {
+  // Configuration for the kafka stream processor
+  message KafkaStreamConfig {
+    string bootstrap_servers = 1;
+    // An identifier for the stream processing application. Must be unique within the Kafka cluster
+    string application_id = 2;
+    // The number of threads to execute stream processing
+    int32 num_stream_threads = 3;
+    // This will allow parallel processing up to the amount of upstream partitions. You cannot have
+    // more threads than you have upstreams due to how the work is partitioned. E
+    string processing_guarantee = 4;
+  }
+
+  ServerConfig server_config = 1;
+  KafkaStreamConfig kafka_stream_config = 2;
+
+  // Upstream topics to consume from
+  repeated string upstream_topics = 3;
+
+  // Downstream topic to write to
+  string downstream_topic = 4;
+
+  // Name of the data transformation pipeline to use when ingesting the data.
+  string data_transformer = 5;
+
+  // The number of preprocessor instances
+  // Used for calculating target throughput per instance
+  int32 preprocessor_instance_count = 6;
+
+  // Amount of time in seconds the rate limiter can burst
+  int32 rate_limiter_max_burst_seconds = 7;
 }

@@ -13,7 +13,7 @@
     <Loggers>
         <!--
         Enable for DEBUG logging
-        <Logger name="com.slack.kaldb.logstore.index.KalDBMergeScheduler" level="debug" additivity="true">
+        <Logger name="com.slack.kaldb.logstore.KalDBMergeScheduler" level="debug" additivity="true">
             <appender-ref ref="console" />
         </Logger>
         -->

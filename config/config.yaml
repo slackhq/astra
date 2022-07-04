@@ -1,4 +1,4 @@
-nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY}]
+nodeRoles: [${NODE_ROLES:-QUERY,INDEX,CACHE,MANAGER,RECOVERY,PREPROCESSOR}]
 
 indexerConfig:
   maxMessagesPerChunk: ${INDEXER_MAX_MESSAGES_PER_CHUNK:-100000}
@@ -9,6 +9,7 @@ indexerConfig:
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
+  maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
   serverConfig:
     serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
     serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}
@@ -31,6 +32,9 @@ s3Config:
 
 tracingConfig:
   zipkinEndpoint: ${ZIPKIN_TRACING_ENDPOINT:-http://localhost:9411/api/v2/spans}
+  commonTags:
+    clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
+    env: ${KALDB_CLUSTER_ENV:-local}
 
 queryConfig:
   serverConfig:
@@ -48,6 +52,7 @@ metadataStoreConfig:
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
+  maxParallelCacheSlotDownloads: ${KALDB_CACHE_MAX_PARALLEL_CACHE_SLOT_DOWNLOADS:-3}
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
@@ -74,8 +79,26 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
 
+clusterConfig:
+  clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
+  env: ${KALDB_CLUSTER_ENV:-local}
 
 recoveryConfig:
   serverConfig:
     serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
     serverAddress: ${KALDB_RECOVERY_SERVER_ADDRESS:-localhost}
+
+preprocessorConfig:
+  kafkaStreamConfig:
+    bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    applicationId: ${KAFKA_APPLICATION_ID:-kaldb_preprocessor}
+    numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
+    processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
+  serverConfig:
+    serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
+    serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
+  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic}]
+  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
+  preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
+  dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
+  rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}

@@ -4,13 +4,14 @@ import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
 
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
+import brave.handler.MutableSpan;
 import brave.handler.SpanHandler;
+import brave.propagation.TraceContext;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.grpc.GrpcMeterIdPrefixFunction;
 import com.linecorp.armeria.common.logging.LogLevel;
-import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.brave.BraveService;
@@ -20,11 +21,18 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.grpc.GrpcServiceBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.server.management.ManagementService;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.grpc.BindableService;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -36,7 +44,7 @@ import zipkin2.reporter.urlconnection.URLConnectionSender;
 public class ArmeriaService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(ArmeriaService.class);
 
-  private static final int WORKER_EVENT_LOOP_THREADS = 16;
+  private static final int MAX_CONNECTIONS = 100;
 
   private final String serviceName;
   private final Server server;
@@ -49,27 +57,21 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
-    private SpanHandler spanHandler = new SpanHandler() {};
+    private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
     public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
       this.serverBuilder = Server.builder().http(port);
 
-      initializeEventLoop();
-      initializeTimeouts();
+      initializeLimits();
       initializeCompression();
       initializeLogging();
       initializeManagementEndpoints(prometheusMeterRegistry);
     }
 
-    private void initializeEventLoop() {
-      EventLoopGroup eventLoopGroup = EventLoopGroups.newEventLoopGroup(WORKER_EVENT_LOOP_THREADS);
-      EventLoopGroups.warmUp(eventLoopGroup);
-      serverBuilder.workerGroup(eventLoopGroup, true);
-    }
-
-    private void initializeTimeouts() {
+    private void initializeLimits() {
       serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+      serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
     private void initializeCompression() {
@@ -94,15 +96,29 @@ public class ArmeriaService extends AbstractIdleService {
       serverBuilder
           .service("/health", HealthCheckService.builder().build())
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
+          .serviceUnder("/internal/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
     }
 
-    public Builder withTracingEndpoint(String endpoint) {
-      if (endpoint != null && !endpoint.isBlank()) {
-        LOG.info(String.format("Trace reporting enabled: %s", endpoint));
-        Sender sender = URLConnectionSender.create(endpoint);
-        spanHandler = AsyncZipkinSpanHandler.create(sender);
+    public Builder withTracing(KaldbConfigs.TracingConfig tracingConfig) {
+      // span handlers is an ordered list, so we need to be careful with ordering
+      if (tracingConfig.getCommonTagsCount() > 0) {
+        spanHandlers.add(
+            new SpanHandler() {
+              @Override
+              public boolean begin(TraceContext context, MutableSpan span, TraceContext parent) {
+                tracingConfig.getCommonTagsMap().forEach(span::tag);
+                return true;
+              }
+            });
       }
+
+      if (!tracingConfig.getZipkinEndpoint().isBlank()) {
+        LOG.info(String.format("Trace reporting enabled: %s", tracingConfig.getZipkinEndpoint()));
+        Sender sender = URLConnectionSender.create(tracingConfig.getZipkinEndpoint());
+        spanHandlers.add(AsyncZipkinSpanHandler.create(sender));
+      }
+
       return this;
     }
 
@@ -116,7 +132,24 @@ public class ArmeriaService extends AbstractIdleService {
           GrpcService.builder()
               .addService(grpcService)
               .enableUnframedRequests(true)
-              .useBlockingTaskExecutor(true);
+              // if not using the client timeout header - separate, lower timeouts
+              // should be configured for indexer / cache nodes than that of the query server
+              .useClientTimeoutHeader(true)
+              .useBlockingTaskExecutor(true)
+              .intercept(
+                  new ServerInterceptor() {
+                    // This method call adds the Interceptor to enable compressed server responses
+                    // for all RPCs - see
+                    // https://github.com/grpc/grpc-java/tree/d4fa0ecc07495097453b0a2848765f076b9e714c/examples/src/main/java/io/grpc/examples/experimental
+                    @Override
+                    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                        ServerCall<ReqT, RespT> call,
+                        Metadata headers,
+                        ServerCallHandler<ReqT, RespT> next) {
+                      call.setCompression("gzip");
+                      return next.startCall(call, headers);
+                    }
+                  });
       serverBuilder.decorator(
           MetricCollectingService.newDecorator(GrpcMeterIdPrefixFunction.of("grpc.service")));
       serverBuilder.service(searchBuilder.build());
@@ -124,17 +157,15 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     public ArmeriaService build() {
-      // always add tracing, even if it's not being reported to an endpoint
-      serverBuilder.decorator(
-          BraveService.newDecorator(
-              Tracing.newBuilder()
-                  .localServiceName(serviceName)
-                  .currentTraceContext(
-                      RequestContextCurrentTraceContext.builder()
-                          .addScopeDecorator(ThreadContextScopeDecorator.get())
-                          .build())
-                  .addSpanHandler(spanHandler)
-                  .build()));
+      Tracing.Builder tracingBuilder =
+          Tracing.newBuilder()
+              .localServiceName(serviceName)
+              .currentTraceContext(
+                  RequestContextCurrentTraceContext.builder()
+                      .addScopeDecorator(ThreadContextScopeDecorator.get())
+                      .build());
+      spanHandlers.forEach(tracingBuilder::addSpanHandler);
+      serverBuilder.decorator(BraveService.newDecorator(tracingBuilder.build()));
 
       return new ArmeriaService(serverBuilder.build(), serviceName);
     }
@@ -150,7 +181,15 @@ public class ArmeriaService extends AbstractIdleService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Shutting down");
-    server.closeAsync().get(15, TimeUnit.SECONDS);
+
+    // On server close there is an option for a graceful shutdown, which is disabled by default.
+    // When it is
+    // disabled it immediately starts rejecting requests and begins the shutdown process, which
+    // includes
+    // running any remaining AsyncClosableSupport closeAsync actions. We want to allow this to take
+    // up to the
+    // maximum permissible shutdown time to successfully close.
+    server.close();
   }
 
   @Override

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -32,14 +34,16 @@ import org.slf4j.LoggerFactory;
 
 public class TestKafkaServer {
   private static final Logger LOG = LoggerFactory.getLogger(TestKafkaServer.class);
+  private static final int ALLOCATE_RANDOM_PORT = -1;
 
   public static final String TEST_KAFKA_TOPIC = "test-topic";
 
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
-      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic)
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId, int count)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, count, 1000, startTime);
 
     int indexedCount = 0;
     // Insert messages into Kafka.
@@ -53,7 +57,7 @@ public class TestKafkaServer {
             producer.send(
                 new ProducerRecord<>(
                     kafkaTopic,
-                    0,
+                    partitionId,
                     String.valueOf(indexedCount),
                     fromLogMessage(msg, indexedCount).toByteArray()));
 
@@ -68,9 +72,16 @@ public class TestKafkaServer {
     return indexedCount;
   }
 
-  public static void produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
+  // Create messages, format them into murron protobufs, write them to kafka
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
       throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
-    produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC);
+    return produceMessagesToKafka(broker, startTime, kafkaTopic, partitionId, 100);
+  }
+
+  public static int produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
+      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+    return produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
   }
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)
@@ -92,8 +103,15 @@ public class TestKafkaServer {
   private Path logDir;
 
   public TestKafkaServer() throws Exception {
+    this(ALLOCATE_RANDOM_PORT);
+  }
+
+  public TestKafkaServer(int port) throws Exception {
+    Properties brokerProperties = new Properties();
+    // Set the number of default partitions for a kafka topic to 3 instead of 1.
+    brokerProperties.put("num.partitions", "3");
     // Create a kafka broker
-    broker = EphemeralKafkaBroker.create();
+    broker = EphemeralKafkaBroker.create(port, ALLOCATE_RANDOM_PORT, brokerProperties);
     brokerStart = broker.start();
     Futures.getUnchecked(brokerStart);
 
@@ -109,6 +127,14 @@ public class TestKafkaServer {
     return adminClient.listConsumerGroups().all().get().size();
   }
 
+  public void createTopicWithPartitions(String topic, int numPartitions)
+      throws ExecutionException, InterruptedException {
+    adminClient
+        .createTopics(Collections.singleton(new NewTopic(topic, numPartitions, (short) 1)))
+        .all()
+        .get();
+  }
+
   public CompletableFuture<Void> getBrokerStart() {
     return brokerStart;
   }
@@ -118,6 +144,7 @@ public class TestKafkaServer {
   }
 
   public void close() throws ExecutionException, InterruptedException {
+    adminClient.close();
     if (broker != null) {
       broker.stop();
     }

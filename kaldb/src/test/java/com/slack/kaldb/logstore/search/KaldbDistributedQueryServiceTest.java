@@ -1,446 +1,617 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
+import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
+import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.findPartitionsToQuery;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
+import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.github.charithe.kafka.EphemeralKafkaBroker;
-import com.google.common.util.concurrent.Service;
-import com.google.common.util.concurrent.ServiceManager;
-import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.common.util.EventLoopGroups;
-import com.linecorp.armeria.server.Server;
-import com.linecorp.armeria.server.grpc.GrpcService;
+import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.service.ServiceMetadata;
+import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.proto.service.KaldbSearch;
-import com.slack.kaldb.proto.service.KaldbServiceGrpc;
-import com.slack.kaldb.server.KaldbIndexer;
-import com.slack.kaldb.server.KaldbTimeoutLocalQueryService;
-import com.slack.kaldb.server.TestingArmeriaServer;
-import com.slack.kaldb.testlib.ChunkManagerUtil;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.testlib.TestKafkaServer;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
-import com.slack.kaldb.writer.kafka.KaldbKafkaWriter;
-import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.HashSet;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.*;
 import org.apache.curator.test.TestingServer;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class KaldbDistributedQueryServiceTest {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryServiceTest.class);
+  private SimpleMeterRegistry metricsRegistry;
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
-  private static final SimpleMeterRegistry zkMetricsRegistry = new SimpleMeterRegistry();
-  private static final SimpleMeterRegistry indexerMetricsRegistry1 = new SimpleMeterRegistry();
-  private static final SimpleMeterRegistry indexerMetricsRegistry2 = new SimpleMeterRegistry();
-  private static final SimpleMeterRegistry indexerMetricsRegistry3 = new SimpleMeterRegistry();
-  private static final SimpleMeterRegistry queryMetricsRegistry = new SimpleMeterRegistry();
+  private MetadataStore zkMetadataStore;
+  private SearchMetadataStore searchMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private ServiceMetadataStore serviceMetadataStore;
 
-  private static KaldbServiceGrpc.KaldbServiceBlockingStub queryServiceStub;
+  private TestingServer testZKServer;
+  private SearchContext indexer1SearchContext;
+  private SearchContext indexer2SearchContext;
+  private SearchContext cache1SearchContext;
+  private SearchContext cache2SearchContext;
+  private SearchContext cache3SearchContext;
+  private SearchContext cache4SearchContext;
 
-  private static ServiceManager indexingServiceManager1;
-  private static ServiceManager indexingServiceManager2;
-  private static ServiceManager indexingServiceManager3;
-  private static ServiceManager queryServiceManager1;
-
-  private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
-  private static final String TEST_KAFKA_TOPIC_2 = "test-topic-2";
-  private static final String TEST_KAFKA_TOPIC_3 = "test-topic-3";
-
-  // we need 3 consumer groups to assert each indexer attaches to it's own consumer group
-  // the reason being we need to assert if the consumer group is connected before sending messages
-  // to kafka
-  // else we can end up with missing messages and flaky tests
-  private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
-  private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
-  private static final String KALDB_TEST_CLIENT_3 = "kaldb-test-client3";
-
-  private static final String TEST_S3_BUCKET = "test-s3-bucket";
-  private static TestKafkaServer kafkaServer;
-
-  private static TestingServer zkServer;
-  private static MetadataStore metadataStore;
-  private static SearchMetadataStore searchMetadataStore;
-  private static KaldbDistributedQueryService queryService;
-
-  private static EphemeralKafkaBroker broker;
-
-  @SuppressWarnings("OptionalGetWithoutIsPresent")
-  @BeforeClass
-  // TODO: This test is very similar to KaldbIndexerTest - explore a TestRule based setup
-  public static void initialize() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     Tracing.newBuilder().build();
 
-    kafkaServer = new TestKafkaServer();
-    zkServer = new TestingServer();
-    zkServer.start();
+    metricsRegistry = new SimpleMeterRegistry();
+    testZKServer = new TestingServer();
 
-    // TODO: Remove this additional config and use the bottom config instead?
+    // Metadata store
     KaldbConfigs.ZookeeperConfig zkConfig =
         KaldbConfigs.ZookeeperConfig.newBuilder()
-            .setZkConnectString(zkServer.getConnectString())
-            .setZkPathPrefix("test")
+            .setZkConnectString(testZKServer.getConnectString())
+            .setZkPathPrefix("indexerTest")
             .setZkSessionTimeoutMs(1000)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(zkMetricsRegistry, zkConfig);
+    zkMetadataStore = spy(ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig));
 
-    broker = kafkaServer.getBroker();
-    assertThat(broker.isRunning()).isTrue();
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, true));
+    searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, true));
+    serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
 
-    int indexServer1Port = 10000;
-    SearchContext searchContext1 = new SearchContext("127.0.0.1", indexServer1Port);
-    KaldbConfigs.KaldbConfig kaldbConfig1 =
-        KaldbConfigUtil.makeKaldbConfig(
-            "localhost:" + broker.getKafkaPort().get(),
-            indexServer1Port,
-            TEST_KAFKA_TOPIC_1,
-            0,
-            KALDB_TEST_CLIENT_1,
-            TEST_S3_BUCKET,
-            indexServer1Port,
-            "",
-            "");
-
-    ChunkManagerUtil<LogMessage> chunkManagerUtil1 =
-        new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
-            indexerMetricsRegistry1,
-            zkServer,
-            10 * 1024 * 1024 * 1024L,
-            100,
-            searchContext1,
-            metadataStore,
-            kaldbConfig1.getIndexerConfig());
-    indexingServiceManager1 =
-        newIndexingServer(chunkManagerUtil1, kaldbConfig1, indexerMetricsRegistry1, 0);
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed1Count = produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC_1);
-    await()
-        .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry1);
-                LOG.debug("Registry1 current_count={} total_count={}", count, indexed1Count);
-                return count == indexed1Count;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
-
-    int indexServer2Port = 10001;
-    SearchContext searchContext2 = new SearchContext("127.0.0.1", indexServer2Port);
-    KaldbConfigs.KaldbConfig kaldbConfig2 =
-        KaldbConfigUtil.makeKaldbConfig(
-            "localhost:" + broker.getKafkaPort().get(),
-            indexServer2Port,
-            TEST_KAFKA_TOPIC_2,
-            0,
-            KALDB_TEST_CLIENT_2,
-            TEST_S3_BUCKET,
-            indexServer2Port,
-            "",
-            "");
-
-    // Set it to the new config so that the new kafka writer picks up this config
-    // KaldbConfig.initFromConfigObject(kaldbConfig2);
-    ChunkManagerUtil<LogMessage> chunkManagerUtil2 =
-        new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
-            indexerMetricsRegistry2,
-            zkServer,
-            10 * 1024 * 1024 * 1024L,
-            100,
-            searchContext2,
-            metadataStore,
-            kaldbConfig2.getIndexerConfig());
-    indexingServiceManager2 =
-        newIndexingServer(chunkManagerUtil2, kaldbConfig2, indexerMetricsRegistry2, 3000);
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 2);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime2 =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed2Count = produceMessagesToKafka(broker, startTime2, TEST_KAFKA_TOPIC_2);
-    await()
-        .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry2);
-                LOG.debug("Registry2 current_count={} total_count={}", count, indexed2Count);
-                return count == indexed2Count;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
-
-    searchMetadataStore = new SearchMetadataStore(metadataStore, true);
-    queryService = new KaldbDistributedQueryService(searchMetadataStore, queryMetricsRegistry);
-    Server queryServer =
-        Server.builder()
-            .workerGroup(
-                EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-query", true), true)
-            // Hardcoding this could mean port collisions b/w tests running in parallel.
-            .http(0)
-            .verboseResponses(true)
-            .service(GrpcService.builder().addService(queryService).build())
-            .build();
-    HashSet<Service> queryServices = new HashSet<>();
-    queryServices.add(new TestingArmeriaServer(queryServer, queryMetricsRegistry));
-    queryServiceManager1 = new ServiceManager(queryServices);
-    queryServiceManager1.startAsync();
-    // TODO: remove startAsync with blocking call and remove sleep
-    Thread.sleep(1000);
-
-    queryServiceStub =
-        Clients.newClient(
-            String.format("gproto+http://127.0.0.1:%s/", queryServer.activeLocalPort()),
-            KaldbServiceGrpc.KaldbServiceBlockingStub.class);
+    indexer1SearchContext = new SearchContext("indexer_host1", 10000);
+    indexer2SearchContext = new SearchContext("indexer_host2", 10001);
+    cache1SearchContext = new SearchContext("cache_host1", 20000);
+    cache2SearchContext = new SearchContext("cache_host2", 20001);
+    cache3SearchContext = new SearchContext("cache_host3", 20002);
+    cache4SearchContext = new SearchContext("cache_host4", 20003);
   }
 
-  private static ServiceManager newIndexingServer(
-      ChunkManagerUtil<LogMessage> chunkManagerUtil,
-      KaldbConfigs.KaldbConfig kaldbConfig,
-      SimpleMeterRegistry meterRegistry,
-      int waitForSearchMs)
-      throws TimeoutException {
-
-    HashSet<Service> services = new HashSet<>();
-
-    LogMessageTransformer messageTransformer = KaldbIndexer.dataTransformerMap.get("api_log");
-    LogMessageWriterImpl logMessageWriterImpl =
-        new LogMessageWriterImpl(chunkManagerUtil.chunkManager, messageTransformer);
-    KaldbKafkaWriter kafkaWriter =
-        KaldbKafkaWriter.fromConfig(
-            logMessageWriterImpl, kaldbConfig.getKafkaConfig(), meterRegistry);
-
-    KaldbIndexer indexer = new KaldbIndexer(chunkManagerUtil.chunkManager, kafkaWriter);
-
-    services.add(chunkManagerUtil.chunkManager);
-    services.add(kafkaWriter);
-    services.add(indexer);
-
-    KaldbLocalQueryService<LogMessage> service =
-        new KaldbLocalQueryService<>(indexer.getChunkManager());
-    Server server;
-    if (waitForSearchMs > 0) {
-      KaldbTimeoutLocalQueryService wrapperService =
-          new KaldbTimeoutLocalQueryService(service, waitForSearchMs);
-      server =
-          Server.builder()
-              .workerGroup(
-                  EventLoopGroups.newEventLoopGroup(
-                      4, "armeria-common-worker-indexer-delayed", true),
-                  true)
-              .http(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort())
-              .verboseResponses(true)
-              .service(GrpcService.builder().addService(wrapperService).build())
-              .build();
-    } else {
-      server =
-          Server.builder()
-              .workerGroup(
-                  EventLoopGroups.newEventLoopGroup(4, "armeria-common-worker-indexer", true), true)
-              .http(kaldbConfig.getIndexerConfig().getServerConfig().getServerPort())
-              .verboseResponses(true)
-              .service(GrpcService.builder().addService(service).build())
-              .build();
-    }
-    services.add(new TestingArmeriaServer(server, meterRegistry));
-    ServiceManager serviceManager = new ServiceManager(services);
-    // make sure the services are up and running
-    serviceManager.startAsync().awaitHealthy(DEFAULT_START_STOP_DURATION);
-    return serviceManager;
-  }
-
-  @AfterClass
-  public static void shutdownServer() throws Exception {
-    if (indexingServiceManager1 != null) {
-      indexingServiceManager1.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-    }
-    if (indexingServiceManager2 != null) {
-      indexingServiceManager2.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-    }
-    if (queryServiceManager1 != null) {
-      queryServiceManager1.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-    }
-    if (searchMetadataStore != null) {
-      searchMetadataStore.close();
-    }
-    if (metadataStore != null) {
-      metadataStore.close();
-    }
-    zkMetricsRegistry.close();
-    if (kafkaServer != null) {
-      kafkaServer.close();
-    }
-    if (zkServer != null) {
-      zkServer.close();
-    }
-    if (broker != null) {
-      broker.stop();
-    }
+  @After
+  public void tearDown() throws Exception {
+    snapshotMetadataStore.close();
+    searchMetadataStore.close();
+    serviceMetadataStore.close();
+    zkMetadataStore.close();
+    metricsRegistry.close();
+    testZKServer.close();
   }
 
   @Test
-  public void testSearch() throws Exception {
-    KaldbSearch.SearchResult searchResponse =
-        queryServiceStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("*:*")
-                .setStartTimeEpochMs(0L)
-                .setEndTimeEpochMs(1601547099000L)
-                .setHowMany(100)
-                .setBucketCount(2)
-                .build());
+  public void testOneServiceOnePartition() {
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
 
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(200);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
 
-    verifyAddServerToZK();
-    testSearchWithOneShardTimeout();
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    List<ServicePartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 150, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 200, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(0);
   }
 
-  @SuppressWarnings("OptionalGetWithoutIsPresent")
-  private void verifyAddServerToZK() throws Exception {
-    int indexServer3Port = 10003;
-    SearchContext searchContext3 = new SearchContext("127.0.0.1", indexServer3Port);
-    KaldbConfigs.KaldbConfig kaldbConfig3 =
-        KaldbConfigUtil.makeKaldbConfig(
-            "localhost:" + broker.getKafkaPort().get(),
-            indexServer3Port,
-            TEST_KAFKA_TOPIC_3,
+  @Test
+  public void testOneServiceMultipleWindows() {
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition1 =
+        new ServicePartitionMetadata(100, 200, List.of("1"));
+
+    final ServicePartitionMetadata partition2 =
+        new ServicePartitionMetadata(201, 300, List.of("2", "3"));
+
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, List.of(partition1, partition2));
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    List<ServicePartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 300, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(2);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(201);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(300);
+
+    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 100, 202, name);
+    assertThat(partitionMetadata.size()).isEqualTo(2);
+
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
+
+    assertThat(partitionMetadata.get(1).partitions.size()).isEqualTo(2);
+    assertThat(partitionMetadata.get(1).startTimeEpochMs).isEqualTo(201);
+    assertThat(partitionMetadata.get(1).endTimeEpochMs).isEqualTo(300);
+  }
+
+  @Test
+  public void testMultipleServicesOneTimeRange() {
+
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
+
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    final String name1 = "testService1";
+    final String owner1 = "serviceOwner1";
+    final long throughputBytes1 = 1;
+    final ServicePartitionMetadata partition1 =
+        new ServicePartitionMetadata(100, 200, List.of("2"));
+
+    ServiceMetadata serviceMetadata1 =
+        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition1));
+
+    serviceMetadataStore.createSync(serviceMetadata1);
+    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+
+    List<ServicePartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
+  }
+
+  @Test
+  public void testOneIndexer() {
+    String indexName = "testIndex";
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    // we don't have any service metadata entry, so we shouldn't be able to find any snapshot
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(0);
+
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 300, List.of("1"));
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // now we can find the snapshot
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
+    // we can't find snapshot since the time window doesn't match snapshot
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkEndTime.toEpochMilli() + 1,
+            chunkEndTime.toEpochMilli() + 100,
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(0);
+
+    // add another chunk on the same indexer and ensure we still find the node
+    createIndexerZKMetadata(
+        Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), "1", indexer1SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 300, indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 150, indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
+    // re-add service metadata with a different time window that doesn't match any snapshot
+    serviceMetadataStore.delete(serviceMetadata.name);
+    await().until(() -> serviceMetadataStore.listSync().size() == 0);
+    partition = new ServicePartitionMetadata(1, 99, List.of("1"));
+    serviceMetadata = new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // we can't find snapshot since the time window doesn't match any service metadata
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testOneIndexerOneCache() throws Exception {
+    String indexName = "testIndex";
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    String snapshotName =
+        createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(199, 500, List.of("1"));
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkEndTime.toEpochMilli() + 1,
+            chunkEndTime.toEpochMilli() + 100,
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(0);
+
+    // create cache node entry for search metadata also serving the snapshot
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotName);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+
+    // re-add service metadata with a different time window that doesn't match any snapshot
+    serviceMetadataStore.delete(serviceMetadata.name);
+    await().until(() -> serviceMetadataStore.listSync().size() == 0);
+    partition = new ServicePartitionMetadata(1, 99, List.of("1"));
+    serviceMetadata = new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // we can't find snapshot since the time window doesn't match any service metadata
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testTwoCacheNodes() throws Exception {
+    String indexName = "testIndex";
+    // create snapshot
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    SnapshotMetadata snapshotMetadata = createSnapshot(chunkCreationTime, chunkEndTime, false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+
+    // create first search metadata hosted by cache1
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 101, List.of("1"));
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // assert search will always find cache1
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            1,
+            chunkCreationTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+
+    // create second search metadata hosted by cache2
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    // assert search will always find cache1 or cache2
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
             0,
-            KALDB_TEST_CLIENT_3,
-            TEST_S3_BUCKET,
-            indexServer3Port,
-            "",
-            "");
-
-    ChunkManagerUtil<LogMessage> chunkManagerUtil3 =
-        new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
-            indexerMetricsRegistry3,
-            zkServer,
-            10 * 1024 * 1024 * 1024L,
-            100,
-            searchContext3,
-            metadataStore,
-            kaldbConfig3.getIndexerConfig());
-    indexingServiceManager3 =
-        newIndexingServer(chunkManagerUtil3, kaldbConfig3, indexerMetricsRegistry3, 0);
-
-    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 3);
-
-    // Produce messages to kafka, so the indexer can consume them.
-    final Instant startTime3 =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    int indexed3Count = produceMessagesToKafka(broker, startTime3, TEST_KAFKA_TOPIC_3);
-    await()
-        .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMetricsRegistry3);
-                LOG.debug("Registry3 current_count={} total_count={}", count, indexed3Count);
-                return count == indexed3Count;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
-
-    SearchMetadataStore verifyQuerySearchMetadataStore =
-        new SearchMetadataStore(metadataStore, true);
-
-    KaldbSearch.SearchResult searchResponse =
-        queryServiceStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("*:*")
-                .setStartTimeEpochMs(0L)
-                .setEndTimeEpochMs(1601547099000L)
-                .setHowMany(100)
-                .setBucketCount(2)
-                .build());
-
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(3);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(300);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
-
-    // close an indexer and make sure it's not searchable
-    assertThat(verifyQuerySearchMetadataStore.list().get().size()).isEqualTo(3);
-    indexingServiceManager3.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
-    await().until(() -> verifyQuerySearchMetadataStore.list().get().size() == 2);
-
-    searchResponse =
-        queryServiceStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("*:*")
-                .setStartTimeEpochMs(0L)
-                .setEndTimeEpochMs(1601547099000L)
-                .setHowMany(100)
-                .setBucketCount(2)
-                .build());
-
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(200);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+            chunkCreationTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    String searchNodeUrl = searchNodes.iterator().next();
+    assertThat(
+            searchNodeUrl.equals(cache1SearchContext.toString())
+                || searchNodeUrl.equals((cache2SearchContext.toString())))
+        .isTrue();
   }
 
-  private void testSearchWithOneShardTimeout() {
-    KaldbDistributedQueryService.READ_TIMEOUT_MS = 2000;
-    KaldbSearch.SearchResult searchResponse =
-        queryServiceStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
-                .setQueryString("*:*")
-                .setStartTimeEpochMs(0L)
-                .setEndTimeEpochMs(1601547099000L)
-                .setHowMany(100)
-                .setBucketCount(2)
-                .build());
+  @Test
+  public void testMultipleServicesMultipleTimeRange() throws Exception {
 
-    assertThat(searchResponse.getTotalNodes()).isEqualTo(2);
-    assertThat(searchResponse.getFailedNodes()).isEqualTo(1);
-    assertThat(searchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(searchResponse.getHitsCount()).isEqualTo(100);
+    // service1 snapshots/search-metadata/partitions
+    SnapshotMetadata snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "2");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    final String name = "testService";
+    final String owner = "serviceOwner";
+    final long throughputBytes = 1000;
+    final ServicePartitionMetadata partition11 =
+        new ServicePartitionMetadata(100, 200, List.of("1"));
+    final ServicePartitionMetadata partition12 =
+        new ServicePartitionMetadata(201, 300, List.of("2"));
+
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(name, owner, throughputBytes, List.of(partition11, partition12));
+
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    // service2 snapshots/search-metadata/partitions
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "2");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 3);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache3SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 3);
+
+    snapshotMetadata =
+        createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    ReadOnlyChunkImpl.registerSearchMetadata(
+        searchMetadataStore, cache4SearchContext, snapshotMetadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 4);
+
+    final String name1 = "testService1";
+    final String owner1 = "serviceOwner1";
+    final long throughputBytes1 = 1;
+    final ServicePartitionMetadata partition21 =
+        new ServicePartitionMetadata(100, 200, List.of("2"));
+    final ServicePartitionMetadata partition22 =
+        new ServicePartitionMetadata(201, 300, List.of("1"));
+
+    ServiceMetadata serviceMetadata1 =
+        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition21, partition22));
+    serviceMetadataStore.createSync(serviceMetadata1);
+    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+
+    // find search nodes that will be queries for the first service
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 199, name);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    Iterator<String> iter = searchNodes.iterator();
+    String node1 = iter.next();
+    String node2 = iter.next();
+    assertThat(
+            node1.equals(cache1SearchContext.toString())
+                || node1.equals((cache2SearchContext.toString())))
+        .isTrue();
+    assertThat(
+            node2.equals(cache1SearchContext.toString())
+                || node2.equals((cache2SearchContext.toString())))
+        .isTrue();
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name1);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    iter = searchNodes.iterator();
+    node1 = iter.next();
+    node2 = iter.next();
+    assertThat(
+            node1.equals(cache3SearchContext.toString())
+                || node1.equals((cache4SearchContext.toString())))
+        .isTrue();
+    assertThat(
+            node2.equals(cache3SearchContext.toString())
+                || node2.equals((cache4SearchContext.toString())))
+        .isTrue();
+  }
+
+  @Test
+  public void testTwoIndexerWithDifferentPartitions() {
+    String indexName1 = "testIndex1";
+    String indexName2 = "testIndex2";
+    // search for partition "1" only
+    Instant chunkCreationTime = Instant.ofEpochMilli(100);
+    Instant chunkEndTime = Instant.ofEpochMilli(200);
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 200, List.of("1"));
+    ServiceMetadata serviceMetadata =
+        new ServiceMetadata(indexName1, "testOwner1", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+
+    Collection<String> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName1);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
+    // search for partition "2" only
+    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 4);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    partition = new ServicePartitionMetadata(1, 101, List.of("2"));
+    serviceMetadata = new ServiceMetadata(indexName2, "testOwner2", 1, List.of(partition));
+    serviceMetadataStore.createSync(serviceMetadata);
+    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName2);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.iterator().next()).isEqualTo(indexer2SearchContext.toString());
+
+    // search for wrong indexName and see if you get 0 nodes
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            serviceMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            "new_service_that_does_not_have_a_partition");
+    assertThat(searchNodes.size()).isEqualTo(0);
+  }
+
+  private String createIndexerZKMetadata(
+      Instant chunkCreationTime,
+      Instant chunkEndTime,
+      String partition,
+      SearchContext searchContext) {
+    SnapshotMetadata liveSnapshotMetadata =
+        createSnapshot(chunkCreationTime, chunkEndTime, true, partition);
+    SearchMetadata liveSearchMetadata = toSearchMetadata(liveSnapshotMetadata.name, searchContext);
+
+    searchMetadataStore.createSync(liveSearchMetadata);
+
+    return liveSnapshotMetadata.name.substring(
+        5); // remove LIVE_ prefix for a search metadata hosted by a cache node
+  }
+
+  private SnapshotMetadata createSnapshot(
+      Instant chunkCreationTime, Instant chunkEndTime, boolean isLive, String partition) {
+    String chunkName = "logStore_" + chunkCreationTime.getEpochSecond() + "_" + UUID.randomUUID();
+    ChunkInfo chunkInfo =
+        new ChunkInfo(
+            chunkName,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            1234,
+            partition,
+            isLive ? LIVE_SNAPSHOT_PATH : "cacheSnapshotPath");
+    SnapshotMetadata snapshotMetadata =
+        toSnapshotMetadata(chunkInfo, isLive ? LIVE_SNAPSHOT_PREFIX : "");
+
+    snapshotMetadataStore.createSync(snapshotMetadata);
+
+    if (isLive) {
+      // create non-live as well to simulate postClose of IndexingChunkImpl
+      SnapshotMetadata nonLiveSnapshotMetadata = toSnapshotMetadata(chunkInfo, "");
+      snapshotMetadataStore.createSync(nonLiveSnapshotMetadata);
+    }
+
+    return snapshotMetadata;
   }
 }
