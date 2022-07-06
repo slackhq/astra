@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -32,6 +33,9 @@ public class PreprocessorServiceUnitTest {
     String applicationId = "applicationId";
     String bootstrapServers = "bootstrap";
     String processingGuarantee = "at_least_once";
+    int replicationFactor = 1;
+    boolean enableIdempotence = false;
+    String acksConfig = "1";
     int numStreamThreads = 1;
 
     KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
@@ -43,13 +47,20 @@ public class PreprocessorServiceUnitTest {
             .build();
 
     Properties properties = PreprocessorService.makeKafkaStreamsProps(kafkaStreamConfig);
-    assertThat(properties.size()).isEqualTo(4);
+    assertThat(properties.size()).isEqualTo(7);
 
     assertThat(properties.get(StreamsConfig.APPLICATION_ID_CONFIG)).isEqualTo(applicationId);
     assertThat(properties.get(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG)).isEqualTo(bootstrapServers);
     assertThat(properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG)).isEqualTo(numStreamThreads);
     assertThat(properties.get(StreamsConfig.PROCESSING_GUARANTEE_CONFIG))
         .isEqualTo(processingGuarantee);
+    assertThat(properties.get(StreamsConfig.REPLICATION_FACTOR_CONFIG))
+        .isEqualTo(replicationFactor);
+    assertThat(
+            properties.get(StreamsConfig.producerPrefix(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG)))
+        .isEqualTo(enableIdempotence);
+    assertThat(properties.get(StreamsConfig.producerPrefix(ProducerConfig.ACKS_CONFIG)))
+        .isEqualTo(acksConfig);
   }
 
   @Test
