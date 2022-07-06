@@ -310,6 +310,7 @@ public class PreprocessorService extends AbstractService {
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, kafkaStreamConfig.getApplicationId());
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaStreamConfig.getBootstrapServers());
     props.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, kafkaStreamConfig.getNumStreamThreads());
+    props.put("auto.offset.reset", "latest");
 
     // This will allow parallel processing up to the amount of upstream partitions. You cannot have
     // more threads than you have upstreams due to how the work is partitioned
