@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
  */
 public class KaldbKafkaConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbKafkaConsumer.class);
-  public static final int KAFKA_POLL_TIMEOUT_MS = 100;
+  public static final int KAFKA_POLL_TIMEOUT_MS = 250;
   private final LogMessageWriterImpl logMessageWriterImpl;
 
   public static KaldbKafkaConsumer fromConfig(
