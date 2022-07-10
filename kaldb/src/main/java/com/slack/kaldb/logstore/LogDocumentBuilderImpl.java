@@ -364,7 +364,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     addProperty(
         doc,
         LogMessage.SystemField.SOURCE.fieldName,
-        JsonUtil.<LogWireMessage>writeAsString(message.toWireMessage()));
+        JsonUtil.writeAsString(message.toWireMessage()));
     for (String key : message.source.keySet()) {
       addPropertyHandleExceptions(doc, key, message.source.get(key));
     }
