@@ -109,7 +109,6 @@ public class ChunkManagerUtil<T> {
             s3BlobFs,
             S3_TEST_BUCKET,
             MoreExecutors.newDirectExecutorService(),
-            10000,
             metadataStore,
             searchContext,
             indexerConfig);

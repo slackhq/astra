@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
+import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
 import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
@@ -59,10 +60,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
-  @VisibleForTesting
-  public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
+  public static final String DISTRIBUTED_QUERY_TOTAL_NODES = "distributed_query_total_nodes";
+  public static final String DISTRIBUTED_QUERY_FAILED_NODES = "distributed_query_failed_nodes";
+  public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
+      "distributed_query_total_snapshots";
+  public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
+      "distributed_query_snapshots_with_replicas";
 
-  private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
+  private final Counter distributedQueryTotalNodes;
+  private final Counter distributedQueryFailedNodes;
+  private final Counter distributedQueryTotalSnapshots;
+  private final Counter distributedQuerySnapshotsWithReplicas;
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -79,6 +87,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     this.serviceMetadataStore = serviceMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
+
+    this.distributedQueryTotalNodes = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_NODES);
+    this.distributedQueryFailedNodes = meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_NODES);
+    this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
+    this.distributedQuerySnapshotsWithReplicas =
+        meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
 
     // first time call this function manually so that we initialize stubs
     updateStubs();
@@ -293,7 +307,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(READ_TIMEOUT_MS - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
+          stub.withDeadlineAfter(
+                  DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .search(request);
@@ -309,7 +324,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+          searchFuture.get(ARMERIA_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
       ArrayList<SearchResult<LogMessage>> result = new ArrayList<>(searchResults.size());
@@ -355,6 +370,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           ((SearchResultAggregator<LogMessage>)
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
               .aggregate(searchResults);
+
+      distributedQueryTotalNodes.increment(aggregatedResult.totalNodes);
+      distributedQueryFailedNodes.increment(aggregatedResult.failedNodes);
+      distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
+      distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
 
       LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);

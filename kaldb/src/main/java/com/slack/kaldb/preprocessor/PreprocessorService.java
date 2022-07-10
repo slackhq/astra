@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
@@ -305,11 +306,23 @@ public class PreprocessorService extends AbstractService {
         kafkaStreamConfig.getNumStreamThreads() > 0,
         "Kafka stream numStreamThreads must be greater than 0");
 
+    // todo - consider adding a general purpose map of kafka configs that allow setting any config
+    //  option for streams, as well as our other kafka consumers
     Properties props = new Properties();
-
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, kafkaStreamConfig.getApplicationId());
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaStreamConfig.getBootstrapServers());
     props.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, kafkaStreamConfig.getNumStreamThreads());
+
+    // These props allow using brokers versions back to 2.0, by reverting breaking changes
+    //   introduced in the client versions 3.0+
+    //   https://www.confluent.io/blog/apache-kafka-3-0-major-improvements-and-new-features/
+
+    // https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=177050750
+    props.put(StreamsConfig.REPLICATION_FACTOR_CONFIG, 1);
+
+    // https://cwiki.apache.org/confluence/display/KAFKA/KIP-679%3A+Producer+will+enable+the+strongest+delivery+guarantee+by+default
+    props.put(StreamsConfig.producerPrefix(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG), false);
+    props.put(StreamsConfig.producerPrefix(ProducerConfig.ACKS_CONFIG), "1");
 
     // This will allow parallel processing up to the amount of upstream partitions. You cannot have
     // more threads than you have upstreams due to how the work is partitioned

@@ -21,6 +21,12 @@
     "s3EndPoint": "https://s3.us-east-1.amazonaws.com/",
     "s3Bucket": "test-s3-bucket"
   },
+  "tracingConfig": {
+    "zipkinEndpoint": "http://localhost:9411/api/v2/spans",
+    "commonTags": {
+      "clusterName": "kaldb_local"
+    }
+  },
   "indexerConfig": {
     "maxMessagesPerChunk": 1000,
     "maxBytesPerChunk": 100000,

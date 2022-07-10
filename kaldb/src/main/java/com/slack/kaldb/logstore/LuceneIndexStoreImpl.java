@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore;
 
-import com.slack.kaldb.logstore.index.KalDBMergeScheduler;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -22,6 +21,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
@@ -140,6 +141,14 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            // we sort by timestamp descending, as that is the order we expect to return results the
+            // majority of the time
+            .setIndexSort(
+                new Sort(
+                    new SortField(
+                        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                        SortField.Type.LONG,
+                        true)))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
     if (config.enableTracing) {

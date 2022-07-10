@@ -79,6 +79,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
   protected void startUp() throws Exception {
     LOG.info("Starting Kaldb indexer.");
     long startOffset = indexerPreStart();
+    // ensure the chunk manager is available to receive messages
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     // Set the Kafka offset and pre consumer for consumption.
     kafkaConsumer.prepConsumerForConsumption(startOffset);
@@ -151,16 +152,15 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
   protected void shutDown() throws Exception {
     LOG.info("Shutting down Kaldb indexer.");
 
-    // Shutdown kafka consumer cleanly and then the chunkmanager so we can be sure, we have indexed
-    // the data we ingested.
+    // Shutdown kafka consumer
     try {
       kafkaConsumer.close();
     } catch (Exception e) {
       LOG.warn("Failed to close kafka consumer cleanly because of an exception.", e);
     }
 
-    chunkManager.stopAsync();
-    chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+    // We don't need to explicitly close the chunkManager, as it will attempt to close itself and
+    // will persist the appropriate offset into ZK if it can complete an upload in time
 
     LOG.info("Kaldb indexer is closed.");
   }

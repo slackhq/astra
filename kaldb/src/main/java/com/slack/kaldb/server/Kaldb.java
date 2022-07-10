@@ -177,7 +177,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbIndex", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
       services.add(armeriaService);
@@ -197,7 +197,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
               .build();
@@ -218,7 +218,7 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbCache", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
       services.add(armeriaService);
@@ -240,7 +240,7 @@ public class Kaldb {
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
               .build();
       services.add(armeriaService);
@@ -292,7 +292,7 @@ public class Kaldb {
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbRecovery", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
 
@@ -308,7 +308,7 @@ public class Kaldb {
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
-              .withTracingEndpoint(kaldbConfig.getTracingConfig().getZipkinEndpoint())
+              .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
 

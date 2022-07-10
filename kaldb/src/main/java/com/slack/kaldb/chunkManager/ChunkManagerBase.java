@@ -36,12 +36,15 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
   private static final ExecutorService queryExecutorService = queryThreadPool();
 
   /*
-   * Use an unbounded cached thread pool to service the read requests, so we can saturate the CPU.
+   * We want to provision the chunk query capacity such that we can almost saturate the CPU. In the event we allow
+   * these to saturate the CPU it can result in the container being killed due to failed healthchecks.
+   *
    * Revisit the thread pool settings if this becomes a perf issue. Also, we may need
    * different thread pools for indexer and cache nodes in the future.
    */
   private static ExecutorService queryThreadPool() {
-    return Executors.newCachedThreadPool(
+    return Executors.newFixedThreadPool(
+        Runtime.getRuntime().availableProcessors(),
         new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
   }
 

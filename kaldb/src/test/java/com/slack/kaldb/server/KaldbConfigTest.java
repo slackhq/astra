@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -176,6 +177,10 @@ public class KaldbConfigTest {
     assertThat(s3Config.getS3EndPoint()).isEqualTo("https://s3.us-east-1.amazonaws.com/");
     assertThat(s3Config.getS3Bucket()).isEqualTo("test-s3-bucket");
 
+    final KaldbConfigs.TracingConfig tracingConfig = config.getTracingConfig();
+    assertThat(tracingConfig.getZipkinEndpoint()).isEqualTo("http://localhost:9411/api/v2/spans");
+    assertThat(tracingConfig.getCommonTagsMap()).isEqualTo(Map.of("clusterName", "kaldb_local"));
+
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(1000);
     assertThat(indexerConfig.getMaxBytesPerChunk()).isEqualTo(100000);
@@ -309,6 +314,10 @@ public class KaldbConfigTest {
     assertThat(s3Config.getS3Region()).isEqualTo("us-east-1");
     assertThat(s3Config.getS3EndPoint()).isEqualTo("localhost:9090");
     assertThat(s3Config.getS3Bucket()).isEqualTo("test-s3-bucket");
+
+    final KaldbConfigs.TracingConfig tracingConfig = config.getTracingConfig();
+    assertThat(tracingConfig.getZipkinEndpoint()).isEqualTo("http://localhost:9411/api/v2/spans");
+    assertThat(tracingConfig.getCommonTagsMap()).isEqualTo(Map.of("clusterName", "kaldb_local"));
 
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isEqualTo(100);
@@ -450,6 +459,10 @@ public class KaldbConfigTest {
     assertThat(s3Config.getS3Region()).isEmpty();
     assertThat(s3Config.getS3EndPoint()).isEmpty();
 
+    final KaldbConfigs.TracingConfig tracingConfig = config.getTracingConfig();
+    assertThat(tracingConfig.getZipkinEndpoint()).isEmpty();
+    assertThat(tracingConfig.getCommonTagsMap()).isEmpty();
+
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
     assertThat(indexerConfig.getMaxBytesPerChunk()).isZero();
@@ -569,6 +582,10 @@ public class KaldbConfigTest {
     assertThat(s3Config.getS3SecretKey()).isEmpty();
     assertThat(s3Config.getS3Region()).isEmpty();
     assertThat(s3Config.getS3EndPoint()).isEmpty();
+
+    final KaldbConfigs.TracingConfig tracingConfig = config.getTracingConfig();
+    assertThat(tracingConfig.getZipkinEndpoint()).isEmpty();
+    assertThat(tracingConfig.getCommonTagsMap()).isEmpty();
 
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getMaxMessagesPerChunk()).isZero();
