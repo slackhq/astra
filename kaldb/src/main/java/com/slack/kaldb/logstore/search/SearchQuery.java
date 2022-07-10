@@ -2,7 +2,8 @@ package com.slack.kaldb.logstore.search;
 
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
-  public final String indexName;
+  // TODO: Remove the dataSet field from this class since it is not a lucene level concept.
+  @Deprecated public final String dataSet;
 
   public final String queryStr;
   public final long startTimeEpochMs;
@@ -11,13 +12,13 @@ public class SearchQuery {
   public final int bucketCount;
 
   public SearchQuery(
-      String indexName,
+      String dataSet,
       String queryStr,
       long startTimeEpochMs,
       long endTimeEpochMs,
       int howMany,
       int bucketCount) {
-    this.indexName = indexName;
+    this.dataSet = dataSet;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
@@ -28,8 +29,8 @@ public class SearchQuery {
   @Override
   public String toString() {
     return "SearchQuery{"
-        + "indexName='"
-        + indexName
+        + "dataSet='"
+        + dataSet
         + '\''
         + ", queryStr='"
         + queryStr

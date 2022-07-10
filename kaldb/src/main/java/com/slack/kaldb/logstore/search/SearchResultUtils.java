@@ -17,7 +17,7 @@ public class SearchResultUtils {
 
   public static SearchQuery fromSearchRequest(KaldbSearch.SearchRequest searchRequest) {
     return new SearchQuery(
-        searchRequest.getIndexName(),
+        searchRequest.getDataSet(),
         searchRequest.getQueryString(),
         searchRequest.getStartTimeEpochMs(),
         searchRequest.getEndTimeEpochMs(),

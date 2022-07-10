@@ -159,14 +159,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       ServiceMetadataStore serviceMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
-      String indexName) {
+      String dataSet) {
     ScopedSpan findPartitionsToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
     List<ServicePartitionMetadata> partitions =
         findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
+            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataSet);
     findPartitionsToQuerySpan.finish();
 
     // step 1 - find all snapshots that match time window and partition
@@ -274,11 +274,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       ServiceMetadataStore serviceMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
-      String indexName) {
+      String dataSet) {
     return serviceMetadataStore
         .getCached()
         .stream()
-        .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
+        .filter(serviceMetadata -> serviceMetadata.name.equals(dataSet))
         .flatMap(
             serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
         .filter(
@@ -300,7 +300,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
         getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
+            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataSet());
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
@@ -347,7 +347,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeEpochMs, long endTimeEpochMs, String indexName) {
+      long startTimeEpochMs, long endTimeEpochMs, String dataSet) {
     Collection<String> searchNodeUrls =
         getSearchNodesToQuery(
             snapshotMetadataStore,
@@ -355,7 +355,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             serviceMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
-            indexName);
+            dataSet);
     ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
         new ArrayList<>(searchNodeUrls.size());
     for (String searchNodeUrl : searchNodeUrls) {

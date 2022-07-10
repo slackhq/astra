@@ -89,7 +89,7 @@ public class TestKafkaServer {
     String jsonStr = JsonUtil.writeAsString(message.source);
     return Murron.MurronMessage.newBuilder()
         .setTimestamp(message.timeSinceEpochMilli * 1000 * 1000)
-        .setType(MessageUtil.TEST_INDEX_NAME)
+        .setType(MessageUtil.TEST_DATASET_NAME)
         .setHost("localhost")
         .setPid(100)
         .setOffset(offset)
