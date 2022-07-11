@@ -160,7 +160,7 @@ public class RecoveryChunkManagerTest {
 
     // Search query
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -191,7 +191,7 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATA_SET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -214,7 +214,7 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATA_SET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -260,7 +260,7 @@ public class RecoveryChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATASET_NAME,
+            MessageUtil.TEST_DATA_SET_NAME,
             searchString,
             0,
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,

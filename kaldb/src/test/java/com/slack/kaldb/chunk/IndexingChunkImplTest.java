@@ -145,17 +145,18 @@ public class IndexingChunkImplTest {
       chunk.commit();
 
       SearchResult<LogMessage> results =
-          chunk.query(new SearchQuery(MessageUtil.TEST_DATASET_NAME, "*:*", 0, MAX_TIME, 10, 1000));
+          chunk.query(
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "*:*", 0, MAX_TIME, 10, 1000));
       assertThat(results.totalCount).isEqualTo(100);
 
       results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(results.totalCount).isEqualTo(1);
 
       results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message*", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message*", 0, MAX_TIME, 10, 1000));
       assertThat(results.totalCount).isEqualTo(100);
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -277,7 +278,7 @@ public class IndexingChunkImplTest {
               chunk
                   .query(
                       new SearchQuery(
-                          MessageUtil.TEST_DATASET_NAME,
+                          MessageUtil.TEST_DATA_SET_NAME,
                           searchString,
                           startTimeMs,
                           endTimeMs,
@@ -305,7 +306,7 @@ public class IndexingChunkImplTest {
 
       SearchResult<LogMessage> results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(results.hits.size()).isEqualTo(1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
@@ -358,7 +359,7 @@ public class IndexingChunkImplTest {
 
       SearchResult<LogMessage> resultsBeforeCommit =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
@@ -366,7 +367,7 @@ public class IndexingChunkImplTest {
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
   }
@@ -453,7 +454,7 @@ public class IndexingChunkImplTest {
       chunk.preSnapshot();
 
       SearchQuery searchQuery =
-          new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+          new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
@@ -508,7 +509,7 @@ public class IndexingChunkImplTest {
       chunk.preSnapshot();
 
       SearchQuery searchQuery =
-          new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+          new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);

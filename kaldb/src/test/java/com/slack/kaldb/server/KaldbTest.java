@@ -75,7 +75,7 @@ public class KaldbTest {
 
     return kaldbService.search(
         KaldbSearch.SearchRequest.newBuilder()
-            .setDataSet(MessageUtil.TEST_DATASET_NAME)
+            .setDataSet(MessageUtil.TEST_DATA_SET_NAME)
             .setQueryString(queryString)
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
@@ -147,7 +147,7 @@ public class KaldbTest {
         new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
     ServiceMetadata serviceMetadata =
-        new ServiceMetadata(MessageUtil.TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
+        new ServiceMetadata(MessageUtil.TEST_DATA_SET_NAME, "serviceOwner", 1000, partitionConfigs);
     serviceMetadataStore.createSync(serviceMetadata);
     await().until(() -> serviceMetadataStore.listSync().size() == 1);
   }

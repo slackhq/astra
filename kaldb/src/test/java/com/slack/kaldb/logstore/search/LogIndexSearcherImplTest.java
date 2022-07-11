@@ -4,7 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_DATA_SET_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
@@ -41,18 +41,18 @@ public class LogIndexSearcherImplTest {
 
   private void loadTestData(Instant time) {
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time));
+        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATA_SET_NAME, time));
 
     // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
     // strictLogStore.logStore.addMessage(
     // makeMessageWithIndexAndTimestamp(2, "baby", "new" + TEST_INDEX_NAME, time.plusSeconds(1)));
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(3, "apple baby", TEST_DATASET_NAME, time.plusSeconds(2)));
+        makeMessageWithIndexAndTimestamp(3, "apple baby", TEST_DATA_SET_NAME, time.plusSeconds(2)));
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(4, "car", TEST_DATASET_NAME, time.plusSeconds(3)));
+        makeMessageWithIndexAndTimestamp(4, "car", TEST_DATA_SET_NAME, time.plusSeconds(3)));
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(
-            5, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4)));
+            5, "apple baby car", TEST_DATA_SET_NAME, time.plusSeconds(4)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
   }
@@ -210,7 +210,7 @@ public class LogIndexSearcherImplTest {
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "baby",
             time.toEpochMilli(),
             time.plusSeconds(2).toEpochMilli(),
@@ -229,7 +229,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> apples =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "apple",
             time.toEpochMilli(),
             time.plusSeconds(100).toEpochMilli(),
@@ -248,15 +248,15 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
 
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time));
+        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATA_SET_NAME, time));
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(2)));
+        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATA_SET_NAME, time.plusSeconds(2)));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
     SearchResult<LogMessage> baby =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "baby",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -271,7 +271,7 @@ public class LogIndexSearcherImplTest {
 
     // Add car but don't commit. So, no results for car.
     strictLogStore.logStore.addMessage(
-        makeMessageWithIndexAndTimestamp(3, "car", TEST_DATASET_NAME, time.plusSeconds(3)));
+        makeMessageWithIndexAndTimestamp(3, "car", TEST_DATA_SET_NAME, time.plusSeconds(3)));
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(3);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
@@ -280,7 +280,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> car =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "car",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -298,7 +298,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> carAfterCommit =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "car",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -316,7 +316,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> carAfterRefresh =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "car",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -327,7 +327,7 @@ public class LogIndexSearcherImplTest {
     // Add another message to search, refresh but don't commit.
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(
-            4, "apple baby car", TEST_DATASET_NAME, time.plusSeconds(4)));
+            4, "apple baby car", TEST_DATA_SET_NAME, time.plusSeconds(4)));
     strictLogStore.logStore.refresh();
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(4);
@@ -338,7 +338,7 @@ public class LogIndexSearcherImplTest {
     // Item shows up in search without commit.
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "baby",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -363,7 +363,7 @@ public class LogIndexSearcherImplTest {
     loadTestData(time);
 
     SearchResult<LogMessage> allIndexItems =
-        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "", 0, MAX_TIME, 1000, 1);
+        strictLogStore.logSearcher.search(TEST_DATA_SET_NAME, "", 0, MAX_TIME, 1000, 1);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
     assertThat(allIndexItems.totalCount).isEqualTo(4);
@@ -376,7 +376,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
-    strictLogStore.logSearcher.search(TEST_DATASET_NAME + "miss", null, 0, MAX_TIME, 1000, 1);
+    strictLogStore.logSearcher.search(TEST_DATA_SET_NAME + "miss", null, 0, MAX_TIME, 1000, 1);
   }
 
   @Test
@@ -387,7 +387,7 @@ public class LogIndexSearcherImplTest {
 
     SearchResult<LogMessage> allIndexItems =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME + "miss", "apple", 0, MAX_TIME, 1000, 1);
+            TEST_DATA_SET_NAME + "miss", "apple", 0, MAX_TIME, 1000, 1);
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(0);
@@ -401,7 +401,7 @@ public class LogIndexSearcherImplTest {
     loadTestData(time);
 
     SearchResult<LogMessage> elephants =
-        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "elephant", 0, MAX_TIME, 1000, 1);
+        strictLogStore.logSearcher.search(TEST_DATA_SET_NAME, "elephant", 0, MAX_TIME, 1000, 1);
     assertThat(elephants.hits.size()).isEqualTo(0);
     assertThat(elephants.totalCount).isEqualTo(0);
     assertThat(elephants.buckets.size()).isEqualTo(1);
@@ -414,7 +414,7 @@ public class LogIndexSearcherImplTest {
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "baby",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -431,7 +431,7 @@ public class LogIndexSearcherImplTest {
     loadTestData(time);
     SearchResult<LogMessage> babies =
         strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
+            TEST_DATA_SET_NAME,
             "baby",
             time.toEpochMilli(),
             time.plusSeconds(10).toEpochMilli(),
@@ -463,14 +463,14 @@ public class LogIndexSearcherImplTest {
   public void testInvalidStartTime() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(TEST_DATASET_NAME, "test", -1L, MAX_TIME, 1000, 1);
+    strictLogStore.logSearcher.search(TEST_DATA_SET_NAME, "test", -1L, MAX_TIME, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidEndTime() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(TEST_DATASET_NAME, "test", 0, -1L, 1000, 1);
+    strictLogStore.logSearcher.search(TEST_DATA_SET_NAME, "test", 0, -1L, 1000, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -478,7 +478,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
+        TEST_DATA_SET_NAME,
         "test",
         time.toEpochMilli(),
         time.minusSeconds(1).toEpochMilli(),
@@ -491,7 +491,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 0, 0);
+        TEST_DATA_SET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 0, 0);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -499,7 +499,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), -1, 0);
+        TEST_DATA_SET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), -1, 0);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -507,7 +507,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, -2);
+        TEST_DATA_SET_NAME, "test", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, -2);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -515,7 +515,7 @@ public class LogIndexSearcherImplTest {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
     strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME, "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, 1);
+        TEST_DATA_SET_NAME, "/", time.toEpochMilli(), time.plusSeconds(1).toEpochMilli(), 1, 1);
   }
 
   @Test
@@ -533,7 +533,8 @@ public class LogIndexSearcherImplTest {
           for (int i = 0; i < 100; i++) {
             try {
               SearchResult<LogMessage> babies =
-                  strictLogStore.logSearcher.search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 100, 1);
+                  strictLogStore.logSearcher.search(
+                      TEST_DATA_SET_NAME, "baby", 0, MAX_TIME, 100, 1);
               if (babies.hits.size() != 2) {
                 searchFailures.addAndGet(1);
               } else {

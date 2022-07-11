@@ -4,7 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_DATA_SET_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.getCurrentLogDate;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
@@ -95,14 +95,14 @@ public class LogMessageWriterImplTest {
     chunkManagerUtil.chunkManager.getActiveChunk().commit();
 
     // Search
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "Message1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "Message2").hits.size()).isEqualTo(0);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "id:Message1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "Message1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "Message2").hits.size()).isEqualTo(0);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "id:Message1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(TEST_DATA_SET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
     assertThat(
-            searchChunkManager(TEST_DATASET_NAME, "longproperty:1 AND intproperty:1").hits.size())
+            searchChunkManager(TEST_DATA_SET_NAME, "longproperty:1 AND intproperty:1").hits.size())
         .isEqualTo(1);
   }
 
@@ -115,7 +115,7 @@ public class LogMessageWriterImplTest {
     Map<String, Object> fieldMap = Maps.newHashMap();
     String id = "1";
     fieldMap.put("id", id);
-    fieldMap.put("index", TEST_DATASET_NAME);
+    fieldMap.put("index", TEST_DATA_SET_NAME);
     Map<String, Object> sourceFieldMap = new HashMap<>();
     sourceFieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, getCurrentLogDate());
     String message = String.format("The identifier in this message is %s", id);

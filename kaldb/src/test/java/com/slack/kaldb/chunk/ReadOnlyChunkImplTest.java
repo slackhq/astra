@@ -139,7 +139,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
             new SearchQuery(
-                MessageUtil.TEST_DATASET_NAME,
+                MessageUtil.TEST_DATA_SET_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
@@ -180,7 +180,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
             new SearchQuery(
-                MessageUtil.TEST_DATASET_NAME,
+                MessageUtil.TEST_DATA_SET_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
@@ -391,7 +391,7 @@ public class ReadOnlyChunkImplTest {
 
     SearchQuery query =
         new SearchQuery(
-            MessageUtil.TEST_DATASET_NAME,
+            MessageUtil.TEST_DATA_SET_NAME,
             "*:*",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
