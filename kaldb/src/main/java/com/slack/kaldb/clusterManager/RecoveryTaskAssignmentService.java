@@ -49,14 +49,15 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
 
   @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
-  public static final String RECOVERY_TASKS_CREATED = "recovery_tasks_created";
-  public static final String RECOVERY_TASKS_FAILED = "recovery_tasks_failed";
+  public static final String RECOVERY_TASKS_ASSIGNED = "recovery_tasks_assigned";
+  public static final String RECOVERY_TASKS_ASSIGNMENT_FAILURES =
+      "recovery_tasks_assignment_failures";
   public static final String RECOVERY_TASKS_INSUFFICIENT_CAPACITY =
       "recovery_tasks_insufficient_capacity";
   public static final String RECOVERY_TASK_ASSIGNMENT_TIMER = "recovery_task_assignment_timer";
 
-  protected final Counter recoveryTasksCreated;
-  protected final Counter recoveryTasksFailed;
+  protected final Counter recoveryTasksAssigned;
+  protected final Counter recoveryTaskAssignmentFailures;
   protected final Counter recoveryTasksInsufficientCapacity;
   private final Timer recoveryAssignmentTimer;
 
@@ -77,8 +78,8 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
-    recoveryTasksCreated = meterRegistry.counter(RECOVERY_TASKS_CREATED);
-    recoveryTasksFailed = meterRegistry.counter(RECOVERY_TASKS_FAILED);
+    recoveryTasksAssigned = meterRegistry.counter(RECOVERY_TASKS_ASSIGNED);
+    recoveryTaskAssignmentFailures = meterRegistry.counter(RECOVERY_TASKS_ASSIGNMENT_FAILURES);
     recoveryTasksInsufficientCapacity = meterRegistry.counter(RECOVERY_TASKS_INSUFFICIENT_CAPACITY);
     recoveryAssignmentTimer = meterRegistry.timer(RECOVERY_TASK_ASSIGNMENT_TIMER);
   }
@@ -210,8 +211,8 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     int successfulAssignments = successCounter.get();
     int failedAssignments = recoveryTaskAssignments.size() - successfulAssignments;
 
-    recoveryTasksCreated.increment(successfulAssignments);
-    recoveryTasksFailed.increment(failedAssignments);
+    recoveryTasksAssigned.increment(successfulAssignments);
+    recoveryTaskAssignmentFailures.increment(failedAssignments);
 
     long assignmentDuration = assignmentTimer.stop(recoveryAssignmentTimer);
     LOG.info(
