@@ -19,6 +19,7 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.util.FutureUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Comparator;
@@ -77,6 +78,17 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
 
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
+
+    meterRegistry.gauge(
+        "recovery_tasks_count",
+        Tags.empty(),
+        recoveryTaskMetadataStore,
+        store -> store.getCached().size());
+    meterRegistry.gauge(
+        "recovery_nodes_count",
+        Tags.empty(),
+        recoveryNodeMetadataStore,
+        store -> store.getCached().size());
 
     recoveryTasksAssigned = meterRegistry.counter(RECOVERY_TASKS_ASSIGNED);
     recoveryTaskAssignmentFailures = meterRegistry.counter(RECOVERY_TASKS_ASSIGNMENT_FAILURES);
