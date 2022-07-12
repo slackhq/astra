@@ -17,6 +17,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -85,6 +86,14 @@ public class ReplicaCreationService extends AbstractScheduledService {
     this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
     this.replicasFailed = meterRegistry.counter(REPLICAS_FAILED);
     this.replicaAssignmentTimer = meterRegistry.timer(REPLICA_ASSIGNMENT_TIMER);
+
+    meterRegistry.gauge(
+        "replica_nodes_size",
+        Tags.empty(),
+        replicaMetadataStore,
+        store -> store.getCached().size());
+    meterRegistry.gauge(
+        "snapshots_size", Tags.empty(), snapshotMetadataStore, store -> store.getCached().size());
   }
 
   @Override
