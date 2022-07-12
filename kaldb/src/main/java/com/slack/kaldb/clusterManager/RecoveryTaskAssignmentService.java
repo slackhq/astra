@@ -79,6 +79,11 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
+    recoveryTasksAssigned = meterRegistry.counter(RECOVERY_TASKS_ASSIGNED);
+    recoveryTaskAssignmentFailures = meterRegistry.counter(RECOVERY_TASKS_ASSIGNMENT_FAILURES);
+    recoveryTasksInsufficientCapacity = meterRegistry.counter(RECOVERY_TASKS_INSUFFICIENT_CAPACITY);
+    recoveryAssignmentTimer = meterRegistry.timer(RECOVERY_TASK_ASSIGNMENT_TIMER);
+
     meterRegistry.gauge(
         "recovery_tasks_count",
         Tags.empty(),
@@ -89,11 +94,6 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
         Tags.empty(),
         recoveryNodeMetadataStore,
         store -> store.getCached().size());
-
-    recoveryTasksAssigned = meterRegistry.counter(RECOVERY_TASKS_ASSIGNED);
-    recoveryTaskAssignmentFailures = meterRegistry.counter(RECOVERY_TASKS_ASSIGNMENT_FAILURES);
-    recoveryTasksInsufficientCapacity = meterRegistry.counter(RECOVERY_TASKS_INSUFFICIENT_CAPACITY);
-    recoveryAssignmentTimer = meterRegistry.timer(RECOVERY_TASK_ASSIGNMENT_TIMER);
   }
 
   @Override
