@@ -191,6 +191,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
+    assertThat(indexerConfig.getServerConfig().getRequestTimeoutMs()).isEqualTo(100);
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10002);
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();

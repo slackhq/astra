@@ -5,6 +5,7 @@ import brave.Tracing;
 import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,9 +13,11 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbLocalQueryService.class);
 
   private final ChunkManager<T> chunkManager;
+  private final Duration defaultQueryTimeout;
 
-  public KaldbLocalQueryService(ChunkManager<T> chunkManager) {
+  public KaldbLocalQueryService(ChunkManager<T> chunkManager, Duration defaultQueryTimeout) {
     this.chunkManager = chunkManager;
+    this.defaultQueryTimeout = defaultQueryTimeout;
   }
 
   @Override
@@ -23,7 +26,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.doSearch");
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
     span.tag("query", query.toString());
-    SearchResult<T> searchResult = chunkManager.query(query);
+    SearchResult<T> searchResult = chunkManager.query(query, defaultQueryTimeout);
     KaldbSearch.SearchResult result = SearchResultUtils.toSearchResultProto(searchResult);
     span.tag("totalNodes", String.valueOf(result.getTotalNodes()));
     span.tag("failedNodes", String.valueOf(result.getFailedNodes()));

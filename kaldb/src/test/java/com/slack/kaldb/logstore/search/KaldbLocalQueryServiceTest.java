@@ -26,6 +26,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -55,7 +56,8 @@ public class KaldbLocalQueryServiceTest {
             KaldbConfigUtil.makeIndexerConfig(1000, 1000, "log_message", 100));
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-    kaldbLocalQueryService = new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
+    kaldbLocalQueryService =
+        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
   }
 
   @After
@@ -349,7 +351,7 @@ public class KaldbLocalQueryServiceTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbLocalQueryService<>(chunkManager))
+            .addService(new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3)))
             .build()
             .start());
 
@@ -431,7 +433,7 @@ public class KaldbLocalQueryServiceTest {
     grpcCleanup.register(
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new KaldbLocalQueryService<>(chunkManager))
+            .addService(new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3)))
             .build()
             .start());
 

@@ -32,6 +32,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -266,7 +267,7 @@ public class RecoveryChunkManagerTest {
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
             1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(1);

@@ -224,7 +224,7 @@ public class IndexingChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
-    SearchResult<LogMessage> results = chunkManager.query(searchQuery);
+    SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
 
     // Test chunk metadata.
@@ -272,7 +272,8 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000),
+                    Duration.ofMillis(3000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -294,7 +295,8 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000),
+                    Duration.ofMillis(3000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -326,7 +328,7 @@ public class IndexingChunkManagerTest {
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
             1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
@@ -346,7 +348,7 @@ public class IndexingChunkManagerTest {
             endTimeEpochMs,
             10,
             1000);
-    return chunkManager.query(searchQuery).hits.size();
+    return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }
 
   @Test

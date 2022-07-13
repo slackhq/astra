@@ -1,7 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.server.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
-
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
@@ -13,6 +11,7 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.spotify.futures.CompletableFutures;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -55,7 +54,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
-  public SearchResult<T> query(SearchQuery query) {
+  public SearchResult<T> query(SearchQuery query, Duration defaultQueryTimeout) {
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
@@ -73,7 +72,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             currentTraceContext.executorService(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader
                         //  in the future and pass this timeout
-                        .orTimeout(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS))
+                        .orTimeout(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
@@ -98,7 +97,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         CompletableFutures.allAsList(queries);
     try {
       List<SearchResult<T>> searchResults =
-          searchResultFuture.get(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
+          searchResultFuture.get(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS);
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
