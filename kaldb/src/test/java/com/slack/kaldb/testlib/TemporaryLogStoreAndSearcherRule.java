@@ -37,9 +37,9 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   }
 
   public static List<LogMessage> findAllMessages(
-      LogIndexSearcherImpl searcher, String indexName, String query, int howMany, int bucketCount) {
+      LogIndexSearcherImpl searcher, String dataset, String query, int howMany, int bucketCount) {
     SearchResult<LogMessage> results =
-        searcher.search(indexName, query, 0, MAX_TIME, howMany, bucketCount);
+        searcher.search(dataset, query, 0, MAX_TIME, howMany, bucketCount);
     return results.hits;
   }
 
