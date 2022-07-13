@@ -223,7 +223,7 @@ public class IndexingChunkManagerTest {
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_DATA_SET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
     SearchResult<LogMessage> results = chunkManager.query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -272,7 +272,7 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATA_SET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -294,7 +294,7 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATA_SET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -320,7 +320,7 @@ public class IndexingChunkManagerTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             searchString,
             0,
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
@@ -340,7 +340,7 @@ public class IndexingChunkManagerTest {
       long endTimeEpochMs) {
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             searchString,
             startTimeEpochMs,
             endTimeEpochMs,

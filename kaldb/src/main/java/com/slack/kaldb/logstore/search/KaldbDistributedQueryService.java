@@ -274,11 +274,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       ServiceMetadataStore serviceMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
-      String dataSet) {
+      String dataset) {
     return serviceMetadataStore
         .getCached()
         .stream()
-        .filter(serviceMetadata -> serviceMetadata.name.equals(dataSet))
+        .filter(serviceMetadata -> serviceMetadata.name.equals(dataset))
         .flatMap(
             serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
         .filter(
@@ -300,7 +300,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
         getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataSet());
+            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataset());
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {

@@ -18,7 +18,7 @@ public class MessageUtil {
   // TODO: Add Timer
 
   public static final String DEFAULT_MESSAGE_PREFIX = "Message";
-  public static final String TEST_DATA_SET_NAME = "testDataSet";
+  public static final String TEST_DATASET_NAME = "testDataSet";
   public static final String TEST_MESSAGE_TYPE = "INFO";
   public static final String TEST_SOURCE_INT_PROPERTY = "intproperty";
   public static final String TEST_SOURCE_LONG_PROPERTY = "longproperty";
@@ -42,7 +42,7 @@ public class MessageUtil {
     String id = DEFAULT_MESSAGE_PREFIX + i;
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put("type", TEST_MESSAGE_TYPE);
-    fieldMap.put("index", TEST_DATA_SET_NAME);
+    fieldMap.put("index", TEST_DATASET_NAME);
     fieldMap.put("id", id);
 
     Map<String, Object> sourceFieldMap = new HashMap<>();
@@ -68,7 +68,7 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
-    return new LogWireMessage(TEST_DATA_SET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
+    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
   }
 
   public static LogMessage makeMessageWithIndexAndTimestamp(
@@ -103,7 +103,7 @@ public class MessageUtil {
   }
 
   public static String makeSerializedBadMessage(int i) {
-    LogWireMessage msg = new LogWireMessage(TEST_DATA_SET_NAME, null, "Message" + i, null);
+    LogWireMessage msg = new LogWireMessage(TEST_DATASET_NAME, null, "Message" + i, null);
     try {
       return JsonUtil.writeAsString(msg);
     } catch (JsonProcessingException e) {

@@ -81,7 +81,7 @@ public class ElasticsearchApiService {
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
     KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
 
-    span.tag("requestDataSet", searchRequest.getDataSet());
+    span.tag("requestDataSet", searchRequest.getDataset());
     span.tag("requestQueryString", searchRequest.getQueryString());
     span.tag("requestQueryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
     span.tag("requestQueryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));

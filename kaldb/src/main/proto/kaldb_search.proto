@@ -6,7 +6,7 @@ option java_package = "com.slack.kaldb.proto.service";
 
 message SearchRequest {
   // Data sets or chunk_ids to be searched
-  string data_set = 1;
+  string dataset = 1;
   string chunk_id = 2;
 
   // Actual query params

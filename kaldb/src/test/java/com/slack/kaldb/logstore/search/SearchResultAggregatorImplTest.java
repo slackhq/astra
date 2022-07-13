@@ -70,7 +70,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             histogramStartMs,
             histogramEndMs,
@@ -125,7 +125,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             histogramStartMs,
             histogramEndMs,
@@ -191,7 +191,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             histogramStartMs,
             histogramEndMs,
@@ -240,7 +240,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             searchStartMs,
             searchEndMs,
@@ -293,7 +293,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             histogramStartMs,
             histogramEndMs,
@@ -341,7 +341,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             startTimeMs,
             endTimeMs,
@@ -394,7 +394,7 @@ public class SearchResultAggregatorImplTest {
 
     SearchQuery searchQuery =
         new SearchQuery(
-            MessageUtil.TEST_DATA_SET_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "Message1",
             histogramStartMs,
             histogramEndMs,

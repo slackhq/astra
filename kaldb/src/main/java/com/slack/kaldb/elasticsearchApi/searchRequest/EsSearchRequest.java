@@ -64,7 +64,7 @@ public class EsSearchRequest {
     int bucketCount = 60;
 
     return KaldbSearch.SearchRequest.newBuilder()
-        .setDataSet(getIndex())
+        .setDataset(getIndex())
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
