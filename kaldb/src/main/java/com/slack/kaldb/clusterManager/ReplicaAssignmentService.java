@@ -19,7 +19,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collections;
@@ -84,12 +83,6 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     replicaAssignAvailableCapacity =
         meterRegistry.gauge(REPLICA_ASSIGN_AVAILABLE_CAPACITY, new AtomicInteger(0));
     replicaAssignTimer = meterRegistry.timer(REPLICA_ASSIGN_TIMER);
-
-    meterRegistry.gauge(
-        "cache_slots_size",
-        Tags.empty(),
-        cacheSlotMetadataStore,
-        store -> store.getCached().size());
   }
 
   @Override

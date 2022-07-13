@@ -8,12 +8,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
-import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
-import com.slack.kaldb.clusterManager.ReplicaCreationService;
-import com.slack.kaldb.clusterManager.ReplicaDeletionService;
-import com.slack.kaldb.clusterManager.ReplicaEvictionService;
-import com.slack.kaldb.clusterManager.SnapshotDeletionService;
+import com.slack.kaldb.clusterManager.*;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
@@ -284,6 +279,17 @@ public class Kaldb {
           new SnapshotDeletionService(
               replicaMetadataStore, snapshotMetadataStore, blobFs, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
+
+      ClusterMonitorService clusterMonitorService =
+          new ClusterMonitorService(
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              recoveryTaskMetadataStore,
+              recoveryNodeMetadataStore,
+              cacheSlotMetadataStore,
+              serviceMetadataStore,
+              meterRegistry);
+      services.add(clusterMonitorService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {

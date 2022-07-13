@@ -19,7 +19,6 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.util.FutureUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Comparator;
@@ -83,17 +82,6 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     recoveryTaskAssignmentFailures = meterRegistry.counter(RECOVERY_TASKS_ASSIGNMENT_FAILURES);
     recoveryTasksInsufficientCapacity = meterRegistry.counter(RECOVERY_TASKS_INSUFFICIENT_CAPACITY);
     recoveryAssignmentTimer = meterRegistry.timer(RECOVERY_TASK_ASSIGNMENT_TIMER);
-
-    meterRegistry.gauge(
-        "recovery_tasks_count",
-        Tags.empty(),
-        recoveryTaskMetadataStore,
-        store -> store.getCached().size());
-    meterRegistry.gauge(
-        "recovery_nodes_count",
-        Tags.empty(),
-        recoveryNodeMetadataStore,
-        store -> store.getCached().size());
   }
 
   @Override
