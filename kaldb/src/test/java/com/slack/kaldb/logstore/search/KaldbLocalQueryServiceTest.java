@@ -93,7 +93,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult response =
         kaldbLocalQueryService.doSearch(
             searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("Message100")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -116,7 +116,7 @@ public class KaldbLocalQueryServiceTest {
     LogWireMessage hit = JsonUtil.read(hits.get(0).toStringUtf8(), LogWireMessage.class);
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
-    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_INDEX_NAME);
+    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(100);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(100);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(100.0);
@@ -158,7 +158,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult response =
         kaldbLocalQueryService.doSearch(
             searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("blah")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -210,7 +210,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult response =
         kaldbLocalQueryService.doSearch(
             searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -261,7 +261,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult response =
         kaldbLocalQueryService.doSearch(
             searchRequestBuilder
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -285,7 +285,7 @@ public class KaldbLocalQueryServiceTest {
     LogWireMessage hit = JsonUtil.read(hits.get(0).toStringUtf8(), LogWireMessage.class);
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
-    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_INDEX_NAME);
+    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
@@ -317,7 +317,7 @@ public class KaldbLocalQueryServiceTest {
 
     kaldbLocalQueryService.doSearch(
         searchRequestBuilder
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+            .setDataset(MessageUtil.TEST_DATASET_NAME)
             .setQueryString("Message1")
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -366,7 +366,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult response =
         blockingKaldbClient.search(
             KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
@@ -390,7 +390,7 @@ public class KaldbLocalQueryServiceTest {
     LogWireMessage hit = JsonUtil.read(hits.get(0).toStringUtf8(), LogWireMessage.class);
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
-    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_INDEX_NAME);
+    assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
     assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
@@ -448,7 +448,7 @@ public class KaldbLocalQueryServiceTest {
     KaldbSearch.SearchResult result =
         blockingStub.search(
             KaldbSearch.SearchRequest.newBuilder()
-                .setIndexName(MessageUtil.TEST_INDEX_NAME)
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)

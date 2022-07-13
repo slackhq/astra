@@ -338,7 +338,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   public SearchResult<T> query(SearchQuery query) {
     if (logSearcher != null) {
       return logSearcher.search(
-          query.indexName,
+          query.dataset,
           query.queryStr,
           query.startTimeEpochMs,
           query.endTimeEpochMs,

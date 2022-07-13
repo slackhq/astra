@@ -81,14 +81,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   public SearchResult<LogMessage> search(
-      String indexName,
+      String dataset,
       String queryStr,
       long startTimeMsEpoch,
       long endTimeMsEpoch,
       int howMany,
       int bucketCount) {
 
-    ensureNonEmptyString(indexName, "indexName should be a non-empty string");
+    ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
     ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
     ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
@@ -97,7 +97,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
-    span.tag("indexName", indexName);
+    span.tag("dataset", dataset);
     span.tag("queryStr", queryStr);
     span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
     span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
@@ -106,7 +106,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
-      Query query = buildQuery(indexName, queryStr, startTimeMsEpoch, endTimeMsEpoch);
+      Query query = buildQuery(dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch);
       span.tag("lucene query", query.toString());
 
       // Acquire an index searcher from searcher manager.
@@ -227,14 +227,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   private Query buildQuery(
-      String indexName, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
+      String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
       throws ParseException {
     Builder queryBuilder = new Builder();
 
-    // todo - we currently do not enforce searching against an index name, as we do not support
+    // todo - we currently do not enforce searching against an dataset name, as we do not support
     //  multi-tenancy yet - see https://github.com/slackhq/kaldb/issues/223. Once index filtering
     //  is support at snapshot/query layer this should be re-enabled as appropriate.
-    // queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, indexName)),
+    // queryBuilder.add(new TermQuery(new Term(SystemField.INDEX.fieldName, dataset)),
     // Occur.MUST);
     queryBuilder.add(
         LongPoint.newRangeQuery(
