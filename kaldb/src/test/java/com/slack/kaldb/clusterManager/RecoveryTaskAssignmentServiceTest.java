@@ -138,11 +138,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
@@ -189,11 +189,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
@@ -278,11 +278,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
@@ -332,11 +332,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
@@ -403,11 +403,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(
@@ -466,11 +466,11 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(firstAttemptAssignment).isEqualTo(2);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(2);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(1);
 
     await()
@@ -506,11 +506,11 @@ public class RecoveryTaskAssignmentServiceTest {
 
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(3);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
@@ -580,11 +580,11 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(assignments).isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
@@ -667,11 +667,11 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(assignments).isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_CREATED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNED, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
-                RecoveryTaskAssignmentService.RECOVERY_TASKS_FAILED, meterRegistry))
+                RecoveryTaskAssignmentService.RECOVERY_TASKS_ASSIGNMENT_FAILURES, meterRegistry))
         .isEqualTo(1);
     assertThat(
             MetricsUtil.getCount(
