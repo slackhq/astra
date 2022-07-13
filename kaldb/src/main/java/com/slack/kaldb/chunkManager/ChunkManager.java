@@ -7,5 +7,5 @@ import java.io.IOException;
 public interface ChunkManager<T> {
   void addMessage(T message, long msgSize, String kafkaPartitionId, long offset) throws IOException;
 
-  SearchResult<T> query(SearchQuery query);
+  SearchResult<T> query(SearchQuery query, long timeoutMs);
 }

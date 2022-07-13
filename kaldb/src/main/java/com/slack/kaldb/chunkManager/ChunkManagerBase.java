@@ -1,7 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.server.KaldbConfig.LOCAL_QUERY_TIMEOUT_DURATION;
-
 import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
@@ -55,7 +53,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
-  public SearchResult<T> query(SearchQuery query) {
+  public SearchResult<T> query(SearchQuery query, long timeoutMs) {
     SearchResult<T> errorResult =
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
@@ -73,7 +71,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                             currentTraceContext.executorService(queryExecutorService))
                         // TODO: this will not cancel lucene query. Use ExitableDirectoryReader
                         //  in the future and pass this timeout
-                        .orTimeout(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS))
+                        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS))
             .map(
                 chunkFuture ->
                     chunkFuture.exceptionally(
@@ -98,7 +96,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         CompletableFutures.allAsList(queries);
     try {
       List<SearchResult<T>> searchResults =
-          searchResultFuture.get(LOCAL_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
+          searchResultFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))

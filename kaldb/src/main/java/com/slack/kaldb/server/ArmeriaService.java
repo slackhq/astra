@@ -1,7 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
-
 import brave.Tracing;
 import brave.context.log4j2.ThreadContextScopeDecorator;
 import brave.handler.MutableSpan;
@@ -31,6 +29,8 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -57,10 +57,16 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
+    private final long requestTimeoutMs;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
-    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
+    public Builder(
+        int port,
+        long requestTimeoutMs,
+        String serviceName,
+        PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
+      this.requestTimeoutMs = requestTimeoutMs;
       this.serverBuilder = Server.builder().http(port);
 
       initializeLimits();
@@ -70,7 +76,7 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     private void initializeLimits() {
-      serverBuilder.requestTimeout(ARMERIA_TIMEOUT_DURATION);
+      serverBuilder.requestTimeout(Duration.of(requestTimeoutMs, ChronoUnit.MILLIS));
       serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 

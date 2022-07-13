@@ -597,7 +597,8 @@ public class KaldbIndexerTest {
     SearchResult<LogMessage> searchResult =
         chunkManagerUtil.chunkManager.query(
             new SearchQuery(
-                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2));
+                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2),
+            1);
 
     // Validate search response
     assertThat(searchResult.hits.size()).isEqualTo(1);

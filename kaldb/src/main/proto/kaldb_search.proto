@@ -12,6 +12,8 @@ message SearchRequest {
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
   int32 bucket_count = 7;
+  // used for query timeouts
+  int32 _timeoutMs = 8;
 }
 
 message SearchResult {

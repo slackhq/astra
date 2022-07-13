@@ -266,7 +266,7 @@ public class RecoveryChunkManagerTest {
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
             1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery);
+    SearchResult<LogMessage> result = chunkManager.query(searchQuery, 1);
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
     assertThat(result.totalSnapshots).isEqualTo(1);

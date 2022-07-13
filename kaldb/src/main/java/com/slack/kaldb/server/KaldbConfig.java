@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.apache.commons.text.StringSubstitutor;
 
@@ -36,9 +35,15 @@ public class KaldbConfig {
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
   // is used for controlling lucene future timeouts.
-  public static final Duration ARMERIA_TIMEOUT_DURATION = Duration.of(5000, ChronoUnit.MILLIS);
-  public static Duration DISTRIBUTED_QUERY_TIMEOUT_DURATION = Duration.of(3000, ChronoUnit.MILLIS);
-  public static Duration LOCAL_QUERY_TIMEOUT_DURATION = Duration.of(2500, ChronoUnit.MILLIS);
+  public static long getDistributedQueryTimeoutMs(long requestTimeout) {
+    validateTimeout(requestTimeout);
+    return requestTimeout - 2000;
+  }
+
+  public static long getLocalQueryTimeoutMs(long requestTimeout) {
+    validateTimeout(requestTimeout);
+    return requestTimeout - 2500;
+  }
 
   private static KaldbConfig _instance = null;
 
@@ -74,7 +79,15 @@ public class KaldbConfig {
     validateNodeRoles(kaldbConfig.getNodeRolesList());
     if (kaldbConfig.getNodeRolesList().contains(KaldbConfigs.NodeRole.INDEX)) {
       validateDataTransformerConfig(kaldbConfig.getIndexerConfig().getDataTransformer());
+      validateTimeout(kaldbConfig.getIndexerConfig().getServerConfig().getRequestTimeoutMs());
     }
+    if (kaldbConfig.getNodeRolesList().contains(KaldbConfigs.NodeRole.QUERY)) {
+      validateTimeout(kaldbConfig.getQueryConfig().getServerConfig().getRequestTimeoutMs());
+    }
+  }
+
+  public static void validateTimeout(long requestTimeout) {
+    checkArgument(requestTimeout < 3000, "Kaldb request timeouts must be atleast 3000ms");
   }
 
   public static void validateNodeRoles(List<KaldbConfigs.NodeRole> nodeRoleList) {
