@@ -159,14 +159,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       ServiceMetadataStore serviceMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
-      String dataSet) {
+      String dataset) {
     ScopedSpan findPartitionsToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
     List<ServicePartitionMetadata> partitions =
         findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataSet);
+            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
     // step 1 - find all snapshots that match time window and partition
@@ -347,7 +347,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeEpochMs, long endTimeEpochMs, String dataSet) {
+      long startTimeEpochMs, long endTimeEpochMs, String dataset) {
     Collection<String> searchNodeUrls =
         getSearchNodesToQuery(
             snapshotMetadataStore,
@@ -355,7 +355,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             serviceMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
-            dataSet);
+            dataset);
     ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
         new ArrayList<>(searchNodeUrls.size());
     for (String searchNodeUrl : searchNodeUrls) {

@@ -2,7 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
-  // TODO: Remove the dataSet field from this class since it is not a lucene level concept.
+  // TODO: Remove the dataset field from this class since it is not a lucene level concept.
   @Deprecated public final String dataset;
 
   public final String queryStr;
