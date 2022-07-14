@@ -95,7 +95,7 @@ public class KaldbConfig {
 
   private static void validateRequestTimeout(int requestTimeoutMs) {
     checkArgument(requestTimeoutMs > 0, "requestTimeoutMs cannot be 0");
-    checkArgument(requestTimeoutMs < 3000, "Kaldb request timeouts must be atleast 3000ms");
+    checkArgument(requestTimeoutMs > 3000, "Kaldb request timeouts must be atleast 3000ms");
   }
 
   private static KaldbConfigs.ServerConfig getServerConfigForRole(

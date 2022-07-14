@@ -42,6 +42,7 @@ public class KaldbConfigUtil {
                 KaldbConfigs.ServerConfig.newBuilder()
                     .setServerPort(indexerPort)
                     .setServerAddress("localhost")
+                    .setRequestTimeoutMs(5000)
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
             .setMaxMessagesPerChunk(100)
@@ -53,6 +54,7 @@ public class KaldbConfigUtil {
             .setStaleDurationSecs(7200)
             .setDataTransformer(dataTransformerConfig)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
+            .setDefaultQueryTimeoutMs(2500)
             .build();
 
     KaldbConfigs.ZookeeperConfig zkConfig =
@@ -72,7 +74,9 @@ public class KaldbConfigUtil {
                 KaldbConfigs.ServerConfig.newBuilder()
                     .setServerPort(queryPort)
                     .setServerAddress("localhost")
+                    .setRequestTimeoutMs(5000)
                     .build())
+            .setDefaultQueryTimeoutMs(3000)
             .build();
 
     KaldbConfigs.RecoveryConfig recoveryConfig =
@@ -81,6 +85,7 @@ public class KaldbConfigUtil {
                 KaldbConfigs.ServerConfig.newBuilder()
                     .setServerPort(recoveryPort)
                     .setServerAddress("localhost")
+                    .setRequestTimeoutMs(5000)
                     .build())
             .build();
 
