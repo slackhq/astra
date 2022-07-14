@@ -117,16 +117,16 @@ public class PreprocessorServiceUnitTest {
 
   @Test
   public void shouldReturnRandomPartitionFromStreamPartitioner() {
-    String serviceName = "serviceName";
+    String datasetName = "datasetName";
     List<Integer> partitionList = List.of(33, 44, 55);
-    Map<String, List<Integer>> serviceNameToPartitions = Map.of(serviceName, partitionList);
+    Map<String, List<Integer>> datasetNameToPartitions = Map.of(datasetName, partitionList);
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        PreprocessorService.streamPartitioner(serviceNameToPartitions);
+        PreprocessorService.streamPartitioner(datasetNameToPartitions);
 
     Trace.Span span =
         Trace.Span.newBuilder()
             .addTags(
-                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(serviceName).build())
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName).build())
             .build();
 
     // all arguments except value are currently unused for determining the partition to assign, as
@@ -241,12 +241,12 @@ public class PreprocessorServiceUnitTest {
     List<DatasetMetadata> datasetMetadata =
         List.of(
             new DatasetMetadata(
-                "service1",
+                "dataset1",
                 "owner1",
                 1000,
                 List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2")))),
             new DatasetMetadata(
-                "service2",
+                "dataset2",
                 "owner1",
                 1000,
                 List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2")))));
@@ -275,7 +275,7 @@ public class PreprocessorServiceUnitTest {
   public void shouldThrowOnInvalidTopologyConfigs() {
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
-            "service1",
+            "dataset1",
             "owner1",
             1000,
             List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))));
@@ -336,7 +336,7 @@ public class PreprocessorServiceUnitTest {
   }
 
   @Test
-  public void shouldHandleEmptyServiceMetadata() throws TimeoutException {
+  public void shouldHandleEmptyDatasetMetadata() throws TimeoutException {
     DatasetMetadataStore datasetMetadataStore = mock(DatasetMetadataStore.class);
     when(datasetMetadataStore.listSync()).thenReturn(List.of());
 
