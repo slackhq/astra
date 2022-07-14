@@ -3,9 +3,11 @@ package com.slack.kaldb.metadata.service;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
+import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Metadata for a specific partition configuration at a point in time. For partitions that are
@@ -84,5 +86,30 @@ public class ServicePartitionMetadata {
         .setEndTimeEpochMs(metadata.endTimeEpochMs)
         .addAllPartitions(metadata.partitions)
         .build();
+  }
+
+  /**
+   * Get partitions that match on two criteria 1. index name 2. partitions that have an overlap with
+   * the query window.
+   */
+  public static List<ServicePartitionMetadata> findPartitionsToQuery(
+      ServiceMetadataStore serviceMetadataStore,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      String indexName) {
+    return serviceMetadataStore
+        .getCached()
+        .stream()
+        .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
+        .flatMap(
+            serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
+        .filter(
+            partitionMetadata ->
+                ChunkInfo.containsDataInTimeRange(
+                    partitionMetadata.startTimeEpochMs,
+                    partitionMetadata.endTimeEpochMs,
+                    startTimeEpochMs,
+                    endTimeEpochMs))
+        .collect(Collectors.toList());
   }
 }

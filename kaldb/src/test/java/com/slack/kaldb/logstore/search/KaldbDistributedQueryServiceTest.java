@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
-import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.findPartitionsToQuery;
 import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,115 +87,6 @@ public class KaldbDistributedQueryServiceTest {
     zkMetadataStore.close();
     metricsRegistry.close();
     testZKServer.close();
-  }
-
-  @Test
-  public void testOneServiceOnePartition() {
-    final String name = "testService";
-    final String owner = "serviceOwner";
-    final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
-
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
-
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
-
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 150, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 250, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 200, 250, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 250, name);
-    assertThat(partitionMetadata.size()).isEqualTo(0);
-  }
-
-  @Test
-  public void testOneServiceMultipleWindows() {
-    final String name = "testService";
-    final String owner = "serviceOwner";
-    final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition1 =
-        new ServicePartitionMetadata(100, 200, List.of("1"));
-
-    final ServicePartitionMetadata partition2 =
-        new ServicePartitionMetadata(201, 300, List.of("2", "3"));
-
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition1, partition2));
-
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
-
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
-    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 300, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(2);
-    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(201);
-    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(300);
-
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 100, 202, name);
-    assertThat(partitionMetadata.size()).isEqualTo(2);
-
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
-    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
-
-    assertThat(partitionMetadata.get(1).partitions.size()).isEqualTo(2);
-    assertThat(partitionMetadata.get(1).startTimeEpochMs).isEqualTo(201);
-    assertThat(partitionMetadata.get(1).endTimeEpochMs).isEqualTo(300);
-  }
-
-  @Test
-  public void testMultipleServicesOneTimeRange() {
-
-    final String name = "testService";
-    final String owner = "serviceOwner";
-    final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
-
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
-
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
-
-    final String name1 = "testService1";
-    final String owner1 = "serviceOwner1";
-    final long throughputBytes1 = 1;
-    final ServicePartitionMetadata partition1 =
-        new ServicePartitionMetadata(100, 200, List.of("2"));
-
-    ServiceMetadata serviceMetadata1 =
-        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition1));
-
-    serviceMetadataStore.createSync(serviceMetadata1);
-    await().until(() -> serviceMetadataStore.listSync().size() == 2);
-
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
-    assertThat(partitionMetadata.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
-    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
   }
 
   @Test
