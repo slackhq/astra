@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata.service;
+package com.slack.kaldb.metadata.dataset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

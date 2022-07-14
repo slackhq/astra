@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata.service;
+package com.slack.kaldb.metadata.dataset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -67,7 +67,7 @@ public class DatasetMetadata extends KaldbMetadata {
 
   @Override
   public String toString() {
-    return "ServiceMetadata{"
+    return "DatasetMetadata{"
         + "name='"
         + name
         + '\''

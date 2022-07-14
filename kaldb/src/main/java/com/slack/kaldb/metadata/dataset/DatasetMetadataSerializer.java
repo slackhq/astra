@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata.service;
+package com.slack.kaldb.metadata.dataset;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;

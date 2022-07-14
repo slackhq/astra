@@ -1,13 +1,13 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.metadata.service.DatasetMetadataSerializer.toServiceMetadataProto;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toServiceMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.slack.kaldb.metadata.service.DatasetMetadata;
-import com.slack.kaldb.metadata.service.DatasetMetadataSerializer;
-import com.slack.kaldb.metadata.service.DatasetMetadataStore;
-import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;

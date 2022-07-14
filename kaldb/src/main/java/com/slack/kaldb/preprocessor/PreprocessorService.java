@@ -6,9 +6,9 @@ import static org.apache.curator.shaded.com.google.common.base.Preconditions.che
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
-import com.slack.kaldb.metadata.service.DatasetMetadata;
-import com.slack.kaldb.metadata.service.DatasetMetadataStore;
-import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;

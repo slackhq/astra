@@ -2,10 +2,10 @@ package com.slack.kaldb.clusterManager;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
-import com.slack.kaldb.metadata.service.DatasetMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.MeterRegistry;
 

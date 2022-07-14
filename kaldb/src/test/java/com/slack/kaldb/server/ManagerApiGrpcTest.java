@@ -8,8 +8,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
-import com.slack.kaldb.metadata.service.DatasetMetadata;
-import com.slack.kaldb.metadata.service.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;

@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata.service;
+package com.slack.kaldb.metadata.dataset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;

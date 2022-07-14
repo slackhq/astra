@@ -1,4 +1,4 @@
-package com.slack.kaldb.metadata.service;
+package com.slack.kaldb.metadata.dataset;
 
 import com.slack.kaldb.metadata.core.PersistentMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
