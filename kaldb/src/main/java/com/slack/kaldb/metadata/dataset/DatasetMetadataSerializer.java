@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMetadata> {
-  private static DatasetMetadata fromServiceMetadataProto(
+  private static DatasetMetadata fromDatasetMetadataProto(
       Metadata.DatasetMetadata datasetMetadataProto) {
     List<DatasetPartitionMetadata> datasetPartitionMetadata =
         datasetMetadataProto
@@ -24,7 +24,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         datasetPartitionMetadata);
   }
 
-  public static Metadata.DatasetMetadata toServiceMetadataProto(DatasetMetadata metadata) {
+  public static Metadata.DatasetMetadata toDatasetMetadataProto(DatasetMetadata metadata) {
     List<Metadata.DatasetPartitionMetadata> datasetPartitionMetadata =
         metadata
             .partitionConfigs
@@ -44,13 +44,13 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
   public String toJsonStr(DatasetMetadata metadata) throws InvalidProtocolBufferException {
     if (metadata == null) throw new IllegalArgumentException("metadata object can't be null");
 
-    return printer.print(toServiceMetadataProto(metadata));
+    return printer.print(toDatasetMetadataProto(metadata));
   }
 
   @Override
   public DatasetMetadata fromJsonStr(String data) throws InvalidProtocolBufferException {
-    Metadata.DatasetMetadata.Builder serviceMetadataBuilder = Metadata.DatasetMetadata.newBuilder();
-    JsonFormat.parser().ignoringUnknownFields().merge(data, serviceMetadataBuilder);
-    return fromServiceMetadataProto(serviceMetadataBuilder.build());
+    Metadata.DatasetMetadata.Builder datasetMetadataBuilder = Metadata.DatasetMetadata.newBuilder();
+    JsonFormat.parser().ignoringUnknownFields().merge(data, datasetMetadataBuilder);
+    return fromDatasetMetadataProto(datasetMetadataBuilder.build());
   }
 }

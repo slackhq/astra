@@ -180,7 +180,7 @@ public class PreprocessorServiceUnitTest {
             validDatasetMetadata);
 
     List<DatasetMetadata> datasetMetadata1 =
-        PreprocessorService.filterValidServiceMetadata(datasetMetadataList);
+        PreprocessorService.filterValidDatasetMetadata(datasetMetadataList);
 
     assertThat(datasetMetadata1.size()).isEqualTo(1);
     assertThat(datasetMetadata1.contains(validDatasetMetadata)).isTrue();
@@ -188,13 +188,13 @@ public class PreprocessorServiceUnitTest {
     Collections.shuffle(datasetMetadata1);
 
     List<DatasetMetadata> datasetMetadata2 =
-        PreprocessorService.filterValidServiceMetadata(datasetMetadataList);
+        PreprocessorService.filterValidDatasetMetadata(datasetMetadataList);
 
     assertThat(datasetMetadata2.size()).isEqualTo(1);
     assertThat(datasetMetadata2.contains(validDatasetMetadata)).isTrue();
 
     List<DatasetMetadata> datasetMetadata3 =
-        PreprocessorService.filterValidServiceMetadata(List.of());
+        PreprocessorService.filterValidDatasetMetadata(List.of());
     assertThat(datasetMetadata3.size()).isEqualTo(0);
   }
 

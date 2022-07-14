@@ -1,6 +1,6 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toServiceMetadataProto;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       datasetMetadataStore.createSync(
           new DatasetMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
       responseObserver.onNext(
-          toServiceMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error creating new service", e);
@@ -70,7 +70,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               existingDatasetMetadata.getThroughputBytes(),
               existingDatasetMetadata.getPartitionConfigs());
       datasetMetadataStore.updateSync(updatedDatasetMetadata);
-      responseObserver.onNext(toServiceMetadataProto(updatedDatasetMetadata));
+      responseObserver.onNext(toDatasetMetadataProto(updatedDatasetMetadata));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error updating existing service", e);
@@ -86,7 +86,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     try {
       responseObserver.onNext(
-          toServiceMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting service", e);
@@ -107,7 +107,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                   datasetMetadataStore
                       .listSync()
                       .stream()
-                      .map(DatasetMetadataSerializer::toServiceMetadataProto)
+                      .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());
       responseObserver.onCompleted();

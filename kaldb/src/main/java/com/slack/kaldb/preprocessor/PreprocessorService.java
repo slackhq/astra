@@ -39,10 +39,10 @@ import org.slf4j.LoggerFactory;
  * The PreprocessorService consumes from multiple upstream topics, applies rate limiting, transforms
  * the data format, and then writes out the new message to a common downstream topic targeting
  * specific partitions. The rate limits, and target partitions are read in via the
- * ServiceMetadataStore, with the upstream topic, downstream topic, and transforms stored in the
+ * DatasetMetadataStore, with the upstream topic, downstream topic, and transforms stored in the
  * service config.
  *
- * <p>Changes to the ServiceMetadata will cause the existing Kafka Stream topology to be closed, and
+ * <p>Changes to the DatasetMetadata will cause the existing Kafka Stream topology to be closed, and
  * this service will restart consumption with a new stream topology representing the newly updated
  * metadata. This class implements a doStart/doStop similar to the AbstractIdleService, but by
  * extending an AbstractService we also gain access to notifyFailed() in the event a subsequent load
@@ -128,7 +128,7 @@ public class PreprocessorService extends AbstractService {
   }
 
   /**
-   * Configures and starts a KafkaStream processor, based off of the cached ServiceMetadataStore.
+   * Configures and starts a KafkaStream processor, based off of the cached DatasetMetadataStore.
    * This method is reentrant, and will restart any existing KafkaStream processors. Access to this
    * must be synchronized if using this method as part of a listener.
    */
@@ -145,9 +145,9 @@ public class PreprocessorService extends AbstractService {
         kafkaStreamsMetrics.close();
       }
 
-      // only attempt to register stream processing on valid service configurations
+      // only attempt to register stream processing on valid dataset configurations
       List<DatasetMetadata> datasetMetadataToProcesses =
-          filterValidServiceMetadata(datasetMetadataStore.listSync());
+          filterValidDatasetMetadata(datasetMetadataStore.listSync());
 
       if (datasetMetadataToProcesses.size() > 0) {
         Topology topology =
@@ -174,7 +174,7 @@ public class PreprocessorService extends AbstractService {
 
   /**
    * Builds a KafkaStream Topology with multiple source topics, targeting a single sink. Applies
-   * rate limits per-service if required, and uses the service configured target topic sink and data
+   * rate limits per-dataset if required, and uses the dataset configured target topic sink and data
    * transformer.
    */
   protected static Topology buildTopology(
@@ -231,31 +231,31 @@ public class PreprocessorService extends AbstractService {
   }
 
   /**
-   * Filters the provided list of service metadata to those that are valid. This includes correctly
+   * Filters the provided list of dataset metadata to those that are valid. This includes correctly
    * defined throughput and partition configurations.
    */
-  protected static List<DatasetMetadata> filterValidServiceMetadata(
+  protected static List<DatasetMetadata> filterValidDatasetMetadata(
       List<DatasetMetadata> datasetMetadataList) {
     return datasetMetadataList
         .stream()
-        .filter(serviceMetadata -> serviceMetadata.getThroughputBytes() > 0)
-        .filter(serviceMetadata -> getActivePartitionList(serviceMetadata).size() > 0)
+        .filter(datasetMetadata -> datasetMetadata.getThroughputBytes() > 0)
+        .filter(datasetMetadata -> getActivePartitionList(datasetMetadata).size() > 0)
         .collect(Collectors.toList());
   }
 
-  /** Gets the active list of partitions from the provided service metadata */
+  /** Gets the active list of partitions from the provided dataset metadata */
   protected static List<Integer> getActivePartitionList(DatasetMetadata datasetMetadata) {
-    Optional<DatasetPartitionMetadata> servicePartitionMetadata =
+    Optional<DatasetPartitionMetadata> datasetPartitionMetadata =
         datasetMetadata
             .getPartitionConfigs()
             .stream()
             .filter(partitionMetadata -> partitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
-    if (servicePartitionMetadata.isEmpty()) {
+    if (datasetPartitionMetadata.isEmpty()) {
       return Collections.emptyList();
     }
-    return servicePartitionMetadata
+    return datasetPartitionMetadata
         .get()
         .getPartitions()
         .stream()
@@ -264,31 +264,30 @@ public class PreprocessorService extends AbstractService {
   }
 
   /**
-   * Returns a StreamPartitioner that selects from the provided list of service metadata. If no
-   * valid service metadata are provided throws an exception.
+   * Returns a StreamPartitioner that selects from the provided list of dataset metadata. If no
+   * valid dataset metadata are provided throws an exception.
    */
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      Map<String, List<Integer>> serviceNameToPartitionList) {
+      Map<String, List<Integer>> datasetToPartitionList) {
     checkArgument(
-        serviceNameToPartitionList.entrySet().size() > 0,
-        "serviceNameToPartitionList cannot be empty");
+        datasetToPartitionList.entrySet().size() > 0, "datasetToPartitionList cannot be empty");
     checkArgument(
-        serviceNameToPartitionList.keySet().stream().noneMatch(String::isEmpty),
-        "serviceNameToPartitionList cannot have any empty keys");
+        datasetToPartitionList.keySet().stream().noneMatch(String::isEmpty),
+        "datasetToPartitionList cannot have any empty keys");
     checkArgument(
-        serviceNameToPartitionList.values().stream().noneMatch(List::isEmpty),
-        "serviceNameToPartitionList cannot have any empty partition lists");
+        datasetToPartitionList.values().stream().noneMatch(List::isEmpty),
+        "datasetToPartitionList cannot have any empty partition lists");
 
     return (topic, key, value, partitionCount) -> {
       String serviceName = PreprocessorValueMapper.getServiceName(value);
-      if (!serviceNameToPartitionList.containsKey(serviceName)) {
+      if (!datasetToPartitionList.containsKey(serviceName)) {
         // this shouldn't happen, as we should have filtered all the missing services in the value
         // mapper stage
         throw new IllegalStateException(
             String.format("Service '%s' was not found in service metadata", serviceName));
       }
 
-      List<Integer> partitions = serviceNameToPartitionList.getOrDefault(serviceName, List.of());
+      List<Integer> partitions = datasetToPartitionList.getOrDefault(serviceName, List.of());
       return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
     };
   }
