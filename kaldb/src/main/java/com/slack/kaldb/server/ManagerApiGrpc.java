@@ -22,7 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Administration API for managing service configurations, including throughput and partition
+ * Administration API for managing dataset configurations, including throughput and partition
  * assignments. This API is available only on the cluster manager service, and the data created is
  * consumed primarily by the pre-processor and query services.
  */
@@ -36,7 +36,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     this.datasetMetadataStore = datasetMetadataStore;
   }
 
-  /** Initializes a new service in the metadata store with no initial allocated capacity */
+  /** Initializes a new dataset in the metadata store with no initial allocated capacity */
   @Override
   public void createDatasetMetadata(
       ManagerApi.CreateDatasetMetadataRequest request,
@@ -49,12 +49,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error creating new service", e);
+      LOG.error("Error creating new dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Updates an existing service with new metadata */
+  /** Updates an existing dataset with new metadata */
   @Override
   public void updateDatasetMetadata(
       ManagerApi.UpdateDatasetMetadataRequest request,
@@ -73,12 +73,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onNext(toDatasetMetadataProto(updatedDatasetMetadata));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error updating existing service", e);
+      LOG.error("Error updating existing dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Returns a single service metadata by name */
+  /** Returns a single dataset metadata by name */
   @Override
   public void getDatasetMetadata(
       ManagerApi.GetDatasetMetadataRequest request,
@@ -89,12 +89,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error getting service", e);
+      LOG.error("Error getting dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Returns all available services from the metadata store */
+  /** Returns all available datasets from the metadata store */
   @Override
   public void listDatasetMetadata(
       ManagerApi.ListDatasetMetadataRequest request,
@@ -112,13 +112,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               .build());
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error getting services", e);
+      LOG.error("Error getting datasets.", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
   /**
-   * Allocates a new partition assignment for a service. If a rate and a list of partition IDs are
+   * Allocates a new partition assignment for a dataset. If a rate and a list of partition IDs are
    * provided, it will use it use the list of partition ids as the current allocation and
    * invalidates the existing assignment.
    */
@@ -167,9 +167,9 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   }
 
   /**
-   * Returns a new list of service partition metadata, with the provided partition IDs as the
+   * Returns a new list of dataset partition metadata, with the provided partition IDs as the
    * current active assignment. This finds the current active assignment (end time of max long),
-   * sets it to the current time, and then appends a new service partition assignment starting from
+   * sets it to the current time, and then appends a new dataset partition assignment starting from
    * current time + 1 to max long.
    */
   private static ImmutableList<DatasetPartitionMetadata> addNewPartition(
@@ -178,20 +178,20 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       return ImmutableList.copyOf(existingPartitions);
     }
 
-    Optional<DatasetPartitionMetadata> previousActiveServicePartition =
+    Optional<DatasetPartitionMetadata> previousActiveDatasetPartition =
         existingPartitions
             .stream()
             .filter(
-                servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
+                datasetPartitionMetadata ->
+                    datasetPartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
-    List<DatasetPartitionMetadata> remainingServicePartitions =
+    List<DatasetPartitionMetadata> remainingDatasetPartitions =
         existingPartitions
             .stream()
             .filter(
-                servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
+                datasetPartitionMetadata ->
+                    datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
             .collect(Collectors.toList());
 
     // todo - consider adding some padding to this value; this may complicate
@@ -202,14 +202,14 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     long partitionCutoverTime = Instant.now().toEpochMilli();
 
     ImmutableList.Builder<DatasetPartitionMetadata> builder =
-        ImmutableList.<DatasetPartitionMetadata>builder().addAll(remainingServicePartitions);
+        ImmutableList.<DatasetPartitionMetadata>builder().addAll(remainingDatasetPartitions);
 
-    if (previousActiveServicePartition.isPresent()) {
+    if (previousActiveDatasetPartition.isPresent()) {
       DatasetPartitionMetadata updatedPreviousActivePartition =
           new DatasetPartitionMetadata(
-              previousActiveServicePartition.get().getStartTimeEpochMs(),
+              previousActiveDatasetPartition.get().getStartTimeEpochMs(),
               partitionCutoverTime,
-              previousActiveServicePartition.get().getPartitions());
+              previousActiveDatasetPartition.get().getPartitions());
       builder.add(updatedPreviousActivePartition);
     }
 

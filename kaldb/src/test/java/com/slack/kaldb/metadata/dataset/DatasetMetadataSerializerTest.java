@@ -15,13 +15,13 @@ public class DatasetMetadataSerializerTest {
   private final DatasetMetadataSerializer serDe = new DatasetMetadataSerializer();
 
   @Test
-  public void testServiceMetadataSerializer() throws InvalidProtocolBufferException {
+  public void testDatasetMetadataSerializer() throws InvalidProtocolBufferException {
     final Instant partitionStart = Instant.now();
     final Instant partitionEnd = Instant.now().plus(1, ChronoUnit.DAYS);
     final String partitionName = "partitionName";
     final List<String> partitionList = List.of(partitionName);
 
-    final String name = "testService";
+    final String name = "testDataset";
     final String owner = "testOwner";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list =
@@ -30,10 +30,10 @@ public class DatasetMetadataSerializerTest {
                 partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
     final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
-    assertThat(serializedServiceMetadata).isNotEmpty();
+    String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
+    assertThat(serializedDatasetMetadata).isNotEmpty();
 
-    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedDatasetMetadata);
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
@@ -41,7 +41,7 @@ public class DatasetMetadataSerializerTest {
   }
 
   @Test
-  public void testServiceMetadataSerializerDuplicatePartitions()
+  public void testDatasetMetadataSerializerDuplicatePartitions()
       throws InvalidProtocolBufferException {
     final Instant partitionStart1 = Instant.now();
     final Instant partitionEnd1 = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -50,7 +50,7 @@ public class DatasetMetadataSerializerTest {
     final String partitionName = "partitionName1";
     final List<String> partitionList = List.of(partitionName);
 
-    final String name = "testService";
+    final String name = "testDataset";
     final String owner = "testOwner";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list =
@@ -61,10 +61,10 @@ public class DatasetMetadataSerializerTest {
                 partitionStart2.toEpochMilli(), partitionEnd2.toEpochMilli(), partitionList));
     final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
-    assertThat(serializedServiceMetadata).isNotEmpty();
+    String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
+    assertThat(serializedDatasetMetadata).isNotEmpty();
 
-    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedDatasetMetadata);
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
@@ -72,17 +72,17 @@ public class DatasetMetadataSerializerTest {
   }
 
   @Test
-  public void testServiceMetadataSerializerEmptyList() throws InvalidProtocolBufferException {
-    final String name = "testService";
+  public void testDatasetMetadataSerializerEmptyList() throws InvalidProtocolBufferException {
+    final String name = "testDataset";
     final String owner = "testOwner";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list = Collections.emptyList();
     final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
-    assertThat(serializedServiceMetadata).isNotEmpty();
+    String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
+    assertThat(serializedDatasetMetadata).isNotEmpty();
 
-    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedDatasetMetadata);
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
@@ -105,7 +105,7 @@ public class DatasetMetadataSerializerTest {
   }
 
   @Test
-  public void testServicePartitionMetadata() {
+  public void testDatasetPartitionMetadata() {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";
@@ -114,15 +114,15 @@ public class DatasetMetadataSerializerTest {
     final DatasetPartitionMetadata datasetPartitionMetadata =
         new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
 
-    Metadata.DatasetPartitionMetadata servicePartitionMetadataProto =
+    Metadata.DatasetPartitionMetadata datasetPartitionMetadataProto =
         DatasetPartitionMetadata.toDatasetPartitionMetadataProto(datasetPartitionMetadata);
 
-    assertThat(servicePartitionMetadataProto.getStartTimeEpochMs()).isEqualTo(start.toEpochMilli());
-    assertThat(servicePartitionMetadataProto.getEndTimeEpochMs()).isEqualTo(end.toEpochMilli());
-    assertThat(servicePartitionMetadataProto.getPartitionsList()).isEqualTo(list);
+    assertThat(datasetPartitionMetadataProto.getStartTimeEpochMs()).isEqualTo(start.toEpochMilli());
+    assertThat(datasetPartitionMetadataProto.getEndTimeEpochMs()).isEqualTo(end.toEpochMilli());
+    assertThat(datasetPartitionMetadataProto.getPartitionsList()).isEqualTo(list);
 
     DatasetPartitionMetadata datasetPartitionMetadataFromProto =
-        DatasetPartitionMetadata.fromDatasetPartitionMetadataProto(servicePartitionMetadataProto);
+        DatasetPartitionMetadata.fromDatasetPartitionMetadataProto(datasetPartitionMetadataProto);
 
     assertThat(datasetPartitionMetadataFromProto.startTimeEpochMs).isEqualTo(start.toEpochMilli());
     assertThat(datasetPartitionMetadataFromProto.endTimeEpochMs).isEqualTo(end.toEpochMilli());
