@@ -14,7 +14,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         datasetMetadataProto
             .getPartitionConfigsList()
             .stream()
-            .map(DatasetPartitionMetadata::fromServicePartitionMetadataProto)
+            .map(DatasetPartitionMetadata::fromDatasetPartitionMetadataProto)
             .collect(Collectors.toList());
 
     return new DatasetMetadata(
@@ -29,7 +29,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         metadata
             .partitionConfigs
             .stream()
-            .map(DatasetPartitionMetadata::toServicePartitionMetadataProto)
+            .map(DatasetPartitionMetadata::toDatasetPartitionMetadataProto)
             .collect(Collectors.toList());
 
     return Metadata.DatasetMetadata.newBuilder()

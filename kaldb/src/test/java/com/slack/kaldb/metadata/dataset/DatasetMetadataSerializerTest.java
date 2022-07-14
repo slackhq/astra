@@ -115,14 +115,14 @@ public class DatasetMetadataSerializerTest {
         new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
 
     Metadata.DatasetPartitionMetadata servicePartitionMetadataProto =
-        DatasetPartitionMetadata.toServicePartitionMetadataProto(datasetPartitionMetadata);
+        DatasetPartitionMetadata.toDatasetPartitionMetadataProto(datasetPartitionMetadata);
 
     assertThat(servicePartitionMetadataProto.getStartTimeEpochMs()).isEqualTo(start.toEpochMilli());
     assertThat(servicePartitionMetadataProto.getEndTimeEpochMs()).isEqualTo(end.toEpochMilli());
     assertThat(servicePartitionMetadataProto.getPartitionsList()).isEqualTo(list);
 
     DatasetPartitionMetadata datasetPartitionMetadataFromProto =
-        DatasetPartitionMetadata.fromServicePartitionMetadataProto(servicePartitionMetadataProto);
+        DatasetPartitionMetadata.fromDatasetPartitionMetadataProto(servicePartitionMetadataProto);
 
     assertThat(datasetPartitionMetadataFromProto.startTimeEpochMs).isEqualTo(start.toEpochMilli());
     assertThat(datasetPartitionMetadataFromProto.endTimeEpochMs).isEqualTo(end.toEpochMilli());

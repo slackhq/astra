@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 
-public class ServicePartitionMetadataTest {
+public class DatasetPartitionMetadataTest {
 
   @Test
-  public void testServicePartitionMetadata() {
+  public void testDatasetPartitionMetadata() {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";
@@ -65,7 +65,7 @@ public class ServicePartitionMetadataTest {
   }
 
   @Test
-  public void testValidServicePartitionMetadata() {
+  public void testValidDatasetPartitionMetadata() {
     final Instant start = Instant.now();
     final Instant end = Instant.now().plus(1, ChronoUnit.DAYS);
     final String name = "partitionName";

@@ -59,7 +59,7 @@ public class DatasetPartitionMetadata {
 
   @Override
   public String toString() {
-    return "ServicePartitionMetadata{"
+    return "DatasetPartitionMetadata{"
         + "startTimeEpochMs="
         + startTimeEpochMs
         + ", endTimeEpochMs="
@@ -69,15 +69,15 @@ public class DatasetPartitionMetadata {
         + '}';
   }
 
-  public static DatasetPartitionMetadata fromServicePartitionMetadataProto(
-      Metadata.DatasetPartitionMetadata servicePartitionMetadata) {
+  public static DatasetPartitionMetadata fromDatasetPartitionMetadataProto(
+      Metadata.DatasetPartitionMetadata datasetPartitionMetadata) {
     return new DatasetPartitionMetadata(
-        servicePartitionMetadata.getStartTimeEpochMs(),
-        servicePartitionMetadata.getEndTimeEpochMs(),
-        servicePartitionMetadata.getPartitionsList());
+        datasetPartitionMetadata.getStartTimeEpochMs(),
+        datasetPartitionMetadata.getEndTimeEpochMs(),
+        datasetPartitionMetadata.getPartitionsList());
   }
 
-  public static Metadata.DatasetPartitionMetadata toServicePartitionMetadataProto(
+  public static Metadata.DatasetPartitionMetadata toDatasetPartitionMetadataProto(
       DatasetPartitionMetadata metadata) {
     return Metadata.DatasetPartitionMetadata.newBuilder()
         .setStartTimeEpochMs(metadata.startTimeEpochMs)
