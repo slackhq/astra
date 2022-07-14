@@ -38,8 +38,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
   /** Initializes a new service in the metadata store with no initial allocated capacity */
   @Override
-  public void createServiceMetadata(
-      ManagerApi.CreateServiceMetadataRequest request,
+  public void createDatasetMetadata(
+      ManagerApi.CreateDatasetMetadataRequest request,
       StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
@@ -56,8 +56,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
   /** Updates an existing service with new metadata */
   @Override
-  public void updateServiceMetadata(
-      ManagerApi.UpdateServiceMetadataRequest request,
+  public void updateDatasetMetadata(
+      ManagerApi.UpdateDatasetMetadataRequest request,
       StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
@@ -80,8 +80,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
   /** Returns a single service metadata by name */
   @Override
-  public void getServiceMetadata(
-      ManagerApi.GetServiceMetadataRequest request,
+  public void getDatasetMetadata(
+      ManagerApi.GetDatasetMetadataRequest request,
       StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
@@ -96,13 +96,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
   /** Returns all available services from the metadata store */
   @Override
-  public void listServiceMetadata(
-      ManagerApi.ListServiceMetadataRequest request,
-      StreamObserver<ManagerApi.ListServiceMetadataResponse> responseObserver) {
+  public void listDatasetMetadata(
+      ManagerApi.ListDatasetMetadataRequest request,
+      StreamObserver<ManagerApi.ListDatasetMetadataResponse> responseObserver) {
     // todo - consider adding search/pagination support
     try {
       responseObserver.onNext(
-          ManagerApi.ListServiceMetadataResponse.newBuilder()
+          ManagerApi.ListDatasetMetadataResponse.newBuilder()
               .addAllDatasetMetadata(
                   datasetMetadataStore
                       .listSync()
