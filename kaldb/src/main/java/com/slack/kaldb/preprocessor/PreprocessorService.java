@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * the data format, and then writes out the new message to a common downstream topic targeting
  * specific partitions. The rate limits, and target partitions are read in via the
  * DatasetMetadataStore, with the upstream topic, downstream topic, and transforms stored in the
- * service config.
+ * dataset config.
  *
  * <p>Changes to the DatasetMetadata will cause the existing Kafka Stream topology to be closed, and
  * this service will restart consumption with a new stream topology representing the newly updated
@@ -164,7 +164,7 @@ public class PreprocessorService extends AbstractService {
         LOG.info("Kafka stream processor config loaded successfully");
       } else {
         LOG.info(
-            "No valid service configurations found to process - will retry on next service configuration update");
+            "No valid dataset configurations found to process - will retry on next dataset configuration update");
       }
       loadTimer.stop(configReloadTimer);
     } catch (Exception e) {
@@ -184,7 +184,7 @@ public class PreprocessorService extends AbstractService {
       String downstreamTopic,
       String dataTransformer) {
     Preconditions.checkArgument(
-        !datasetMetadataList.isEmpty(), "service metadata list must not be empty");
+        !datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
     Preconditions.checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     Preconditions.checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     Preconditions.checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
@@ -279,15 +279,15 @@ public class PreprocessorService extends AbstractService {
         "datasetToPartitionList cannot have any empty partition lists");
 
     return (topic, key, value, partitionCount) -> {
-      String serviceName = PreprocessorValueMapper.getServiceName(value);
-      if (!datasetToPartitionList.containsKey(serviceName)) {
-        // this shouldn't happen, as we should have filtered all the missing services in the value
+      String datasetName = PreprocessorValueMapper.getDatasetName(value);
+      if (!datasetToPartitionList.containsKey(datasetName)) {
+        // this shouldn't happen, as we should have filtered all the missing datasets in the value
         // mapper stage
         throw new IllegalStateException(
-            String.format("Service '%s' was not found in service metadata", serviceName));
+            String.format("Dataset '%s' was not found in dataset metadata", datasetName));
       }
 
-      List<Integer> partitions = datasetToPartitionList.getOrDefault(serviceName, List.of());
+      List<Integer> partitions = datasetToPartitionList.getOrDefault(datasetName, List.of());
       return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
     };
   }
