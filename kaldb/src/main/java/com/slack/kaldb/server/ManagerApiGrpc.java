@@ -1,13 +1,13 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.metadata.service.ServiceMetadataSerializer.toServiceMetadataProto;
+import static com.slack.kaldb.metadata.service.DatasetMetadataSerializer.toServiceMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataSerializer;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadataSerializer;
+import com.slack.kaldb.metadata.service.DatasetMetadataStore;
+import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -29,24 +29,24 @@ import org.slf4j.LoggerFactory;
 public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(ManagerApiGrpc.class);
 
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
 
-  public ManagerApiGrpc(ServiceMetadataStore serviceMetadataStore) {
-    this.serviceMetadataStore = serviceMetadataStore;
+  public ManagerApiGrpc(DatasetMetadataStore datasetMetadataStore) {
+    this.datasetMetadataStore = datasetMetadataStore;
   }
 
   /** Initializes a new service in the metadata store with no initial allocated capacity */
   @Override
   public void createServiceMetadata(
       ManagerApi.CreateServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
-      serviceMetadataStore.createSync(
-          new ServiceMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
+      datasetMetadataStore.createSync(
+          new DatasetMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
       responseObserver.onNext(
-          toServiceMetadataProto(serviceMetadataStore.getNodeSync(request.getName())));
+          toServiceMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error creating new service", e);
@@ -58,19 +58,19 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   @Override
   public void updateServiceMetadata(
       ManagerApi.UpdateServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
-      ServiceMetadata existingServiceMetadata = serviceMetadataStore.getNodeSync(request.getName());
+      DatasetMetadata existingDatasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
 
-      ServiceMetadata updatedServiceMetadata =
-          new ServiceMetadata(
-              existingServiceMetadata.getName(),
+      DatasetMetadata updatedDatasetMetadata =
+          new DatasetMetadata(
+              existingDatasetMetadata.getName(),
               request.getOwner(),
-              existingServiceMetadata.getThroughputBytes(),
-              existingServiceMetadata.getPartitionConfigs());
-      serviceMetadataStore.updateSync(updatedServiceMetadata);
-      responseObserver.onNext(toServiceMetadataProto(updatedServiceMetadata));
+              existingDatasetMetadata.getThroughputBytes(),
+              existingDatasetMetadata.getPartitionConfigs());
+      datasetMetadataStore.updateSync(updatedDatasetMetadata);
+      responseObserver.onNext(toServiceMetadataProto(updatedDatasetMetadata));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error updating existing service", e);
@@ -82,11 +82,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
   @Override
   public void getServiceMetadata(
       ManagerApi.GetServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
       responseObserver.onNext(
-          toServiceMetadataProto(serviceMetadataStore.getNodeSync(request.getName())));
+          toServiceMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting service", e);
@@ -103,11 +103,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     try {
       responseObserver.onNext(
           ManagerApi.ListServiceMetadataResponse.newBuilder()
-              .addAllServiceMetadata(
-                  serviceMetadataStore
+              .addAllDatasetMetadata(
+                  datasetMetadataStore
                       .listSync()
                       .stream()
-                      .map(ServiceMetadataSerializer::toServiceMetadataProto)
+                      .map(DatasetMetadataSerializer::toServiceMetadataProto)
                       .collect(Collectors.toList()))
               .build());
       responseObserver.onCompleted();
@@ -136,24 +136,24 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           request.getPartitionIdsList().stream().noneMatch(String::isBlank),
           "PartitionIds list must not contain blank strings");
 
-      ServiceMetadata serviceMetadata = serviceMetadataStore.getNodeSync(request.getName());
-      ImmutableList<ServicePartitionMetadata> updatedServicePartitionMetadata =
-          addNewPartition(serviceMetadata.getPartitionConfigs(), request.getPartitionIdsList());
+      DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
+      ImmutableList<DatasetPartitionMetadata> updatedDatasetPartitionMetadata =
+          addNewPartition(datasetMetadata.getPartitionConfigs(), request.getPartitionIdsList());
 
       // if the user provided a non-negative value for throughput set it, otherwise default to the
       // existing value
       long updatedThroughputBytes =
           request.getThroughputBytes() < 0
-              ? serviceMetadata.getThroughputBytes()
+              ? datasetMetadata.getThroughputBytes()
               : request.getThroughputBytes();
 
-      ServiceMetadata updatedServiceMetadata =
-          new ServiceMetadata(
-              serviceMetadata.getName(),
-              serviceMetadata.getOwner(),
+      DatasetMetadata updatedDatasetMetadata =
+          new DatasetMetadata(
+              datasetMetadata.getName(),
+              datasetMetadata.getOwner(),
               updatedThroughputBytes,
-              updatedServicePartitionMetadata);
-      serviceMetadataStore.updateSync(updatedServiceMetadata);
+              updatedDatasetPartitionMetadata);
+      datasetMetadataStore.updateSync(updatedDatasetMetadata);
 
       responseObserver.onNext(
           ManagerApi.UpdatePartitionAssignmentResponse.newBuilder()
@@ -172,13 +172,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
    * sets it to the current time, and then appends a new service partition assignment starting from
    * current time + 1 to max long.
    */
-  private static ImmutableList<ServicePartitionMetadata> addNewPartition(
-      List<ServicePartitionMetadata> existingPartitions, List<String> newPartitionIdsList) {
+  private static ImmutableList<DatasetPartitionMetadata> addNewPartition(
+      List<DatasetPartitionMetadata> existingPartitions, List<String> newPartitionIdsList) {
     if (newPartitionIdsList.isEmpty()) {
       return ImmutableList.copyOf(existingPartitions);
     }
 
-    Optional<ServicePartitionMetadata> previousActiveServicePartition =
+    Optional<DatasetPartitionMetadata> previousActiveServicePartition =
         existingPartitions
             .stream()
             .filter(
@@ -186,7 +186,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                     servicePartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
-    List<ServicePartitionMetadata> remainingServicePartitions =
+    List<DatasetPartitionMetadata> remainingServicePartitions =
         existingPartitions
             .stream()
             .filter(
@@ -201,20 +201,20 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     //   see https://github.com/slackhq/kaldb/pull/244#discussion_r835424863
     long partitionCutoverTime = Instant.now().toEpochMilli();
 
-    ImmutableList.Builder<ServicePartitionMetadata> builder =
-        ImmutableList.<ServicePartitionMetadata>builder().addAll(remainingServicePartitions);
+    ImmutableList.Builder<DatasetPartitionMetadata> builder =
+        ImmutableList.<DatasetPartitionMetadata>builder().addAll(remainingServicePartitions);
 
     if (previousActiveServicePartition.isPresent()) {
-      ServicePartitionMetadata updatedPreviousActivePartition =
-          new ServicePartitionMetadata(
+      DatasetPartitionMetadata updatedPreviousActivePartition =
+          new DatasetPartitionMetadata(
               previousActiveServicePartition.get().getStartTimeEpochMs(),
               partitionCutoverTime,
               previousActiveServicePartition.get().getPartitions());
       builder.add(updatedPreviousActivePartition);
     }
 
-    ServicePartitionMetadata newPartitionMetadata =
-        new ServicePartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
+    DatasetPartitionMetadata newPartitionMetadata =
+        new DatasetPartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
     return builder.add(newPartitionMetadata).build();
   }
 }

@@ -20,12 +20,12 @@ public class ServicePartitionMetadataTest {
     final String name = "partitionName";
     final List<String> list = List.of(name);
 
-    final ServicePartitionMetadata servicePartitionMetadata =
-        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
+    final DatasetPartitionMetadata datasetPartitionMetadata =
+        new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
 
-    assertThat(servicePartitionMetadata.startTimeEpochMs).isEqualTo(start.toEpochMilli());
-    assertThat(servicePartitionMetadata.endTimeEpochMs).isEqualTo(end.toEpochMilli());
-    assertThat(servicePartitionMetadata.getPartitions()).isEqualTo(list);
+    assertThat(datasetPartitionMetadata.startTimeEpochMs).isEqualTo(start.toEpochMilli());
+    assertThat(datasetPartitionMetadata.endTimeEpochMs).isEqualTo(end.toEpochMilli());
+    assertThat(datasetPartitionMetadata.getPartitions()).isEqualTo(list);
   }
 
   @Test
@@ -35,33 +35,33 @@ public class ServicePartitionMetadataTest {
     final String name = "partitionName";
     final List<String> list = List.of(name);
 
-    final ServicePartitionMetadata servicePartitionMetadata1 =
-        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
-    final ServicePartitionMetadata servicePartitionMetadata2 =
-        new ServicePartitionMetadata(start.toEpochMilli() + 2, end.toEpochMilli(), list);
-    final ServicePartitionMetadata servicePartitionMetadata3 =
-        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli() + 3, list);
-    final ServicePartitionMetadata servicePartitionMetadata4 =
-        new ServicePartitionMetadata(
+    final DatasetPartitionMetadata datasetPartitionMetadata1 =
+        new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
+    final DatasetPartitionMetadata datasetPartitionMetadata2 =
+        new DatasetPartitionMetadata(start.toEpochMilli() + 2, end.toEpochMilli(), list);
+    final DatasetPartitionMetadata datasetPartitionMetadata3 =
+        new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli() + 3, list);
+    final DatasetPartitionMetadata datasetPartitionMetadata4 =
+        new DatasetPartitionMetadata(
             start.toEpochMilli(), end.toEpochMilli(), Collections.emptyList());
 
-    assertThat(servicePartitionMetadata1).isEqualTo(servicePartitionMetadata1);
-    assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata2);
-    assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata3);
-    assertThat(servicePartitionMetadata1).isNotEqualTo(servicePartitionMetadata4);
+    assertThat(datasetPartitionMetadata1).isEqualTo(datasetPartitionMetadata1);
+    assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata2);
+    assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata3);
+    assertThat(datasetPartitionMetadata1).isNotEqualTo(datasetPartitionMetadata4);
 
-    Set<ServicePartitionMetadata> set = new HashSet<>();
-    set.add(servicePartitionMetadata1);
-    set.add(servicePartitionMetadata2);
-    set.add(servicePartitionMetadata3);
-    set.add(servicePartitionMetadata4);
+    Set<DatasetPartitionMetadata> set = new HashSet<>();
+    set.add(datasetPartitionMetadata1);
+    set.add(datasetPartitionMetadata2);
+    set.add(datasetPartitionMetadata3);
+    set.add(datasetPartitionMetadata4);
     assertThat(set.size()).isEqualTo(4);
     assertThat(set)
         .containsOnly(
-            servicePartitionMetadata1,
-            servicePartitionMetadata2,
-            servicePartitionMetadata3,
-            servicePartitionMetadata4);
+            datasetPartitionMetadata1,
+            datasetPartitionMetadata2,
+            datasetPartitionMetadata3,
+            datasetPartitionMetadata4);
   }
 
   @Test
@@ -72,11 +72,11 @@ public class ServicePartitionMetadataTest {
     final List<String> list = List.of(name);
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ServicePartitionMetadata(0, end.toEpochMilli(), list));
+        .isThrownBy(() -> new DatasetPartitionMetadata(0, end.toEpochMilli(), list));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new ServicePartitionMetadata(start.toEpochMilli(), 0, list));
+        .isThrownBy(() -> new DatasetPartitionMetadata(start.toEpochMilli(), 0, list));
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), null));
+            () -> new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), null));
   }
 }

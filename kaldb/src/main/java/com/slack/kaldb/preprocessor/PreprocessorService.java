@@ -6,9 +6,9 @@ import static org.apache.curator.shaded.com.google.common.base.Preconditions.che
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadataStore;
+import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -54,7 +54,7 @@ public class PreprocessorService extends AbstractService {
 
   private static final boolean INITIALIZE_RATE_LIMIT_WARM = true;
 
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
   private final PreprocessorRateLimiter rateLimiter;
   private final Properties kafkaProperties;
   private final List<String> upstreamTopics;
@@ -69,10 +69,10 @@ public class PreprocessorService extends AbstractService {
   public static final String CONFIG_RELOAD_TIMER = "preprocessor_config_reload_timer";
 
   public PreprocessorService(
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       KaldbConfigs.PreprocessorConfig preprocessorConfig,
       MeterRegistry meterRegistry) {
-    this.serviceMetadataStore = serviceMetadataStore;
+    this.datasetMetadataStore = datasetMetadataStore;
     this.meterRegistry = meterRegistry;
     this.configReloadTimer = meterRegistry.timer(CONFIG_RELOAD_TIMER);
 
@@ -111,7 +111,7 @@ public class PreprocessorService extends AbstractService {
   private void startUp() {
     LOG.info("Starting preprocessor service");
     load();
-    serviceMetadataStore.addListener(this::load);
+    datasetMetadataStore.addListener(this::load);
     LOG.info("Preprocessor service started");
   }
 
@@ -123,7 +123,7 @@ public class PreprocessorService extends AbstractService {
     if (kafkaStreamsMetrics != null) {
       kafkaStreamsMetrics.close();
     }
-    serviceMetadataStore.removeListener(this::load);
+    datasetMetadataStore.removeListener(this::load);
     LOG.info("Preprocessor service closed");
   }
 
@@ -146,13 +146,13 @@ public class PreprocessorService extends AbstractService {
       }
 
       // only attempt to register stream processing on valid service configurations
-      List<ServiceMetadata> serviceMetadataToProcess =
-          filterValidServiceMetadata(serviceMetadataStore.listSync());
+      List<DatasetMetadata> datasetMetadataToProcesses =
+          filterValidServiceMetadata(datasetMetadataStore.listSync());
 
-      if (serviceMetadataToProcess.size() > 0) {
+      if (datasetMetadataToProcesses.size() > 0) {
         Topology topology =
             buildTopology(
-                serviceMetadataToProcess,
+                datasetMetadataToProcesses,
                 rateLimiter,
                 upstreamTopics,
                 downstreamTopic,
@@ -178,13 +178,13 @@ public class PreprocessorService extends AbstractService {
    * transformer.
    */
   protected static Topology buildTopology(
-      List<ServiceMetadata> serviceMetadataList,
+      List<DatasetMetadata> datasetMetadataList,
       PreprocessorRateLimiter rateLimiter,
       List<String> upstreamTopics,
       String downstreamTopic,
       String dataTransformer) {
     Preconditions.checkArgument(
-        !serviceMetadataList.isEmpty(), "service metadata list must not be empty");
+        !datasetMetadataList.isEmpty(), "service metadata list must not be empty");
     Preconditions.checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     Preconditions.checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     Preconditions.checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
@@ -196,7 +196,7 @@ public class PreprocessorService extends AbstractService {
 
     StreamPartitioner<String, Trace.Span> streamPartitioner =
         streamPartitioner(
-            serviceMetadataList
+            datasetMetadataList
                 .stream()
                 .collect(
                     Collectors.toUnmodifiableMap(
@@ -204,11 +204,11 @@ public class PreprocessorService extends AbstractService {
 
     Predicate<String, Trace.Span> rateLimitPredicate =
         rateLimiter.createRateLimiter(
-            serviceMetadataList
+            datasetMetadataList
                 .stream()
                 .collect(
                     Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, ServiceMetadata::getThroughputBytes)));
+                        KaldbMetadata::getName, DatasetMetadata::getThroughputBytes)));
 
     upstreamTopics.forEach(
         (upstreamTopic ->
@@ -234,9 +234,9 @@ public class PreprocessorService extends AbstractService {
    * Filters the provided list of service metadata to those that are valid. This includes correctly
    * defined throughput and partition configurations.
    */
-  protected static List<ServiceMetadata> filterValidServiceMetadata(
-      List<ServiceMetadata> serviceMetadataList) {
-    return serviceMetadataList
+  protected static List<DatasetMetadata> filterValidServiceMetadata(
+      List<DatasetMetadata> datasetMetadataList) {
+    return datasetMetadataList
         .stream()
         .filter(serviceMetadata -> serviceMetadata.getThroughputBytes() > 0)
         .filter(serviceMetadata -> getActivePartitionList(serviceMetadata).size() > 0)
@@ -244,9 +244,9 @@ public class PreprocessorService extends AbstractService {
   }
 
   /** Gets the active list of partitions from the provided service metadata */
-  protected static List<Integer> getActivePartitionList(ServiceMetadata serviceMetadata) {
-    Optional<ServicePartitionMetadata> servicePartitionMetadata =
-        serviceMetadata
+  protected static List<Integer> getActivePartitionList(DatasetMetadata datasetMetadata) {
+    Optional<DatasetPartitionMetadata> servicePartitionMetadata =
+        datasetMetadata
             .getPartitionConfigs()
             .stream()
             .filter(partitionMetadata -> partitionMetadata.getEndTimeEpochMs() == MAX_TIME)

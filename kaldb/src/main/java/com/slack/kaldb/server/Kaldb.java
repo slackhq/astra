@@ -18,7 +18,7 @@ import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.metadata.service.DatasetMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
@@ -181,14 +181,14 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
       services.add(
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.QUERY, List.of(searchMetadataStore, snapshotMetadataStore)));
 
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(
-              searchMetadataStore, snapshotMetadataStore, serviceMetadataStore, meterRegistry);
+              searchMetadataStore, snapshotMetadataStore, datasetMetadataStore, meterRegistry);
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
@@ -231,12 +231,12 @@ public class Kaldb {
           new RecoveryNodeMetadataStore(metadataStore, true);
       CacheSlotMetadataStore cacheSlotMetadataStore =
           new CacheSlotMetadataStore(metadataStore, true);
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
               .withTracing(kaldbConfig.getTracingConfig())
-              .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
+              .withGrpcService(new ManagerApiGrpc(datasetMetadataStore))
               .build();
       services.add(armeriaService);
 
@@ -287,7 +287,7 @@ public class Kaldb {
               recoveryTaskMetadataStore,
               recoveryNodeMetadataStore,
               cacheSlotMetadataStore,
-              serviceMetadataStore,
+              datasetMetadataStore,
               meterRegistry);
       services.add(clusterMonitorService);
     }
@@ -318,9 +318,9 @@ public class Kaldb {
               .build();
       services.add(armeriaService);
 
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
       PreprocessorService preprocessorService =
-          new PreprocessorService(serviceMetadataStore, preprocessorConfig, meterRegistry);
+          new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
       services.add(preprocessorService);
     }
 

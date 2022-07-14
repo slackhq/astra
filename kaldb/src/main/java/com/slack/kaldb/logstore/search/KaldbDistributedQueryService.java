@@ -16,8 +16,8 @@ import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadataStore;
+import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -50,7 +50,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -80,11 +80,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.serviceMetadataStore = serviceMetadataStore;
+    this.datasetMetadataStore = datasetMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -156,7 +156,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static Collection<String> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
       String dataset) {
@@ -164,9 +164,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
-    List<ServicePartitionMetadata> partitions =
+    List<DatasetPartitionMetadata> partitions =
         findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
+            datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
     // step 1 - find all snapshots that match time window and partition
@@ -208,8 +208,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   public static boolean isSnapshotInPartition(
-      SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
-    for (ServicePartitionMetadata partition : partitions) {
+      SnapshotMetadata snapshotMetadata, List<DatasetPartitionMetadata> partitions) {
+    for (DatasetPartitionMetadata partition : partitions) {
       if (partition.partitions.contains(snapshotMetadata.partitionId)
           && containsDataInTimeRange(
               partition.startTimeEpochMs,
@@ -270,12 +270,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
    2. partitions that have an overlap with the query window
   */
   @VisibleForTesting
-  protected static List<ServicePartitionMetadata> findPartitionsToQuery(
-      ServiceMetadataStore serviceMetadataStore,
+  protected static List<DatasetPartitionMetadata> findPartitionsToQuery(
+      DatasetMetadataStore datasetMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
       String dataset) {
-    return serviceMetadataStore
+    return datasetMetadataStore
         .getCached()
         .stream()
         .filter(serviceMetadata -> serviceMetadata.name.equals(dataset))
@@ -352,7 +352,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
             dataset);

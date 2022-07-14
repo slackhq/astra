@@ -13,17 +13,17 @@ import java.util.stream.Collectors;
  * Contains configurations for use in the pre-processor and query service - including rate limits,
  * and partition mapping.
  */
-public class ServiceMetadata extends KaldbMetadata {
+public class DatasetMetadata extends KaldbMetadata {
 
   public final String owner;
   public final long throughputBytes;
-  public final ImmutableList<ServicePartitionMetadata> partitionConfigs;
+  public final ImmutableList<DatasetPartitionMetadata> partitionConfigs;
 
-  public ServiceMetadata(
+  public DatasetMetadata(
       String name,
       String owner,
       long throughputBytes,
-      List<ServicePartitionMetadata> partitionConfigs) {
+      List<DatasetPartitionMetadata> partitionConfigs) {
     super(name);
     checkArgument(name.length() <= 256, "name must be no longer than 256 chars");
     checkArgument(name.matches("^[a-zA-Z0-9_-]*$"), "name must contain only [a-zA-Z0-9_-]");
@@ -45,7 +45,7 @@ public class ServiceMetadata extends KaldbMetadata {
     return throughputBytes;
   }
 
-  public ImmutableList<ServicePartitionMetadata> getPartitionConfigs() {
+  public ImmutableList<DatasetPartitionMetadata> getPartitionConfigs() {
     return partitionConfigs;
   }
 
@@ -54,7 +54,7 @@ public class ServiceMetadata extends KaldbMetadata {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
-    ServiceMetadata that = (ServiceMetadata) o;
+    DatasetMetadata that = (DatasetMetadata) o;
     return throughputBytes == that.throughputBytes
         && owner.equals(that.owner)
         && partitionConfigs.equals(that.partitionConfigs);
@@ -87,11 +87,11 @@ public class ServiceMetadata extends KaldbMetadata {
    * overlap with the start of the next item in the list.
    */
   private void checkPartitions(
-      List<ServicePartitionMetadata> partitionConfig, String errorMessage) {
-    List<ServicePartitionMetadata> sortedConfigsByStartTime =
+      List<DatasetPartitionMetadata> partitionConfig, String errorMessage) {
+    List<DatasetPartitionMetadata> sortedConfigsByStartTime =
         partitionConfig
             .stream()
-            .sorted(Comparator.comparingLong(ServicePartitionMetadata::getStartTimeEpochMs))
+            .sorted(Comparator.comparingLong(DatasetPartitionMetadata::getStartTimeEpochMs))
             .collect(Collectors.toList());
 
     for (int i = 0; i < sortedConfigsByStartTime.size(); i++) {

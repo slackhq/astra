@@ -11,13 +11,13 @@ import java.util.Objects;
  * Metadata for a specific partition configuration at a point in time. For partitions that are
  * currently active we would expect to have an endTime of max long.
  */
-public class ServicePartitionMetadata {
+public class DatasetPartitionMetadata {
 
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
   public final ImmutableList<String> partitions;
 
-  public ServicePartitionMetadata(
+  public DatasetPartitionMetadata(
       long startTimeEpochMs, long endTimeEpochMs, List<String> partitions) {
     checkArgument(startTimeEpochMs > 0, "startTimeEpochMs must be greater than 0");
     checkArgument(
@@ -46,7 +46,7 @@ public class ServicePartitionMetadata {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ServicePartitionMetadata that = (ServicePartitionMetadata) o;
+    DatasetPartitionMetadata that = (DatasetPartitionMetadata) o;
     return startTimeEpochMs == that.startTimeEpochMs
         && endTimeEpochMs == that.endTimeEpochMs
         && partitions.equals(that.partitions);
@@ -69,17 +69,17 @@ public class ServicePartitionMetadata {
         + '}';
   }
 
-  public static ServicePartitionMetadata fromServicePartitionMetadataProto(
-      Metadata.ServicePartitionMetadata servicePartitionMetadata) {
-    return new ServicePartitionMetadata(
+  public static DatasetPartitionMetadata fromServicePartitionMetadataProto(
+      Metadata.DatasetPartitionMetadata servicePartitionMetadata) {
+    return new DatasetPartitionMetadata(
         servicePartitionMetadata.getStartTimeEpochMs(),
         servicePartitionMetadata.getEndTimeEpochMs(),
         servicePartitionMetadata.getPartitionsList());
   }
 
-  public static Metadata.ServicePartitionMetadata toServicePartitionMetadataProto(
-      ServicePartitionMetadata metadata) {
-    return Metadata.ServicePartitionMetadata.newBuilder()
+  public static Metadata.DatasetPartitionMetadata toServicePartitionMetadataProto(
+      DatasetPartitionMetadata metadata) {
+    return Metadata.DatasetPartitionMetadata.newBuilder()
         .setStartTimeEpochMs(metadata.startTimeEpochMs)
         .setEndTimeEpochMs(metadata.endTimeEpochMs)
         .addAllPartitions(metadata.partitions)

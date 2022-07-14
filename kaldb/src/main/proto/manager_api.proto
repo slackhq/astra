@@ -6,11 +6,11 @@ option java_package = "com.slack.kaldb.proto.manager_api";
 // ManagerApiService is the administration API for operating on service metadata and the associated partition assignments
 service ManagerApiService {
   // CreateService initializes a new service in the metadata store with no initial allocated capacity
-  rpc CreateServiceMetadata(CreateServiceMetadataRequest) returns (ServiceMetadata) {}
+  rpc CreateServiceMetadata(CreateServiceMetadataRequest) returns (DatasetMetadata) {}
   // UpdateService updates an existing service with new metadata
-  rpc UpdateServiceMetadata(UpdateServiceMetadataRequest) returns (ServiceMetadata) {}
+  rpc UpdateServiceMetadata(UpdateServiceMetadataRequest) returns (DatasetMetadata) {}
   // GetService returns a single service metadata by name
-  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (ServiceMetadata) {}
+  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (DatasetMetadata) {}
   // GetServices returns all available services from the metadata store
   rpc ListServiceMetadata(ListServiceMetadataRequest) returns (ListServiceMetadataResponse) {}
 
@@ -50,7 +50,7 @@ message ListServiceMetadataRequest {}
 // ListServiceMetadataResponse represents the response when listing all available services
 message ListServiceMetadataResponse {
   // List of services, excluding partition assignments
-  repeated ServiceMetadata service_metadata = 1;
+  repeated DatasetMetadata dataset_metadata = 1;
 }
 
 // UpdatePartitionAssignmentRequest represents a request to allocate a new set of partitions.

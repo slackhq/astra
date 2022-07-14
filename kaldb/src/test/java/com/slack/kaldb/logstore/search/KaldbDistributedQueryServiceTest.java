@@ -16,9 +16,9 @@ import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadata;
+import com.slack.kaldb.metadata.service.DatasetMetadataStore;
+import com.slack.kaldb.metadata.service.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -39,7 +39,7 @@ public class KaldbDistributedQueryServiceTest {
   private MetadataStore zkMetadataStore;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
-  private ServiceMetadataStore serviceMetadataStore;
+  private DatasetMetadataStore datasetMetadataStore;
 
   private TestingServer testZKServer;
   private SearchContext indexer1SearchContext;
@@ -70,7 +70,7 @@ public class KaldbDistributedQueryServiceTest {
 
     snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, true));
     searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, true));
-    serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
+    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);
@@ -84,7 +84,7 @@ public class KaldbDistributedQueryServiceTest {
   public void tearDown() throws Exception {
     snapshotMetadataStore.close();
     searchMetadataStore.close();
-    serviceMetadataStore.close();
+    datasetMetadataStore.close();
     zkMetadataStore.close();
     metricsRegistry.close();
     testZKServer.close();
@@ -95,32 +95,32 @@ public class KaldbDistributedQueryServiceTest {
     final String name = "testService";
     final String owner = "serviceOwner";
     final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
+    final DatasetPartitionMetadata partition = new DatasetPartitionMetadata(100, 200, List.of("1"));
 
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition));
 
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 150, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 1, 150, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 1, 250, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 1, 250, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 200, 250, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 200, 250, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 250, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 250, name);
     assertThat(partitionMetadata.size()).isEqualTo(0);
   }
 
@@ -129,32 +129,32 @@ public class KaldbDistributedQueryServiceTest {
     final String name = "testService";
     final String owner = "serviceOwner";
     final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition1 =
-        new ServicePartitionMetadata(100, 200, List.of("1"));
+    final DatasetPartitionMetadata partition1 =
+        new DatasetPartitionMetadata(100, 200, List.of("1"));
 
-    final ServicePartitionMetadata partition2 =
-        new ServicePartitionMetadata(201, 300, List.of("2", "3"));
+    final DatasetPartitionMetadata partition2 =
+        new DatasetPartitionMetadata(201, 300, List.of("2", "3"));
 
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition1, partition2));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition1, partition2));
 
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
     assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 201, 300, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 300, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(2);
     assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(201);
     assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(300);
 
-    partitionMetadata = findPartitionsToQuery(serviceMetadataStore, 100, 202, name);
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 100, 202, name);
     assertThat(partitionMetadata.size()).isEqualTo(2);
 
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
@@ -172,28 +172,28 @@ public class KaldbDistributedQueryServiceTest {
     final String name = "testService";
     final String owner = "serviceOwner";
     final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition = new ServicePartitionMetadata(100, 200, List.of("1"));
+    final DatasetPartitionMetadata partition = new DatasetPartitionMetadata(100, 200, List.of("1"));
 
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition));
 
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     final String name1 = "testService1";
     final String owner1 = "serviceOwner1";
     final long throughputBytes1 = 1;
-    final ServicePartitionMetadata partition1 =
-        new ServicePartitionMetadata(100, 200, List.of("2"));
+    final DatasetPartitionMetadata partition1 =
+        new DatasetPartitionMetadata(100, 200, List.of("2"));
 
-    ServiceMetadata serviceMetadata1 =
-        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition1));
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(name1, owner1, throughputBytes1, List.of(partition1));
 
-    serviceMetadataStore.createSync(serviceMetadata1);
-    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+    datasetMetadataStore.createSync(datasetMetadata1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
-    List<ServicePartitionMetadata> partitionMetadata =
-        findPartitionsToQuery(serviceMetadataStore, 101, 199, name);
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
     assertThat(partitionMetadata.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
     assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
@@ -213,24 +213,24 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 300, List.of("1"));
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // now we can find the snapshot
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
@@ -242,7 +242,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkEndTime.toEpochMilli() + 1,
             chunkEndTime.toEpochMilli() + 100,
             indexName);
@@ -255,29 +255,29 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> searchMetadataStore.listSync().size() == 2);
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 300, indexName);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 300, indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 0, 150, indexName);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 150, indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
 
     // re-add service metadata with a different time window that doesn't match any snapshot
-    serviceMetadataStore.delete(serviceMetadata.name);
-    await().until(() -> serviceMetadataStore.listSync().size() == 0);
-    partition = new ServicePartitionMetadata(1, 99, List.of("1"));
-    serviceMetadata = new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.delete(datasetMetadata.name);
+    await().until(() -> datasetMetadataStore.listSync().size() == 0);
+    partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
+    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // we can't find snapshot since the time window doesn't match any service metadata
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
@@ -294,17 +294,17 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(199, 500, List.of("1"));
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(199, 500, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     Collection<String> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
@@ -315,7 +315,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkEndTime.toEpochMilli() + 1,
             chunkEndTime.toEpochMilli() + 100,
             indexName);
@@ -330,7 +330,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
@@ -338,19 +338,19 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
 
     // re-add service metadata with a different time window that doesn't match any snapshot
-    serviceMetadataStore.delete(serviceMetadata.name);
-    await().until(() -> serviceMetadataStore.listSync().size() == 0);
-    partition = new ServicePartitionMetadata(1, 99, List.of("1"));
-    serviceMetadata = new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.delete(datasetMetadata.name);
+    await().until(() -> datasetMetadataStore.listSync().size() == 0);
+    partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
+    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // we can't find snapshot since the time window doesn't match any service metadata
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName);
@@ -371,18 +371,18 @@ public class KaldbDistributedQueryServiceTest {
         searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 101, List.of("1"));
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(indexName, "testOwner", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 101, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // assert search will always find cache1
     Collection<String> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             1,
             chunkCreationTime.toEpochMilli(),
             indexName);
@@ -399,7 +399,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             0,
             chunkCreationTime.toEpochMilli(),
             indexName);
@@ -432,16 +432,16 @@ public class KaldbDistributedQueryServiceTest {
     final String name = "testService";
     final String owner = "serviceOwner";
     final long throughputBytes = 1000;
-    final ServicePartitionMetadata partition11 =
-        new ServicePartitionMetadata(100, 200, List.of("1"));
-    final ServicePartitionMetadata partition12 =
-        new ServicePartitionMetadata(201, 300, List.of("2"));
+    final DatasetPartitionMetadata partition11 =
+        new DatasetPartitionMetadata(100, 200, List.of("1"));
+    final DatasetPartitionMetadata partition12 =
+        new DatasetPartitionMetadata(201, 300, List.of("2"));
 
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(name, owner, throughputBytes, List.of(partition11, partition12));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition11, partition12));
 
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // service2 snapshots/search-metadata/partitions
     snapshotMetadata =
@@ -461,26 +461,26 @@ public class KaldbDistributedQueryServiceTest {
     final String name1 = "testService1";
     final String owner1 = "serviceOwner1";
     final long throughputBytes1 = 1;
-    final ServicePartitionMetadata partition21 =
-        new ServicePartitionMetadata(100, 200, List.of("2"));
-    final ServicePartitionMetadata partition22 =
-        new ServicePartitionMetadata(201, 300, List.of("1"));
+    final DatasetPartitionMetadata partition21 =
+        new DatasetPartitionMetadata(100, 200, List.of("2"));
+    final DatasetPartitionMetadata partition22 =
+        new DatasetPartitionMetadata(201, 300, List.of("1"));
 
-    ServiceMetadata serviceMetadata1 =
-        new ServiceMetadata(name1, owner1, throughputBytes1, List.of(partition21, partition22));
-    serviceMetadataStore.createSync(serviceMetadata1);
-    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(name1, owner1, throughputBytes1, List.of(partition21, partition22));
+    datasetMetadataStore.createSync(datasetMetadata1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
     // find search nodes that will be queries for the first service
     Collection<String> searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 199, name);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 199, name);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
 
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name);
     assertThat(searchNodes.size()).isEqualTo(2);
     Iterator<String> iter = searchNodes.iterator();
     String node1 = iter.next();
@@ -496,7 +496,7 @@ public class KaldbDistributedQueryServiceTest {
 
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, serviceMetadataStore, 100, 299, name1);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name1);
     assertThat(searchNodes.size()).isEqualTo(2);
     iter = searchNodes.iterator();
     node1 = iter.next();
@@ -522,17 +522,17 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> snapshotMetadataStore.listSync().size() == 2);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
-    ServicePartitionMetadata partition = new ServicePartitionMetadata(1, 200, List.of("1"));
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(indexName1, "testOwner1", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 200, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName1, "testOwner1", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     Collection<String> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName1);
@@ -544,16 +544,16 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> snapshotMetadataStore.listSync().size() == 4);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
-    partition = new ServicePartitionMetadata(1, 101, List.of("2"));
-    serviceMetadata = new ServiceMetadata(indexName2, "testOwner2", 1, List.of(partition));
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 2);
+    partition = new DatasetPartitionMetadata(1, 101, List.of("2"));
+    datasetMetadata = new DatasetMetadata(indexName2, "testOwner2", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             indexName2);
@@ -565,7 +565,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             chunkCreationTime.toEpochMilli(),
             chunkEndTime.toEpochMilli(),
             "new_service_that_does_not_have_a_partition");

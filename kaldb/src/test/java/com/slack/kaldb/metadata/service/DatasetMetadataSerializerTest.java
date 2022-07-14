@@ -11,8 +11,8 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 
-public class ServiceMetadataSerializerTest {
-  private final ServiceMetadataSerializer serDe = new ServiceMetadataSerializer();
+public class DatasetMetadataSerializerTest {
+  private final DatasetMetadataSerializer serDe = new DatasetMetadataSerializer();
 
   @Test
   public void testServiceMetadataSerializer() throws InvalidProtocolBufferException {
@@ -24,20 +24,20 @@ public class ServiceMetadataSerializerTest {
     final String name = "testService";
     final String owner = "testOwner";
     final long throughput = 2000;
-    final List<ServicePartitionMetadata> list =
+    final List<DatasetPartitionMetadata> list =
         Collections.singletonList(
-            new ServicePartitionMetadata(
+            new DatasetPartitionMetadata(
                 partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
-    final ServiceMetadata serviceMetadata = new ServiceMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(serviceMetadata);
+    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedServiceMetadata).isNotEmpty();
 
-    ServiceMetadata deserializedServiceMetadata = serDe.fromJsonStr(serializedServiceMetadata);
-    assertThat(deserializedServiceMetadata).isEqualTo(serviceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
-    assertThat(deserializedServiceMetadata.name).isEqualTo(name);
-    assertThat(deserializedServiceMetadata.partitionConfigs).isEqualTo(list);
+    assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 
   @Test
@@ -53,22 +53,22 @@ public class ServiceMetadataSerializerTest {
     final String name = "testService";
     final String owner = "testOwner";
     final long throughput = 2000;
-    final List<ServicePartitionMetadata> list =
+    final List<DatasetPartitionMetadata> list =
         List.of(
-            new ServicePartitionMetadata(
+            new DatasetPartitionMetadata(
                 partitionStart1.toEpochMilli(), partitionEnd1.toEpochMilli(), partitionList),
-            new ServicePartitionMetadata(
+            new DatasetPartitionMetadata(
                 partitionStart2.toEpochMilli(), partitionEnd2.toEpochMilli(), partitionList));
-    final ServiceMetadata serviceMetadata = new ServiceMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(serviceMetadata);
+    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedServiceMetadata).isNotEmpty();
 
-    ServiceMetadata deserializedServiceMetadata = serDe.fromJsonStr(serializedServiceMetadata);
-    assertThat(deserializedServiceMetadata).isEqualTo(serviceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
-    assertThat(deserializedServiceMetadata.name).isEqualTo(name);
-    assertThat(deserializedServiceMetadata.partitionConfigs).isEqualTo(list);
+    assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 
   @Test
@@ -76,17 +76,17 @@ public class ServiceMetadataSerializerTest {
     final String name = "testService";
     final String owner = "testOwner";
     final long throughput = 2000;
-    final List<ServicePartitionMetadata> list = Collections.emptyList();
-    final ServiceMetadata serviceMetadata = new ServiceMetadata(name, owner, throughput, list);
+    final List<DatasetPartitionMetadata> list = Collections.emptyList();
+    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
 
-    String serializedServiceMetadata = serDe.toJsonStr(serviceMetadata);
+    String serializedServiceMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedServiceMetadata).isNotEmpty();
 
-    ServiceMetadata deserializedServiceMetadata = serDe.fromJsonStr(serializedServiceMetadata);
-    assertThat(deserializedServiceMetadata).isEqualTo(serviceMetadata);
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedServiceMetadata);
+    assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
-    assertThat(deserializedServiceMetadata.name).isEqualTo(name);
-    assertThat(deserializedServiceMetadata.partitionConfigs).isEqualTo(list);
+    assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 
   @Test
@@ -111,21 +111,21 @@ public class ServiceMetadataSerializerTest {
     final String name = "partitionName";
     final List<String> list = List.of(name);
 
-    final ServicePartitionMetadata servicePartitionMetadata =
-        new ServicePartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
+    final DatasetPartitionMetadata datasetPartitionMetadata =
+        new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), list);
 
-    Metadata.ServicePartitionMetadata servicePartitionMetadataProto =
-        ServicePartitionMetadata.toServicePartitionMetadataProto(servicePartitionMetadata);
+    Metadata.DatasetPartitionMetadata servicePartitionMetadataProto =
+        DatasetPartitionMetadata.toServicePartitionMetadataProto(datasetPartitionMetadata);
 
     assertThat(servicePartitionMetadataProto.getStartTimeEpochMs()).isEqualTo(start.toEpochMilli());
     assertThat(servicePartitionMetadataProto.getEndTimeEpochMs()).isEqualTo(end.toEpochMilli());
     assertThat(servicePartitionMetadataProto.getPartitionsList()).isEqualTo(list);
 
-    ServicePartitionMetadata servicePartitionMetadataFromProto =
-        ServicePartitionMetadata.fromServicePartitionMetadataProto(servicePartitionMetadataProto);
+    DatasetPartitionMetadata datasetPartitionMetadataFromProto =
+        DatasetPartitionMetadata.fromServicePartitionMetadataProto(servicePartitionMetadataProto);
 
-    assertThat(servicePartitionMetadataFromProto.startTimeEpochMs).isEqualTo(start.toEpochMilli());
-    assertThat(servicePartitionMetadataFromProto.endTimeEpochMs).isEqualTo(end.toEpochMilli());
-    assertThat(servicePartitionMetadataFromProto.getPartitions()).isEqualTo(list);
+    assertThat(datasetPartitionMetadataFromProto.startTimeEpochMs).isEqualTo(start.toEpochMilli());
+    assertThat(datasetPartitionMetadataFromProto.endTimeEpochMs).isEqualTo(end.toEpochMilli());
+    assertThat(datasetPartitionMetadataFromProto.getPartitions()).isEqualTo(list);
   }
 }

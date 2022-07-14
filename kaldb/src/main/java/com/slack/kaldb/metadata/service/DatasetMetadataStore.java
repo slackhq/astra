@@ -5,18 +5,18 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ServiceMetadataStore extends PersistentMutableMetadataStore<ServiceMetadata> {
+public class DatasetMetadataStore extends PersistentMutableMetadataStore<DatasetMetadata> {
   public static final String SERVICE_METADATA_STORE_ZK_PATH = "/service";
 
-  private static final Logger LOG = LoggerFactory.getLogger(ServiceMetadataStore.class);
+  private static final Logger LOG = LoggerFactory.getLogger(DatasetMetadataStore.class);
 
-  public ServiceMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
+  public DatasetMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
     super(
         shouldCache,
         true,
         SERVICE_METADATA_STORE_ZK_PATH,
         metadataStore,
-        new ServiceMetadataSerializer(),
+        new DatasetMetadataSerializer(),
         LOG);
   }
 }
