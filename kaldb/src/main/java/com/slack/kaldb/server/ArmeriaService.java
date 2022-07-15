@@ -56,16 +56,16 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
-    private final long requestTimeoutMs;
+    private final Duration requestTimeout;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
     public Builder(
         int port,
-        long requestTimeoutMs,
+        Duration requestTimeout,
         String serviceName,
         PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
-      this.requestTimeoutMs = requestTimeoutMs;
+      this.requestTimeout = requestTimeout;
       this.serverBuilder = Server.builder().http(port);
 
       initializeLimits();
@@ -75,7 +75,7 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     private void initializeLimits() {
-      serverBuilder.requestTimeout(Duration.ofMillis(requestTimeoutMs));
+      serverBuilder.requestTimeout(requestTimeout);
       serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
