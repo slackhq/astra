@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.server.ManagerApiGrpc.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.spy;
 import brave.Tracing;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -26,6 +28,7 @@ import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
@@ -462,5 +465,77 @@ public class ManagerApiGrpcTest {
     assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
 
     assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldFetchSnapshotsWithinTimeframeAndPartition() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata overlapsStartTimeIncluded =
+        new SnapshotMetadata("a", "a", startTime, startTime + 6, 0, "a");
+    SnapshotMetadata overlapsStartTimeExcluded =
+        new SnapshotMetadata("b", "b", startTime, startTime + 6, 0, "b");
+
+    SnapshotMetadata fullyOverlapsStartEndTimeIncluded =
+        new SnapshotMetadata("c", "c", startTime + 4, startTime + 11, 0, "a");
+    SnapshotMetadata fullyOverlapsStartEndTimeExcluded =
+        new SnapshotMetadata("d", "d", startTime + 4, startTime + 11, 0, "b");
+
+    SnapshotMetadata partiallyOverlapsStartEndTimeIncluded =
+        new SnapshotMetadata("e", "e", startTime + 4, startTime + 5, 0, "a");
+    SnapshotMetadata partiallyOverlapsStartEndTimeExcluded =
+        new SnapshotMetadata("f", "f", startTime + 4, startTime + 5, 0, "b");
+
+    SnapshotMetadata overlapsEndTimeIncluded =
+        new SnapshotMetadata("g", "g", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata overlapsEndTimeExcluded =
+        new SnapshotMetadata("h", "h", startTime + 10, startTime + 15, 0, "b");
+
+    SnapshotMetadata notWithinStartEndTimeExcluded1 =
+        new SnapshotMetadata("i", "i", startTime, startTime + 4, 0, "a");
+    SnapshotMetadata notWithinStartEndTimeExcluded2 =
+        new SnapshotMetadata("j", "j", startTime + 11, startTime + 15, 0, "a");
+
+    ServiceMetadata serviceWithDataInPartitionA =
+        new ServiceMetadata(
+            "foo",
+            "a",
+            1,
+            Arrays.asList(
+                new ServicePartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+
+    serviceMetadataStore.createSync(serviceWithDataInPartitionA);
+
+    await().until(() -> serviceMetadataStore.getCached().size() == 1);
+
+    List<SnapshotMetadata> snapshotsWithData =
+        ManagerApiGrpc.fetchSnapshots(
+            Arrays.asList(
+                overlapsEndTimeIncluded,
+                overlapsEndTimeExcluded,
+                partiallyOverlapsStartEndTimeIncluded,
+                partiallyOverlapsStartEndTimeExcluded,
+                fullyOverlapsStartEndTimeIncluded,
+                fullyOverlapsStartEndTimeExcluded,
+                overlapsStartTimeIncluded,
+                overlapsStartTimeExcluded,
+                notWithinStartEndTimeExcluded1,
+                notWithinStartEndTimeExcluded2),
+            serviceMetadataStore,
+            start,
+            end,
+            "foo");
+
+    assertThat(snapshotsWithData.size()).isEqualTo(4);
+    assertThat(
+            snapshotsWithData.containsAll(
+                Arrays.asList(
+                    overlapsStartTimeIncluded,
+                    fullyOverlapsStartEndTimeIncluded,
+                    partiallyOverlapsStartEndTimeIncluded,
+                    overlapsEndTimeIncluded)))
+        .isTrue();
   }
 }

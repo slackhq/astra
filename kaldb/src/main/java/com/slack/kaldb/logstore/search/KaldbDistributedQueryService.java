@@ -264,64 +264,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
   }
 
-  /*
-   get partitions that match on two criteria
-   1. index name
-   2. partitions that have an overlap with the query window
-  */
-  @VisibleForTesting
-  protected static List<DatasetPartitionMetadata> findPartitionsToQuery(
-      DatasetMetadataStore datasetMetadataStore,
-      long startTimeEpochMs,
-      long endTimeEpochMs,
-      String dataset) {
-    return datasetMetadataStore
-        .getCached()
-        .stream()
-        .filter(datasetMetadata -> datasetMetadata.name.equals(dataset))
-        .flatMap(
-            datasetMetadata -> datasetMetadata.partitionConfigs.stream()) // will always return one
-        .filter(
-            partitionMetadata ->
-                containsDataInTimeRange(
-                    partitionMetadata.startTimeEpochMs,
-                    partitionMetadata.endTimeEpochMs,
-                    startTimeEpochMs,
-                    endTimeEpochMs))
-        .collect(Collectors.toList());
-  }
-
-  private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
-    LOG.info("Starting distributed search for request: {}", request);
-    ScopedSpan span =
-        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
-
-    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-
-    List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
-        getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataset());
-    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
-
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
-
-      // make sure all underlying futures finish executing (successful/cancelled/failed/other)
-      // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
-      ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(
-                  DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS)
-              .withInterceptors(
-                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .search(request);
-      Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
-          SearchResultUtils::fromSearchResultProtoOrEmpty;
-      queryServers.add(
-          Futures.transform(
-              searchRequest,
-              searchRequestTransform::apply,
-              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
-    }
-
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       List<SearchResult<LogMessage>> searchResults =

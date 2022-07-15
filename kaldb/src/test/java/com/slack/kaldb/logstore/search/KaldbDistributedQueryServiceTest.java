@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
-import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.findPartitionsToQuery;
 import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
