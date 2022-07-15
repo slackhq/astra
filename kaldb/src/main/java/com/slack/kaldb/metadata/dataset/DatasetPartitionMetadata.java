@@ -92,12 +92,12 @@ public class DatasetPartitionMetadata {
    * Get partitions that match on two criteria 1. index name 2. partitions that have an overlap with
    * the query window.
    */
-  public static List<ServicePartitionMetadata> findPartitionsToQuery(
-      ServiceMetadataStore serviceMetadataStore,
+  public static List<DatasetPartitionMetadata> findPartitionsToQuery(
+      DatasetMetadataStore datasetMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
       String indexName) {
-    return serviceMetadataStore
+    return datasetMetadataStore
         .getCached()
         .stream()
         .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))

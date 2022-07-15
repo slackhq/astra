@@ -179,18 +179,18 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
    */
   protected static List<SnapshotMetadata> fetchSnapshots(
       List<SnapshotMetadata> snapshotMetadataList,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       long startTimeEpochMs,
       long endTimeEpochMs,
-      String serviceName) {
+      String datasetName) {
     Set<String> partitionIdsWithQueriedData = new HashSet<>();
-    List<ServicePartitionMetadata> partitionMetadataList =
-        ServicePartitionMetadata.findPartitionsToQuery(
-            serviceMetadataStore, startTimeEpochMs, endTimeEpochMs, serviceName);
+    List<DatasetPartitionMetadata> partitionMetadataList =
+        DatasetPartitionMetadata.findPartitionsToQuery(
+            datasetMetadataStore, startTimeEpochMs, endTimeEpochMs, datasetName);
 
     // flatten all partition ids into one list
-    for (ServicePartitionMetadata servicePartitionMetadata : partitionMetadataList) {
-      partitionIdsWithQueriedData.addAll(servicePartitionMetadata.partitions);
+    for (DatasetPartitionMetadata datasetPartitionMetadata : partitionMetadataList) {
+      partitionIdsWithQueriedData.addAll(datasetPartitionMetadata.partitions);
     }
 
     List<SnapshotMetadata> snapshotMetadata = new ArrayList<>();

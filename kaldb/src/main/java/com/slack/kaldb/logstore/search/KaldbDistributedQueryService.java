@@ -165,7 +165,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
     List<DatasetPartitionMetadata> partitions =
-        findPartitionsToQuery(
+        DatasetPartitionMetadata.findPartitionsToQuery(
             datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
@@ -263,6 +263,37 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       return null;
     }
   }
+
+  private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
+    LOG.info("Starting distributed search for request: {}", request);
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
+
+    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+
+    List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
+        getSnapshotUrlsToSearch(
+            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataset());
+    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
+
+    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
+
+      // make sure all underlying futures finish executing (successful/cancelled/failed/other)
+      // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
+      ListenableFuture<KaldbSearch.SearchResult> searchRequest =
+          stub.withDeadlineAfter(
+                  DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS)
+              .withInterceptors(
+                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
+              .search(request);
+      Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
+          SearchResultUtils::fromSearchResultProtoOrEmpty;
+      queryServers.add(
+          Futures.transform(
+              searchRequest,
+              searchRequestTransform::apply,
+              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
+    }
 
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
