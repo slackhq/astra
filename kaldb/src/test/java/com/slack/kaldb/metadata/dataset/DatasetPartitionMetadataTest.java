@@ -1,17 +1,60 @@
 package com.slack.kaldb.metadata.dataset;
 
+import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.findPartitionsToQuery;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.awaitility.Awaitility.await;
 
+import brave.Tracing;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.curator.test.TestingServer;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class DatasetPartitionMetadataTest {
+
+  private SimpleMeterRegistry metricsRegistry;
+  private MetadataStore zkMetadataStore;
+  private DatasetMetadataStore datasetMetadataStore;
+  private TestingServer testZKServer;
+
+  @Before
+  public void setUp() throws Exception {
+    Tracing.newBuilder().build();
+
+    metricsRegistry = new SimpleMeterRegistry();
+    testZKServer = new TestingServer();
+
+    // Metadata store
+    com.slack.kaldb.proto.config.KaldbConfigs.ZookeeperConfig zkConfig =
+        com.slack.kaldb.proto.config.KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testZKServer.getConnectString())
+            .setZkPathPrefix("datasetPartitionMetadataTest")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+
+    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
+    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    datasetMetadataStore.close();
+    zkMetadataStore.close();
+    testZKServer.close();
+    metricsRegistry.close();
+  }
 
   @Test
   public void testDatasetPartitionMetadata() {
@@ -78,5 +121,121 @@ public class DatasetPartitionMetadataTest {
     assertThatIllegalArgumentException()
         .isThrownBy(
             () -> new DatasetPartitionMetadata(start.toEpochMilli(), end.toEpochMilli(), null));
+  }
+
+  @Test
+  public void testOneDatasetOnePartition() {
+    final String name = "testDataset";
+    final String owner = "datasetOwner";
+    final long throughputBytes = 1000;
+    final DatasetPartitionMetadata partition = new DatasetPartitionMetadata(100, 200, List.of("1"));
+
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition));
+
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+
+    // Start and end time within query window
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    // End time partially overlapping query window
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 1, 150, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    // End time overlapping entire query window
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 1, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    // Start time at edge of query window
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 200, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+
+    // Start and end time outside of query window
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 250, name);
+    assertThat(partitionMetadata.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testOneDatasetMultipleWindows() {
+    final String name = "testDataset";
+    final String owner = "datasetOwner";
+    final long throughputBytes = 1000;
+    final DatasetPartitionMetadata partition1 =
+        new DatasetPartitionMetadata(100, 200, List.of("1"));
+
+    final DatasetPartitionMetadata partition2 =
+        new DatasetPartitionMetadata(201, 300, List.of("2", "3"));
+
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition1, partition2));
+
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+
+    // Fetch first partition between time 101 and 199
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
+
+    // Fetch second partition between time 201 and 300
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 300, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(2);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(201);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(300);
+
+    // Fetch both partitions
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 100, 202, name);
+    assertThat(partitionMetadata.size()).isEqualTo(2);
+
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).startTimeEpochMs).isEqualTo(100);
+    assertThat(partitionMetadata.get(0).endTimeEpochMs).isEqualTo(200);
+
+    assertThat(partitionMetadata.get(1).partitions.size()).isEqualTo(2);
+    assertThat(partitionMetadata.get(1).startTimeEpochMs).isEqualTo(201);
+    assertThat(partitionMetadata.get(1).endTimeEpochMs).isEqualTo(300);
+  }
+
+  @Test
+  public void testMultipleDatasetsOneTimeRange() {
+    final String name = "testDataset";
+    final String owner = "datasetOwner";
+    final long throughputBytes = 1000;
+    final DatasetPartitionMetadata partition = new DatasetPartitionMetadata(100, 200, List.of("1"));
+
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition));
+
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+
+    final String name1 = "testDataset1";
+    final String owner1 = "datasetOwner1";
+    final long throughputBytes1 = 1;
+    final DatasetPartitionMetadata partition1 =
+        new DatasetPartitionMetadata(100, 200, List.of("2"));
+
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(name1, owner1, throughputBytes1, List.of(partition1));
+
+    datasetMetadataStore.createSync(datasetMetadata1);
+    await().until(() -> datasetMetadataStore.getCached().size() == 2);
+
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, name);
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
   }
 }
