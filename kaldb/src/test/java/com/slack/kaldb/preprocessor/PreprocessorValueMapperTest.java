@@ -159,9 +159,9 @@ public class PreprocessorValueMapperTest {
                     .build())
             .build();
 
-    assertThat(PreprocessorValueMapper.getServiceName(span1)).isEqualTo(service1);
+    assertThat(PreprocessorValueMapper.getDatasetName(span1)).isEqualTo(service1);
 
     Trace.Span span2 = Trace.Span.newBuilder().build();
-    assertThat(PreprocessorValueMapper.getServiceName(span2)).isNull();
+    assertThat(PreprocessorValueMapper.getDatasetName(span2)).isNull();
   }
 }

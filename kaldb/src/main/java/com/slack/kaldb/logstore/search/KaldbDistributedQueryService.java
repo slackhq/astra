@@ -14,10 +14,10 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -49,7 +49,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -79,11 +79,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       MeterRegistry meterRegistry) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.serviceMetadataStore = serviceMetadataStore;
+    this.datasetMetadataStore = datasetMetadataStore;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -155,7 +155,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static Collection<String> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
       String dataset) {
@@ -163,9 +163,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
-    List<ServicePartitionMetadata> partitions =
-        ServicePartitionMetadata.findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
+    List<DatasetPartitionMetadata> partitions =
+        DatasetPartitionMetadata.findPartitionsToQuery(
+            datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
     // step 1 - find all snapshots that match time window and partition
@@ -216,8 +216,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   public static boolean isSnapshotInPartition(
-      SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
-    for (ServicePartitionMetadata partition : partitions) {
+      SnapshotMetadata snapshotMetadata, List<DatasetPartitionMetadata> partitions) {
+    for (DatasetPartitionMetadata partition : partitions) {
       if (partition.partitions.contains(snapshotMetadata.partitionId)
           && containsDataInTimeRange(
               partition.startTimeEpochMs,
@@ -333,7 +333,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
             dataset);

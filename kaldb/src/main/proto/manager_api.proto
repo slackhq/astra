@@ -3,18 +3,18 @@ import "metadata.proto";
 package slack.proto.kaldb;
 option java_package = "com.slack.kaldb.proto.manager_api";
 
-// ManagerApiService is the administration API for operating on service metadata and the associated partition assignments
+// ManagerApiService is the administration API for operating on dataset metadata and the associated partition assignments
 service ManagerApiService {
-  // CreateService initializes a new service in the metadata store with no initial allocated capacity
-  rpc CreateServiceMetadata(CreateServiceMetadataRequest) returns (ServiceMetadata) {}
-  // UpdateService updates an existing service with new metadata
-  rpc UpdateServiceMetadata(UpdateServiceMetadataRequest) returns (ServiceMetadata) {}
-  // GetService returns a single service metadata by name
-  rpc GetServiceMetadata(GetServiceMetadataRequest) returns (ServiceMetadata) {}
-  // GetServices returns all available services from the metadata store
-  rpc ListServiceMetadata(ListServiceMetadataRequest) returns (ListServiceMetadataResponse) {}
+  // CreateDataset initializes a new dataset in the metadata store with no initial allocated capacity
+  rpc CreateDatasetMetadata(CreateDatasetMetadataRequest) returns (DatasetMetadata) {}
+  // UpdateDataset updates an existing dataset with new metadata
+  rpc UpdateDatasetMetadata(UpdateDatasetMetadataRequest) returns (DatasetMetadata) {}
+  // GetDataset returns a single dataset metadata by name
+  rpc GetDatasetMetadata(GetDatasetMetadataRequest) returns (DatasetMetadata) {}
+  // ListDatasets returns all available datasets from the metadata store
+  rpc ListDatasetMetadata(ListDatasetMetadataRequest) returns (ListDatasetMetadataResponse) {}
 
-  // UpdatePartitionAssignment allocates a new partition assignment for a service. If a rate and a list of
+  // UpdatePartitionAssignment allocates a new partition assignment for a dataset. If a rate and a list of
   // partition_ids are provided, it will use it use the list of partition ids as the current allocation
   // and invalidates the existing assignment.
   //
@@ -22,42 +22,42 @@ service ManagerApiService {
   rpc UpdatePartitionAssignment(UpdatePartitionAssignmentRequest) returns (UpdatePartitionAssignmentResponse) {}
 }
 
-// CreateServiceMetadataRequest represents a new service with uninitialized thoughput and partition assignments
-message CreateServiceMetadataRequest {
-  // Name of the service, must be unique
+// CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
+message CreateDatasetMetadataRequest {
+  // Name of the dataset, must be unique
   string name = 1;
   // Owner information, maybe be any string
   string owner = 2;
 }
 
-// UpdateServiceMetadataRequest represents a request to update an existing service
-message UpdateServiceMetadataRequest {
-  // Unique name of the existing service
+// UpdateDatasetMetadataRequest represents a request to update an existing dataset
+message UpdateDatasetMetadataRequest {
+  // Unique name of the existing dataset
   string name = 1;
   // Owner information, maybe be any string
   string owner = 2;
 }
 
-// GetServiceMetadataRequest represents a request to fetch an existing service
-message GetServiceMetadataRequest {
+// GetDatasetMetadataRequest represents a request to fetch an existing dataset
+message GetDatasetMetadataRequest {
   // Must be an exact string name match
   string name = 1;
 }
 
-// ListServiceMetadataRequest represents a request to list all existing services
-message ListServiceMetadataRequest {}
+// ListDatasetMetadataRequest represents a request to list all existing datasets
+message ListDatasetMetadataRequest {}
 
-// ListServiceMetadataResponse represents the response when listing all available services
-message ListServiceMetadataResponse {
-  // List of services, excluding partition assignments
-  repeated ServiceMetadata service_metadata = 1;
+// ListDatasetMetadataResponse represents the response when listing all available datasets
+message ListDatasetMetadataResponse {
+  // List of datasets, excluding partition assignments
+  repeated DatasetMetadata dataset_metadata = 1;
 }
 
 // UpdatePartitionAssignmentRequest represents a request to allocate a new set of partitions.
 message UpdatePartitionAssignmentRequest {
   // Must be an exact string name match
   string name = 1;
-  // Optional maximum throughput of the service - if set to -1 the existing value will not be updated
+  // Optional maximum throughput of the dataset - if set to -1 the existing value will not be updated
   int64 throughput_bytes = 2;
   // Optional desired partition IDs - if empty will be automatically assigned
   repeated string partition_ids = 3;
