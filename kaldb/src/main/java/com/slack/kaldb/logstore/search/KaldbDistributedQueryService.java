@@ -32,7 +32,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -191,18 +190,27 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan pickSearchNodeToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
-    // TODO: Re-write this code using a for loop.
-    var nodes =
-        searchMetadataStore
-            .getCached()
-            .stream()
-            .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-            .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
-            .values()
-            .stream()
-            .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-            .collect(Collectors.toSet());
-    pickSearchNodeToQuerySpan.finish();
+
+    Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
+    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
+      if (!snapshotsToSearch.contains(searchMetadata.snapshotName)) {
+        continue;
+      }
+
+      String rawSnapshotName = KaldbDistributedQueryService.getRawSnapshotName(searchMetadata);
+      if (searchMetadataGroupedByName.containsKey(rawSnapshotName)) {
+        searchMetadataGroupedByName.get(rawSnapshotName).add(searchMetadata);
+      } else {
+        List<SearchMetadata> searchMetadataList = new ArrayList<>();
+        searchMetadataList.add(searchMetadata);
+        searchMetadataGroupedByName.put(rawSnapshotName, searchMetadataList);
+      }
+    }
+
+    Set<String> nodes = new HashSet<>();
+    for (List<SearchMetadata> searchMetadata : searchMetadataGroupedByName.values()) {
+      nodes.add(KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata));
+    }
 
     return nodes;
   }
