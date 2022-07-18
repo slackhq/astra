@@ -56,16 +56,10 @@ public class ArmeriaService extends AbstractIdleService {
   public static class Builder {
     private final String serviceName;
     private final ServerBuilder serverBuilder;
-    private final Duration requestTimeout;
     private final List<SpanHandler> spanHandlers = new ArrayList<>();
 
-    public Builder(
-        int port,
-        Duration requestTimeout,
-        String serviceName,
-        PrometheusMeterRegistry prometheusMeterRegistry) {
+    public Builder(int port, String serviceName, PrometheusMeterRegistry prometheusMeterRegistry) {
       this.serviceName = serviceName;
-      this.requestTimeout = requestTimeout;
       this.serverBuilder = Server.builder().http(port);
 
       initializeLimits();
@@ -75,7 +69,6 @@ public class ArmeriaService extends AbstractIdleService {
     }
 
     private void initializeLimits() {
-      serverBuilder.requestTimeout(requestTimeout);
       serverBuilder.maxNumConnections(MAX_CONNECTIONS);
     }
 
@@ -103,6 +96,11 @@ public class ArmeriaService extends AbstractIdleService {
           .service("/metrics", (ctx, req) -> HttpResponse.of(prometheusMeterRegistry.scrape()))
           .serviceUnder("/internal/management", ManagementService.of())
           .serviceUnder("/docs", new DocService());
+    }
+
+    public Builder withRequestTimeout(Duration requestTimeout) {
+      serverBuilder.requestTimeout(requestTimeout);
+      return this;
     }
 
     public Builder withTracing(KaldbConfigs.TracingConfig tracingConfig) {

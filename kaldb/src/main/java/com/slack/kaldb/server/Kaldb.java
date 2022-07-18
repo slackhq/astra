@@ -176,7 +176,8 @@ public class Kaldb {
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getIndexerConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbIndex", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbIndex", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
@@ -203,7 +204,8 @@ public class Kaldb {
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbQuery", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
@@ -228,7 +230,8 @@ public class Kaldb {
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getCacheConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbCache", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbCache", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
@@ -258,7 +261,8 @@ public class Kaldb {
       services.add(replicaRestoreService);
 
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbManager", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(
                   new ManagerApiGrpc(
@@ -326,7 +330,8 @@ public class Kaldb {
           Duration.ofMillis(
               kaldbConfig.getRecoveryConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbRecovery", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbRecovery", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
@@ -345,7 +350,8 @@ public class Kaldb {
           Duration.ofMillis(
               kaldbConfig.getPreprocessorConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
-          new ArmeriaService.Builder(serverPort, requestTimeout, "kalDbPreprocessor", meterRegistry)
+          new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
