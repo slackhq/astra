@@ -2,10 +2,10 @@ package com.slack.kaldb.clusterManager;
 
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -20,7 +20,7 @@ public class ClusterMonitorService extends AbstractIdleService {
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       RecoveryNodeMetadataStore recoveryNodeMetadataStore,
       CacheSlotMetadataStore cacheSlotMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       MeterRegistry meterRegistry) {
 
     meterRegistry.gauge(
@@ -34,7 +34,7 @@ public class ClusterMonitorService extends AbstractIdleService {
     meterRegistry.gauge(
         "cached_cache_slots_size", cacheSlotMetadataStore, store -> store.getCached().size());
     meterRegistry.gauge(
-        "cached_service_nodes_size", serviceMetadataStore, store -> store.getCached().size());
+        "cached_service_nodes_size", datasetMetadataStore, store -> store.getCached().size());
   }
 
   @Override
