@@ -233,10 +233,16 @@ public class Kaldb {
           new CacheSlotMetadataStore(metadataStore, true);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
 
+      ReplicaRestoreService replicaRestoreService =
+          new ReplicaRestoreService(replicaMetadataStore, meterRegistry, managerConfig);
+      services.add(replicaRestoreService);
+
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
               .withTracing(kaldbConfig.getTracingConfig())
-              .withGrpcService(new ManagerApiGrpc(datasetMetadataStore))
+              .withGrpcService(
+                  new ManagerApiGrpc(
+                      datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
               .build();
       services.add(armeriaService);
 

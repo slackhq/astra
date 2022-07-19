@@ -78,6 +78,10 @@ managerConfig:
   snapshotDeletionServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
+  replicaRestoreServiceConfig:
+    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
+    maxReplicasPerRequest: ${KALDB_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
+    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
 
 clusterConfig:
   clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}

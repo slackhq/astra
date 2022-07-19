@@ -160,6 +160,12 @@ message ManagerConfig {
     int32 snapshot_lifespan_mins = 2;
   }
 
+  message ReplicaRestoreServiceConfig {
+    int32 schedule_period_mins = 1;
+    int32 max_replicas_per_request = 2;
+    int32 replica_lifespan_mins = 3;
+  }
+
   // Event aggregation secs is a de-bounce setting. It's the time
   // a service waits to take an action after a zk notification.
   int32 event_aggregation_secs = 1;
@@ -176,6 +182,7 @@ message ManagerConfig {
   RecoveryTaskAssignmentServiceConfig
       recovery_task_assignment_service_config = 8;
   SnapshotDeletionServiceConfig snapshot_deletion_service_config = 9;
+  ReplicaRestoreServiceConfig replica_restore_service_config = 10;
 }
 
 // Config for the recovery node.

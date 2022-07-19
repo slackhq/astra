@@ -245,6 +245,12 @@ public class KaldbConfigTest {
     assertThat(snapshotDeletionServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
     assertThat(snapshotDeletionServiceConfig.getSnapshotLifespanMins()).isEqualTo(10080);
 
+    final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
+        managerConfig.getReplicaRestoreServiceConfig();
+    assertThat(replicaRestoreServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    assertThat(replicaRestoreServiceConfig.getMaxReplicasPerRequest()).isEqualTo(200);
+    assertThat(replicaRestoreServiceConfig.getReplicaLifespanMins()).isEqualTo(60);
+
     final KaldbConfigs.ServerConfig managerServerConfig = managerConfig.getServerConfig();
     assertThat(managerServerConfig.getServerPort()).isEqualTo(8083);
     assertThat(managerServerConfig.getServerAddress()).isEqualTo("localhost");
@@ -381,6 +387,12 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+
+    final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
+        managerConfig.getReplicaRestoreServiceConfig();
+    assertThat(replicaRestoreServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
+    assertThat(replicaRestoreServiceConfig.getMaxReplicasPerRequest()).isEqualTo(200);
+    assertThat(replicaRestoreServiceConfig.getReplicaLifespanMins()).isEqualTo(60);
 
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();
@@ -526,6 +538,12 @@ public class KaldbConfigTest {
     assertThat(clusterConfig.getClusterName()).isEmpty();
     assertThat(clusterConfig.getEnv()).isEmpty();
 
+    final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
+        managerConfig.getReplicaRestoreServiceConfig();
+    assertThat(replicaRestoreServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaRestoreServiceConfig.getMaxReplicasPerRequest()).isZero();
+    assertThat(replicaRestoreServiceConfig.getReplicaLifespanMins()).isZero();
+
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();
     assertThat(snapshotDeletionServiceConfig.getSchedulePeriodMins()).isZero();
@@ -645,6 +663,12 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+
+    final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
+        managerConfig.getReplicaRestoreServiceConfig();
+    assertThat(replicaRestoreServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaRestoreServiceConfig.getMaxReplicasPerRequest()).isZero();
+    assertThat(replicaRestoreServiceConfig.getReplicaLifespanMins()).isZero();
 
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();

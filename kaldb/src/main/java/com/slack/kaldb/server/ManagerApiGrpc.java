@@ -5,11 +5,13 @@ import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatas
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.clusterManager.ReplicaRestoreService;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -23,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.naming.SizeLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +36,18 @@ import org.slf4j.LoggerFactory;
  */
 public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(ManagerApiGrpc.class);
-
   private final DatasetMetadataStore datasetMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
+  private final ReplicaRestoreService replicaRestoreService;
 
-  public ManagerApiGrpc(DatasetMetadataStore datasetMetadataStore) {
+  public ManagerApiGrpc(
+      DatasetMetadataStore datasetMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      ReplicaRestoreService replicaRestoreService) {
     this.datasetMetadataStore = datasetMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
+    this.replicaRestoreService = replicaRestoreService;
   }
 
   /** Initializes a new dataset in the metadata store with no initial allocated capacity */
@@ -167,6 +176,42 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error updating partition assignment", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
+  @Override
+  public void restoreReplica(
+      ManagerApi.RestoreReplicaRequest request,
+      StreamObserver<ManagerApi.RestoreReplicaResponse> responseObserver) {
+    try {
+      Preconditions.checkArgument(
+          request.getStartTimeEpochMs() < request.getEndTimeEpochMs(),
+          "Start time must not be after end time");
+      Preconditions.checkArgument(
+          !request.getServiceName().isEmpty(), "Service name must not be empty");
+
+      List<SnapshotMetadata> snapshotsToRestore =
+          fetchSnapshots(
+              snapshotMetadataStore.getCached(),
+              datasetMetadataStore,
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs(),
+              request.getServiceName());
+
+      replicaRestoreService.queueSnapshotsForRestoration(snapshotsToRestore);
+
+      responseObserver.onNext(
+          ManagerApi.RestoreReplicaResponse.newBuilder().setStatus("success").build());
+      responseObserver.onCompleted();
+    } catch (SizeLimitExceededException e) {
+      LOG.info(
+          "Error handling request: number of replicas requested exceeds maxReplicasPerRequest limit",
+          e);
+      responseObserver.onError(
+          Status.RESOURCE_EXHAUSTED.withDescription(e.getMessage()).asException());
+    } catch (Exception e) {
+      LOG.info("Error handling request", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
