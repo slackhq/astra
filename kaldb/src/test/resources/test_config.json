@@ -40,14 +40,18 @@
     "maxOffsetDelayMessages" : 10002,
     "serverConfig": {
       "serverPort": 8080,
-      "serverAddress": "localhost"
-    }
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "defaultQueryTimeoutMs": 1500
   },
   "queryConfig": {
     "serverConfig": {
       "serverPort": 8081,
-      "serverAddress": "1.2.3.4"
-    }
+      "serverAddress": "1.2.3.4",
+      "requestTimeoutMs": 3000
+    },
+    "defaultQueryTimeoutMs": 1500
   },
   "metadataStoreConfig": {
     "zookeeperConfig": {
@@ -64,15 +68,18 @@
     "maxParallelCacheSlotDownloads": 3,
     "serverConfig": {
       "serverPort": 8082,
-      "serverAddress": "localhost"
-    }
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
+    },
+    "defaultQueryTimeoutMs": 1500
   },
   "managerConfig": {
     "eventAggregationSecs": 10,
     "scheduleInitialDelayMins": 1,
     "serverConfig": {
       "serverPort": 8083,
-      "serverAddress": "localhost"
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
     },
     "replicaCreationServiceConfig": {
       "replicasPerSnapshot": 2,
@@ -104,7 +111,8 @@
   "recoveryConfig": {
     "serverConfig": {
       "serverPort": 8084,
-      "serverAddress": "localhost"
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
     }
   },
   "preprocessorConfig": {
@@ -116,7 +124,8 @@
     },
     "serverConfig": {
       "serverPort": 8085,
-      "serverAddress": "localhost"
+      "serverAddress": "localhost",
+      "requestTimeoutMs": 3000
     },
     "upstreamTopics": ["test-topic"],
     "downstreamTopic": "test-topic-out",

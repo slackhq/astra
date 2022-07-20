@@ -58,12 +58,15 @@ public class KaldbConfigTest {
   public void testIntToStrTypeConversionForWrongJsonType()
       throws InvalidProtocolBufferException, JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
+    ObjectNode serverConfig = mapper.createObjectNode().put("requestTimeoutMs", 3000);
     ObjectNode indexerConfig =
         mapper
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log");
+            .put("dataTransformer", "api_log")
+            .put("defaultQueryTimeoutMs", "2500")
+            .set("serverConfig", serverConfig);
     ObjectNode kafkaConfig =
         mapper.createObjectNode().put("kafkaTopicPartition", 1).put("kafkaSessionTimeout", 30000);
     ObjectNode node = mapper.createObjectNode();
@@ -84,12 +87,15 @@ public class KaldbConfigTest {
   public void testStrToIntTypeConversionForWrongJsonType()
       throws InvalidProtocolBufferException, JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
+    ObjectNode serverConfig = mapper.createObjectNode().put("requestTimeoutMs", 3000);
     ObjectNode indexerConfig =
         mapper
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
-            .put("dataTransformer", "api_log");
+            .put("defaultQueryTimeoutMs", "2500")
+            .put("dataTransformer", "api_log")
+            .set("serverConfig", serverConfig);
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
@@ -106,13 +112,17 @@ public class KaldbConfigTest {
   @Test
   public void testIgnoreExtraConfigField() throws IOException {
     ObjectMapper mapper = new ObjectMapper();
+    ObjectNode serverConfig = mapper.createObjectNode().put("requestTimeoutMs", 3000);
     ObjectNode indexerConfig =
         mapper
             .createObjectNode()
             .put("maxMessagesPerChunk", 1)
             .put("maxBytesPerChunk", 100)
             .put("dataTransformer", "api_log")
-            .put("ignoredField", "ignore");
+            .put("ignoredField", "ignore")
+            .put("defaultQueryTimeoutMs", "2500")
+            .put("dataTransformer", "api_log")
+            .set("serverConfig", serverConfig);
     ObjectNode kafkaConfig =
         mapper
             .createObjectNode()
@@ -191,6 +201,7 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getDataDirectory()).isEqualTo("/tmp");
     assertThat(indexerConfig.getServerConfig().getServerPort()).isEqualTo(8080);
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEqualTo("localhost");
+    assertThat(indexerConfig.getServerConfig().getRequestTimeoutMs()).isEqualTo(3000);
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isEqualTo(10002);
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
@@ -440,10 +451,15 @@ public class KaldbConfigTest {
 
   @Test
   public void testMissingDataTransformerConfigForCache() throws InvalidProtocolBufferException {
-    KaldbConfigs.KaldbConfig config = KaldbConfig.fromJsonConfig("{nodeRoles: [CACHE]}");
+    KaldbConfigs.KaldbConfig config =
+        KaldbConfig.fromJsonConfig(
+            "{nodeRoles: [CACHE], "
+                + "cacheConfig:{defaultQueryTimeoutMs:2500,serverConfig:{requestTimeoutMs:3000}}}");
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
     assertThat(config.getNodeRolesList()).containsOnly(KaldbConfigs.NodeRole.CACHE);
+    assertThat(config.getCacheConfig().getServerConfig().getRequestTimeoutMs()).isEqualTo(3000);
+    assertThat(config.getCacheConfig().getDefaultQueryTimeoutMs()).isEqualTo(2500);
     final KaldbConfigs.IndexerConfig indexerConfig = config.getIndexerConfig();
     assertThat(indexerConfig.getDataTransformer()).isEmpty();
   }
@@ -452,7 +468,8 @@ public class KaldbConfigTest {
   public void testEmptyJsonStringInit() throws InvalidProtocolBufferException {
     KaldbConfigs.KaldbConfig config =
         KaldbConfig.fromJsonConfig(
-            "{nodeRoles: [INDEX], " + "indexerConfig:{dataTransformer:api_log}}");
+            "{nodeRoles: [INDEX], "
+                + "indexerConfig:{dataTransformer:api_log,defaultQueryTimeoutMs:2500,serverConfig:{requestTimeoutMs:3000}}}");
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
@@ -482,10 +499,12 @@ public class KaldbConfigTest {
     assertThat(indexerConfig.getLuceneConfig().getRefreshDurationSecs()).isZero();
     assertThat(indexerConfig.getStaleDurationSecs()).isZero();
     assertThat(indexerConfig.getDataDirectory()).isEmpty();
+    assertThat(indexerConfig.getDefaultQueryTimeoutMs()).isEqualTo(2500);
     assertThat(indexerConfig.getDataTransformer()).isEqualTo("api_log");
     assertThat(indexerConfig.getMaxOffsetDelayMessages()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerPort()).isZero();
     assertThat(indexerConfig.getServerConfig().getServerAddress()).isEmpty();
+    assertThat(indexerConfig.getServerConfig().getRequestTimeoutMs()).isEqualTo(3000);
 
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
@@ -581,7 +600,12 @@ public class KaldbConfigTest {
   public void testEmptyYamlStringInit()
       throws InvalidProtocolBufferException, JsonProcessingException {
     String yamlCfgString =
-        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: api_log";
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 2500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 3000\n";
     KaldbConfigs.KaldbConfig config = KaldbConfig.fromYamlConfig(yamlCfgString);
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
@@ -707,10 +731,45 @@ public class KaldbConfigTest {
         .isThrownBy(() -> KaldbConfig.fromYamlConfig("nodeRoles: [index]"));
 
     String yamlCfgString =
-        "nodeRoles: [INDEX]\n" + "indexerConfig:\n" + "  dataTransformer: api_log";
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 2500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 3000\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
     List<KaldbConfigs.NodeRole> roles =
         KaldbConfig.fromYamlConfig(yamlCfgString).getNodeRolesList();
     assertThat(roles.size()).isEqualTo(1);
     assertThat(roles).containsExactly(KaldbConfigs.NodeRole.INDEX);
+  }
+
+  @Test
+  public void testBadDefaultQueryTimeoutMs() {
+
+    final String yamlCfgString =
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 3500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 3000\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> KaldbConfig.fromYamlConfig(yamlCfgString));
+
+    final String yamlCfgString1 =
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 2500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 2999\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> KaldbConfig.fromYamlConfig(yamlCfgString1));
   }
 }

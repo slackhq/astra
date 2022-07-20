@@ -2,7 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.KaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.slack.kaldb.chunkManager.ChunkRollOverException;

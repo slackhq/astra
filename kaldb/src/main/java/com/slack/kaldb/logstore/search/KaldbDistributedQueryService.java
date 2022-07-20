@@ -1,8 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
-import static com.slack.kaldb.server.KaldbConfig.ARMERIA_TIMEOUT_DURATION;
-import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
 import brave.Tracing;
@@ -25,6 +23,7 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -70,6 +69,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Counter distributedQueryFailedNodes;
   private final Counter distributedQueryTotalSnapshots;
   private final Counter distributedQuerySnapshotsWithReplicas;
+  // Timeouts are structured such that we always attempt to return a successful response, as we
+  // include metadata that should always be present. The Armeria timeout is used at the top request,
+  // distributed query is used as a deadline for all nodes to return, and the local query timeout
+  // is used for controlling lucene future timeouts.
+  private final Duration requestTimeout;
+  private final Duration defaultQueryTimeout;
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -80,10 +85,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       DatasetMetadataStore datasetMetadataStore,
-      MeterRegistry meterRegistry) {
+      MeterRegistry meterRegistry,
+      Duration requestTimeout,
+      Duration defaultQueryTimeout) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.datasetMetadataStore = datasetMetadataStore;
+    this.requestTimeout = requestTimeout;
+    this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
@@ -289,8 +298,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(
-                  DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS)
+          stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .search(request);
@@ -306,7 +314,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(ARMERIA_TIMEOUT_DURATION.toMillis(), TimeUnit.MILLISECONDS);
+          searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
       ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());

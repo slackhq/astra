@@ -1,22 +1,16 @@
 package com.slack.kaldb.server;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.writer.LogMessageTransformer;
-import com.slack.kaldb.writer.LogMessageWriterImpl;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.apache.commons.text.StringSubstitutor;
 
@@ -32,14 +26,6 @@ public class KaldbConfig {
 
   public static final String CHUNK_DATA_PREFIX = "log";
 
-  // Timeouts are structured such that we always attempt to return a successful response, as we
-  // include metadata that should always be present. The Armeria timeout is used at the top request,
-  // distributed query is used as a deadline for all nodes to return, and the local query timeout
-  // is used for controlling lucene future timeouts.
-  public static final Duration ARMERIA_TIMEOUT_DURATION = Duration.of(5000, ChronoUnit.MILLIS);
-  public static Duration DISTRIBUTED_QUERY_TIMEOUT_DURATION = Duration.of(3000, ChronoUnit.MILLIS);
-  public static Duration LOCAL_QUERY_TIMEOUT_DURATION = Duration.of(2500, ChronoUnit.MILLIS);
-
   private static KaldbConfig _instance = null;
 
   // Parse a json string as a KaldbConfig proto struct.
@@ -49,7 +35,7 @@ public class KaldbConfig {
     KaldbConfigs.KaldbConfig.Builder kaldbConfigBuilder = KaldbConfigs.KaldbConfig.newBuilder();
     JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, kaldbConfigBuilder);
     KaldbConfigs.KaldbConfig kaldbConfig = kaldbConfigBuilder.build();
-    validateConfig(kaldbConfig);
+    ValidateKaldbConfig.validateConfig(kaldbConfig);
     return kaldbConfig;
   }
 
@@ -63,44 +49,6 @@ public class KaldbConfig {
 
     Object obj = yamlReader.readValue(substitute.replace(yamlStr), Object.class);
     return fromJsonConfig(jsonWriter.writeValueAsString(obj));
-  }
-
-  /**
-   * ValidateConfig ensures that various config values across classes are consistent. The class
-   * using a config is still expected to ensure the config values are valid. For example, the roles
-   * can't be empty.
-   */
-  public static void validateConfig(KaldbConfigs.KaldbConfig kaldbConfig) {
-    validateNodeRoles(kaldbConfig.getNodeRolesList());
-    if (kaldbConfig.getNodeRolesList().contains(KaldbConfigs.NodeRole.INDEX)) {
-      validateDataTransformerConfig(kaldbConfig.getIndexerConfig().getDataTransformer());
-    }
-  }
-
-  public static void validateNodeRoles(List<KaldbConfigs.NodeRole> nodeRoleList) {
-    // We don't need further checks for node roles since JSON parsing will throw away roles not part
-    // of the enum
-    checkArgument(
-        !nodeRoleList.isEmpty(),
-        "Kaldb must start with at least 1 node role. Accepted roles are "
-            + Arrays.toString(KaldbConfigs.NodeRole.values()));
-  }
-
-  @VisibleForTesting
-  public static final Map<String, LogMessageTransformer> INDEXER_DATA_TRANSFORMER_MAP =
-      ImmutableMap.of(
-          "api_log",
-          LogMessageWriterImpl.apiLogTransformer,
-          "trace_span",
-          LogMessageWriterImpl.traceSpanTransformer);
-
-  public static void validateDataTransformerConfig(String dataTransformerConfig) {
-    checkArgument(
-        dataTransformerConfig != null && !dataTransformerConfig.isEmpty(),
-        "IndexerConfig can't have an empty dataTransformer config.");
-    checkArgument(
-        INDEXER_DATA_TRANSFORMER_MAP.containsKey(dataTransformerConfig),
-        "Invalid data transformer config: " + dataTransformerConfig);
   }
 
   @VisibleForTesting
