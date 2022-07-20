@@ -744,4 +744,32 @@ public class KaldbConfigTest {
     assertThat(roles.size()).isEqualTo(1);
     assertThat(roles).containsExactly(KaldbConfigs.NodeRole.INDEX);
   }
+
+  @Test
+  public void testBadDefaultQueryTimeoutMs() {
+
+    final String yamlCfgString =
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 3500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 3000\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> KaldbConfig.fromYamlConfig(yamlCfgString));
+
+    final String yamlCfgString1 =
+        "nodeRoles: [INDEX]\n"
+            + "indexerConfig:\n"
+            + "  dataTransformer: api_log\n"
+            + "  defaultQueryTimeoutMs: 2500\n"
+            + "  serverConfig:\n"
+            + "    requestTimeoutMs: 2999\n"
+            + "    serverPort: 8080\n"
+            + "    serverAddress: localhost\n";
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> KaldbConfig.fromYamlConfig(yamlCfgString1));
+  }
 }

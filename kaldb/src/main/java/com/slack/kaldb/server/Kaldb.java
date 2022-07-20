@@ -254,8 +254,6 @@ public class Kaldb {
 
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
-      final long requestTimeoutMs =
-          kaldbConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs();
       ReplicaRestoreService replicaRestoreService =
           new ReplicaRestoreService(replicaMetadataStore, meterRegistry, managerConfig);
       services.add(replicaRestoreService);
