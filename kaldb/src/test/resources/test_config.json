@@ -41,17 +41,17 @@
     "serverConfig": {
       "serverPort": 8080,
       "serverAddress": "localhost",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     },
-    "defaultQueryTimeoutMs": 50
+    "defaultQueryTimeoutMs": 1500
   },
   "queryConfig": {
     "serverConfig": {
       "serverPort": 8081,
       "serverAddress": "1.2.3.4",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     },
-    "defaultQueryTimeoutMs": 50
+    "defaultQueryTimeoutMs": 1500
   },
   "metadataStoreConfig": {
     "zookeeperConfig": {
@@ -69,9 +69,9 @@
     "serverConfig": {
       "serverPort": 8082,
       "serverAddress": "localhost",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     },
-    "defaultQueryTimeoutMs": 50
+    "defaultQueryTimeoutMs": 1500
   },
   "managerConfig": {
     "eventAggregationSecs": 10,
@@ -79,7 +79,7 @@
     "serverConfig": {
       "serverPort": 8083,
       "serverAddress": "localhost",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     },
     "replicaCreationServiceConfig": {
       "replicasPerSnapshot": 2,
@@ -112,7 +112,7 @@
     "serverConfig": {
       "serverPort": 8084,
       "serverAddress": "localhost",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     }
   },
   "preprocessorConfig": {
@@ -125,7 +125,7 @@
     "serverConfig": {
       "serverPort": 8085,
       "serverAddress": "localhost",
-      "requestTimeoutMs": 100
+      "requestTimeoutMs": 3000
     },
     "upstreamTopics": ["test-topic"],
     "downstreamTopic": "test-topic-out",
