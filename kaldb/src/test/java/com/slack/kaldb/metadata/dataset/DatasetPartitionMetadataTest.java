@@ -124,6 +124,57 @@ public class DatasetPartitionMetadataTest {
   }
 
   @Test
+  public void testMultipleDatasetMatches() {
+    final long throughputBytes = 1000;
+
+    {
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(100, 200, List.of("1"));
+
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata("testDataset1", "datasetOwner1", throughputBytes, List.of(partition));
+
+      datasetMetadataStore.createSync(datasetMetadata);
+      await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    }
+
+    {
+      DatasetPartitionMetadata partition = new DatasetPartitionMetadata(201, 300, List.of("2"));
+      DatasetMetadata datasetMetadata =
+          new DatasetMetadata("testDataset2", "datasetOwner2", throughputBytes, List.of(partition));
+      datasetMetadataStore.createSync(datasetMetadata);
+      await().until(() -> datasetMetadataStore.getCached().size() == 2);
+    }
+
+    // Start and end time within query window
+    List<DatasetPartitionMetadata> partitionMetadata =
+        findPartitionsToQuery(datasetMetadataStore, 101, 199, "testDataset1");
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
+
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 299, "testDataset2");
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("2");
+
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 0, 299, "_all");
+    assertThat(partitionMetadata.size()).isEqualTo(2);
+
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 0, 299, "*");
+    assertThat(partitionMetadata.size()).isEqualTo(2);
+
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 101, 199, "*");
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("1");
+
+    partitionMetadata = findPartitionsToQuery(datasetMetadataStore, 201, 299, "*");
+    assertThat(partitionMetadata.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.size()).isEqualTo(1);
+    assertThat(partitionMetadata.get(0).partitions.get(0)).isEqualTo("2");
+  }
+
+  @Test
   public void testOneDatasetOnePartition() {
     final String name = "testDataset";
     final String owner = "datasetOwner";
