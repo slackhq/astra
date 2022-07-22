@@ -58,15 +58,21 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
-  public static final String DISTRIBUTED_QUERY_TOTAL_NODES = "distributed_query_total_nodes";
-  public static final String DISTRIBUTED_QUERY_FAILED_NODES = "distributed_query_failed_nodes";
+  public static final String DISTRIBUTED_QUERY_APDEX_SATISFIED =
+      "distributed_query_apdex_satisfied";
+  public static final String DISTRIBUTED_QUERY_APDEX_TOLERATING =
+      "distributed_query_apdex_tolerating";
+  public static final String DISTRIBUTED_QUERY_APDEX_FRUSTRATED =
+      "distributed_query_apdex_frustrated";
+
   public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
       "distributed_query_total_snapshots";
   public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
       "distributed_query_snapshots_with_replicas";
 
-  private final Counter distributedQueryTotalNodes;
-  private final Counter distributedQueryFailedNodes;
+  private final Counter distributedQueryApdexSatisfied;
+  private final Counter distributedQueryApdexTolerating;
+  private final Counter distributedQueryApdexFrustrated;
   private final Counter distributedQueryTotalSnapshots;
   private final Counter distributedQuerySnapshotsWithReplicas;
   // Timeouts are structured such that we always attempt to return a successful response, as we
@@ -96,8 +102,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
-    this.distributedQueryTotalNodes = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_NODES);
-    this.distributedQueryFailedNodes = meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_NODES);
+    this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
+    this.distributedQueryApdexTolerating =
+        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING);
+    this.distributedQueryApdexFrustrated =
+        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
+
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
@@ -361,8 +371,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
               .aggregate(searchResults);
 
-      distributedQueryTotalNodes.increment(aggregatedResult.totalNodes);
-      distributedQueryFailedNodes.increment(aggregatedResult.failedNodes);
+      // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
+      // response. Anything over 2% is considered an unacceptable.
+      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
+        distributedQueryApdexSatisfied.increment();
+      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
+          <= 0.02) {
+        distributedQueryApdexTolerating.increment();
+      } else {
+        distributedQueryApdexFrustrated.increment();
+      }
+
       distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
       distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
 
