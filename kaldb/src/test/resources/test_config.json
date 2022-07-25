@@ -52,7 +52,7 @@
       "requestTimeoutMs": 3000
     },
     "defaultQueryTimeoutMs": 1500,
-    "managerConnectString": "localhost:8083"
+    "managerConnectString": "http://localhost:8083"
   },
   "metadataStoreConfig": {
     "zookeeperConfig": {

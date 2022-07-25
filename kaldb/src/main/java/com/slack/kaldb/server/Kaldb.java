@@ -201,7 +201,8 @@ public class Kaldb {
               datasetMetadataStore,
               meterRegistry,
               requestTimeout,
-              Duration.ofMillis(kaldbConfig.getQueryConfig().getDefaultQueryTimeoutMs()));
+              Duration.ofMillis(kaldbConfig.getQueryConfig().getDefaultQueryTimeoutMs()),
+              kaldbConfig.getQueryConfig());
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =

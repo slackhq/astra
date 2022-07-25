@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
+import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -18,6 +19,9 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.manager_api.ManagerApi;
+import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
@@ -81,6 +85,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   // is used for controlling lucene future timeouts.
   private final Duration requestTimeout;
   private final Duration defaultQueryTimeout;
+  private final ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiServiceBlockingStub;
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -93,7 +98,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       DatasetMetadataStore datasetMetadataStore,
       MeterRegistry meterRegistry,
       Duration requestTimeout,
-      Duration defaultQueryTimeout) {
+      Duration defaultQueryTimeout,
+      KaldbConfigs.QueryServiceConfig queryConfig) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
     this.datasetMetadataStore = datasetMetadataStore;
@@ -114,6 +120,16 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     // first time call this function manually so that we initialize stubs
     updateStubs();
+
+    String managerConnectionString =
+        queryConfig.getManagerConnectString().isEmpty()
+            ? "gproto+http://localhost:8083"
+            : queryConfig.getManagerConnectString();
+
+    managerApiServiceBlockingStub =
+        GrpcClients.builder(managerConnectionString)
+            .serializationFormat(GrpcSerializationFormats.PROTO)
+            .build(ManagerApiServiceGrpc.ManagerApiServiceBlockingStub.class);
   }
 
   private void updateStubs() {
@@ -171,7 +187,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   @VisibleForTesting
-  protected static Set<String> getMatchingSearchMetadata(
+  protected static Map<String, String> getMatchingSearchMetadata(
       SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
     // iterate every search metadata whose snapshot needs to be searched.
     // if there are multiple search metadata nodes then pck the most on based on
@@ -196,9 +212,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       }
     }
 
-    Set<String> nodes = new HashSet<>();
-    for (List<SearchMetadata> searchMetadata : searchMetadataGroupedByName.values()) {
-      nodes.add(KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata));
+    Map<String, String> nodes = new HashMap<>();
+    for (Map.Entry<String, List<SearchMetadata>> searchMetadata :
+        searchMetadataGroupedByName.entrySet()) {
+      nodes.put(
+          searchMetadata.getKey(),
+          KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata.getValue()));
     }
     pickSearchNodeToQuerySpan.finish();
 
@@ -311,10 +330,14 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             request.getEndTimeEpochMs(),
             request.getDataset());
 
-    Collection<String> nodes = getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+    // mapping of snapshot name to search urls
+    Map<String, String> nodes = getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+
+    List<String> missingSnapshots = calculateMissingSnapshots(snapshotsToSearch, nodes);
+    rehydrateMissingSnapshots(missingSnapshots, managerApiServiceBlockingStub);
 
     ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs = new ArrayList<>(nodes.size());
-    for (String searchNodeUrl : nodes) {
+    for (String searchNodeUrl : nodes.values()) {
       queryStubs.add(getStub(searchNodeUrl));
     }
 
@@ -360,6 +383,39 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
+  }
+
+  private static void rehydrateMissingSnapshots(
+      List<String> missingSnapshots,
+      ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiServiceBlockingStub) {
+    ManagerApi.RestoreReplicaIdsRequest restoreReplicaIdsRequest =
+        ManagerApi.RestoreReplicaIdsRequest.newBuilder()
+            .addAllIdsToRestore(missingSnapshots)
+            .build();
+
+    try {
+      ManagerApi.RestoreReplicaIdsResponse restoreReplicaIdsResponse =
+          managerApiServiceBlockingStub.restoreReplicaIds(restoreReplicaIdsRequest);
+    } catch (Exception e) {
+      // ignored
+    }
+  }
+
+  // return list of snapshot IDs to rehydrate
+  private static List<String> calculateMissingSnapshots(
+      Map<String, SnapshotMetadata> snapshotsToSearch, Map<String, String> searchNodes) {
+    // snapshotsToSearch is a map of snapshot name -> snapshot
+    // searchNodes is a map of snapshot name -> node url
+
+    // loop through snapshotsToSearch, adding any snapshots whose name don't exist in searchNodes
+    List<String> missingSnapshotIds = new ArrayList<>();
+    for (Map.Entry<String, SnapshotMetadata> snapshotMetadataEntry : snapshotsToSearch.entrySet()) {
+      if (!searchNodes.containsKey(snapshotMetadataEntry.getKey())) {
+        missingSnapshotIds.add(snapshotMetadataEntry.getValue().snapshotId);
+      }
+    }
+
+    return missingSnapshotIds;
   }
 
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {

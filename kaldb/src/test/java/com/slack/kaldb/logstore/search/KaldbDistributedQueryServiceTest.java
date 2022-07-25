@@ -521,6 +521,7 @@ public class KaldbDistributedQueryServiceTest {
             queryEndTimeEpochMs,
             dataset);
 
-    return getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+    return new HashSet<>(
+        getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch).values());
   }
 }
