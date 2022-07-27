@@ -126,12 +126,10 @@ message ServerConfig {
 message CacheConfig {
   // Number of slots per cache instance.
   int32 slots_per_instance = 1;
-  // Maximum number slots that can download chunks in parallel.
-  int32 max_parallel_cache_slot_downloads = 2;
+  string data_directory = 2;
   // Path on local disk to store downloaded files.
-  string data_directory = 3;
-  ServerConfig server_config = 4;
-  int32 default_query_timeout_ms = 5;
+  ServerConfig server_config = 3;
+  int32 default_query_timeout_ms = 4;
 }
 
 // Cluster manager config. As a convention we define a config struct for

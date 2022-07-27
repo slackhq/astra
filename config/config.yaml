@@ -56,7 +56,6 @@ metadataStoreConfig:
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
-  maxParallelCacheSlotDownloads: ${KALDB_CACHE_MAX_PARALLEL_CACHE_SLOT_DOWNLOADS:-3}
   defaultQueryTimeoutMs: ${KALDB_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}

@@ -114,13 +114,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -232,13 +233,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -298,13 +300,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -365,13 +368,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()

@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.chunk.ChunkDownloaderFactory;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
@@ -25,10 +24,11 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   private final MeterRegistry meterRegistry;
   private final MetadataStore metadataStore;
+  private final BlobFs blobFs;
   private final SearchContext searchContext;
+  private final String s3Bucket;
   private final String dataDirectoryPrefix;
   private final int slotCountPerInstance;
-  private final ChunkDownloaderFactory chunkDownloaderFactory;
   private ReplicaMetadataStore replicaMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
@@ -37,16 +37,18 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   public CachingChunkManager(
       MeterRegistry registry,
       MetadataStore metadataStore,
+      BlobFs blobFs,
       SearchContext searchContext,
+      String s3Bucket,
       String dataDirectoryPrefix,
-      int slotCountPerInstance,
-      ChunkDownloaderFactory chunkDownloaderFactory) {
+      int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.metadataStore = metadataStore;
+    this.blobFs = blobFs;
     this.searchContext = searchContext;
+    this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.slotCountPerInstance = slotCountPerInstance;
-    this.chunkDownloaderFactory = chunkDownloaderFactory;
   }
 
   @Override
@@ -63,13 +65,14 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
           new ReadOnlyChunkImpl<>(
               metadataStore,
               meterRegistry,
+              blobFs,
               searchContext,
+              s3Bucket,
               dataDirectoryPrefix,
               cacheSlotMetadataStore,
               replicaMetadataStore,
               snapshotMetadataStore,
-              searchMetadataStore,
-              chunkDownloaderFactory));
+              searchMetadataStore));
     }
   }
 
@@ -101,16 +104,14 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       KaldbConfigs.CacheConfig cacheConfig,
       BlobFs blobFs)
       throws Exception {
-    ChunkDownloaderFactory chunkDownloaderFactory =
-        new ChunkDownloaderFactory(
-            s3Config.getS3Bucket(), blobFs, cacheConfig.getMaxParallelCacheSlotDownloads());
     return new CachingChunkManager<>(
         meterRegistry,
         metadataStore,
+        blobFs,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
+        s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
-        cacheConfig.getSlotsPerInstance(),
-        chunkDownloaderFactory);
+        cacheConfig.getSlotsPerInstance());
   }
 
   @Override
