@@ -54,7 +54,6 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
-  maxParallelCacheSlotDownloads: 6
   dataDirectory: "/tmp"
   defaultQueryTimeoutMs: 1500
   serverConfig:
