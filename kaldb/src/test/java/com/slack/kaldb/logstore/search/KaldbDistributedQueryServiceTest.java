@@ -3,7 +3,8 @@ package com.slack.kaldb.logstore.search;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
-import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getSearchNodesToQuery;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getMatchingSearchMetadata;
+import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.getMatchingSnapshots;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -503,5 +504,23 @@ public class KaldbDistributedQueryServiceTest {
     }
 
     return snapshotMetadata;
+  }
+
+  private Collection<String> getSearchNodesToQuery(
+      SnapshotMetadataStore snapshotMetadataStore,
+      SearchMetadataStore searchMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
+      long queryStartTimeEpochMs,
+      long queryEndTimeEpochMs,
+      String dataset) {
+    Map<String, SnapshotMetadata> snapshotsToSearch =
+        getMatchingSnapshots(
+            snapshotMetadataStore,
+            datasetMetadataStore,
+            queryStartTimeEpochMs,
+            queryEndTimeEpochMs,
+            dataset);
+
+    return getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
   }
 }
