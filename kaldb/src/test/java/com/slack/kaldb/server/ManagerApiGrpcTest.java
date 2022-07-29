@@ -5,8 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.*;
 
 import brave.Tracing;
 import com.slack.kaldb.clusterManager.ReplicaRestoreService;
@@ -537,7 +536,7 @@ public class ManagerApiGrpcTest {
     await().until(() -> datasetMetadataStore.getCached().size() == 1);
 
     List<SnapshotMetadata> snapshotsWithData =
-        ManagerApiGrpc.fetchSnapshots(
+        ManagerApiGrpc.calculateRequiredSnapshots(
             Arrays.asList(
                 overlapsEndTimeIncluded,
                 overlapsEndTimeExcluded,
@@ -648,6 +647,38 @@ public class ManagerApiGrpcTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(2);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+
+    replicaRestoreService.stopAsync();
+  }
+
+  @Test
+  public void shouldRestoreGivenSnapshotIds() {
+    long startTime = Instant.now().toEpochMilli();
+
+    SnapshotMetadata snapshotFoo =
+        new SnapshotMetadata("foo", "a", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata snapshotBar =
+        new SnapshotMetadata("bar", "b", startTime + 10, startTime + 15, 0, "b");
+    SnapshotMetadata snapshotBaz =
+        new SnapshotMetadata("baz", "c", startTime + 10, startTime + 15, 0, "c");
+
+    snapshotMetadataStore.createSync(snapshotFoo);
+    snapshotMetadataStore.createSync(snapshotBar);
+    snapshotMetadataStore.createSync(snapshotBaz);
+
+    replicaRestoreService.startAsync();
+    replicaRestoreService.awaitRunning();
+
+    managerApiStub.restoreReplicaIds(
+        ManagerApi.RestoreReplicaIdsRequest.newBuilder()
+            .addAllIdsToRestore(List.of("foo", "bar", "baz"))
+            .build());
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 3);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(3);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
         .isEqualTo(0);
 

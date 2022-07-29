@@ -22,6 +22,7 @@ service ManagerApiService {
   rpc UpdatePartitionAssignment(UpdatePartitionAssignmentRequest) returns (UpdatePartitionAssignmentResponse) {}
 
   rpc RestoreReplica(RestoreReplicaRequest) returns (RestoreReplicaResponse) {}
+  rpc RestoreReplicaIds(RestoreReplicaIdsRequest) returns (RestoreReplicaIdsResponse) {}
 }
 
 // CreateDatasetMetadataRequest represents a new dataset with uninitialized thoughput and partition assignments
@@ -78,5 +79,13 @@ message RestoreReplicaRequest {
 }
 
 message RestoreReplicaResponse {
+  string status = 1;
+}
+
+message RestoreReplicaIdsRequest {
+  repeated string ids_to_restore = 1;
+}
+
+message RestoreReplicaIdsResponse {
   string status = 1;
 }

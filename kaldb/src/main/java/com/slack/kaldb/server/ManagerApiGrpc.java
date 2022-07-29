@@ -4,6 +4,7 @@ import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatas
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.clusterManager.ReplicaRestoreService;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -192,7 +193,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           !request.getServiceName().isEmpty(), "Service name must not be empty");
 
       List<SnapshotMetadata> snapshotsToRestore =
-          fetchSnapshots(
+          calculateRequiredSnapshots(
               snapshotMetadataStore.getCached(),
               datasetMetadataStore,
               request.getStartTimeEpochMs(),
@@ -216,13 +217,39 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  @Override
+  public void restoreReplicaIds(
+      ManagerApi.RestoreReplicaIdsRequest request,
+      StreamObserver<ManagerApi.RestoreReplicaIdsResponse> responseObserver) {
+    try {
+      List<SnapshotMetadata> snapshotsToRestore =
+          calculateRequiredSnapshots(
+              request.getIdsToRestoreList(), snapshotMetadataStore.getCached());
+
+      replicaRestoreService.queueSnapshotsForRestoration(snapshotsToRestore);
+
+      responseObserver.onNext(
+          ManagerApi.RestoreReplicaIdsResponse.newBuilder().setStatus("success").build());
+      responseObserver.onCompleted();
+    } catch (SizeLimitExceededException e) {
+      LOG.info(
+          "Error handling request: number of replicas requested exceeds maxReplicasPerRequest limit",
+          e);
+      responseObserver.onError(
+          Status.RESOURCE_EXHAUSTED.withDescription(e.getMessage()).asException());
+    } catch (Exception e) {
+      LOG.info("Error handling request", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
   /**
-   * Fetches all SnapshotMetadata between startTimeEpochMs and endTimeEpochMs that contain data from
-   * the queried service
+   * Determines all SnapshotMetadata between startTimeEpochMs and endTimeEpochMs that contain data
+   * from the queried service
    *
    * @return List of SnapshotMetadata that are within specified timeframe and from queried service
    */
-  protected static List<SnapshotMetadata> fetchSnapshots(
+  protected static List<SnapshotMetadata> calculateRequiredSnapshots(
       List<SnapshotMetadata> snapshotMetadataList,
       DatasetMetadataStore datasetMetadataStore,
       long startTimeEpochMs,
@@ -248,6 +275,28 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
 
     return snapshotMetadata;
+  }
+
+  /**
+   * Determines all SnapshotMetadata that match the IDs in snapshotIds
+   *
+   * @return List of SnapshotMetadata that are within specified timeframe and from queried service
+   */
+  protected static List<SnapshotMetadata> calculateRequiredSnapshots(
+      List<String> snapshotIds, List<SnapshotMetadata> snapshotMetadataList) {
+    Set<String> matchingSnapshots =
+        Sets.intersection(
+            Sets.newHashSet(snapshotIds),
+            Sets.newHashSet(
+                snapshotMetadataList
+                    .stream()
+                    .map((snapshot) -> snapshot.snapshotId)
+                    .collect(Collectors.toList())));
+
+    return snapshotMetadataList
+        .stream()
+        .filter((snapshot) -> matchingSnapshots.contains(snapshot.snapshotId))
+        .collect(Collectors.toList());
   }
 
   /**
