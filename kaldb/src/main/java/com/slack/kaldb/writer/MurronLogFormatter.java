@@ -42,7 +42,7 @@ public class MurronLogFormatter {
         API_LOG_DURATION_FIELD,
         1,
         LogMessage.ReservedField.TRACE_ID.fieldName,
-        "");
+        "id");
   }
 
   // TODO: Take duration unit as input.

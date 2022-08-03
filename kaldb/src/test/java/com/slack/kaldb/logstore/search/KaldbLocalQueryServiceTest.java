@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.zipkinApi.ZipkinService.BINARY_TAG_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
@@ -29,7 +30,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.*;
 
@@ -455,5 +459,255 @@ public class KaldbLocalQueryServiceTest {
                 .setHowMany(0)
                 .setBucketCount(0)
                 .build());
+  }
+
+  @Test
+  public void zipkinGetTracesTimestampTest() throws IOException {
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    List<LogMessage> insertMessages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
+    for (LogMessage m : insertMessages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+      offset++;
+    }
+    Long endTs = 1601547099000L;
+    Long lookback = 1601547092000L;
+    int limit = 10;
+    String queryString = "id:Message*";
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+    KaldbSearch.SearchResult searchResult =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setIndexName("testindex") // [Q] as of now we don't need to worry about index?
+                .setQueryString(queryString) // query everything
+                // startTime: endTs - lookback (conversion)
+                .setStartTimeEpochMs(
+                    lookback) // [Q] double check that these correspond to lookback and endTs not
+                // min and max Duration
+                .setEndTimeEpochMs(endTs)
+                // [Q] difference between howmany and bucketcount?
+                .setHowMany(limit)
+                .setBucketCount(0)
+                .build());
+    List<LogMessage> messages = searchResultToLogMessage(searchResult);
+    List<String> messageStrings = new ArrayList<>();
+
+    for (LogMessage message : messages) {
+      Map<String, Object> source = message.getSource();
+      for (String k : source.keySet()) {}
+
+      final String messageTraceId = (String) source.get("trace_id");
+      final String messageId = message.id;
+      final String messageParentId = (String) source.get("parent_id");
+      // [Q]timestamp not completely correct
+      final String messageTimestamp = (String) source.get("@timestamp");
+      Instant instant = Instant.parse(messageTimestamp);
+      final long messageTimestampMicros =
+          TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
+              + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
+      final long messageDurationMicros = ((Number) source.get("duration_ms")).longValue();
+      final String messageServiceName = (String) source.get("service_name");
+      final String messageName = (String) source.get("name");
+      // [Q]what to put for msgtype
+      final String messageMsgType = "test message type";
+      final com.slack.service.murron.trace.Trace.Span messageSpan =
+          makeSpan(
+              messageTraceId,
+              messageId,
+              messageParentId,
+              messageTimestampMicros,
+              messageDurationMicros,
+              messageName,
+              messageServiceName,
+              messageMsgType);
+      // NEED TO CONVERT A LIST OF TRACES
+      messageStrings.add(JsonUtil.writeJsonArray(JsonUtil.writeAsString(messageSpan)));
+    }
+
+    System.out.println(messageStrings);
+  }
+
+  @Test
+  public void zipkinGetTraceByIdTest() throws IOException {
+
+    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
+
+    final Instant startTime =
+        LocalDateTime.of(2022, 7, 8, 13, 50, 0).atZone(ZoneOffset.UTC).toInstant();
+    List<LogMessage> insertMessages =
+        MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
+    int offset = 1;
+    for (LogMessage m : insertMessages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARITION_ID, offset);
+
+      offset++;
+    }
+    long defaultLookback = 86400000L;
+
+    String queryString = "traceId:" + "sdfadhjfadshj";
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+    KaldbSearch.SearchResult searchResult =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setIndexName("testindex") // [Q] as of now we don't need to worry about index?
+                .setQueryString(queryString) // query everything
+                // startTime: endTs - lookback (conversion)
+                .setStartTimeEpochMs(
+                    defaultLookback) // [Q] double check that these correspond to lookback and endTs
+                // not
+                // [Q] what to set for this
+                .setEndTimeEpochMs(System.currentTimeMillis())
+                // [Q] difference between howmany and bucketcount?
+                .setHowMany(10)
+                .setBucketCount(0)
+                .build());
+    List<LogMessage> messages = searchResultToLogMessage(searchResult);
+    List<String> messageStrings = new ArrayList<>();
+
+    for (LogMessage message : messages) {
+      Map<String, Object> source = message.getSource();
+      final String messageTraceId = (String) source.get("trace_id");
+      final String messageId = message.id;
+      final String messageParentId = (String) source.get("parent_id");
+      // [Q]timestamp not completely correct
+      final String messageTimestamp = (String) source.get("@timestamp");
+      Instant instant = Instant.parse(messageTimestamp);
+      final long messageTimestampMicros =
+          TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
+              + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
+      final long messageDurationMicros = ((Number) source.get("duration_ms")).longValue();
+      final String messageServiceName = (String) source.get("service_name");
+      final String messageName = (String) source.get("name");
+      // [Q]what to put for msgtype
+      final String messageMsgType = "test message type";
+      final com.slack.service.murron.trace.Trace.Span messageSpan =
+          makeSpan(
+              messageTraceId,
+              messageId,
+              messageParentId,
+              messageTimestampMicros,
+              messageDurationMicros,
+              messageName,
+              messageServiceName,
+              messageMsgType);
+      // NEED TO CONVERT A LIST OF TRACES
+      messageStrings.add(JsonUtil.writeJsonArray(JsonUtil.writeAsString(messageSpan)));
+    }
+
+    System.out.println(String.valueOf(messageStrings));
+  }
+
+  public static List<LogMessage> searchResultToLogMessage(KaldbSearch.SearchResult searchResult)
+      throws IOException {
+    List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
+    List<LogMessage> messages = new ArrayList<>();
+    for (ByteString byteString : hitsByteList) {
+      LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
+      LogMessage message = LogMessage.fromWireMessage(hit);
+      messages.add(message);
+    }
+    return messages;
+  }
+
+  public static com.slack.service.murron.trace.Trace.Span makeSpan(
+      String traceId,
+      String id,
+      String parentId,
+      long timestampMicros,
+      long durationMicros,
+      String name,
+      String serviceName,
+      String msgType) {
+    com.slack.service.murron.trace.Trace.Span.Builder spanBuilder =
+        makeSpanBuilder(
+            traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
+    return spanBuilder.build();
+  }
+
+  public static com.slack.service.murron.trace.Trace.Span.Builder makeSpanBuilder(
+      String traceId,
+      String id,
+      String parentId,
+      long timestampMicros,
+      long durationMicros,
+      String name,
+      String serviceName,
+      String msgType) {
+    com.slack.service.murron.trace.Trace.Span.Builder spanBuilder =
+        com.slack.service.murron.trace.Trace.Span.newBuilder();
+    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
+    spanBuilder.setStartTimestampMicros(timestampMicros);
+    spanBuilder.setDurationMicros(durationMicros);
+    spanBuilder.setName(name);
+
+    List<com.slack.service.murron.trace.Trace.KeyValue> tags = new ArrayList<>();
+    // Set service tag
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.STRING.getNumber())
+            .setVStr(serviceName)
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("http_method")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.STRING.getNumber())
+            .setVStr("POST")
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("method")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.STRING.getNumber())
+            .setVStr("callbacks.flannel")
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("boolean")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.BOOL.getNumber())
+            .setVBool(true)
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("int")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.INT64.getNumber())
+            .setVInt64(1000)
+            .setVFloat64(1001.2)
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("float")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.FLOAT64.getNumber())
+            .setVFloat64(1001.2)
+            .setVInt64(1000)
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey("binary")
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.BINARY.getNumber())
+            .setVBinary(ByteString.copyFromUtf8(BINARY_TAG_VALUE))
+            .setVStr("ignored")
+            .build());
+
+    tags.add(
+        com.slack.service.murron.trace.Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.SystemField.TYPE.fieldName)
+            .setVTypeValue(com.slack.service.murron.trace.Trace.ValueType.STRING.getNumber())
+            .setVStr(msgType)
+            .build());
+
+    spanBuilder.addAllTags(tags);
+    return spanBuilder;
   }
 }

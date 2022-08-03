@@ -65,6 +65,7 @@ public class MessageUtil {
     String message = String.format("The identifier in this message is %s", id);
     fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
     fieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
+    fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, "foo");
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
