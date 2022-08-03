@@ -209,6 +209,7 @@ public class Kaldb {
               .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
+              .withAnnotatedService(new ZipkinService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
