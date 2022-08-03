@@ -32,7 +32,7 @@ public class FieldConflictsTest {
 
     LogMessage msg1 =
         new LogMessage(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
             Map.of(
@@ -50,7 +50,7 @@ public class FieldConflictsTest {
 
     LogMessage msg2 =
         new LogMessage(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
             Map.of(
@@ -76,7 +76,7 @@ public class FieldConflictsTest {
                 assertThat(
                         findAllMessages(
                                 strictLogStore.logSearcher,
-                                MessageUtil.TEST_INDEX_NAME,
+                                MessageUtil.TEST_DATASET_NAME,
                                 queryByHost,
                                 1000,
                                 1)
@@ -87,7 +87,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByInt =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumber,
             1000,
             1);
@@ -97,7 +97,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByNumber =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeExactMatch,
             1000,
             1);
@@ -110,7 +110,7 @@ public class FieldConflictsTest {
 
     LogMessage msg0 =
         new LogMessage(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "0",
             Map.of(
@@ -128,7 +128,7 @@ public class FieldConflictsTest {
 
     LogMessage msg1 =
         new LogMessage(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
             Map.of(
@@ -146,7 +146,7 @@ public class FieldConflictsTest {
 
     LogMessage msg2 =
         new LogMessage(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
             Map.of(
@@ -172,7 +172,7 @@ public class FieldConflictsTest {
                 assertThat(
                         findAllMessages(
                                 strictLogStore.logSearcher,
-                                MessageUtil.TEST_INDEX_NAME,
+                                MessageUtil.TEST_DATASET_NAME,
                                 queryByHost,
                                 1000,
                                 1)
@@ -183,7 +183,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByString =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByString,
             1000,
             1);
@@ -193,7 +193,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByExactString =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByExactString,
             1000,
             1);
@@ -203,7 +203,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByString1 =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByString1,
             1000,
             1);
@@ -213,7 +213,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByExactString1 =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByExactString1,
             1000,
             1);
@@ -223,7 +223,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByNumber =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumber,
             1000,
             1);
@@ -233,7 +233,7 @@ public class FieldConflictsTest {
     Collection<LogMessage> searchByNumberString =
         findAllMessages(
             strictLogStore.logSearcher,
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumberString,
             1000,
             1);

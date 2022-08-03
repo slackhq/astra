@@ -20,6 +20,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
@@ -55,7 +56,7 @@ public class ElasticsearchApiServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     KaldbLocalQueryService<LogMessage> searcher =
-        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
+        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
     elasticsearchApiService = new ElasticsearchApiService(searcher);
   }
 

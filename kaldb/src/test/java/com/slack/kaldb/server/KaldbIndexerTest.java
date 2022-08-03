@@ -36,6 +36,7 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -597,7 +598,8 @@ public class KaldbIndexerTest {
     SearchResult<LogMessage> searchResult =
         chunkManagerUtil.chunkManager.query(
             new SearchQuery(
-                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2));
+                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2),
+            Duration.ofMillis(3000));
 
     // Validate search response
     assertThat(searchResult.hits.size()).isEqualTo(1);

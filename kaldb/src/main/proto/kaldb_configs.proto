@@ -83,6 +83,7 @@ message TracingConfig {
 // Configuration for the query service.
 message QueryServiceConfig {
   ServerConfig server_config = 1;
+  int32 default_query_timeout_ms = 2;
 }
 
 // Configuration for the indexer.
@@ -105,6 +106,7 @@ message IndexerConfig {
   // The max_offset_delay controls by how many kafka messages the indexer can be behind
   // before it needs to create a recovery task to catch up.
   int64 max_offset_delay_messages = 8;
+  int32 default_query_timeout_ms = 9;
 }
 
 // A config object containing all the lucene configs.
@@ -117,17 +119,17 @@ message LuceneConfig {
 message ServerConfig {
   int32 server_port = 1;
   string server_address = 2;
+  int32 request_timeout_ms = 3;
 }
 
 // Configuration for cache node.
 message CacheConfig {
   // Number of slots per cache instance.
   int32 slots_per_instance = 1;
-  // Maximum number slots that can download chunks in parallel.
-  int32 max_parallel_cache_slot_downloads = 2;
+  string data_directory = 2;
   // Path on local disk to store downloaded files.
-  string data_directory = 3;
-  ServerConfig server_config = 4;
+  ServerConfig server_config = 3;
+  int32 default_query_timeout_ms = 4;
 }
 
 // Cluster manager config. As a convention we define a config struct for
@@ -160,6 +162,12 @@ message ManagerConfig {
     int32 snapshot_lifespan_mins = 2;
   }
 
+  message ReplicaRestoreServiceConfig {
+    int32 schedule_period_mins = 1;
+    int32 max_replicas_per_request = 2;
+    int32 replica_lifespan_mins = 3;
+  }
+
   // Event aggregation secs is a de-bounce setting. It's the time
   // a service waits to take an action after a zk notification.
   int32 event_aggregation_secs = 1;
@@ -176,6 +184,7 @@ message ManagerConfig {
   RecoveryTaskAssignmentServiceConfig
       recovery_task_assignment_service_config = 8;
   SnapshotDeletionServiceConfig snapshot_deletion_service_config = 9;
+  ReplicaRestoreServiceConfig replica_restore_service_config = 10;
 }
 
 // Config for the recovery node.

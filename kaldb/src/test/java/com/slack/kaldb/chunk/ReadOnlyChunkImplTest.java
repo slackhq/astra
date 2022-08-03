@@ -114,13 +114,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -139,7 +140,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageSearchResult =
         readOnlyChunk.query(
             new SearchQuery(
-                MessageUtil.TEST_INDEX_NAME,
+                MessageUtil.TEST_DATASET_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
@@ -180,7 +181,7 @@ public class ReadOnlyChunkImplTest {
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
             new SearchQuery(
-                MessageUtil.TEST_INDEX_NAME,
+                MessageUtil.TEST_DATASET_NAME,
                 "*:*",
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
@@ -232,13 +233,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -298,13 +300,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -365,13 +368,14 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             metadataStore,
             meterRegistry,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
+            kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
-            searchMetadataStore,
-            new ChunkDownloaderFactory(kaldbConfig.getS3Config().getS3Bucket(), s3BlobFs, 1));
+            searchMetadataStore);
 
     // wait for chunk to register
     await()
@@ -391,7 +395,7 @@ public class ReadOnlyChunkImplTest {
 
     SearchQuery query =
         new SearchQuery(
-            MessageUtil.TEST_INDEX_NAME,
+            MessageUtil.TEST_DATASET_NAME,
             "*:*",
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),

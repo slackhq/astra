@@ -1,124 +1,138 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.metadata.service.ServiceMetadataSerializer.toServiceMetadataProto;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataSerializer;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.clusterManager.ReplicaRestoreService;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.naming.SizeLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Administration API for managing service configurations, including throughput and partition
+ * Administration API for managing dataset configurations, including throughput and partition
  * assignments. This API is available only on the cluster manager service, and the data created is
  * consumed primarily by the pre-processor and query services.
  */
 public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(ManagerApiGrpc.class);
-
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
+  private final SnapshotMetadataStore snapshotMetadataStore;
   public static final long MAX_TIME = Long.MAX_VALUE;
+  private final ReplicaRestoreService replicaRestoreService;
 
-  public ManagerApiGrpc(ServiceMetadataStore serviceMetadataStore) {
-    this.serviceMetadataStore = serviceMetadataStore;
+  public ManagerApiGrpc(
+      DatasetMetadataStore datasetMetadataStore,
+      SnapshotMetadataStore snapshotMetadataStore,
+      ReplicaRestoreService replicaRestoreService) {
+    this.datasetMetadataStore = datasetMetadataStore;
+    this.snapshotMetadataStore = snapshotMetadataStore;
+    this.replicaRestoreService = replicaRestoreService;
   }
 
-  /** Initializes a new service in the metadata store with no initial allocated capacity */
+  /** Initializes a new dataset in the metadata store with no initial allocated capacity */
   @Override
-  public void createServiceMetadata(
-      ManagerApi.CreateServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+  public void createDatasetMetadata(
+      ManagerApi.CreateDatasetMetadataRequest request,
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
-      serviceMetadataStore.createSync(
-          new ServiceMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
+      datasetMetadataStore.createSync(
+          new DatasetMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
       responseObserver.onNext(
-          toServiceMetadataProto(serviceMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error creating new service", e);
+      LOG.error("Error creating new dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Updates an existing service with new metadata */
+  /** Updates an existing dataset with new metadata */
   @Override
-  public void updateServiceMetadata(
-      ManagerApi.UpdateServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+  public void updateDatasetMetadata(
+      ManagerApi.UpdateDatasetMetadataRequest request,
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
-      ServiceMetadata existingServiceMetadata = serviceMetadataStore.getNodeSync(request.getName());
+      DatasetMetadata existingDatasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
 
-      ServiceMetadata updatedServiceMetadata =
-          new ServiceMetadata(
-              existingServiceMetadata.getName(),
+      DatasetMetadata updatedDatasetMetadata =
+          new DatasetMetadata(
+              existingDatasetMetadata.getName(),
               request.getOwner(),
-              existingServiceMetadata.getThroughputBytes(),
-              existingServiceMetadata.getPartitionConfigs());
-      serviceMetadataStore.updateSync(updatedServiceMetadata);
-      responseObserver.onNext(toServiceMetadataProto(updatedServiceMetadata));
+              existingDatasetMetadata.getThroughputBytes(),
+              existingDatasetMetadata.getPartitionConfigs());
+      datasetMetadataStore.updateSync(updatedDatasetMetadata);
+      responseObserver.onNext(toDatasetMetadataProto(updatedDatasetMetadata));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error updating existing service", e);
+      LOG.error("Error updating existing dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Returns a single service metadata by name */
+  /** Returns a single dataset metadata by name */
   @Override
-  public void getServiceMetadata(
-      ManagerApi.GetServiceMetadataRequest request,
-      StreamObserver<Metadata.ServiceMetadata> responseObserver) {
+  public void getDatasetMetadata(
+      ManagerApi.GetDatasetMetadataRequest request,
+      StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
       responseObserver.onNext(
-          toServiceMetadataProto(serviceMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error getting service", e);
+      LOG.error("Error getting dataset", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
-  /** Returns all available services from the metadata store */
+  /** Returns all available datasets from the metadata store */
   @Override
-  public void listServiceMetadata(
-      ManagerApi.ListServiceMetadataRequest request,
-      StreamObserver<ManagerApi.ListServiceMetadataResponse> responseObserver) {
+  public void listDatasetMetadata(
+      ManagerApi.ListDatasetMetadataRequest request,
+      StreamObserver<ManagerApi.ListDatasetMetadataResponse> responseObserver) {
     // todo - consider adding search/pagination support
     try {
       responseObserver.onNext(
-          ManagerApi.ListServiceMetadataResponse.newBuilder()
-              .addAllServiceMetadata(
-                  serviceMetadataStore
+          ManagerApi.ListDatasetMetadataResponse.newBuilder()
+              .addAllDatasetMetadata(
+                  datasetMetadataStore
                       .listSync()
                       .stream()
-                      .map(ServiceMetadataSerializer::toServiceMetadataProto)
+                      .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());
       responseObserver.onCompleted();
     } catch (Exception e) {
-      LOG.error("Error getting services", e);
+      LOG.error("Error getting datasets.", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
 
   /**
-   * Allocates a new partition assignment for a service. If a rate and a list of partition IDs are
+   * Allocates a new partition assignment for a dataset. If a rate and a list of partition IDs are
    * provided, it will use it use the list of partition ids as the current allocation and
    * invalidates the existing assignment.
    */
@@ -136,24 +150,24 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           request.getPartitionIdsList().stream().noneMatch(String::isBlank),
           "PartitionIds list must not contain blank strings");
 
-      ServiceMetadata serviceMetadata = serviceMetadataStore.getNodeSync(request.getName());
-      ImmutableList<ServicePartitionMetadata> updatedServicePartitionMetadata =
-          addNewPartition(serviceMetadata.getPartitionConfigs(), request.getPartitionIdsList());
+      DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
+      ImmutableList<DatasetPartitionMetadata> updatedDatasetPartitionMetadata =
+          addNewPartition(datasetMetadata.getPartitionConfigs(), request.getPartitionIdsList());
 
       // if the user provided a non-negative value for throughput set it, otherwise default to the
       // existing value
       long updatedThroughputBytes =
           request.getThroughputBytes() < 0
-              ? serviceMetadata.getThroughputBytes()
+              ? datasetMetadata.getThroughputBytes()
               : request.getThroughputBytes();
 
-      ServiceMetadata updatedServiceMetadata =
-          new ServiceMetadata(
-              serviceMetadata.getName(),
-              serviceMetadata.getOwner(),
+      DatasetMetadata updatedDatasetMetadata =
+          new DatasetMetadata(
+              datasetMetadata.getName(),
+              datasetMetadata.getOwner(),
               updatedThroughputBytes,
-              updatedServicePartitionMetadata);
-      serviceMetadataStore.updateSync(updatedServiceMetadata);
+              updatedDatasetPartitionMetadata);
+      datasetMetadataStore.updateSync(updatedDatasetMetadata);
 
       responseObserver.onNext(
           ManagerApi.UpdatePartitionAssignmentResponse.newBuilder()
@@ -166,32 +180,116 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
   }
 
+  @Override
+  public void restoreReplica(
+      ManagerApi.RestoreReplicaRequest request,
+      StreamObserver<ManagerApi.RestoreReplicaResponse> responseObserver) {
+    try {
+      Preconditions.checkArgument(
+          request.getStartTimeEpochMs() < request.getEndTimeEpochMs(),
+          "Start time must not be after end time");
+      Preconditions.checkArgument(
+          !request.getServiceName().isEmpty(), "Service name must not be empty");
+
+      List<SnapshotMetadata> snapshotsToRestore =
+          fetchSnapshots(
+              snapshotMetadataStore.getCached(),
+              datasetMetadataStore,
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs(),
+              request.getServiceName());
+
+      replicaRestoreService.queueSnapshotsForRestoration(snapshotsToRestore);
+
+      responseObserver.onNext(
+          ManagerApi.RestoreReplicaResponse.newBuilder().setStatus("success").build());
+      responseObserver.onCompleted();
+    } catch (SizeLimitExceededException e) {
+      LOG.info(
+          "Error handling request: number of replicas requested exceeds maxReplicasPerRequest limit",
+          e);
+      responseObserver.onError(
+          Status.RESOURCE_EXHAUSTED.withDescription(e.getMessage()).asException());
+    } catch (Exception e) {
+      LOG.info("Error handling request", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
   /**
-   * Returns a new list of service partition metadata, with the provided partition IDs as the
+   * Fetches all SnapshotMetadata between startTimeEpochMs and endTimeEpochMs that contain data from
+   * the queried service
+   *
+   * @return List of SnapshotMetadata that are within specified timeframe and from queried service
+   */
+  protected static List<SnapshotMetadata> fetchSnapshots(
+      List<SnapshotMetadata> snapshotMetadataList,
+      DatasetMetadataStore datasetMetadataStore,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      String datasetName) {
+    Set<String> partitionIdsWithQueriedData = new HashSet<>();
+    List<DatasetPartitionMetadata> partitionMetadataList =
+        DatasetPartitionMetadata.findPartitionsToQuery(
+            datasetMetadataStore, startTimeEpochMs, endTimeEpochMs, datasetName);
+
+    // flatten all partition ids into one list
+    for (DatasetPartitionMetadata datasetPartitionMetadata : partitionMetadataList) {
+      partitionIdsWithQueriedData.addAll(datasetPartitionMetadata.partitions);
+    }
+
+    List<SnapshotMetadata> snapshotMetadata = new ArrayList<>();
+
+    for (SnapshotMetadata snapshot : snapshotMetadataList) {
+      if (snapshotContainsRequestedDataAndIsWithinTimeframe(
+          startTimeEpochMs, endTimeEpochMs, partitionIdsWithQueriedData, snapshot)) {
+        snapshotMetadata.add(snapshot);
+      }
+    }
+
+    return snapshotMetadata;
+  }
+
+  /**
+   * Returns true if the given Snapshot: 1. contains data between startTimeEpochMs and
+   * endTimeEpochMs; AND 2. is from one of the partitions containing data from the queried service
+   */
+  private static boolean snapshotContainsRequestedDataAndIsWithinTimeframe(
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      Set<String> partitionIdsWithQueriedData,
+      SnapshotMetadata snapshot) {
+    return ChunkInfo.containsDataInTimeRange(
+            snapshot.startTimeEpochMs, snapshot.endTimeEpochMs, startTimeEpochMs, endTimeEpochMs)
+        && partitionIdsWithQueriedData.contains(snapshot.partitionId);
+  }
+
+  /**
+   * Returns a new list of dataset partition metadata, with the provided partition IDs as the
    * current active assignment. This finds the current active assignment (end time of max long),
-   * sets it to the current time, and then appends a new service partition assignment starting from
+   * sets it to the current time, and then appends a new dataset partition assignment starting from
    * current time + 1 to max long.
    */
-  private static ImmutableList<ServicePartitionMetadata> addNewPartition(
-      List<ServicePartitionMetadata> existingPartitions, List<String> newPartitionIdsList) {
+  private static ImmutableList<DatasetPartitionMetadata> addNewPartition(
+      List<DatasetPartitionMetadata> existingPartitions, List<String> newPartitionIdsList) {
     if (newPartitionIdsList.isEmpty()) {
       return ImmutableList.copyOf(existingPartitions);
     }
 
-    Optional<ServicePartitionMetadata> previousActiveServicePartition =
+    Optional<DatasetPartitionMetadata> previousActiveDatasetPartition =
         existingPartitions
             .stream()
             .filter(
-                servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
+                datasetPartitionMetadata ->
+                    datasetPartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
-    List<ServicePartitionMetadata> remainingServicePartitions =
+    List<DatasetPartitionMetadata> remainingDatasetPartitions =
         existingPartitions
             .stream()
             .filter(
-                servicePartitionMetadata ->
-                    servicePartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
+                datasetPartitionMetadata ->
+                    datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
             .collect(Collectors.toList());
 
     // todo - consider adding some padding to this value; this may complicate
@@ -201,20 +299,20 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     //   see https://github.com/slackhq/kaldb/pull/244#discussion_r835424863
     long partitionCutoverTime = Instant.now().toEpochMilli();
 
-    ImmutableList.Builder<ServicePartitionMetadata> builder =
-        ImmutableList.<ServicePartitionMetadata>builder().addAll(remainingServicePartitions);
+    ImmutableList.Builder<DatasetPartitionMetadata> builder =
+        ImmutableList.<DatasetPartitionMetadata>builder().addAll(remainingDatasetPartitions);
 
-    if (previousActiveServicePartition.isPresent()) {
-      ServicePartitionMetadata updatedPreviousActivePartition =
-          new ServicePartitionMetadata(
-              previousActiveServicePartition.get().getStartTimeEpochMs(),
+    if (previousActiveDatasetPartition.isPresent()) {
+      DatasetPartitionMetadata updatedPreviousActivePartition =
+          new DatasetPartitionMetadata(
+              previousActiveDatasetPartition.get().getStartTimeEpochMs(),
               partitionCutoverTime,
-              previousActiveServicePartition.get().getPartitions());
+              previousActiveDatasetPartition.get().getPartitions());
       builder.add(updatedPreviousActivePartition);
     }
 
-    ServicePartitionMetadata newPartitionMetadata =
-        new ServicePartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
+    DatasetPartitionMetadata newPartitionMetadata =
+        new DatasetPartitionMetadata(partitionCutoverTime + 1, MAX_TIME, newPartitionIdsList);
     return builder.add(newPartitionMetadata).build();
   }
 }

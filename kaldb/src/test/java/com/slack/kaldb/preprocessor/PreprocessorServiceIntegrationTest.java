@@ -4,9 +4,9 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -61,7 +61,7 @@ public class PreprocessorServiceIntegrationTest {
             .setSleepBetweenRetriesMs(30000)
             .build();
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
 
     KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
         KaldbConfigs.PreprocessorConfig.KafkaStreamConfig.newBuilder()
@@ -84,17 +84,17 @@ public class PreprocessorServiceIntegrationTest {
             .build();
 
     PreprocessorService preprocessorService =
-        new PreprocessorService(serviceMetadataStore, preprocessorConfig, meterRegistry);
+        new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
 
     preprocessorService.startAsync();
     preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(1);
-    serviceMetadataStore.createSync(new ServiceMetadata("name", "owner", 0, List.of()));
+    datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of()));
 
     // wait for the cache to be updated
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(2);
 
@@ -102,7 +102,7 @@ public class PreprocessorServiceIntegrationTest {
     preprocessorService.awaitTerminated();
 
     // close out the metadata stores
-    serviceMetadataStore.close();
+    datasetMetadataStore.close();
     metadataStore.close();
   }
 
@@ -121,7 +121,7 @@ public class PreprocessorServiceIntegrationTest {
             .setSleepBetweenRetriesMs(30000)
             .build();
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
 
     // initialize the downstream topic
     String downstreamTopic = "test-topic-out";
@@ -152,7 +152,7 @@ public class PreprocessorServiceIntegrationTest {
             .build();
 
     PreprocessorService preprocessorService =
-        new PreprocessorService(serviceMetadataStore, preprocessorConfig, meterRegistry);
+        new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
 
     preprocessorService.startAsync();
     preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -162,16 +162,16 @@ public class PreprocessorServiceIntegrationTest {
 
     // create a new service config with dummy data
     String serviceName = "testindex";
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
             serviceName,
             "owner",
             100,
-            List.of(new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("3"))));
-    serviceMetadataStore.createSync(serviceMetadata);
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("3"))));
+    datasetMetadataStore.createSync(datasetMetadata);
 
     // wait for the cache to be updated
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
     await()
         .until(
             () ->
@@ -179,15 +179,15 @@ public class PreprocessorServiceIntegrationTest {
                     == 2);
 
     // update the service config with our desired configuration
-    ServiceMetadata updatedServiceMetadata =
-        new ServiceMetadata(
-            serviceMetadata.getName(),
-            serviceMetadata.getOwner(),
+    DatasetMetadata updatedDatasetMetadata =
+        new DatasetMetadata(
+            datasetMetadata.getName(),
+            datasetMetadata.getOwner(),
             Long.MAX_VALUE,
             List.of(
-                new ServicePartitionMetadata(1, 10000, List.of("3")),
-                new ServicePartitionMetadata(10001, Long.MAX_VALUE, List.of("2"))));
-    serviceMetadataStore.updateSync(updatedServiceMetadata);
+                new DatasetPartitionMetadata(1, 10000, List.of("3")),
+                new DatasetPartitionMetadata(10001, Long.MAX_VALUE, List.of("2"))));
+    datasetMetadataStore.updateSync(updatedDatasetMetadata);
 
     // wait for the cache to be updated
     await()
@@ -195,8 +195,8 @@ public class PreprocessorServiceIntegrationTest {
             () ->
                 MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
                     == 3);
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(serviceMetadataStore.listSync().get(0).getThroughputBytes())
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(datasetMetadataStore.listSync().get(0).getThroughputBytes())
         .isEqualTo(Long.MAX_VALUE);
 
     // produce messages to upstream
@@ -246,7 +246,7 @@ public class PreprocessorServiceIntegrationTest {
     preprocessorService.awaitTerminated();
 
     // close out the metadata stores
-    serviceMetadataStore.close();
+    datasetMetadataStore.close();
     metadataStore.close();
   }
 }
