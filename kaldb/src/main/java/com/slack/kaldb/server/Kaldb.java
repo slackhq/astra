@@ -200,6 +200,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
+              .withAnnotatedService(new ZipkinService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
