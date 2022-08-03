@@ -47,6 +47,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
+import com.slack.kaldb.zipkinApi.ZipkinService;
 
 /**
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
