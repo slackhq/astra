@@ -27,6 +27,7 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
+import com.slack.kaldb.zipkinApi.ZipkinService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -208,6 +209,7 @@ public class Kaldb {
               .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
+              .withAnnotatedService(new ZipkinService(kaldbDistributedQueryService))
               .withGrpcService(kaldbDistributedQueryService)
               .build();
       services.add(armeriaService);
