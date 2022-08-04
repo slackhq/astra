@@ -28,16 +28,18 @@ public class ZipkinService {
     @Get
     @Path("/api/v2/services")
     public HttpResponse getServices() throws IOException {
-        return null;
+        String output = "[]";
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
     }
 
     @Get("/api/v2/spans")
-    public String getSpans(@Param("serviceName") Optional<String> serviceName) throws IOException {
-        return null;
+    public HttpResponse getSpans(@Param("serviceName") Optional<String> serviceName) throws IOException {
+        String output = "[]";
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
     }
 
     @Get("/api/v2/traces")
-    public String getTraces(
+    public HttpResponse getTraces(
             @Param("serviceName") Optional<String> serviceName,
             @Param("spanName") Optional<String> spanName,
             @Param("annotationQuery") Optional<String> annotationQuery,
@@ -47,11 +49,13 @@ public class ZipkinService {
             @Param("lookback") Long lookback,
             @Param("limit") @Default("10") Integer limit)
             throws IOException {
-        return null;
+        String output = "[]";
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
     }
 
     @Get("/api/v2/trace/{traceId}")
     public HttpResponse getTraceByTraceId(@Param("traceId") String traceId) throws IOException {
-        return null;
+        String output = "[]";
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
     }
 }
