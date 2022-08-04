@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
-import static com.slack.kaldb.server.KaldbConfig.DISTRIBUTED_QUERY_TIMEOUT_DURATION;
 
 import brave.ScopedSpan;
 import brave.Tracing;
@@ -13,10 +12,10 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -24,6 +23,7 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -31,7 +31,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +48,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   private final SearchMetadataStore searchMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
-  private final ServiceMetadataStore serviceMetadataStore;
+  private final DatasetMetadataStore datasetMetadataStore;
 
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
@@ -59,22 +58,29 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
-  @VisibleForTesting
-  public static long READ_TIMEOUT_MS = DISTRIBUTED_QUERY_TIMEOUT_DURATION.toMillis();
+  public static final String DISTRIBUTED_QUERY_APDEX_SATISFIED =
+      "distributed_query_apdex_satisfied";
+  public static final String DISTRIBUTED_QUERY_APDEX_TOLERATING =
+      "distributed_query_apdex_tolerating";
+  public static final String DISTRIBUTED_QUERY_APDEX_FRUSTRATED =
+      "distributed_query_apdex_frustrated";
 
-  private static final long GRPC_TIMEOUT_BUFFER_MS = 100;
-
-  public static final String DISTRIBUTED_QUERY_TOTAL_NODES = "distributed_query_total_nodes";
-  public static final String DISTRIBUTED_QUERY_FAILED_NODES = "distributed_query_failed_nodes";
   public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
       "distributed_query_total_snapshots";
   public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
       "distributed_query_snapshots_with_replicas";
 
-  private final Counter distributedQueryTotalNodes;
-  private final Counter distributedQueryFailedNodes;
+  private final Counter distributedQueryApdexSatisfied;
+  private final Counter distributedQueryApdexTolerating;
+  private final Counter distributedQueryApdexFrustrated;
   private final Counter distributedQueryTotalSnapshots;
   private final Counter distributedQuerySnapshotsWithReplicas;
+  // Timeouts are structured such that we always attempt to return a successful response, as we
+  // include metadata that should always be present. The Armeria timeout is used at the top request,
+  // distributed query is used as a deadline for all nodes to return, and the local query timeout
+  // is used for controlling lucene future timeouts.
+  private final Duration requestTimeout;
+  private final Duration defaultQueryTimeout;
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -84,16 +90,24 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public KaldbDistributedQueryService(
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
-      MeterRegistry meterRegistry) {
+      DatasetMetadataStore datasetMetadataStore,
+      MeterRegistry meterRegistry,
+      Duration requestTimeout,
+      Duration defaultQueryTimeout) {
     this.searchMetadataStore = searchMetadataStore;
     this.snapshotMetadataStore = snapshotMetadataStore;
-    this.serviceMetadataStore = serviceMetadataStore;
+    this.datasetMetadataStore = datasetMetadataStore;
+    this.requestTimeout = requestTimeout;
+    this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
     this.searchMetadataStore.addListener(this::updateStubs);
 
-    this.distributedQueryTotalNodes = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_NODES);
-    this.distributedQueryFailedNodes = meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_NODES);
+    this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
+    this.distributedQueryApdexTolerating =
+        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING);
+    this.distributedQueryApdexFrustrated =
+        meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
+
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
     this.distributedQuerySnapshotsWithReplicas =
         meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
@@ -160,17 +174,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   public static Collection<String> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      ServiceMetadataStore serviceMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
       long queryStartTimeEpochMs,
       long queryEndTimeEpochMs,
-      String indexName) {
+      String dataset) {
     ScopedSpan findPartitionsToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
 
-    List<ServicePartitionMetadata> partitions =
-        findPartitionsToQuery(
-            serviceMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, indexName);
+    List<DatasetPartitionMetadata> partitions =
+        DatasetPartitionMetadata.findPartitionsToQuery(
+            datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
     findPartitionsToQuerySpan.finish();
 
     // step 1 - find all snapshots that match time window and partition
@@ -195,25 +209,34 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan pickSearchNodeToQuerySpan =
         Tracing.currentTracer()
             .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
-    // TODO: Re-write this code using a for loop.
-    var nodes =
-        searchMetadataStore
-            .getCached()
-            .stream()
-            .filter(searchMetadata -> snapshotsToSearch.contains(searchMetadata.snapshotName))
-            .collect(Collectors.groupingBy(KaldbDistributedQueryService::getRawSnapshotName))
-            .values()
-            .stream()
-            .map(KaldbDistributedQueryService::pickSearchNodeToQuery)
-            .collect(Collectors.toSet());
-    pickSearchNodeToQuerySpan.finish();
+
+    Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
+    for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
+      if (!snapshotsToSearch.contains(searchMetadata.snapshotName)) {
+        continue;
+      }
+
+      String rawSnapshotName = KaldbDistributedQueryService.getRawSnapshotName(searchMetadata);
+      if (searchMetadataGroupedByName.containsKey(rawSnapshotName)) {
+        searchMetadataGroupedByName.get(rawSnapshotName).add(searchMetadata);
+      } else {
+        List<SearchMetadata> searchMetadataList = new ArrayList<>();
+        searchMetadataList.add(searchMetadata);
+        searchMetadataGroupedByName.put(rawSnapshotName, searchMetadataList);
+      }
+    }
+
+    Set<String> nodes = new HashSet<>();
+    for (List<SearchMetadata> searchMetadata : searchMetadataGroupedByName.values()) {
+      nodes.add(KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata));
+    }
 
     return nodes;
   }
 
   public static boolean isSnapshotInPartition(
-      SnapshotMetadata snapshotMetadata, List<ServicePartitionMetadata> partitions) {
-    for (ServicePartitionMetadata partition : partitions) {
+      SnapshotMetadata snapshotMetadata, List<DatasetPartitionMetadata> partitions) {
+    for (DatasetPartitionMetadata partition : partitions) {
       if (partition.partitions.contains(snapshotMetadata.partitionId)
           && containsDataInTimeRange(
               partition.startTimeEpochMs,
@@ -268,33 +291,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
   }
 
-  /*
-   get partitions that match on two criteria
-   1. index name
-   2. partitions that have an overlap with the query window
-  */
-  @VisibleForTesting
-  protected static List<ServicePartitionMetadata> findPartitionsToQuery(
-      ServiceMetadataStore serviceMetadataStore,
-      long startTimeEpochMs,
-      long endTimeEpochMs,
-      String indexName) {
-    return serviceMetadataStore
-        .getCached()
-        .stream()
-        .filter(serviceMetadata -> serviceMetadata.name.equals(indexName))
-        .flatMap(
-            serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one
-        .filter(
-            partitionMetadata ->
-                containsDataInTimeRange(
-                    partitionMetadata.startTimeEpochMs,
-                    partitionMetadata.endTimeEpochMs,
-                    startTimeEpochMs,
-                    endTimeEpochMs))
-        .collect(Collectors.toList());
-  }
-
   private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
     LOG.info("Starting distributed search for request: {}", request);
     ScopedSpan span =
@@ -304,7 +300,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
         getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getIndexName());
+            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataset());
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
@@ -312,7 +308,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
       ListenableFuture<KaldbSearch.SearchResult> searchRequest =
-          stub.withDeadlineAfter(READ_TIMEOUT_MS - GRPC_TIMEOUT_BUFFER_MS, TimeUnit.MILLISECONDS)
+          stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
               .search(request);
@@ -328,7 +324,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
     try {
       List<SearchResult<LogMessage>> searchResults =
-          searchFuture.get(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+          searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
       ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
@@ -350,15 +346,15 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeEpochMs, long endTimeEpochMs, String indexName) {
+      long startTimeEpochMs, long endTimeEpochMs, String dataset) {
     Collection<String> searchNodeUrls =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
-            serviceMetadataStore,
+            datasetMetadataStore,
             startTimeEpochMs,
             endTimeEpochMs,
-            indexName);
+            dataset);
     ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
         new ArrayList<>(searchNodeUrls.size());
     for (String searchNodeUrl : searchNodeUrls) {
@@ -375,8 +371,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
               .aggregate(searchResults);
 
-      distributedQueryTotalNodes.increment(aggregatedResult.totalNodes);
-      distributedQueryFailedNodes.increment(aggregatedResult.failedNodes);
+      // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
+      // response. Anything over 2% is considered an unacceptable.
+      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
+        distributedQueryApdexSatisfied.increment();
+      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
+          <= 0.02) {
+        distributedQueryApdexTolerating.increment();
+      } else {
+        distributedQueryApdexFrustrated.increment();
+      }
+
       distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
       distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
 

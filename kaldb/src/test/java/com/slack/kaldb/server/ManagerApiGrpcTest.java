@@ -3,13 +3,19 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.server.ManagerApiGrpc.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
+import com.slack.kaldb.clusterManager.ReplicaRestoreService;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
@@ -17,6 +23,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.testlib.MetricsUtil;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -26,6 +33,7 @@ import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
@@ -42,7 +50,10 @@ public class ManagerApiGrpcTest {
   private MeterRegistry meterRegistry;
 
   private MetadataStore metadataStore;
-  private ServiceMetadataStore serviceMetadataStore;
+  private DatasetMetadataStore datasetMetadataStore;
+  private SnapshotMetadataStore snapshotMetadataStore;
+  private ReplicaMetadataStore replicaMetadataStore;
+  private ReplicaRestoreService replicaRestoreService;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
   @Before
@@ -61,12 +72,31 @@ public class ManagerApiGrpcTest {
             .build();
 
     metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    serviceMetadataStore = spy(new ServiceMetadataStore(metadataStore, true));
+    datasetMetadataStore = spy(new DatasetMetadataStore(metadataStore, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(metadataStore, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
+
+    KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
+            .setMaxReplicasPerRequest(200)
+            .setReplicaLifespanMins(60)
+            .setSchedulePeriodMins(30)
+            .build();
+
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setReplicaRestoreServiceConfig(replicaRecreationServiceConfig)
+            .build();
+
+    replicaRestoreService =
+        new ReplicaRestoreService(replicaMetadataStore, meterRegistry, managerConfig);
 
     grpcCleanup.register(
         InProcessServerBuilder.forName(this.getClass().toString())
             .directExecutor()
-            .addService(new ManagerApiGrpc(serviceMetadataStore))
+            .addService(
+                new ManagerApiGrpc(
+                    datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
             .build()
             .start());
     ManagedChannel channel =
@@ -78,7 +108,7 @@ public class ManagerApiGrpcTest {
 
   @After
   public void tearDown() throws Exception {
-    serviceMetadataStore.close();
+    datasetMetadataStore.close();
     metadataStore.close();
 
     testingServer.close();
@@ -86,73 +116,73 @@ public class ManagerApiGrpcTest {
   }
 
   @Test
-  public void shouldCreateAndGetNewService() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
+  public void shouldCreateAndGetNewDataset() {
+    String datasetName = "testDataset";
+    String datasetOwner = "testOwner";
 
-    managerApiStub.createServiceMetadata(
-        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName)
+            .setOwner(datasetOwner)
             .build());
 
-    Metadata.ServiceMetadata getServiceMetadataResponse =
-        managerApiStub.getServiceMetadata(
-            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
-    assertThat(getServiceMetadataResponse.getName()).isEqualTo(serviceName);
-    assertThat(getServiceMetadataResponse.getOwner()).isEqualTo(serviceOwner);
-    assertThat(getServiceMetadataResponse.getThroughputBytes()).isEqualTo(0);
-    assertThat(getServiceMetadataResponse.getPartitionConfigsList().size()).isEqualTo(0);
+    Metadata.DatasetMetadata getDatasetMetadataResponse =
+        managerApiStub.getDatasetMetadata(
+            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
+    assertThat(getDatasetMetadataResponse.getName()).isEqualTo(datasetName);
+    assertThat(getDatasetMetadataResponse.getOwner()).isEqualTo(datasetOwner);
+    assertThat(getDatasetMetadataResponse.getThroughputBytes()).isEqualTo(0);
+    assertThat(getDatasetMetadataResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
-    ServiceMetadata serviceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(serviceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(serviceMetadata.getOwner()).isEqualTo(serviceOwner);
-    assertThat(serviceMetadata.getThroughputBytes()).isEqualTo(0);
-    assertThat(serviceMetadata.getPartitionConfigs().size()).isEqualTo(0);
+    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(datasetMetadata.getOwner()).isEqualTo(datasetOwner);
+    assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
+    assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
   }
 
   @Test
-  public void shouldErrorCreatingDuplicateServiceName() {
-    String serviceName = "testService";
-    String serviceOwner1 = "testOwner1";
-    String serviceOwner2 = "testOwner2";
+  public void shouldErrorCreatingDuplicateDatasetName() {
+    String datasetName = "testDataset";
+    String datasetOwner1 = "testOwner1";
+    String datasetOwner2 = "testOwner2";
 
-    managerApiStub.createServiceMetadata(
-        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner1)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName)
+            .setOwner(datasetOwner1)
             .build());
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner2)
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                            .setName(datasetName)
+                            .setOwner(datasetOwner2)
                             .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    ServiceMetadata serviceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(serviceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(serviceMetadata.getOwner()).isEqualTo(serviceOwner1);
-    assertThat(serviceMetadata.getThroughputBytes()).isEqualTo(0);
-    assertThat(serviceMetadata.getPartitionConfigs().size()).isEqualTo(0);
+    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(datasetMetadata.getOwner()).isEqualTo(datasetOwner1);
+    assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
+    assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
   }
 
   @Test
-  public void shouldErrorCreatingWithInvalidServiceNames() {
-    String serviceOwner = "testOwner";
+  public void shouldErrorCreatingWithInvalidDatasetNames() {
+    String datasetOwner = "testOwner";
 
     StatusRuntimeException throwable1 =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
                             .setName("")
-                            .setOwner(serviceOwner)
+                            .setOwner(datasetOwner)
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable1.getStatus().getDescription()).isEqualTo("name can't be null or empty.");
@@ -161,10 +191,10 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
                             .setName("/")
-                            .setOwner(serviceOwner)
+                            .setOwner(datasetOwner)
                             .build()));
     assertThat(throwable2.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
@@ -172,104 +202,104 @@ public class ManagerApiGrpcTest {
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
                             .setName(".")
-                            .setOwner(serviceOwner)
+                            .setOwner(datasetOwner)
                             .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
   }
 
   @Test
   public void shouldErrorWithEmptyOwnerInformation() {
-    String serviceName = "testService";
+    String datasetName = "testDataset";
 
     StatusRuntimeException throwable =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-                            .setName(serviceName)
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                            .setName(datasetName)
                             .setOwner("")
                             .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
   }
 
   @Test
-  public void shouldUpdateExistingService() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
+  public void shouldUpdateExistingDataset() {
+    String datasetName = "testDataset";
+    String datasetOwner = "testOwner";
 
-    managerApiStub.createServiceMetadata(
-        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-            .setName(serviceName)
-            .setOwner(serviceOwner)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName)
+            .setOwner(datasetOwner)
             .build());
 
-    String updatedServiceOwner = "testOwnerUpdated";
-    Metadata.ServiceMetadata updatedServiceResponse =
-        managerApiStub.updateServiceMetadata(
-            ManagerApi.UpdateServiceMetadataRequest.newBuilder()
-                .setName(serviceName)
-                .setOwner(updatedServiceOwner)
+    String updatedDatasetOwner = "testOwnerUpdated";
+    Metadata.DatasetMetadata updatedDatasetResponse =
+        managerApiStub.updateDatasetMetadata(
+            ManagerApi.UpdateDatasetMetadataRequest.newBuilder()
+                .setName(datasetName)
+                .setOwner(updatedDatasetOwner)
                 .build());
 
-    assertThat(updatedServiceResponse.getName()).isEqualTo(serviceName);
-    assertThat(updatedServiceResponse.getOwner()).isEqualTo(updatedServiceOwner);
-    assertThat(updatedServiceResponse.getThroughputBytes()).isEqualTo(0);
-    assertThat(updatedServiceResponse.getPartitionConfigsList().size()).isEqualTo(0);
+    assertThat(updatedDatasetResponse.getName()).isEqualTo(datasetName);
+    assertThat(updatedDatasetResponse.getOwner()).isEqualTo(updatedDatasetOwner);
+    assertThat(updatedDatasetResponse.getThroughputBytes()).isEqualTo(0);
+    assertThat(updatedDatasetResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
-    ServiceMetadata serviceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(serviceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(serviceMetadata.getOwner()).isEqualTo(updatedServiceOwner);
-    assertThat(serviceMetadata.getThroughputBytes()).isEqualTo(0);
-    assertThat(serviceMetadata.getPartitionConfigs().size()).isEqualTo(0);
+    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(datasetMetadata.getOwner()).isEqualTo(updatedDatasetOwner);
+    assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
+    assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
   }
 
   @Test
-  public void shouldErrorGettingNonexistentService() {
+  public void shouldErrorGettingNonexistentDataset() {
     StatusRuntimeException throwable =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.getServiceMetadata(
-                        ManagerApi.GetServiceMetadataRequest.newBuilder().setName("foo").build()));
+                    managerApiStub.getDatasetMetadata(
+                        ManagerApi.GetDatasetMetadataRequest.newBuilder().setName("foo").build()));
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
   }
 
   @Test
   public void shouldUpdatePartitionAssignments() {
-    String serviceName = "testService";
-    String serviceOwner = "testOwner";
+    String datasetName = "testDataset";
+    String datasetOwner = "testOwner";
 
-    Metadata.ServiceMetadata initialServiceRequest =
-        managerApiStub.createServiceMetadata(
-            ManagerApi.CreateServiceMetadataRequest.newBuilder()
-                .setName(serviceName)
-                .setOwner(serviceOwner)
+    Metadata.DatasetMetadata initialDatasetRequest =
+        managerApiStub.createDatasetMetadata(
+            ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                .setName(datasetName)
+                .setOwner(datasetOwner)
                 .build());
-    assertThat(initialServiceRequest.getPartitionConfigsList().size()).isEqualTo(0);
+    assertThat(initialDatasetRequest.getPartitionConfigsList().size()).isEqualTo(0);
 
     long nowMs = Instant.now().toEpochMilli();
     long throughputBytes = 10;
     managerApiStub.updatePartitionAssignment(
         ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
-            .setName(serviceName)
+            .setName(datasetName)
             .setThroughputBytes(throughputBytes)
             .addAllPartitionIds(List.of("1", "2"))
             .build());
-    Metadata.ServiceMetadata firstAssignment =
-        managerApiStub.getServiceMetadata(
-            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
+    Metadata.DatasetMetadata firstAssignment =
+        managerApiStub.getDatasetMetadata(
+            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
 
     assertThat(firstAssignment.getThroughputBytes()).isEqualTo(throughputBytes);
     assertThat(firstAssignment.getPartitionConfigsList().size()).isEqualTo(1);
@@ -280,22 +310,22 @@ public class ManagerApiGrpcTest {
     assertThat(firstAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    ServiceMetadata firstServiceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(firstServiceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(firstServiceMetadata.getOwner()).isEqualTo(serviceOwner);
-    assertThat(firstServiceMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
-    assertThat(firstServiceMetadata.getPartitionConfigs().size()).isEqualTo(1);
+    DatasetMetadata firstDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(firstDatasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(firstDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
+    assertThat(firstDatasetMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
+    assertThat(firstDatasetMetadata.getPartitionConfigs().size()).isEqualTo(1);
 
     // only update the partition assignment, leaving throughput
     managerApiStub.updatePartitionAssignment(
         ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
-            .setName(serviceName)
+            .setName(datasetName)
             .setThroughputBytes(-1)
             .addAllPartitionIds(List.of("3", "4", "5"))
             .build());
-    Metadata.ServiceMetadata secondAssignment =
-        managerApiStub.getServiceMetadata(
-            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
+    Metadata.DatasetMetadata secondAssignment =
+        managerApiStub.getDatasetMetadata(
+            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
 
     assertThat(secondAssignment.getThroughputBytes()).isEqualTo(throughputBytes);
     assertThat(secondAssignment.getPartitionConfigsList().size()).isEqualTo(2);
@@ -311,22 +341,22 @@ public class ManagerApiGrpcTest {
     assertThat(secondAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    ServiceMetadata secondServiceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(secondServiceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(secondServiceMetadata.getOwner()).isEqualTo(serviceOwner);
-    assertThat(secondServiceMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
-    assertThat(secondServiceMetadata.getPartitionConfigs().size()).isEqualTo(2);
+    DatasetMetadata secondDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(secondDatasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(secondDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
+    assertThat(secondDatasetMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
+    assertThat(secondDatasetMetadata.getPartitionConfigs().size()).isEqualTo(2);
 
     // only update the throughput, leaving the partition assignments
     long updatedThroughputBytes = 12;
     managerApiStub.updatePartitionAssignment(
         ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
-            .setName(serviceName)
+            .setName(datasetName)
             .setThroughputBytes(updatedThroughputBytes)
             .build());
-    Metadata.ServiceMetadata thirdAssignment =
-        managerApiStub.getServiceMetadata(
-            ManagerApi.GetServiceMetadataRequest.newBuilder().setName(serviceName).build());
+    Metadata.DatasetMetadata thirdAssignment =
+        managerApiStub.getDatasetMetadata(
+            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
 
     assertThat(thirdAssignment.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
     assertThat(thirdAssignment.getPartitionConfigsList().size()).isEqualTo(2);
@@ -342,16 +372,16 @@ public class ManagerApiGrpcTest {
     assertThat(thirdAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    ServiceMetadata thirdServiceMetadata = serviceMetadataStore.getNodeSync(serviceName);
-    assertThat(thirdServiceMetadata.getName()).isEqualTo(serviceName);
-    assertThat(thirdServiceMetadata.getOwner()).isEqualTo(serviceOwner);
-    assertThat(thirdServiceMetadata.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
-    assertThat(thirdServiceMetadata.getPartitionConfigs().size()).isEqualTo(2);
+    DatasetMetadata thirdDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    assertThat(thirdDatasetMetadata.getName()).isEqualTo(datasetName);
+    assertThat(thirdDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
+    assertThat(thirdDatasetMetadata.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
+    assertThat(thirdDatasetMetadata.getPartitionConfigs().size()).isEqualTo(2);
   }
 
   @Test
-  public void shouldErrorUpdatingPartitionAssignmentNonexistentService() {
-    String serviceName = "testService";
+  public void shouldErrorUpdatingPartitionAssignmentNonexistentDataset() {
+    String datasetName = "testDataset";
     List<String> partitionList = List.of("1", "2");
 
     StatusRuntimeException throwable1 =
@@ -360,107 +390,267 @@ public class ManagerApiGrpcTest {
                 () ->
                     managerApiStub.updatePartitionAssignment(
                         ManagerApi.UpdatePartitionAssignmentRequest.newBuilder()
-                            .setName(serviceName)
+                            .setName(datasetName)
                             .setThroughputBytes(-1)
                             .addAllPartitionIds(partitionList)
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
   }
 
   @Test
-  public void shouldListExistingServices() {
-    String serviceName1 = "testService1";
-    String serviceOwner1 = "testOwner1";
+  public void shouldListExistingDatasets() {
+    String datasetName1 = "testDataset1";
+    String datasetOwner1 = "testOwner1";
 
-    managerApiStub.createServiceMetadata(
-        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-            .setName(serviceName1)
-            .setOwner(serviceOwner1)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName1)
+            .setOwner(datasetOwner1)
             .build());
 
-    String serviceName2 = "testService2";
-    String serviceOwner2 = "testOwner2";
+    String datasetName2 = "testDataset2";
+    String datasetOwner2 = "testOwner2";
 
-    managerApiStub.createServiceMetadata(
-        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-            .setName(serviceName2)
-            .setOwner(serviceOwner2)
+    managerApiStub.createDatasetMetadata(
+        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+            .setName(datasetName2)
+            .setOwner(datasetOwner2)
             .build());
 
-    ManagerApi.ListServiceMetadataResponse listServiceMetadataResponse =
-        managerApiStub.listServiceMetadata(
-            ManagerApi.ListServiceMetadataRequest.newBuilder().build());
+    ManagerApi.ListDatasetMetadataResponse listDatasetMetadataResponse =
+        managerApiStub.listDatasetMetadata(
+            ManagerApi.ListDatasetMetadataRequest.newBuilder().build());
 
     assertThat(
-        listServiceMetadataResponse
-            .getServiceMetadataList()
+        listDatasetMetadataResponse
+            .getDatasetMetadataList()
             .containsAll(
                 List.of(
-                    Metadata.ServiceMetadata.newBuilder()
-                        .setName(serviceName1)
-                        .setOwner(serviceOwner1)
+                    Metadata.DatasetMetadata.newBuilder()
+                        .setName(datasetName1)
+                        .setOwner(datasetOwner1)
                         .setThroughputBytes(0)
                         .build(),
-                    Metadata.ServiceMetadata.newBuilder()
-                        .setName(serviceName2)
-                        .setOwner(serviceOwner2)
+                    Metadata.DatasetMetadata.newBuilder()
+                        .setName(datasetName2)
+                        .setOwner(datasetOwner2)
                         .setThroughputBytes(0)
                         .build())));
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(
-        serviceMetadataStore
+        datasetMetadataStore
             .listSync()
             .containsAll(
                 List.of(
-                    new ServiceMetadata(serviceName1, serviceOwner1, 0, Collections.emptyList()),
-                    new ServiceMetadata(serviceName2, serviceOwner2, 0, Collections.emptyList()))));
+                    new DatasetMetadata(datasetName1, datasetOwner1, 0, Collections.emptyList()),
+                    new DatasetMetadata(datasetName2, datasetOwner2, 0, Collections.emptyList()))));
   }
 
   @Test
   public void shouldHandleZkErrorsGracefully() {
-    String serviceName = "testZkErrorsService";
-    String serviceOwner = "testZkErrorsOwner";
+    String datasetName = "testZkErrorsDataset";
+    String datasetOwner = "testZkErrorsOwner";
     String errorString = "zkError";
 
     doThrow(new InternalMetadataStoreException(errorString))
-        .when(serviceMetadataStore)
+        .when(datasetMetadataStore)
         .createSync(
-            eq(new ServiceMetadata(serviceName, serviceOwner, 0L, Collections.emptyList())));
+            eq(new DatasetMetadata(datasetName, datasetOwner, 0L, Collections.emptyList())));
 
     StatusRuntimeException throwableCreate =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.createServiceMetadata(
-                        ManagerApi.CreateServiceMetadataRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner)
+                    managerApiStub.createDatasetMetadata(
+                        ManagerApi.CreateDatasetMetadataRequest.newBuilder()
+                            .setName(datasetName)
+                            .setOwner(datasetOwner)
                             .build()));
 
     assertThat(throwableCreate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableCreate.getStatus().getDescription()).isEqualTo(errorString);
 
     doThrow(new InternalMetadataStoreException(errorString))
-        .when(serviceMetadataStore)
+        .when(datasetMetadataStore)
         .updateSync(
-            eq(new ServiceMetadata(serviceName, serviceOwner, 0L, Collections.emptyList())));
+            eq(new DatasetMetadata(datasetName, datasetOwner, 0L, Collections.emptyList())));
 
     StatusRuntimeException throwableUpdate =
         (StatusRuntimeException)
             catchThrowable(
                 () ->
-                    managerApiStub.updateServiceMetadata(
-                        ManagerApi.UpdateServiceMetadataRequest.newBuilder()
-                            .setName(serviceName)
-                            .setOwner(serviceOwner)
+                    managerApiStub.updateDatasetMetadata(
+                        ManagerApi.UpdateDatasetMetadataRequest.newBuilder()
+                            .setName(datasetName)
+                            .setOwner(datasetOwner)
                             .build()));
 
     assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
-    assertThat(throwableUpdate.getStatus().getDescription()).contains(serviceName);
+    assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
 
-    assertThat(serviceMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void shouldFetchSnapshotsWithinTimeframeAndPartition() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata overlapsStartTimeIncluded =
+        new SnapshotMetadata("a", "a", startTime, startTime + 6, 0, "a");
+    SnapshotMetadata overlapsStartTimeExcluded =
+        new SnapshotMetadata("b", "b", startTime, startTime + 6, 0, "b");
+
+    SnapshotMetadata fullyOverlapsStartEndTimeIncluded =
+        new SnapshotMetadata("c", "c", startTime + 4, startTime + 11, 0, "a");
+    SnapshotMetadata fullyOverlapsStartEndTimeExcluded =
+        new SnapshotMetadata("d", "d", startTime + 4, startTime + 11, 0, "b");
+
+    SnapshotMetadata partiallyOverlapsStartEndTimeIncluded =
+        new SnapshotMetadata("e", "e", startTime + 4, startTime + 5, 0, "a");
+    SnapshotMetadata partiallyOverlapsStartEndTimeExcluded =
+        new SnapshotMetadata("f", "f", startTime + 4, startTime + 5, 0, "b");
+
+    SnapshotMetadata overlapsEndTimeIncluded =
+        new SnapshotMetadata("g", "g", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata overlapsEndTimeExcluded =
+        new SnapshotMetadata("h", "h", startTime + 10, startTime + 15, 0, "b");
+
+    SnapshotMetadata notWithinStartEndTimeExcluded1 =
+        new SnapshotMetadata("i", "i", startTime, startTime + 4, 0, "a");
+    SnapshotMetadata notWithinStartEndTimeExcluded2 =
+        new SnapshotMetadata("j", "j", startTime + 11, startTime + 15, 0, "a");
+
+    DatasetMetadata datasetWithDataInPartitionA =
+        new DatasetMetadata(
+            "foo",
+            "a",
+            1,
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+
+    datasetMetadataStore.createSync(datasetWithDataInPartitionA);
+
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+
+    List<SnapshotMetadata> snapshotsWithData =
+        ManagerApiGrpc.fetchSnapshots(
+            Arrays.asList(
+                overlapsEndTimeIncluded,
+                overlapsEndTimeExcluded,
+                partiallyOverlapsStartEndTimeIncluded,
+                partiallyOverlapsStartEndTimeExcluded,
+                fullyOverlapsStartEndTimeIncluded,
+                fullyOverlapsStartEndTimeExcluded,
+                overlapsStartTimeIncluded,
+                overlapsStartTimeExcluded,
+                notWithinStartEndTimeExcluded1,
+                notWithinStartEndTimeExcluded2),
+            datasetMetadataStore,
+            start,
+            end,
+            "foo");
+
+    assertThat(snapshotsWithData.size()).isEqualTo(4);
+    assertThat(
+            snapshotsWithData.containsAll(
+                Arrays.asList(
+                    overlapsStartTimeIncluded,
+                    fullyOverlapsStartEndTimeIncluded,
+                    partiallyOverlapsStartEndTimeIncluded,
+                    overlapsEndTimeIncluded)))
+        .isTrue();
+  }
+
+  @Test
+  public void shouldRestoreReplicaSinglePartition() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata snapshotIncluded =
+        new SnapshotMetadata("g", "g", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata snapshotExcluded =
+        new SnapshotMetadata("h", "h", startTime + 10, startTime + 15, 0, "b");
+
+    snapshotMetadataStore.createSync(snapshotIncluded);
+    snapshotMetadataStore.createSync(snapshotExcluded);
+
+    DatasetMetadata serviceWithDataInPartitionA =
+        new DatasetMetadata(
+            "foo",
+            "a",
+            1,
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+
+    datasetMetadataStore.createSync(serviceWithDataInPartitionA);
+
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 2);
+
+    managerApiStub.restoreReplica(
+        ManagerApi.RestoreReplicaRequest.newBuilder()
+            .setServiceName("foo")
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 1);
+    await()
+        .until(
+            () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry) == 1);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void shouldRestoreReplicasMultiplePartitions() {
+    long startTime = Instant.now().toEpochMilli();
+    long start = startTime + 5;
+    long end = startTime + 10;
+
+    SnapshotMetadata snapshotIncluded =
+        new SnapshotMetadata("a", "a", startTime + 10, startTime + 15, 0, "a");
+    SnapshotMetadata snapshotIncluded2 =
+        new SnapshotMetadata("b", "b", startTime + 10, startTime + 15, 0, "b");
+    SnapshotMetadata snapshotExcluded =
+        new SnapshotMetadata("c", "c", startTime + 10, startTime + 15, 0, "c");
+
+    snapshotMetadataStore.createSync(snapshotIncluded);
+    snapshotMetadataStore.createSync(snapshotIncluded2);
+    snapshotMetadataStore.createSync(snapshotExcluded);
+
+    DatasetMetadata serviceWithDataInPartitionA =
+        new DatasetMetadata(
+            "foo",
+            "a",
+            1,
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a", "b"))));
+
+    datasetMetadataStore.createSync(serviceWithDataInPartitionA);
+
+    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 3);
+
+    replicaRestoreService.startAsync();
+    replicaRestoreService.awaitRunning();
+
+    managerApiStub.restoreReplica(
+        ManagerApi.RestoreReplicaRequest.newBuilder()
+            .setServiceName("foo")
+            .setStartTimeEpochMs(start)
+            .setEndTimeEpochMs(end)
+            .build());
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(2);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
+        .isEqualTo(0);
+
+    replicaRestoreService.stopAsync();
   }
 }

@@ -10,14 +10,18 @@ indexerConfig:
   dataTransformer: "api_log"
   dataDirectory: "/tmp"
   maxOffsetDelayMessages: 10001
+  defaultQueryTimeoutMs: 1500
   serverConfig:
     serverPort: 8080
     serverAddress: "localhost"
+    requestTimeoutMs: 3000
 
 queryConfig:
   serverConfig:
     serverPort: 8081
     serverAddress: "1.2.3.4"
+    requestTimeoutMs: 3000
+  defaultQueryTimeoutMs: 2500
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
@@ -50,11 +54,12 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: 10
-  maxParallelCacheSlotDownloads: 6
   dataDirectory: "/tmp"
+  defaultQueryTimeoutMs: 1500
   serverConfig:
     serverPort: 8082
     serverAddress: localhost
+    requestTimeoutMs: 3000
 
 managerConfig:
   eventAggregationSecs: 10
@@ -77,6 +82,10 @@ managerConfig:
   snapshotDeletionServiceConfig:
     schedulePeriodMins: 15
     snapshotLifespanMins: 10080
+  replicaRestoreServiceConfig:
+    schedulePeriodMins: 15
+    maxReplicasPerRequest: 200
+    replicaLifespanMins: 60
 
 recoveryConfig:
   serverConfig:

@@ -14,9 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
-import com.slack.kaldb.metadata.service.ServiceMetadata;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
-import com.slack.kaldb.metadata.service.ServicePartitionMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -62,7 +62,7 @@ public class KaldbTest {
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
   private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
 
-  private ServiceMetadataStore serviceMetadataStore;
+  private DatasetMetadataStore datasetMetadataStore;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
   private PrometheusMeterRegistry meterRegistry;
 
@@ -75,7 +75,7 @@ public class KaldbTest {
 
     return kaldbService.search(
         KaldbSearch.SearchRequest.newBuilder()
-            .setIndexName(MessageUtil.TEST_INDEX_NAME)
+            .setDataset(MessageUtil.TEST_DATASET_NAME)
             .setQueryString(queryString)
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
@@ -142,21 +142,21 @@ public class KaldbTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
     zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    serviceMetadataStore = new ServiceMetadataStore(zkMetadataStore, true);
-    final ServicePartitionMetadata partition =
-        new ServicePartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
-    final List<ServicePartitionMetadata> partitionConfigs = Collections.singletonList(partition);
-    ServiceMetadata serviceMetadata =
-        new ServiceMetadata(MessageUtil.TEST_INDEX_NAME, "serviceOwner", 1000, partitionConfigs);
-    serviceMetadataStore.createSync(serviceMetadata);
-    await().until(() -> serviceMetadataStore.listSync().size() == 1);
+    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    final DatasetPartitionMetadata partition =
+        new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
+    final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(MessageUtil.TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
   }
 
   @After
   public void teardown() throws Exception {
     kafkaServer.close();
     meterRegistry.close();
-    serviceMetadataStore.close();
+    datasetMetadataStore.close();
     zkMetadataStore.close();
     zkServer.close();
   }

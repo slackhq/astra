@@ -8,22 +8,17 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.clusterManager.RecoveryTaskAssignmentService;
-import com.slack.kaldb.clusterManager.ReplicaAssignmentService;
-import com.slack.kaldb.clusterManager.ReplicaCreationService;
-import com.slack.kaldb.clusterManager.ReplicaDeletionService;
-import com.slack.kaldb.clusterManager.ReplicaEvictionService;
-import com.slack.kaldb.clusterManager.SnapshotDeletionService;
+import com.slack.kaldb.clusterManager.*;
 import com.slack.kaldb.elasticsearchApi.ElasticsearchApiService;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.service.ServiceMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
@@ -174,10 +169,16 @@ public class Kaldb {
               meterRegistry);
       services.add(indexer);
 
-      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
+      KaldbLocalQueryService<LogMessage> searcher =
+          new KaldbLocalQueryService<>(
+              chunkManager,
+              Duration.ofMillis(kaldbConfig.getIndexerConfig().getDefaultQueryTimeoutMs()));
       final int serverPort = kaldbConfig.getIndexerConfig().getServerConfig().getServerPort();
+      Duration requestTimeout =
+          Duration.ofMillis(kaldbConfig.getIndexerConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbIndex", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
@@ -187,17 +188,25 @@ public class Kaldb {
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
       SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
       services.add(
           new MetadataStoreLifecycleManager(
               KaldbConfigs.NodeRole.QUERY, List.of(searchMetadataStore, snapshotMetadataStore)));
-
+      Duration requestTimeout =
+          Duration.ofMillis(kaldbConfig.getQueryConfig().getServerConfig().getRequestTimeoutMs());
       KaldbDistributedQueryService kaldbDistributedQueryService =
           new KaldbDistributedQueryService(
-              searchMetadataStore, snapshotMetadataStore, serviceMetadataStore, meterRegistry);
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              meterRegistry,
+              requestTimeout,
+              Duration.ofMillis(kaldbConfig.getQueryConfig().getDefaultQueryTimeoutMs()));
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
+
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbQuery", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(new ElasticsearchApiService(kaldbDistributedQueryService))
               .withAnnotatedService(new ZipkinService(kaldbDistributedQueryService))
@@ -215,11 +224,16 @@ public class Kaldb {
               kaldbConfig.getCacheConfig(),
               blobFs);
       services.add(chunkManager);
-
-      KaldbLocalQueryService<LogMessage> searcher = new KaldbLocalQueryService<>(chunkManager);
+      KaldbLocalQueryService<LogMessage> searcher =
+          new KaldbLocalQueryService<>(
+              chunkManager,
+              Duration.ofMillis(kaldbConfig.getCacheConfig().getDefaultQueryTimeoutMs()));
       final int serverPort = kaldbConfig.getCacheConfig().getServerConfig().getServerPort();
+      Duration requestTimeout =
+          Duration.ofMillis(kaldbConfig.getCacheConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbCache", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withGrpcService(searcher)
               .build();
@@ -238,12 +252,21 @@ public class Kaldb {
           new RecoveryNodeMetadataStore(metadataStore, true);
       CacheSlotMetadataStore cacheSlotMetadataStore =
           new CacheSlotMetadataStore(metadataStore, true);
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+
+      Duration requestTimeout =
+          Duration.ofMillis(kaldbConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
+      ReplicaRestoreService replicaRestoreService =
+          new ReplicaRestoreService(replicaMetadataStore, meterRegistry, managerConfig);
+      services.add(replicaRestoreService);
 
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbManager", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
-              .withGrpcService(new ManagerApiGrpc(serviceMetadataStore))
+              .withGrpcService(
+                  new ManagerApiGrpc(
+                      datasetMetadataStore, snapshotMetadataStore, replicaRestoreService))
               .build();
       services.add(armeriaService);
 
@@ -286,14 +309,29 @@ public class Kaldb {
           new SnapshotDeletionService(
               replicaMetadataStore, snapshotMetadataStore, blobFs, managerConfig, meterRegistry);
       services.add(snapshotDeletionService);
+
+      ClusterMonitorService clusterMonitorService =
+          new ClusterMonitorService(
+              replicaMetadataStore,
+              snapshotMetadataStore,
+              recoveryTaskMetadataStore,
+              recoveryNodeMetadataStore,
+              cacheSlotMetadataStore,
+              datasetMetadataStore,
+              meterRegistry);
+      services.add(clusterMonitorService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
       final KaldbConfigs.RecoveryConfig recoveryConfig = kaldbConfig.getRecoveryConfig();
       final int serverPort = recoveryConfig.getServerConfig().getServerPort();
 
+      Duration requestTimeout =
+          Duration.ofMillis(
+              kaldbConfig.getRecoveryConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbRecovery", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
@@ -308,15 +346,19 @@ public class Kaldb {
           kaldbConfig.getPreprocessorConfig();
       final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
 
+      Duration requestTimeout =
+          Duration.ofMillis(
+              kaldbConfig.getPreprocessorConfig().getServerConfig().getRequestTimeoutMs());
       ArmeriaService armeriaService =
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
+              .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .build();
       services.add(armeriaService);
 
-      ServiceMetadataStore serviceMetadataStore = new ServiceMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
       PreprocessorService preprocessorService =
-          new PreprocessorService(serviceMetadataStore, preprocessorConfig, meterRegistry);
+          new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
       services.add(preprocessorService);
     }
 

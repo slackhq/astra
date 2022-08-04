@@ -10,9 +10,11 @@ indexerConfig:
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}
   maxOffsetDelayMessages: ${INDEXER_MAX_OFFSET_DELAY_MESSAGES:-10000000}
+  defaultQueryTimeoutMs: ${KALDB_INDEX_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   serverConfig:
     serverPort: ${KALDB_INDEX_SERVER_PORT:-8080}
     serverAddress: ${KALDB_INDEX_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_INDEX_REQUEST_TIMEOUT_MS:-5000}
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
@@ -40,6 +42,8 @@ queryConfig:
   serverConfig:
     serverPort: ${KALDB_QUERY_SERVER_PORT:-8081}
     serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_QUERY_REQUEST_TIMEOUT_MS:-5000}
+  defaultQueryTimeoutMs: ${KALDB_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
 
 metadataStoreConfig:
   zookeeperConfig:
@@ -52,10 +56,11 @@ metadataStoreConfig:
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
-  maxParallelCacheSlotDownloads: ${KALDB_CACHE_MAX_PARALLEL_CACHE_SLOT_DOWNLOADS:-3}
+  defaultQueryTimeoutMs: ${KALDB_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   serverConfig:
     serverPort: ${KALDB_CACHE_SERVER_PORT:-8082}
     serverAddress: ${KALDB_CACHE_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_CACHE_REQUEST_TIMEOUT_MS:-5000}
 
 managerConfig:
   eventAggregationSecs: ${KALDB_MANAGER_AGGREGATION_SECS:-10}
@@ -63,6 +68,7 @@ managerConfig:
   serverConfig:
     serverPort: ${KALDB_MANAGER_SERVER_PORT:-8083}
     serverAddress: ${KALDB_MANAGER_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_MANAGER_REQUEST_TIMEOUT_MS:-5000}
   replicaCreationServiceConfig:
     replicasPerSnapshot: ${KALDB_MANAGER_REPLICAS_PER_SNAPSHOT:-1}
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
@@ -78,6 +84,10 @@ managerConfig:
   snapshotDeletionServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_SNAPSHOT_DELETE_PERIOD_MINS:-15}
     snapshotLifespanMins: ${KALDB_MANAGER_SNAPSHOT_LIFESPAN_MINS:-10080}
+  replicaRestoreServiceConfig:
+    schedulePeriodMins: ${KALDB_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
+    maxReplicasPerRequest: ${KALDB_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
+    replicaLifespanMins: ${KALDB_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
 
 clusterConfig:
   clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}
@@ -87,6 +97,7 @@ recoveryConfig:
   serverConfig:
     serverPort: ${KALDB_RECOVERY_SERVER_PORT:-8085}
     serverAddress: ${KALDB_RECOVERY_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_RECOVERY_REQUEST_TIMEOUT_MS:-5000}
 
 preprocessorConfig:
   kafkaStreamConfig:
@@ -97,6 +108,7 @@ preprocessorConfig:
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
+    requestTimeoutMs: ${KALDB_PREPROCESSOR_REQUEST_TIMEOUT_MS:-5000}
   upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic}]
   downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
