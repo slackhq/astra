@@ -14,6 +14,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
@@ -46,7 +47,7 @@ public class ZipkinServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     KaldbLocalQueryService<LogMessage> searcher =
-        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager);
+        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
     zipkinService = new ZipkinService(searcher);
   }
 
