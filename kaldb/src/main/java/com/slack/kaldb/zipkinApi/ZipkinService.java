@@ -22,8 +22,12 @@ import java.util.*;
 public class ZipkinService {
   private final KaldbQueryServiceBase searcher;
 
+
+
   public ZipkinService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
+
+    System.out.println("test");
   }
 
   @Get
