@@ -70,10 +70,6 @@ public class ZipkinServiceTest {
 
     @Test
     public void testEmptySearchGrafana7() throws IOException {
-//       String postBody =
-//                Resources.toString(
-//                        Resources.getResource("elasticsearchApi/empty_search_grafana7.ndjson"),
-//                        Charset.defaultCharset());
         HttpResponse response = zipkinService.getTraceByTraceId("test");
 
         // handle response
