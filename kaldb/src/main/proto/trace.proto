@@ -32,6 +32,22 @@ message KeyValue {
   bytes     v_binary  = 7;
 }
 
+message TraceProto {
+  repeated ListOfSpans trace = 1;
+}
+
+
+message ZipkinSpan {
+  string trace_id = 1;
+  string parent_id = 2;
+  string id = 3;
+  string name = 4;
+  string service_name = 5;
+  fixed64 timestamp = 6;
+  uint64 duration = 7;
+  map<string, string> tags = 8;
+}
+
 // A span defines a single event in a trace.
 // This span format is inspired by the zipkin span design at:
 // https://github.com/openzipkin/zipkin-api/blob/master/zipkin.proto
