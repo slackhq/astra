@@ -9,6 +9,16 @@ import java.io.IOException;
 import java.util.*;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+/**
+ * Zipkin compatible API service, for use in Grafana
+ *
+ * @see <a
+ *     href="https://github.com/grafana/grafana/blob/main/public/app/plugins/datasource/zipkin/datasource.ts">Grafana
+ *     Zipkin API</a> <a
+ *     href="https://github.com/openzipkin/zipkin-api/blob/master/zipkin.proto">Trace proto
+ *     compatible with Zipkin</a> <a href="https://zipkin.io/zipkin-api/#/">Trace API Swagger
+ *     Hub</a>
+ */
 public class ZipkinService {
   private final KaldbQueryServiceBase searcher;
 
@@ -24,7 +34,8 @@ public class ZipkinService {
   }
 
   @Get("/api/v2/spans")
-  public HttpResponse getSpans(@Param("serviceName") Optional<String> serviceName) throws IOException {
+  public HttpResponse getSpans(@Param("serviceName") Optional<String> serviceName)
+      throws IOException {
     String output = "[]";
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
