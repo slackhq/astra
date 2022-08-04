@@ -25,8 +25,6 @@ public class ZipkinService {
 
   public ZipkinService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
-
-    System.out.println("test");
   }
 
   @Get
