@@ -14,7 +14,6 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
