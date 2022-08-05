@@ -75,8 +75,7 @@ public class ZipkinService {
             searchRequestBuilder
                 .setDataset("testDataSet")
                 .setQueryString(queryString)
-                .setStartTimeEpochMs(
-                    defaultLookback)
+                .setStartTimeEpochMs(defaultLookback)
                 .setEndTimeEpochMs(System.currentTimeMillis())
                 .setHowMany(10)
                 .setBucketCount(0)
