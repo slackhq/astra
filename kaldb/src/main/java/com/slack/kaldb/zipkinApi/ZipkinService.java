@@ -73,14 +73,11 @@ public class ZipkinService {
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
             searchRequestBuilder
-                .setIndexName("testindex") // [Q] as of now we don't need to worry about index?
-                .setQueryString(queryString) // query everything
-                // startTime: endTs - lookback (conversion)
+                .setDataset("testDataSet")
+                .setQueryString(queryString)
                 .setStartTimeEpochMs(
-                    defaultLookback) // [Q] double check that these correspond to lookback and endTs
-                // [Q] what to set for this
+                    defaultLookback)
                 .setEndTimeEpochMs(System.currentTimeMillis())
-                // [Q] difference between howmany and bucketcount?
                 .setHowMany(10)
                 .setBucketCount(0)
                 .build());
@@ -129,10 +126,14 @@ public class ZipkinService {
       final long messageConvertedTimestamp =
           TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
               + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
-      // [Q]what to put for msgtype
-      final String messageMsgType = "test message type";
-
-      // should I change the makeSpan method
+      if (messageTraceId == null
+          || messageParentId == null
+          || messageName == null
+          || messageServiceName == null
+          || messageTimestamp == null
+          || messageDuration == Long.MIN_VALUE) {
+        continue;
+      }
       final com.slack.service.murron.trace.Trace.ZipkinSpan messageSpan =
           makeSpan(
               messageTraceId,
@@ -143,9 +144,7 @@ public class ZipkinService {
               messageConvertedTimestamp,
               messageDuration,
               messageTags);
-      // NEED TO CONVERT A LIST OF TRACES
       String messageString = JsonFormat.printer().print(messageSpan);
-      // String messageToAdd = "{" + messageString + "}";
       messageStrings.add(messageString);
     }
 
