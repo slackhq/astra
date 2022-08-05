@@ -320,6 +320,20 @@ public class Kaldb {
               datasetMetadataStore,
               meterRegistry);
       services.add(clusterMonitorService);
+
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      KaldbDistributedQueryService kaldbDistributedQueryService =
+          new KaldbDistributedQueryService(
+              searchMetadataStore,
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              meterRegistry,
+              requestTimeout,
+              Duration.ofMillis(kaldbConfig.getQueryConfig().getDefaultQueryTimeoutMs()));
+      DocumentCountMonitorService documentCountMonitorService =
+          new DocumentCountMonitorService(
+              kaldbDistributedQueryService, managerConfig, meterRegistry);
+      services.add(documentCountMonitorService);
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.RECOVERY)) {
