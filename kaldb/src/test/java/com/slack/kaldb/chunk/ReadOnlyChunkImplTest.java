@@ -148,8 +148,11 @@ public class ReadOnlyChunkImplTest {
                 0));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
-    assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
-        .isEqualTo(1);
+    await()
+        .until(
+            () ->
+                meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count()
+                    == 1);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(0);
     assertThat(meterRegistry.get(CHUNK_EVICTION_TIMER).tag("successful", "true").timer().count())
