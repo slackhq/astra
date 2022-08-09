@@ -82,8 +82,7 @@ public class KaldbSerdesTest {
     assertThat(deserializedMessage.getSpansList().get(0).getTraceId())
         .isEqualTo(ByteString.copyFromUtf8(traceId));
     assertThat(deserializedMessage.getSpansList().get(0).getName()).isEqualTo(name);
-    assertThat(deserializedMessage.getSpansList().get(0).getTimestamp())
-        .isEqualTo(timestamp);
+    assertThat(deserializedMessage.getSpansList().get(0).getTimestamp()).isEqualTo(timestamp);
     assertThat(deserializedMessage.getSpansList().get(0).getDuration()).isEqualTo(duration);
     assertThat(deserializedMessage.getSpansList().get(0).getTagsList().size()).isEqualTo(0);
   }
