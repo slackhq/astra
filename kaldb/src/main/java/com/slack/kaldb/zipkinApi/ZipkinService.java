@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
+import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
@@ -132,7 +133,7 @@ public class ZipkinService {
           || messageDuration == Long.MIN_VALUE) {
         continue;
       }
-      final com.slack.service.murron.trace.Trace.ZipkinSpan messageSpan =
+      final Trace.Span messageSpan =
           makeSpan(
               messageTraceId,
               messageParentId,
@@ -150,7 +151,7 @@ public class ZipkinService {
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
-  public static com.slack.service.murron.trace.Trace.ZipkinSpan makeSpan(
+  public static Trace.Span makeSpan(
       String traceId,
       String parentId,
       String id,
@@ -159,32 +160,21 @@ public class ZipkinService {
       long timestamp,
       long duration,
       Map<String, String> tags) {
-    com.slack.service.murron.trace.Trace.ZipkinSpan.Builder spanBuilder =
-        makeSpanBuilder(traceId, parentId, id, name, serviceName, timestamp, duration, tags);
-    return spanBuilder.build();
-  }
+    Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
 
-  public static com.slack.service.murron.trace.Trace.ZipkinSpan.Builder makeSpanBuilder(
-      String traceId,
-      String parentId,
-      String id,
-      String name,
-      String serviceName,
-      long timestamp,
-      long duration,
-      Map<String, String> tags) {
-    com.slack.service.murron.trace.Trace.ZipkinSpan.Builder spanBuilder =
-        com.slack.service.murron.trace.Trace.ZipkinSpan.newBuilder();
-    spanBuilder.setTraceId(traceId);
-
-    spanBuilder.setParentId(parentId);
-    spanBuilder.setId(id);
+    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
+    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
     spanBuilder.setName(name);
-    spanBuilder.setServiceName(serviceName);
-    spanBuilder.setTimestamp(timestamp);
-    spanBuilder.setDuration(duration);
-    spanBuilder.putAllTags(tags);
-    return spanBuilder;
+    // TODO: vthacker - should this be a separate named field?
+    // spanBuilder.setServiceName(serviceName);
+    spanBuilder.setStartTimestampMicros(timestamp);
+    spanBuilder.setDurationMicros(duration);
+    // TODO: currently tags is <String, KeyValue> since we want to preserve typing from the incoming
+    // murron message
+    // the zipkin proto however expects it to be <String, String>
+    // spanBuilder.addAllTags(tags);
+    return spanBuilder.build();
   }
 
   public static List<LogMessage> searchResultToLogMessage(KaldbSearch.SearchResult searchResult)
