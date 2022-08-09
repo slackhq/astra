@@ -57,12 +57,12 @@ public class MurronLogFormatterTest {
     Murron.MurronMessage testMurronMsg = testMurronMsgBuilder.build();
 
     Trace.Span apiSpan = MurronLogFormatter.fromApiLog(testMurronMsg);
-    assertThat(apiSpan.getDurationMicros()).isEqualTo(1418L);
+    assertThat(apiSpan.getDuration()).isEqualTo(1418L);
     assertThat(apiSpan.getName()).isEqualTo(indexName);
     assertThat(apiSpan.getId().toString().contains(host)).isTrue();
     assertThat(apiSpan.getTraceId().isEmpty()).isTrue();
     assertThat(apiSpan.getParentId().isEmpty()).isTrue();
-    assertThat(apiSpan.getStartTimestampMicros()).isEqualTo(timestamp / 1000);
+    assertThat(apiSpan.getTimestamp()).isEqualTo(timestamp / 1000);
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "http_method")).isEqualTo("POST");
     assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0L);
@@ -94,11 +94,11 @@ public class MurronLogFormatterTest {
 
     Trace.Span apiSpan = MurronLogFormatter.fromApiLog(testMurronMsg);
     assertThat(apiSpan.getName()).isEqualTo("api_log");
-    assertThat(apiSpan.getDurationMicros()).isEqualTo(14168L);
+    assertThat(apiSpan.getDuration()).isEqualTo(14168L);
     assertThat(apiSpan.getId().toString().contains(host)).isTrue();
     assertThat(apiSpan.getTraceId().toStringUtf8()).isEqualTo("123");
     assertThat(apiSpan.getParentId().toStringUtf8()).isEqualTo("4567");
-    assertThat(apiSpan.getStartTimestampMicros()).isEqualTo(timestamp / 1000);
+    assertThat(apiSpan.getTimestamp()).isEqualTo(timestamp / 1000);
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "http_method")).isEqualTo("POST");
     assertThat(getTagValue(tags, "mysql_conns_count")).isEqualTo(0L);
@@ -151,11 +151,11 @@ public class MurronLogFormatterTest {
 
     Trace.Span apiSpan = MurronLogFormatter.fromEnvoyLog(testMurronMsg);
     assertThat(apiSpan.getName()).isEqualTo(indexName);
-    assertThat(apiSpan.getDurationMicros()).isEqualTo(36000L);
+    assertThat(apiSpan.getDuration()).isEqualTo(36000L);
     assertThat(apiSpan.getId().toStringUtf8()).isEqualTo(requestId);
     assertThat(apiSpan.getTraceId().toStringUtf8()).isEqualTo(requestId);
     assertThat(apiSpan.getParentId().toStringUtf8()).isEmpty();
-    assertThat(apiSpan.getStartTimestampMicros()).isEqualTo(timestamp / 1000);
+    assertThat(apiSpan.getTimestamp()).isEqualTo(timestamp / 1000);
     List<Trace.KeyValue> tags = apiSpan.getTagsList();
     assertThat(getTagValue(tags, "tcpip_remote_ip")).isEqualTo("10.232.200.31");
     assertThat(getTagValue(tags, "req_method")).isEqualTo("POST");

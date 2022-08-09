@@ -38,8 +38,8 @@ public class SpanUtil {
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
     spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
-    spanBuilder.setStartTimestampMicros(timestampMicros);
-    spanBuilder.setDurationMicros(durationMicros);
+    spanBuilder.setTimestamp(timestampMicros);
+    spanBuilder.setDuration(durationMicros);
     spanBuilder.setName(name);
 
     List<Trace.KeyValue> tags = new ArrayList<>();

@@ -65,8 +65,8 @@ public class KaldbSerdesTest {
             .setId(ByteString.copyFromUtf8(id))
             .setTraceId(ByteString.copyFromUtf8(traceId))
             .setName(name)
-            .setStartTimestampMicros(timestamp)
-            .setDurationMicros(duration)
+            .setTimestamp(timestamp)
+            .setDuration(duration)
             .build();
     Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
 
@@ -82,9 +82,9 @@ public class KaldbSerdesTest {
     assertThat(deserializedMessage.getSpansList().get(0).getTraceId())
         .isEqualTo(ByteString.copyFromUtf8(traceId));
     assertThat(deserializedMessage.getSpansList().get(0).getName()).isEqualTo(name);
-    assertThat(deserializedMessage.getSpansList().get(0).getStartTimestampMicros())
+    assertThat(deserializedMessage.getSpansList().get(0).getTimestamp())
         .isEqualTo(timestamp);
-    assertThat(deserializedMessage.getSpansList().get(0).getDurationMicros()).isEqualTo(duration);
+    assertThat(deserializedMessage.getSpansList().get(0).getDuration()).isEqualTo(duration);
     assertThat(deserializedMessage.getSpansList().get(0).getTagsList().size()).isEqualTo(0);
   }
 
@@ -114,8 +114,8 @@ public class KaldbSerdesTest {
             .setId(ByteString.copyFromUtf8(id))
             .setTraceId(ByteString.copyFromUtf8(traceId))
             .setName(name)
-            .setStartTimestampMicros(timestamp)
-            .setDurationMicros(duration)
+            .setTimestamp(timestamp)
+            .setDuration(duration)
             .build();
 
     byte[] serializedBytes = serdes.serializer().serialize(topic, span);
@@ -124,8 +124,8 @@ public class KaldbSerdesTest {
     assertThat(deserializedMessage.getId()).isEqualTo(ByteString.copyFromUtf8(id));
     assertThat(deserializedMessage.getTraceId()).isEqualTo(ByteString.copyFromUtf8(traceId));
     assertThat(deserializedMessage.getName()).isEqualTo(name);
-    assertThat(deserializedMessage.getStartTimestampMicros()).isEqualTo(timestamp);
-    assertThat(deserializedMessage.getDurationMicros()).isEqualTo(duration);
+    assertThat(deserializedMessage.getTimestamp()).isEqualTo(timestamp);
+    assertThat(deserializedMessage.getDuration()).isEqualTo(duration);
     assertThat(deserializedMessage.getTagsList().size()).isEqualTo(0);
   }
 
