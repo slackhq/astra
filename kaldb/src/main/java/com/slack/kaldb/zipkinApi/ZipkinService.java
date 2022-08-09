@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 /**
- * Zipkin compatible API service, for use in Grafana
+ * Zipkin compatible API service
  *
  * @see <a
  *     href="https://github.com/grafana/grafana/blob/main/public/app/plugins/datasource/zipkin/datasource.ts">Grafana
@@ -66,16 +66,15 @@ public class ZipkinService {
 
   @Get("/api/v2/trace/{traceId}")
   public HttpResponse getTraceByTraceId(@Param("traceId") String traceId) throws IOException {
-    long defaultLookback = 86400000L;
 
     String queryString = "trace_id:" + traceId;
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
             searchRequestBuilder
-                .setDataset("testDataSet")
+                .setDataset("_all")
                 .setQueryString(queryString)
-                .setStartTimeEpochMs(defaultLookback)
+                .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(System.currentTimeMillis())
                 .setHowMany(10)
                 .setBucketCount(0)
