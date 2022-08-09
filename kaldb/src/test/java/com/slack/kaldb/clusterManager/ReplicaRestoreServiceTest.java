@@ -5,7 +5,8 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
