@@ -44,10 +44,10 @@ public class SpanFormatter {
     jsonMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, span.getParentId().toStringUtf8());
     jsonMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, span.getTraceId().toStringUtf8());
     jsonMap.put(LogMessage.ReservedField.NAME.fieldName, span.getName());
-    jsonMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, span.getDurationMicros());
+    jsonMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, span.getDuration());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
-    Instant timestamp = Instant.ofEpochMilli(span.getStartTimestampMicros() / (1000));
+    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / (1000));
     jsonMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp.toString());
 
     String indexName = "";

@@ -81,8 +81,8 @@ public class MurronLogFormatter {
     String traceId = (String) jsonMsgMap.getOrDefault(traceIdFieldName, "");
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
 
-    spanBuilder.setStartTimestampMicros(murronMsg.getTimestamp() / 1000);
-    spanBuilder.setDurationMicros(
+    spanBuilder.setTimestamp(murronMsg.getTimestamp() / 1000);
+    spanBuilder.setDuration(
         Long.parseLong(String.valueOf(jsonMsgMap.getOrDefault(durationField, "1")))
             * durationTimeMuiltiplier);
 
