@@ -80,6 +80,7 @@ public class MessageUtil {
     fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, parentId);
     fieldMap.put(LogMessage.ReservedField.NAME.fieldName, name);
     fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, serviceName);
+    fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, 5000L);
     String message = String.format("The identifier in this message is %s", id);
     fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
     fieldMap.put(TEST_SOURCE_INT_PROPERTY, i);

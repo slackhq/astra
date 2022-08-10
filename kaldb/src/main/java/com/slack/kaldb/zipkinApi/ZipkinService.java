@@ -6,7 +6,6 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.server.annotation.*;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
@@ -16,6 +15,8 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 /**
@@ -30,7 +31,10 @@ import java.util.concurrent.TimeUnit;
  */
 public class ZipkinService {
 
+  private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
+
   private final KaldbQueryServiceBase searcher;
+  JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
 
   public ZipkinService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
@@ -80,74 +84,84 @@ public class ZipkinService {
                 .setHowMany(10)
                 .setBucketCount(0)
                 .build());
-    List<LogMessage> messages = searchResultToLogMessage(searchResult);
-    List<String> messageStrings = new ArrayList<>();
+    List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
+    List<String> traces = new ArrayList<>();
 
-    for (LogMessage message : messages) {
-      Map<String, Object> source = message.getSource();
+    for (LogWireMessage message : messages) {
       String messageTraceId = null;
-      String messageParentId = null;
-      final String messageId = message.id;
-      String messageName = null;
-      String messageServiceName = null;
-      String messageTimestamp = null;
-      long messageDuration = Long.MIN_VALUE;
+      String parentId = null;
+      String name = null;
+      String serviceName = null;
+      String timestamp = null;
+      long duration = Long.MIN_VALUE;
 
       final Map<String, String> messageTags = new HashMap<>();
 
-      for (String k : source.keySet()) {
-        Object value = source.get(k);
+      for (String k : message.source.keySet()) {
+        Object value = message.source.get(k);
 
         switch (k) {
           case "trace_id":
             messageTraceId = (String) value;
             break;
           case "parent_id":
-            messageParentId = (String) value;
+            parentId = (String) value;
             break;
           case "name":
-            messageName = (String) value;
+            name = (String) value;
             break;
           case "service_name":
-            messageServiceName = (String) value;
+            serviceName = (String) value;
             break;
           case "@timestamp":
-            messageTimestamp = (String) value;
+            timestamp = (String) value;
             break;
           case "duration_ms":
-            messageDuration = ((Number) value).longValue();
+            duration = ((Number) value).longValue();
             break;
           default:
             messageTags.put(k, String.valueOf(value));
         }
       }
-      Instant instant = Instant.parse(messageTimestamp);
+      if (messageTraceId == null) {
+        LOG.trace("Document id={} missing trace_id", message.id);
+        continue;
+      } else if (parentId == null) {
+        LOG.trace("Document id={} missing parent_id", parentId);
+        continue;
+      } else if (name == null) {
+        LOG.trace("Document id={} missing name", name);
+        continue;
+      } else if (serviceName == null) {
+        LOG.trace("Document id={} missing parent_id", serviceName);
+        continue;
+      } else if (timestamp == null) {
+        LOG.trace("Document id={} missing @timestamp", timestamp);
+        continue;
+      } else if (duration == Long.MIN_VALUE) {
+        LOG.trace("Document id={} duration_ms cannot be set to ", message.id);
+        continue;
+      }
+
+      Instant instant = Instant.parse(timestamp);
       final long messageConvertedTimestamp =
           TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
               + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
-      if (messageTraceId == null
-          || messageParentId == null
-          || messageName == null
-          || messageServiceName == null
-          || messageTimestamp == null
-          || messageDuration == Long.MIN_VALUE) {
-        continue;
-      }
-      final Trace.Span messageSpan =
+
+      final Trace.Span span =
           makeSpan(
               messageTraceId,
-              messageParentId,
-              messageId,
-              messageName,
-              messageServiceName,
+              parentId,
+              message.id,
+              name,
+              serviceName,
               messageConvertedTimestamp,
-              messageDuration,
+              duration,
               messageTags);
-      String messageString = JsonFormat.printer().print(messageSpan);
-      messageStrings.add(messageString);
+      String spanJson = printer.print(span);
+      traces.add(spanJson);
     }
-
-    String output = String.valueOf(messageStrings);
+    String output = String.valueOf(traces);
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
@@ -168,8 +182,8 @@ public class ZipkinService {
     spanBuilder.setName(name);
     // TODO: vthacker - should this be a separate named field?
     // spanBuilder.setServiceName(serviceName);
-    spanBuilder.setStartTimestampMicros(timestamp);
-    spanBuilder.setDurationMicros(duration);
+    spanBuilder.setTimestamp(timestamp);
+    spanBuilder.setDuration(duration);
     // TODO: currently tags is <String, KeyValue> since we want to preserve typing from the incoming
     // murron message
     // the zipkin proto however expects it to be <String, String>
@@ -177,14 +191,17 @@ public class ZipkinService {
     return spanBuilder.build();
   }
 
-  public static List<LogMessage> searchResultToLogMessage(KaldbSearch.SearchResult searchResult)
-      throws IOException {
+  // intentionally returning LogWireMessage instead of LogMessage
+  // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
+  // object
+  public static List<LogWireMessage> searchResultToLogWireMessage(
+      KaldbSearch.SearchResult searchResult) throws IOException {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
-    List<LogMessage> messages = new ArrayList<>();
+    List<LogWireMessage> messages = new ArrayList<>(hitsByteList.size());
     for (ByteString byteString : hitsByteList) {
       LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
-      LogMessage message = LogMessage.fromWireMessage(hit);
-      messages.add(message);
+      // LogMessage message = LogMessage.fromWireMessage(hit);
+      messages.add(hit);
     }
     return messages;
   }
