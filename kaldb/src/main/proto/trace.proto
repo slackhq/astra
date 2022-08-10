@@ -57,12 +57,12 @@ message Span {
   // For example: a value of 1551849569000000 represents March 6, 2019 5:19:29 UTC.
   // We use fixed64 since it is more wire efficient for than int64 for larger numbers.
   // This field is required.
-  fixed64 start_timestamp_micros = 5;
+  fixed64 timestamp = 5;
 
   // This field stored the duration in microseconds for the event in the critical path.
   // For example 150 milliseconds is 150000 microseconds.
   // This field is required.
-  uint64 duration_micros = 6;
+  uint64 duration = 6;
 
   // A list of key value pairs.
   repeated KeyValue tags = 7;

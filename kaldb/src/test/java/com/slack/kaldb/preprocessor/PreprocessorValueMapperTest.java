@@ -39,8 +39,8 @@ public class PreprocessorValueMapperTest {
     Iterator<Trace.Span> spanIterator = spanIterable.iterator();
     Trace.Span span = spanIterator.next();
 
-    assertThat(span.getStartTimestampMicros()).isEqualTo(timestamp / 1000);
-    assertThat(span.getDurationMicros()).isEqualTo(1);
+    assertThat(span.getTimestamp()).isEqualTo(timestamp / 1000);
+    assertThat(span.getDuration()).isEqualTo(1);
 
     assertThat(span.getTagsList().size()).isEqualTo(6);
     assertThat(
@@ -106,8 +106,8 @@ public class PreprocessorValueMapperTest {
     Iterator<Trace.Span> spanIterator = spanIterable.iterator();
     Trace.Span mappedSpan = spanIterator.next();
 
-    assertThat(mappedSpan.getStartTimestampMicros()).isEqualTo(timestampMicros);
-    assertThat(mappedSpan.getDurationMicros()).isEqualTo(durationMicros);
+    assertThat(mappedSpan.getTimestamp()).isEqualTo(timestampMicros);
+    assertThat(mappedSpan.getDuration()).isEqualTo(durationMicros);
 
     assertThat(mappedSpan.getTagsList().size()).isEqualTo(8);
     assertThat(
