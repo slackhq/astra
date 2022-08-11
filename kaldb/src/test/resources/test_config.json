@@ -51,7 +51,8 @@
       "serverAddress": "1.2.3.4",
       "requestTimeoutMs": 3000
     },
-    "defaultQueryTimeoutMs": 1500
+    "defaultQueryTimeoutMs": 1500,
+    "managerConnectString": "localhost:8083"
   },
   "metadataStoreConfig": {
     "zookeeperConfig": {

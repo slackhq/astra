@@ -44,6 +44,7 @@ queryConfig:
     serverAddress: ${KALDB_QUERY_SERVER_ADDRESS:-localhost}
     requestTimeoutMs: ${KALDB_QUERY_REQUEST_TIMEOUT_MS:-5000}
   defaultQueryTimeoutMs: ${KALDB_QUERY_DEFAULT_QUERY_TIMEOUT_MS:-3000}
+  managerConnectString: ${KALDB_MANAGER_CONNECTION_STRING:-localhost:8083}
 
 metadataStoreConfig:
   zookeeperConfig:

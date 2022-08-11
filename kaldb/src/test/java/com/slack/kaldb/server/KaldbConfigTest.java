@@ -207,6 +207,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isEqualTo(8081);
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
+    assertThat(queryServiceConfig.getManagerConnectString()).isEqualTo("localhost:8083");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -350,6 +351,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.QueryServiceConfig readConfig = config.getQueryConfig();
     assertThat(readConfig.getServerConfig().getServerPort()).isEqualTo(8081);
     assertThat(readConfig.getServerConfig().getServerAddress()).isEqualTo("1.2.3.4");
+    assertThat(readConfig.getManagerConnectString()).isEqualTo("localhost:8083");
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -507,6 +509,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
+    assertThat(queryServiceConfig.getManagerConnectString()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
@@ -641,6 +644,7 @@ public class KaldbConfigTest {
     final KaldbConfigs.QueryServiceConfig queryServiceConfig = config.getQueryConfig();
     assertThat(queryServiceConfig.getServerConfig().getServerPort()).isZero();
     assertThat(queryServiceConfig.getServerConfig().getServerAddress()).isEmpty();
+    assertThat(queryServiceConfig.getManagerConnectString()).isEmpty();
 
     final KaldbConfigs.MetadataStoreConfig metadataStoreConfig = config.getMetadataStoreConfig();
     final KaldbConfigs.ZookeeperConfig zookeeperConfig = metadataStoreConfig.getZookeeperConfig();
