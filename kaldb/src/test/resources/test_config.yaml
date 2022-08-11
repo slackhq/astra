@@ -22,6 +22,7 @@ queryConfig:
     serverAddress: "1.2.3.4"
     requestTimeoutMs: 3000
   defaultQueryTimeoutMs: 2500
+  managerConnectString: localhost:8083
 
 kafkaConfig:
   kafkaTopic: ${KAFKA_TOPIC:-test-topic}
