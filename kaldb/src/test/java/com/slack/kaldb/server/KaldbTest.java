@@ -66,7 +66,7 @@ public class KaldbTest {
   private ZookeeperMetadataStoreImpl zkMetadataStore;
   private PrometheusMeterRegistry meterRegistry;
 
-  private static KaldbSearch.SearchResult searchUsingGrpcApi(
+  public static KaldbSearch.SearchResult searchUsingGrpcApi(
       String queryString, int port, long startTime, long endTime) {
     KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
         GrpcClients.builder(uri(port))

@@ -1,105 +1,202 @@
 package com.slack.kaldb.zipkinApi;
 
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.server.KaldbTest.searchUsingGrpcApi;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
-import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.linecorp.armeria.common.HttpResponse;
-import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
-import com.slack.kaldb.testlib.ChunkManagerUtil;
+import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.server.Kaldb;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
+import com.slack.kaldb.testlib.TestKafkaServer;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
+import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class ZipkinServiceTest {
 
+  private static final Logger LOG = LoggerFactory.getLogger(ZipkinServiceTest.class);
+
+  private static final String TEST_S3_BUCKET = "test-s3-bucket";
+  private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
+  private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
+  private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
+
+  private DatasetMetadataStore datasetMetadataStore;
+  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private PrometheusMeterRegistry meterRegistry;
+
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private ZipkinService zipkinService;
-
-  private SimpleMeterRegistry metricsRegistry;
-  private ChunkManagerUtil<LogMessage> chunkManagerUtil;
-
-  private static final String TEST_KAFKA_PARTITION_ID = "10";
+  private TestKafkaServer kafkaServer;
+  private TestingServer zkServer;
+  private S3Client s3Client;
 
   @Before
   public void setUp() throws Exception {
-    Tracing.newBuilder().build();
-    metricsRegistry = new SimpleMeterRegistry();
-    chunkManagerUtil =
-        ChunkManagerUtil.makeChunkManagerUtil(
-            S3_MOCK_RULE,
-            metricsRegistry,
-            10 * 1024 * 1024 * 1024L,
-            1000000L,
-            KaldbConfigUtil.makeIndexerConfig());
-    chunkManagerUtil.chunkManager.startAsync();
-    chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-    //    LogMessage msg100 = MessageUtil.makeMessage(100);
-    //    MessageUtil.addFieldToMessage(msg100, LogMessage.ReservedField.TRACE_ID.fieldName,
-    // "1111");
-    //    chunkManagerUtil.chunkManager.addMessage(
-    //        msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, 1);
-    KaldbLocalQueryService<LogMessage> searcher =
-        new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
-    zipkinService = new ZipkinService(searcher);
+    zkServer = new TestingServer();
+    kafkaServer = new TestKafkaServer();
+    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
+
+    // We side load a service metadata entry telling it to create an entry with the partitions that
+    // we use in test
+    meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(zkServer.getConnectString())
+            .setZkPathPrefix(ZK_PATH_PREFIX)
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(1000)
+            .build();
+    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    final DatasetPartitionMetadata partition =
+        new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
+    final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(MessageUtil.TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
   }
 
   @After
-  public void tearDown() throws TimeoutException, IOException {
-    chunkManagerUtil.close();
-    metricsRegistry.close();
+  public void teardown() throws Exception {
+    kafkaServer.close();
+    meterRegistry.close();
+    datasetMetadataStore.close();
+    zkMetadataStore.close();
+    zkServer.close();
   }
 
   @Test
-  public void testEmptySearch() throws IOException {
-    HttpResponse response = zipkinService.getTraceByTraceId("test");
-    // handle response
-    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
-    String body = aggregatedRes.content(StandardCharsets.UTF_8);
-    assertThat(body.equals("[]"));
-    assertThat(aggregatedRes.status().code()).isEqualTo(200);
-  }
+  public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
+    assertThat(kafkaServer.getBroker().isRunning()).isTrue();
 
-  @Test
-  public void testMultipleResultsSearch() throws Exception {
-    IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
-    final Instant startTime =
+    LOG.info("Starting query service");
+    int queryServicePort = 8887;
+    KaldbConfigs.KaldbConfig queryServiceConfig =
+        KaldbConfigUtil.makeKaldbConfig(
+            "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
+            -1,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            TEST_S3_BUCKET,
+            queryServicePort,
+            zkServer.getConnectString(),
+            ZK_PATH_PREFIX,
+            KaldbConfigs.NodeRole.QUERY,
+            1000,
+            "api_Log",
+            -1);
+    Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
+    queryService.start();
+    queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+
+    int indexerPort = 10000;
+    LOG.info(
+        "Creating indexer service at port {}, topic: {} and partition {}",
+        indexerPort,
+        TEST_KAFKA_TOPIC_1,
+        0);
+    // create a kaldb indexer
+    KaldbConfigs.KaldbConfig indexerConfig =
+        KaldbConfigUtil.makeKaldbConfig(
+            "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
+            indexerPort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            TEST_S3_BUCKET,
+            -1,
+            zkServer.getConnectString(),
+            ZK_PATH_PREFIX,
+            KaldbConfigs.NodeRole.INDEX,
+            1000,
+            "api_log",
+            9003);
+
+    PrometheusMeterRegistry indexerMeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    Kaldb indexer = new Kaldb(indexerConfig, s3Client, indexerMeterRegistry);
+    indexer.start();
+    indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+    await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // Produce messages to kafka, so the indexer can consume them.
+
+    final Instant indexedMessagesStartTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
-    List<LogMessage> messages =
-        MessageUtil.makeTraceMessagesWithTimeDifference(
-            1, 100, 1000, startTime, "testTraceId", "testParentId", "testName", "testServiceName");
-    int offset = 1;
-    for (LogMessage m : messages) {
-      m.addProperty(LogMessage.ReservedField.TRACE_ID.fieldName, "1111");
-      chunkManager.addMessage(m, m.toString().length(), "10", offset);
-      offset++;
-    }
-    chunkManager.getActiveChunk().commit();
-    HttpResponse response = zipkinService.getTraceByTraceId("1111");
-    // handle response
-    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
-    String body = aggregatedRes.content(StandardCharsets.UTF_8);
-    assertThat(body.length() == 10);
-    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+    final int indexedMessagesCount =
+        produceMessagesToKafka(
+            kafkaServer.getBroker(), indexedMessagesStartTime, TEST_KAFKA_TOPIC_1, 0);
+
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
+                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
+                return count == indexedMessagesCount;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
+
+    // Query from the grpc search service
+    KaldbSearch.SearchResult queryServiceSearchResponse =
+        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    // Query from the zipkin search service
+    String endpoint = "http://127.0.0.1:" + queryServicePort;
+    WebClient webClient = WebClient.of(endpoint);
+    AggregatedHttpResponse response = webClient.get("/api/v2/trace/1").aggregate().join();
+    String body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    assertThat(body).isEqualTo("[]");
+
+    // Shutdown
+    LOG.info("Shutting down query service.");
+    queryService.shutdown();
+    LOG.info("Shutting down indexer.");
+    indexer.shutdown();
   }
 }

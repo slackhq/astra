@@ -68,25 +68,11 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
-    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
-  }
-
-  public static LogWireMessage makeTraceWireMessage(
-      int i, String ts, String traceId, String parentId, String name, String serviceName) {
-    String id = DEFAULT_MESSAGE_PREFIX + i;
-    Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts);
-    fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, traceId);
-    fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, parentId);
-    fieldMap.put(LogMessage.ReservedField.NAME.fieldName, name);
-    fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, serviceName);
+    // TODO: vthacker ensure these fields are okay?
+    fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, String.valueOf(i));
+    // should not be = trace_id
+    fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, String.valueOf(i));
     fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, 5000L);
-    String message = String.format("The identifier in this message is %s", id);
-    fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
-    fieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
-    fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
-    fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
-    fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
   }
 
@@ -107,12 +93,6 @@ public class MessageUtil {
 
   public static LogMessage makeMessage(int i, String ts) {
     return LogMessage.fromWireMessage(makeWireMessage(i, ts));
-  }
-
-  public static LogMessage makeTraceMessage(
-      int i, String ts, String traceId, String parentId, String name, String serviceName) {
-    return LogMessage.fromWireMessage(
-        makeTraceWireMessage(i, ts, traceId, parentId, name, serviceName));
   }
 
   public static void addFieldToMessage(LogMessage msg, String key, Object value) {
@@ -173,29 +153,6 @@ public class MessageUtil {
       result.add(
           MessageUtil.makeMessage(
               low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i).toString()));
-    }
-    return result;
-  }
-
-  public static List<LogMessage> makeTraceMessagesWithTimeDifference(
-      int low,
-      int high,
-      long timeDeltaMills,
-      Instant start,
-      String traceId,
-      String parentId,
-      String name,
-      String serviceName) {
-    List<LogMessage> result = new ArrayList<>();
-    for (int i = 0; i <= (high - low); i++) {
-      result.add(
-          MessageUtil.makeTraceMessage(
-              low + i,
-              start.plusNanos(1000 * 1000 * timeDeltaMills * i).toString(),
-              traceId,
-              parentId,
-              name,
-              serviceName));
     }
     return result;
   }

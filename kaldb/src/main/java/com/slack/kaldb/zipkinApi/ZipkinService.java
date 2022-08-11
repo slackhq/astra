@@ -123,23 +123,30 @@ public class ZipkinService {
             messageTags.put(k, String.valueOf(value));
         }
       }
+      // these are some mandatory fields without which the grafana zipkin plugin fails to display
+      // the span
       if (messageTraceId == null) {
-        LOG.trace("Document id={} missing trace_id", message.id);
+        LOG.warn("Document id={} missing trace_id", message.id);
         continue;
-      } else if (parentId == null) {
-        LOG.trace("Document id={} missing parent_id", parentId);
+      }
+      if (parentId == null) {
+        LOG.warn("Document id={} missing parent_id", message.id);
         continue;
-      } else if (name == null) {
-        LOG.trace("Document id={} missing name", name);
+      }
+//      if (name == null) {
+//        LOG.warn("Document id={} missing name", message.id);
+//        continue;
+//      }
+//      if (serviceName == null) {
+//        LOG.warn("Document id={} missing service_name", message.id);
+//        continue;
+//      }
+      if (timestamp == null) {
+        LOG.warn("Document id={} missing @timestamp", message.id);
         continue;
-      } else if (serviceName == null) {
-        LOG.trace("Document id={} missing parent_id", serviceName);
-        continue;
-      } else if (timestamp == null) {
-        LOG.trace("Document id={} missing @timestamp", timestamp);
-        continue;
-      } else if (duration == Long.MIN_VALUE) {
-        LOG.trace("Document id={} duration_ms cannot be set to ", message.id);
+      }
+      if (duration == Long.MIN_VALUE) {
+        LOG.warn("Document id={} duration_ms cannot be set to Long.MIN_VALUE", message.id);
         continue;
       }
 
