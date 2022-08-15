@@ -171,39 +171,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   @VisibleForTesting
-  public static Collection<String> getSearchNodesToQuery(
-      SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore,
-      DatasetMetadataStore datasetMetadataStore,
-      long queryStartTimeEpochMs,
-      long queryEndTimeEpochMs,
-      String dataset) {
-    ScopedSpan findPartitionsToQuerySpan =
-        Tracing.currentTracer()
-            .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
-
-    List<DatasetPartitionMetadata> partitions =
-        DatasetPartitionMetadata.findPartitionsToQuery(
-            datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
-    findPartitionsToQuerySpan.finish();
-
-    // step 1 - find all snapshots that match time window and partition
-    ScopedSpan snapshotsToSearchSpan =
-        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
-    Set<String> snapshotsToSearch = new HashSet<>();
-    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCached()) {
-      if (containsDataInTimeRange(
-              snapshotMetadata.startTimeEpochMs,
-              snapshotMetadata.endTimeEpochMs,
-              queryStartTimeEpochMs,
-              queryEndTimeEpochMs)
-          && isSnapshotInPartition(snapshotMetadata, partitions)) {
-        snapshotsToSearch.add(snapshotMetadata.name);
-      }
-    }
-    snapshotsToSearchSpan.finish();
-
-    // step 2 - iterate every search metadata whose snapshot needs to be searched.
+  protected static Set<String> getMatchingSearchMetadata(
+      SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
+    // iterate every search metadata whose snapshot needs to be searched.
     // if there are multiple search metadata nodes then pck the most on based on
     // pickSearchNodeToQuery
     ScopedSpan pickSearchNodeToQuerySpan =
@@ -212,7 +182,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
     for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
-      if (!snapshotsToSearch.contains(searchMetadata.snapshotName)) {
+      if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
         continue;
       }
 
@@ -230,8 +200,43 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     for (List<SearchMetadata> searchMetadata : searchMetadataGroupedByName.values()) {
       nodes.add(KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata));
     }
+    pickSearchNodeToQuerySpan.finish();
 
     return nodes;
+  }
+
+  @VisibleForTesting
+  protected static Map<String, SnapshotMetadata> getMatchingSnapshots(
+      SnapshotMetadataStore snapshotMetadataStore,
+      DatasetMetadataStore datasetMetadataStore,
+      long queryStartTimeEpochMs,
+      long queryEndTimeEpochMs,
+      String dataset) {
+    ScopedSpan findPartitionsToQuerySpan =
+        Tracing.currentTracer()
+            .startScopedSpan("KaldbDistributedQueryService.findPartitionsToQuery");
+
+    List<DatasetPartitionMetadata> partitions =
+        DatasetPartitionMetadata.findPartitionsToQuery(
+            datasetMetadataStore, queryStartTimeEpochMs, queryEndTimeEpochMs, dataset);
+    findPartitionsToQuerySpan.finish();
+
+    // find all snapshots that match time window and partition
+    ScopedSpan snapshotsToSearchSpan =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
+    Map<String, SnapshotMetadata> snapshotsToSearch = new HashMap<>();
+    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCached()) {
+      if (containsDataInTimeRange(
+              snapshotMetadata.startTimeEpochMs,
+              snapshotMetadata.endTimeEpochMs,
+              queryStartTimeEpochMs,
+              queryEndTimeEpochMs)
+          && isSnapshotInPartition(snapshotMetadata, partitions)) {
+        snapshotsToSearch.put(snapshotMetadata.name, snapshotMetadata);
+      }
+    }
+    snapshotsToSearchSpan.finish();
+    return snapshotsToSearch;
   }
 
   public static boolean isSnapshotInPartition(
@@ -298,9 +303,21 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
     List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
 
-    List<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
-        getSnapshotUrlsToSearch(
-            request.getStartTimeEpochMs(), request.getEndTimeEpochMs(), request.getDataset());
+    Map<String, SnapshotMetadata> snapshotsToSearch =
+        getMatchingSnapshots(
+            snapshotMetadataStore,
+            datasetMetadataStore,
+            request.getStartTimeEpochMs(),
+            request.getEndTimeEpochMs(),
+            request.getDataset());
+
+    Collection<String> nodes = getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+
+    ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs = new ArrayList<>(nodes.size());
+    for (String searchNodeUrl : nodes) {
+      queryStubs.add(getStub(searchNodeUrl));
+    }
+
     span.tag("queryServerCount", String.valueOf(queryStubs.size()));
 
     for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
@@ -343,24 +360,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       LOG.info("Finished distributed search for request: {}", request);
       span.finish();
     }
-  }
-
-  private List<KaldbServiceGrpc.KaldbServiceFutureStub> getSnapshotUrlsToSearch(
-      long startTimeEpochMs, long endTimeEpochMs, String dataset) {
-    Collection<String> searchNodeUrls =
-        getSearchNodesToQuery(
-            snapshotMetadataStore,
-            searchMetadataStore,
-            datasetMetadataStore,
-            startTimeEpochMs,
-            endTimeEpochMs,
-            dataset);
-    ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
-        new ArrayList<>(searchNodeUrls.size());
-    for (String searchNodeUrl : searchNodeUrls) {
-      stubs.add(getStub(searchNodeUrl));
-    }
-    return stubs;
   }
 
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
