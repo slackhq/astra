@@ -15,9 +15,19 @@ public class ReplicaMetadata extends KaldbMetadata {
   public final String snapshotId;
   public final long createdTimeEpochMs;
   public final long expireAfterEpochMs;
+  public boolean isRestored;
 
   public ReplicaMetadata(
       String name, String snapshotId, long createdTimeEpochMs, long expireAfterEpochMs) {
+    this(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, false);
+  }
+
+  public ReplicaMetadata(
+      String name,
+      String snapshotId,
+      long createdTimeEpochMs,
+      long expireAfterEpochMs,
+      boolean isRestored) {
     super(name);
     checkArgument(createdTimeEpochMs > 0, "Created time must be greater than 0");
     checkArgument(expireAfterEpochMs >= 0, "Expiration time must be greater than or equal to 0");
@@ -27,6 +37,7 @@ public class ReplicaMetadata extends KaldbMetadata {
     this.snapshotId = snapshotId;
     this.createdTimeEpochMs = createdTimeEpochMs;
     this.expireAfterEpochMs = expireAfterEpochMs;
+    this.isRestored = isRestored;
   }
 
   public String getSnapshotId() {
@@ -39,6 +50,10 @@ public class ReplicaMetadata extends KaldbMetadata {
 
   public long getExpireAfterEpochMs() {
     return expireAfterEpochMs;
+  }
+
+  public boolean getIsRestored() {
+    return isRestored;
   }
 
   @Override
@@ -70,6 +85,8 @@ public class ReplicaMetadata extends KaldbMetadata {
         + createdTimeEpochMs
         + ", expireAfterEpochMs="
         + expireAfterEpochMs
+        + ", isRestored="
+        + isRestored
         + '}';
   }
 }

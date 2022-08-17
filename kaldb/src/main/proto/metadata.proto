@@ -39,6 +39,8 @@ message ReplicaMetadata {
 
   // Timestamp after which this replica can be deleted
   int64 expire_after_epoch_ms = 5;
+
+  bool isRestored = 6;
 }
 
 message SnapshotMetadata {
