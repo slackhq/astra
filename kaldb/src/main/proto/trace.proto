@@ -68,6 +68,51 @@ message Span {
   repeated KeyValue tags = 7;
 }
 
+// similar to Trace.Span with the following differences
+// 1. id/traceId/parentId is a string instead of a byte array. The reason being when we convert a byte array to JSON
+//    the library encodes it as base64 which then grafana doesn't decode to a string and prints it as is
+// 2. tags as <String,String> instead of current <String,KeyValue> which is a Kaldb notation to keep the
+//    incoming datatype when messages are consumed via murron
+// 3. service name as part of Endpoint message
+message ZipkinSpan {
+  string trace_id = 1;
+  string parent_id = 2;
+  string id = 3;
+  string name = 4;
+  string service_name = 5;
+  fixed64 timestamp = 6;
+  uint64 duration = 7;
+  map<string, string> tags = 8;
+  // When an RPC (or messaging) span, indicates the other side of the
+  // connection.
+  //
+  // By recording the remote endpoint, your trace will contain network context
+  // even if the peer is not tracing. For example, you can record the IP from
+  // the "X-Forwarded-For" header or the service name and socket of a remote
+  // peer.
+  Endpoint remote_endpoint = 9;
+}
+
+message Endpoint {
+  // Lower-case label of this node in the service graph, such as "favstar".
+  // Leave absent if unknown.
+  //
+  // This is a primary label for trace lookup and aggregation, so it should be
+  // intuitive and consistent. Many use a name from service discovery.
+  string service_name = 1;
+  // 4 byte representation of the primary IPv4 address associated with this
+  // connection. Absent if unknown.
+  bytes ipv4 = 2;
+  // 16 byte representation of the primary IPv6 address associated with this
+  // connection. Absent if unknown.
+  //
+  // Prefer using the ipv4 field for mapped addresses.
+  bytes ipv6 = 3;
+  // Depending on context, this could be a listen port or the client-side of a
+  // socket. Absent if unknown.
+  int32 port = 4;
+}
+
 // List of spans is a message to send multiple spans in a single call.
 // Any tags specified in this call will be added to all the spans sent in this message.
 // If the list of spans is empty, this message will be ignored even if tags field is set.

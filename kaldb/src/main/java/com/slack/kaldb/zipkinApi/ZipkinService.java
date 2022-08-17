@@ -88,6 +88,11 @@ public class ZipkinService {
     List<String> traces = new ArrayList<>();
 
     for (LogWireMessage message : messages) {
+      if (message.id == null) {
+        LOG.warn("Document cannot have missing id");
+        continue;
+      }
+
       String messageTraceId = null;
       String parentId = null;
       String name = null;
@@ -126,27 +131,10 @@ public class ZipkinService {
       // these are some mandatory fields without which the grafana zipkin plugin fails to display
       // the span
       if (messageTraceId == null) {
-        LOG.warn("Document id={} missing trace_id", message.id);
-        continue;
+        messageTraceId = message.id;
       }
-      if (parentId == null) {
-        LOG.warn("Document id={} missing parent_id", message.id);
-        continue;
-      }
-//      if (name == null) {
-//        LOG.warn("Document id={} missing name", message.id);
-//        continue;
-//      }
-//      if (serviceName == null) {
-//        LOG.warn("Document id={} missing service_name", message.id);
-//        continue;
-//      }
       if (timestamp == null) {
         LOG.warn("Document id={} missing @timestamp", message.id);
-        continue;
-      }
-      if (duration == Long.MIN_VALUE) {
-        LOG.warn("Document id={} duration_ms cannot be set to Long.MIN_VALUE", message.id);
         continue;
       }
 
@@ -155,13 +143,13 @@ public class ZipkinService {
           TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
               + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
 
-      final Trace.Span span =
+      final Trace.ZipkinSpan span =
           makeSpan(
               messageTraceId,
-              parentId,
+              Optional.ofNullable(parentId),
               message.id,
-              name,
-              serviceName,
+              Optional.ofNullable(name),
+              Optional.ofNullable(serviceName),
               messageConvertedTimestamp,
               duration,
               messageTags);
@@ -172,29 +160,28 @@ public class ZipkinService {
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
-  public static Trace.Span makeSpan(
+  public static Trace.ZipkinSpan makeSpan(
       String traceId,
-      String parentId,
+      Optional<String> parentId,
       String id,
-      String name,
-      String serviceName,
+      Optional<String> name,
+      Optional<String> serviceName,
       long timestamp,
       long duration,
       Map<String, String> tags) {
-    Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
+    Trace.ZipkinSpan.Builder spanBuilder = Trace.ZipkinSpan.newBuilder();
 
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
-    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
-    spanBuilder.setName(name);
-    // TODO: vthacker - should this be a separate named field?
-    // spanBuilder.setServiceName(serviceName);
+    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
     spanBuilder.setTimestamp(timestamp);
     spanBuilder.setDuration(duration);
-    // TODO: currently tags is <String, KeyValue> since we want to preserve typing from the incoming
-    // murron message
-    // the zipkin proto however expects it to be <String, String>
-    // spanBuilder.addAllTags(tags);
+
+    parentId.ifPresent(
+        s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
+    name.ifPresent(spanBuilder::setName);
+    serviceName.ifPresent(
+        s -> spanBuilder.setRemoteEndpoint(Trace.Endpoint.newBuilder().setServiceName(s)));
+    spanBuilder.putAllTags(tags);
     return spanBuilder.build();
   }
 

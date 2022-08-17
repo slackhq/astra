@@ -191,7 +191,9 @@ public class ZipkinServiceTest {
     AggregatedHttpResponse response = webClient.get("/api/v2/trace/1").aggregate().join();
     String body = response.content(StandardCharsets.UTF_8);
     assertThat(response.status().code()).isEqualTo(200);
-    assertThat(body).isEqualTo("[]");
+    assertThat(body)
+        .isEqualTo(
+            "[{\"traceId\":\"1\",\"parentId\":\"1\",\"id\":\"localhost:100:0\",\"name\":\"testDataSet\",\"serviceName\":\"testDataSet\",\"timestamp\":\"1601547000000000\",\"duration\":\"5000\",\"tags\":{\"longproperty\":\"1\",\"floatproperty\":\"1.0\",\"hostname\":\"localhost\",\"intproperty\":\"1\",\"message\":\"The identifier in this message is Message1\",\"doubleproperty\":\"1.0\"}}]");
 
     // Shutdown
     LOG.info("Shutting down query service.");
