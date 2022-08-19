@@ -156,7 +156,10 @@ public class ZipkinService {
       String spanJson = printer.print(span);
       traces.add(spanJson);
     }
-    String output = String.valueOf(traces);
+    StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
+    traces.forEach(outputJsonArray::add);
+    String output = outputJsonArray.toString();
+
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
