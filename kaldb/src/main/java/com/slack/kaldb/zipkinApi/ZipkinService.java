@@ -13,6 +13,7 @@ import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -73,13 +74,16 @@ public class ZipkinService {
   public HttpResponse getTraceByTraceId(@Param("traceId") String traceId) throws IOException {
 
     String queryString = "trace_id:" + traceId;
+    // since the traceById doesn't support a start date param max out to 1 days for now
+    // todo: read this value from the replica config?
+    long startTime = TimeUnit.NANOSECONDS.toMillis(LocalDate.now().minusDays(1).atStartOfDay().getNano());
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
             searchRequestBuilder
                 .setDataset("_all")
                 .setQueryString(queryString)
-                .setStartTimeEpochMs(0)
+                .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(System.currentTimeMillis())
                 .setHowMany(10)
                 .setBucketCount(0)
