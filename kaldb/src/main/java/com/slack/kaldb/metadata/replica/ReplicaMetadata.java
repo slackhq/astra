@@ -18,11 +18,6 @@ public class ReplicaMetadata extends KaldbMetadata {
   public boolean isRestored;
 
   public ReplicaMetadata(
-      String name, String snapshotId, long createdTimeEpochMs, long expireAfterEpochMs) {
-    this(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, false);
-  }
-
-  public ReplicaMetadata(
       String name,
       String snapshotId,
       long createdTimeEpochMs,

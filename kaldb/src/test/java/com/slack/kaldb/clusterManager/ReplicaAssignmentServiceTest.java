@@ -171,7 +171,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -277,7 +278,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -354,7 +356,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -455,7 +458,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -521,7 +525,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
-              Instant.now().minusSeconds(60).toEpochMilli());
+              Instant.now().minusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataExpiredList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -532,7 +537,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
-            0);
+            0,
+            false);
     replicaMetadataExpiredList.add(replicaMetadataZero);
     replicaMetadataStore.create(replicaMetadataZero);
 
@@ -542,7 +548,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -634,7 +641,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -756,7 +764,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -853,7 +862,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -964,7 +974,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -1035,7 +1046,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
-              Instant.now().plusSeconds(60).toEpochMilli());
+              Instant.now().plusSeconds(60).toEpochMilli(),
+              false);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -1110,7 +1122,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
-            now.plusSeconds(60).toEpochMilli());
+            now.plusSeconds(60).toEpochMilli(),
+            false);
     replicaMetadataStore.create(olderReplicaMetadata);
 
     ReplicaMetadata newerReplicaMetadata =
@@ -1118,7 +1131,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             now.toEpochMilli(),
-            now.plusSeconds(60).toEpochMilli());
+            now.plusSeconds(60).toEpochMilli(),
+            false);
     replicaMetadataStore.create(newerReplicaMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);

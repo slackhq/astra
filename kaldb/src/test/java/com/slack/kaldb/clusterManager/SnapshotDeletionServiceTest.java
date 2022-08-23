@@ -214,7 +214,8 @@ public class SnapshotDeletionServiceTest {
             UUID.randomUUID().toString(),
             snapshotMetadata.name,
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
-            Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli());
+            Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
+            false);
     replicaMetadataStore.create(replicaMetadata);
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
@@ -383,7 +384,8 @@ public class SnapshotDeletionServiceTest {
             UUID.randomUUID().toString(),
             snapshotMetadata.name,
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
-            Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli());
+            Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
+            false);
     replicaMetadataStore.create(replicaMetadata);
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);

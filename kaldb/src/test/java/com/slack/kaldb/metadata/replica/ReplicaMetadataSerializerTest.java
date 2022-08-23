@@ -18,7 +18,7 @@ public class ReplicaMetadataSerializerTest {
     long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -30,6 +30,7 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
+    assertThat(deserializedReplicaMetadata.isRestored).isTrue();
   }
 
   @Test
@@ -48,6 +49,7 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
+    assertThat(deserializedReplicaMetadata.isRestored).isFalse();
   }
 
   @Test
