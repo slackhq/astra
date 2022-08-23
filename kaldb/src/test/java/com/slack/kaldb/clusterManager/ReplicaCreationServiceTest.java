@@ -88,10 +88,10 @@ public class ReplicaCreationServiceTest {
 
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60)));
+            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60)));
+            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =

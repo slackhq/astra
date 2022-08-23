@@ -191,7 +191,8 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                                   managerConfig
                                                       .getReplicaCreationServiceConfig()
                                                       .getReplicaLifespanMins(),
-                                                  ChronoUnit.MINUTES)));
+                                                  ChronoUnit.MINUTES),
+                                          false));
                               addCallback(
                                   future,
                                   successCountingCallback(successCounter),
@@ -233,10 +234,5 @@ public class ReplicaCreationService extends AbstractScheduledService {
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
         isRestored);
-  }
-
-  public static ReplicaMetadata replicaMetadataFromSnapshotId(
-      String snapshotId, Instant expireAfter) {
-    return replicaMetadataFromSnapshotId(snapshotId, expireAfter, false);
   }
 }

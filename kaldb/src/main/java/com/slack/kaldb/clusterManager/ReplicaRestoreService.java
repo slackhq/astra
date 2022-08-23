@@ -163,7 +163,8 @@ public class ReplicaRestoreService extends AbstractScheduledService {
                 Instant.now()
                     .plus(
                         managerConfig.getReplicaRestoreServiceConfig().getReplicaLifespanMins(),
-                        ChronoUnit.MINUTES)));
+                        ChronoUnit.MINUTES),
+                true));
       } catch (Exception e) {
         LOG.error("Error restoring replica for snapshot {}", snapshot.snapshotId, e);
       }
