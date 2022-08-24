@@ -18,10 +18,11 @@ import org.apache.commons.io.FileUtils;
  *
  * <p>TODO: Also consider rolling over a chunk based on the time range for messages in the chunk.
  */
-public class ChunkRollOverStrategyImpl implements ChunkRollOverStrategy {
+public class SizeOrMessageBasedRolloverStrategy implements ChunkRollOverStrategy {
 
-  public static ChunkRollOverStrategyImpl fromConfig(KaldbConfigs.IndexerConfig indexerConfig) {
-    return new ChunkRollOverStrategyImpl(
+  public static SizeOrMessageBasedRolloverStrategy fromConfig(
+      KaldbConfigs.IndexerConfig indexerConfig) {
+    return new SizeOrMessageBasedRolloverStrategy(
         indexerConfig.getMaxBytesPerChunk(), indexerConfig.getMaxMessagesPerChunk());
   }
 
@@ -36,7 +37,7 @@ public class ChunkRollOverStrategyImpl implements ChunkRollOverStrategy {
 
   private volatile File activeChunkDirectory;
 
-  public ChunkRollOverStrategyImpl(long maxBytesPerChunk, long maxMessagesPerChunk) {
+  public SizeOrMessageBasedRolloverStrategy(long maxBytesPerChunk, long maxMessagesPerChunk) {
     ensureTrue(maxBytesPerChunk > 0, "Max bytes per chunk should be a positive number.");
     ensureTrue(maxMessagesPerChunk > 0, "Max messages per chunk should be a positive number.");
     this.maxBytesPerChunk = maxBytesPerChunk;

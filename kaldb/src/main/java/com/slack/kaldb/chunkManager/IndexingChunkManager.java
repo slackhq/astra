@@ -392,7 +392,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       KaldbConfigs.S3Config s3Config) {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
-        ChunkRollOverStrategyImpl.fromConfig(indexerConfig);
+        SizeOrMessageBasedRolloverStrategy.fromConfig(indexerConfig);
 
     return new IndexingChunkManager<>(
         CHUNK_DATA_PREFIX,
