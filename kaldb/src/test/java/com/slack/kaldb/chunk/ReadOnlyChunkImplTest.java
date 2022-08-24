@@ -474,7 +474,8 @@ public class ReadOnlyChunkImplTest {
                 replicaId,
                 snapshotId,
                 Instant.now().toEpochMilli(),
-                Instant.now().plusSeconds(60).toEpochMilli()))
+                Instant.now().plusSeconds(60).toEpochMilli(),
+                false))
         .get(5, TimeUnit.SECONDS);
   }
 

@@ -88,10 +88,10 @@ public class ReplicaCreationServiceTest {
 
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60)));
+            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60)));
+            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -117,6 +117,8 @@ public class ReplicaCreationServiceTest {
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
     assertThat(replicaMetadataStore.getCached().size()).isEqualTo(2);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
 
     replicaCreationService.stopAsync();
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -153,6 +155,8 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.getCached().size()).isEqualTo(0);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
 
     replicaCreationService.stopAsync();
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -200,6 +204,8 @@ public class ReplicaCreationServiceTest {
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "a"))
                     .count())
         .isEqualTo(4);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
 
     replicaCreationService.stopAsync();
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -265,6 +271,8 @@ public class ReplicaCreationServiceTest {
             MetricsUtil.getTimerCount(
                 ReplicaCreationService.REPLICA_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
   }
 
   @Test
@@ -375,6 +383,8 @@ public class ReplicaCreationServiceTest {
                 .allMatch(
                     (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
         .isTrue();
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
   }
 
   @Test
@@ -412,6 +422,8 @@ public class ReplicaCreationServiceTest {
     snapshotMetadataStore.createSync(snapshotA);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(2);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
@@ -491,6 +503,8 @@ public class ReplicaCreationServiceTest {
     replicaCreationService.createReplicasForUnassignedSnapshots();
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
     await()
         .atMost(replicaCreationService.futuresListTimeoutSecs * 2L, TimeUnit.SECONDS)
         .until(
@@ -505,6 +519,7 @@ public class ReplicaCreationServiceTest {
     replicaCreationService.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     timeoutServiceExecutor.shutdown();
+    //noinspection ResultOfMethodCallIgnored
     timeoutServiceExecutor.awaitTermination(15, TimeUnit.SECONDS);
   }
 
@@ -542,6 +557,8 @@ public class ReplicaCreationServiceTest {
     int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
     assertThat(successfulReplicas).isEqualTo(1);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(1);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
@@ -592,6 +609,8 @@ public class ReplicaCreationServiceTest {
 
     int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
     assertThat(successfulReplicas).isEqualTo(1);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(1);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))

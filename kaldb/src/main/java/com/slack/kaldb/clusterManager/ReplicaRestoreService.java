@@ -148,6 +148,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
       }
     }
     restoreReplicasTimer.stop(restoreTimer);
+    LOG.info("Restored {} snapshots.", snapshotsToRestore.size());
   }
 
   /** Creates replica from given snapshot if its ID doesn't already exist in createdReplicas */
@@ -163,7 +164,8 @@ public class ReplicaRestoreService extends AbstractScheduledService {
                 Instant.now()
                     .plus(
                         managerConfig.getReplicaRestoreServiceConfig().getReplicaLifespanMins(),
-                        ChronoUnit.MINUTES)));
+                        ChronoUnit.MINUTES),
+                true));
       } catch (Exception e) {
         LOG.error("Error restoring replica for snapshot {}", snapshot.snapshotId, e);
       }

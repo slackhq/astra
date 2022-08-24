@@ -18,7 +18,7 @@ public class ReplicaMetadataSerializerTest {
     long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -30,24 +30,26 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
+    assertThat(deserializedReplicaMetadata.isRestored).isTrue();
   }
 
   @Test
-  public void shouldHandleEmptyExpiration() throws InvalidProtocolBufferException {
+  public void shouldHandleEmptyExpirationAndRestore() throws InvalidProtocolBufferException {
     // ensure even though adding expiration field we can still deserialize existing replicas
     // this can likely be removed after this code has shipped to production
-    String emptyExpiration =
+    String emptyExpirationAndRestore =
         "{\n"
             + "  \"name\": \"name\",\n"
             + "  \"snapshotId\": \"snapshotId\",\n"
             + "  \"createdTimeEpochMs\": \"1639677020380\"\n"
             + "}";
-    ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
+    ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpirationAndRestore);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
+    assertThat(deserializedReplicaMetadata.isRestored).isFalse();
   }
 
   @Test

@@ -193,6 +193,8 @@ public class ReplicaRestoreServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_SKIPPED).count()).isEqualTo(19);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_CREATED).count()).isEqualTo(4);
+    assertThat(replicaMetadataStore.getCached().stream().filter(r -> r.isRestored).count())
+        .isEqualTo(4);
   }
 
   @Test
@@ -222,8 +224,6 @@ public class ReplicaRestoreServiceTest {
 
     assertThrows(
         SizeLimitExceededException.class,
-        () -> {
-          replicaRestoreService.queueSnapshotsForRestoration(snapshots);
-        });
+        () -> replicaRestoreService.queueSnapshotsForRestoration(snapshots));
   }
 }
