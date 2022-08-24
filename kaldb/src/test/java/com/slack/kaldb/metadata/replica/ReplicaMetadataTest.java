@@ -16,13 +16,22 @@ public class ReplicaMetadataTest {
     long expireAfterEpochMs = Instant.now().toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, false);
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(replicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
-    assertThat(replicaMetadata.isRestored).isTrue();
+    assertThat(replicaMetadata.isRestored).isFalse();
+
+    ReplicaMetadata restoredReplicaMetadata =
+        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+
+    assertThat(restoredReplicaMetadata.name).isEqualTo(name);
+    assertThat(restoredReplicaMetadata.snapshotId).isEqualTo(snapshotId);
+    assertThat(restoredReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
+    assertThat(restoredReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
+    assertThat(restoredReplicaMetadata.isRestored).isTrue();
   }
 
   @Test

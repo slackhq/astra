@@ -34,16 +34,16 @@ public class ReplicaMetadataSerializerTest {
   }
 
   @Test
-  public void shouldHandleEmptyExpiration() throws InvalidProtocolBufferException {
+  public void shouldHandleEmptyExpirationAndRestore() throws InvalidProtocolBufferException {
     // ensure even though adding expiration field we can still deserialize existing replicas
     // this can likely be removed after this code has shipped to production
-    String emptyExpiration =
+    String emptyExpirationAndRestore =
         "{\n"
             + "  \"name\": \"name\",\n"
             + "  \"snapshotId\": \"snapshotId\",\n"
             + "  \"createdTimeEpochMs\": \"1639677020380\"\n"
             + "}";
-    ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpiration);
+    ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpirationAndRestore);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo("snapshotId");
