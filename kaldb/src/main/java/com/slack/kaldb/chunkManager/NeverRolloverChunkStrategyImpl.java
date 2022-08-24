@@ -16,10 +16,5 @@ public class NeverRolloverChunkStrategyImpl implements ChunkRollOverStrategy {
   public void setActiveChunkDirectory(File activeChunkDirectory) {}
 
   @Override
-  public long getApproximateDirectoryBytes() {
-    return 0;
-  }
-
-  @Override
   public void close() {}
 }

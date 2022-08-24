@@ -96,7 +96,8 @@ public class ChunkManagerUtil<T> {
     this.zkServer.start();
 
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new SizeOrMessageBasedRolloverStrategy(maxBytesPerChunk, maxMessagesPerChunk);
+        new SizeOrMessageBasedRolloverStrategy(
+            meterRegistry, maxBytesPerChunk, maxMessagesPerChunk);
 
     this.metadataStore = metadataStore;
 

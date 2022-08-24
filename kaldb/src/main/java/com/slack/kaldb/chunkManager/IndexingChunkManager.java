@@ -64,12 +64,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final MeterRegistry meterRegistry;
   private final AtomicLong liveMessagesIndexedGauge;
   private final AtomicLong liveBytesIndexedGauge;
-  private final AtomicLong liveBytesDirGauge;
 
   public static final String LIVE_MESSAGES_INDEXED = "live_messages_indexed";
   public static final String LIVE_BYTES_INDEXED = "live_bytes_indexed";
-
-  public static final String LIVE_BYTES_DIR = "live_bytes_dir";
 
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
@@ -129,7 +126,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     // TODO: Pass in id of index in LuceneIndexStore to track this info.
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
-    liveBytesDirGauge = registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
@@ -175,17 +171,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
-    long approximateDirectoryBytes = chunkRollOverStrategy.getApproximateDirectoryBytes();
-    liveBytesDirGauge.set(approximateDirectoryBytes);
 
     // If active chunk is full roll it over.
-    if (chunkRollOverStrategy.shouldRollOver(approximateDirectoryBytes, currentIndexedMessages)) {
-      LOG.info(
-          "After {} messages and {} ingested bytes rolling over chunk {} of {} bytes.",
-          currentIndexedMessages,
-          currentIndexedBytes,
-          currentChunk.id(),
-          approximateDirectoryBytes);
+    if (chunkRollOverStrategy.shouldRollOver(currentIndexedBytes, currentIndexedMessages)) {
       doRollover(currentChunk);
     }
   }
@@ -392,7 +380,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       KaldbConfigs.S3Config s3Config) {
 
     ChunkRollOverStrategy chunkRollOverStrategy =
-        SizeOrMessageBasedRolloverStrategy.fromConfig(indexerConfig);
+        DiskBasedRolloverStrategy.fromConfig(meterRegistry, indexerConfig);
 
     return new IndexingChunkManager<>(
         CHUNK_DATA_PREFIX,

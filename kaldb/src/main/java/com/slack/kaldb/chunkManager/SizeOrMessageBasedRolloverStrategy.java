@@ -2,15 +2,11 @@ package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class implements a rolls over a chunk when the chunk reaches a specific size or when a chunk
@@ -20,41 +16,45 @@ import org.apache.commons.io.FileUtils;
  */
 public class SizeOrMessageBasedRolloverStrategy implements ChunkRollOverStrategy {
 
+  private static final Logger LOG = LoggerFactory.getLogger(DiskBasedRolloverStrategy.class);
+
+  private final MeterRegistry registry;
+
   public static SizeOrMessageBasedRolloverStrategy fromConfig(
-      KaldbConfigs.IndexerConfig indexerConfig) {
+      MeterRegistry registry, KaldbConfigs.IndexerConfig indexerConfig) {
     return new SizeOrMessageBasedRolloverStrategy(
-        indexerConfig.getMaxBytesPerChunk(), indexerConfig.getMaxMessagesPerChunk());
+        registry, indexerConfig.getMaxBytesPerChunk(), indexerConfig.getMaxMessagesPerChunk());
   }
 
   private final long maxBytesPerChunk;
   private final long maxMessagesPerChunk;
 
-  private long approximateDirectoryBytes = 0;
-  private static final Duration directorySizeExecutorPeriod = Duration.of(10, ChronoUnit.SECONDS);
-  private final ScheduledExecutorService directorySizeExecutorService =
-      Executors.newScheduledThreadPool(
-          0, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
-
-  private volatile File activeChunkDirectory;
-
-  public SizeOrMessageBasedRolloverStrategy(long maxBytesPerChunk, long maxMessagesPerChunk) {
+  public SizeOrMessageBasedRolloverStrategy(
+      MeterRegistry registry, long maxBytesPerChunk, long maxMessagesPerChunk) {
     ensureTrue(maxBytesPerChunk > 0, "Max bytes per chunk should be a positive number.");
     ensureTrue(maxMessagesPerChunk > 0, "Max messages per chunk should be a positive number.");
     this.maxBytesPerChunk = maxBytesPerChunk;
     this.maxMessagesPerChunk = maxMessagesPerChunk;
-
-    directorySizeExecutorService.scheduleAtFixedRate(
-        () -> approximateDirectoryBytes = FileUtils.sizeOf(getActiveChunkDirectory()),
-        directorySizeExecutorPeriod.getSeconds(),
-        directorySizeExecutorPeriod.getSeconds(),
-        TimeUnit.SECONDS);
+    this.registry = registry;
   }
 
   @Override
   public boolean shouldRollOver(long currentBytesIndexed, long currentMessagesIndexed) {
-    return (currentBytesIndexed >= maxBytesPerChunk)
-        || (currentMessagesIndexed >= maxMessagesPerChunk);
+    boolean shouldRollover =
+        (currentBytesIndexed >= maxBytesPerChunk)
+            || (currentMessagesIndexed >= maxMessagesPerChunk);
+    LOG.info(
+        "After {} messages and {} ingested bytes rolling over chunk",
+        currentMessagesIndexed,
+        currentBytesIndexed);
+    return shouldRollover;
   }
+
+  @Override
+  public void setActiveChunkDirectory(File activeChunkDirectory) {}
+
+  @Override
+  public void close() {}
 
   public long getMaxBytesPerChunk() {
     return maxBytesPerChunk;
@@ -62,26 +62,5 @@ public class SizeOrMessageBasedRolloverStrategy implements ChunkRollOverStrategy
 
   public long getMaxMessagesPerChunk() {
     return maxMessagesPerChunk;
-  }
-
-  @Override
-  public void setActiveChunkDirectory(File activeChunkDirectory) {
-    this.activeChunkDirectory = activeChunkDirectory;
-    approximateDirectoryBytes = 0;
-  }
-
-  public File getActiveChunkDirectory() {
-    return activeChunkDirectory;
-  }
-
-  @Override
-  public long getApproximateDirectoryBytes() {
-    return approximateDirectoryBytes;
-  }
-
-  @Override
-  public void close() {
-    // Stop directory size calculations
-    directorySizeExecutorService.shutdown();
   }
 }

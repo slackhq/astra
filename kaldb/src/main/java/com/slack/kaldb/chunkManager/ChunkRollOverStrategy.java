@@ -8,7 +8,5 @@ public interface ChunkRollOverStrategy {
 
   public void setActiveChunkDirectory(File activeChunkDirectory);
 
-  public long getApproximateDirectoryBytes();
-
   public void close();
 }

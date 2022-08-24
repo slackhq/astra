@@ -4,9 +4,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class SizeOrMessageBasedRolloverStrategyTest {
+
+  private SimpleMeterRegistry metricsRegistry;
+
+  @Before
+  public void setUp() throws Exception {
+    metricsRegistry = new SimpleMeterRegistry();
+  }
+
+  @After
+  public void tearDown() throws TimeoutException, IOException {
+    metricsRegistry.close();
+  }
 
   @Test
   public void testInitViaConfig() {
@@ -14,25 +31,25 @@ public class SizeOrMessageBasedRolloverStrategyTest {
     assertThat(indexerCfg.getMaxMessagesPerChunk()).isEqualTo(100);
     assertThat(indexerCfg.getMaxBytesPerChunk()).isEqualTo(10737418240L);
     SizeOrMessageBasedRolloverStrategy chunkRollOverStrategy =
-        SizeOrMessageBasedRolloverStrategy.fromConfig(indexerCfg);
+        SizeOrMessageBasedRolloverStrategy.fromConfig(metricsRegistry, indexerCfg);
     assertThat(chunkRollOverStrategy.getMaxBytesPerChunk()).isEqualTo(10737418240L);
     assertThat(chunkRollOverStrategy.getMaxMessagesPerChunk()).isEqualTo(100);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeMaxMessagesPerChunk() {
-    new SizeOrMessageBasedRolloverStrategy(100, -1);
+    new SizeOrMessageBasedRolloverStrategy(metricsRegistry, 100, -1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNegativeMaxBytesPerChunk() {
-    new SizeOrMessageBasedRolloverStrategy(-100, 1);
+    new SizeOrMessageBasedRolloverStrategy(metricsRegistry, -100, 1);
   }
 
   @Test
   public void testChunkRollOver() {
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new SizeOrMessageBasedRolloverStrategy(1000, 2000);
+        new SizeOrMessageBasedRolloverStrategy(metricsRegistry, 1000, 2000);
 
     assertThat(chunkRollOverStrategy.shouldRollOver(1, 1)).isFalse();
     assertThat(chunkRollOverStrategy.shouldRollOver(-1, -1)).isFalse();
