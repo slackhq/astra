@@ -14,22 +14,23 @@ import org.slf4j.LoggerFactory;
  *
  * <p>TODO: Also consider rolling over a chunk based on the time range for messages in the chunk.
  */
-public class SizeOrMessageBasedRolloverStrategy implements ChunkRollOverStrategy {
+public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStrategy {
 
-  private static final Logger LOG = LoggerFactory.getLogger(DiskBasedRolloverStrategy.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(DiskOrMessageCountBasedRolloverStrategy.class);
 
   private final MeterRegistry registry;
 
-  public static SizeOrMessageBasedRolloverStrategy fromConfig(
+  public static MessageSizeOrCountBasedRolloverStrategy fromConfig(
       MeterRegistry registry, KaldbConfigs.IndexerConfig indexerConfig) {
-    return new SizeOrMessageBasedRolloverStrategy(
+    return new MessageSizeOrCountBasedRolloverStrategy(
         registry, indexerConfig.getMaxBytesPerChunk(), indexerConfig.getMaxMessagesPerChunk());
   }
 
   private final long maxBytesPerChunk;
   private final long maxMessagesPerChunk;
 
-  public SizeOrMessageBasedRolloverStrategy(
+  public MessageSizeOrCountBasedRolloverStrategy(
       MeterRegistry registry, long maxBytesPerChunk, long maxMessagesPerChunk) {
     ensureTrue(maxBytesPerChunk > 0, "Max bytes per chunk should be a positive number.");
     ensureTrue(maxMessagesPerChunk > 0, "Max messages per chunk should be a positive number.");

@@ -1,6 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.chunkManager.DiskBasedRolloverStrategy.LIVE_BYTES_DIR;
+import static com.slack.kaldb.chunkManager.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
@@ -31,7 +31,7 @@ import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-public class DiskBasedRolloverStrategyTest {
+public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -52,7 +52,7 @@ public class DiskBasedRolloverStrategyTest {
 
   @Before
   public void setUp() throws Exception {
-    DiskBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 10;
+    DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 10;
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
@@ -117,8 +117,8 @@ public class DiskBasedRolloverStrategyTest {
     KaldbConfigs.IndexerConfig indexerCfg = KaldbConfigUtil.makeIndexerConfig();
     assertThat(indexerCfg.getMaxMessagesPerChunk()).isEqualTo(100);
     assertThat(indexerCfg.getMaxBytesPerChunk()).isEqualTo(10737418240L);
-    DiskBasedRolloverStrategy chunkRollOverStrategy =
-        DiskBasedRolloverStrategy.fromConfig(metricsRegistry, indexerCfg);
+    DiskOrMessageCountBasedRolloverStrategy chunkRollOverStrategy =
+        DiskOrMessageCountBasedRolloverStrategy.fromConfig(metricsRegistry, indexerCfg);
     assertThat(chunkRollOverStrategy.getMaxBytesPerChunk()).isEqualTo(10737418240L);
     chunkRollOverStrategy.close();
   }
@@ -126,7 +126,7 @@ public class DiskBasedRolloverStrategyTest {
   @Test
   public void testDiskBasedRolloverWithMultipleChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new DiskBasedRolloverStrategy(metricsRegistry, 10000);
+        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10000, 1_000_000_000);
 
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
@@ -138,7 +138,7 @@ public class DiskBasedRolloverStrategyTest {
       final int msgSize = m.toString().length();
       chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
       offset++;
-      Thread.sleep(DiskBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
+      Thread.sleep(DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
       if (chunkManager.getActiveChunk() != null) {
         chunkManager.getActiveChunk().commit();
       }
