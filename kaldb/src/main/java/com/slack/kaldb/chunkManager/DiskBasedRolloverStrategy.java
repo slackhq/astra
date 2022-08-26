@@ -2,12 +2,11 @@ package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -29,10 +28,12 @@ public class DiskBasedRolloverStrategy implements ChunkRollOverStrategy {
   private final long maxBytesPerChunk;
 
   private long approximateDirectoryBytes = 0;
-  private static final Duration directorySizeExecutorPeriod = Duration.of(10, ChronoUnit.SECONDS);
+
+  @VisibleForTesting public static int DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 1000 * 10;
+
   private final ScheduledExecutorService directorySizeExecutorService =
       Executors.newScheduledThreadPool(
-          0, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
+          1, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
 
   private volatile File activeChunkDirectory;
 
@@ -48,21 +49,23 @@ public class DiskBasedRolloverStrategy implements ChunkRollOverStrategy {
     this.liveBytesDirGauge = this.registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
     directorySizeExecutorService.scheduleAtFixedRate(
-        () -> approximateDirectoryBytes = FileUtils.sizeOf(getActiveChunkDirectory()),
-        directorySizeExecutorPeriod.getSeconds(),
-        directorySizeExecutorPeriod.getSeconds(),
-        TimeUnit.SECONDS);
+        this::calculateDirectorySize,
+        DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
+        DIRECTORY_SIZE_EXECUTOR_PERIOD_MS,
+        TimeUnit.MILLISECONDS);
   }
 
   @Override
   public boolean shouldRollOver(long currentBytesIndexed, long currentMessagesIndexed) {
     liveBytesDirGauge.set(approximateDirectoryBytes);
     boolean shouldRollover = approximateDirectoryBytes >= maxBytesPerChunk;
-    LOG.info(
-        "After {} messages and {} ingested bytes rolling over chunk of {} bytes.",
-        currentMessagesIndexed,
-        currentBytesIndexed,
-        approximateDirectoryBytes);
+    if (shouldRollover) {
+      LOG.info(
+          "After {} messages and {} ingested bytes rolling over chunk of {} bytes",
+          currentMessagesIndexed,
+          currentBytesIndexed,
+          approximateDirectoryBytes);
+    }
     return shouldRollover;
   }
 
@@ -76,8 +79,10 @@ public class DiskBasedRolloverStrategy implements ChunkRollOverStrategy {
     approximateDirectoryBytes = 0;
   }
 
-  public File getActiveChunkDirectory() {
-    return activeChunkDirectory;
+  public void calculateDirectorySize() {
+    if (activeChunkDirectory != null && activeChunkDirectory.exists()) {
+      approximateDirectoryBytes = FileUtils.sizeOf(activeChunkDirectory);
+    }
   }
 
   @Override
