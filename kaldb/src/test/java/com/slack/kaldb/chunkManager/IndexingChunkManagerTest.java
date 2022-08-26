@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -224,7 +225,14 @@ public class IndexingChunkManagerTest {
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            "Message1",
+            0,
+            MAX_TIME,
+            10,
+            1000,
+            Collections.emptyList());
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -273,7 +281,13 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000),
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message101",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -296,7 +310,13 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000),
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message102",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -328,7 +348,8 @@ public class IndexingChunkManagerTest {
             0,
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
-            1000);
+            1000,
+            Collections.emptyList());
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
@@ -348,7 +369,8 @@ public class IndexingChunkManagerTest {
             startTimeEpochMs,
             endTimeEpochMs,
             10,
-            1000);
+            1000,
+            Collections.emptyList());
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }
 

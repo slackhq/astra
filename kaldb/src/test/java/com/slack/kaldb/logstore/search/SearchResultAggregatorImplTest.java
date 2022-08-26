@@ -75,7 +75,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -130,7 +131,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -196,7 +198,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
@@ -245,7 +248,8 @@ public class SearchResultAggregatorImplTest {
             searchStartMs,
             searchEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -298,7 +302,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -346,7 +351,8 @@ public class SearchResultAggregatorImplTest {
             startTimeMs,
             endTimeMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
@@ -399,7 +405,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount);
+            bucketCount,
+            Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);

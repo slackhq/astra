@@ -22,7 +22,8 @@ public class SearchResultUtils {
         searchRequest.getStartTimeEpochMs(),
         searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),
-        searchRequest.getBucketCount());
+        searchRequest.getBucketCount(),
+        searchRequest.getChunkIdList());
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(

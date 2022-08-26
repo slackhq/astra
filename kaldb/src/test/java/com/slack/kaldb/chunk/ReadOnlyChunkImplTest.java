@@ -42,6 +42,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
@@ -145,7 +146,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                0));
+                0,
+                Collections.emptyList()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
     await()
@@ -189,7 +191,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                0));
+                0,
+                Collections.emptyList()));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
 
@@ -403,7 +406,8 @@ public class ReadOnlyChunkImplTest {
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             500,
-            0);
+            0,
+            Collections.emptyList());
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
