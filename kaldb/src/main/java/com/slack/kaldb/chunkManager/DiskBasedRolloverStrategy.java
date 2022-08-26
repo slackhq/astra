@@ -15,7 +15,10 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** TODO */
+/**
+ * This is a disk based rollover strategy that calculates disk size every 10 seconds The disk size
+ * being calculated in the lucene index at that point in time.
+ */
 public class DiskBasedRolloverStrategy implements ChunkRollOverStrategy {
 
   private static final Logger LOG = LoggerFactory.getLogger(DiskBasedRolloverStrategy.class);
