@@ -11,7 +11,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.IndexingChunkImpl;
@@ -27,17 +26,13 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,23 +64,12 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final MeterRegistry meterRegistry;
   private final AtomicLong liveMessagesIndexedGauge;
   private final AtomicLong liveBytesIndexedGauge;
-  private final AtomicLong liveBytesDirGauge;
 
   public static final String LIVE_MESSAGES_INDEXED = "live_messages_indexed";
   public static final String LIVE_BYTES_INDEXED = "live_bytes_indexed";
 
-  public static final String LIVE_BYTES_DIR = "live_bytes_dir";
-
   // fields related to roll over
   private final ListeningExecutorService rolloverExecutorService;
-
-  private long approximateDirectoryBytes = 0;
-  private static final Duration directorySizeExecutorPeriod = Duration.of(10, ChronoUnit.SECONDS);
-
-  private final ScheduledExecutorService directorySizeExecutorService =
-      Executors.newScheduledThreadPool(
-          0, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
-
   private ListenableFuture<Boolean> rolloverFuture;
 
   /**
@@ -141,7 +125,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     // TODO: Pass in id of index in LuceneIndexStore to track this info.
     liveMessagesIndexedGauge = registry.gauge(LIVE_MESSAGES_INDEXED, new AtomicLong(0));
     liveBytesIndexedGauge = registry.gauge(LIVE_BYTES_INDEXED, new AtomicLong(0));
-    liveBytesDirGauge = registry.gauge(LIVE_BYTES_DIR, new AtomicLong(0));
 
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
@@ -187,16 +170,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     currentChunk.addMessage(message, kafkaPartitionId, offset);
     long currentIndexedMessages = liveMessagesIndexedGauge.incrementAndGet();
     long currentIndexedBytes = liveBytesIndexedGauge.addAndGet(msgSize);
-    liveBytesDirGauge.set(approximateDirectoryBytes);
 
     // If active chunk is full roll it over.
-    if (chunkRollOverStrategy.shouldRollOver(approximateDirectoryBytes, currentIndexedMessages)) {
+    if (chunkRollOverStrategy.shouldRollOver(currentIndexedBytes, currentIndexedMessages)) {
       LOG.info(
-          "After {} messages and {} ingested bytes rolling over chunk {} of {} bytes.",
+          "After {} messages and {} bytes rolling over chunk {}.",
           currentIndexedMessages,
           currentIndexedBytes,
-          currentChunk.id(),
-          approximateDirectoryBytes);
+          currentChunk.id());
       doRollover(currentChunk);
     }
   }
@@ -341,12 +322,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
 
     stopIngestion = false;
-
-    directorySizeExecutorService.scheduleAtFixedRate(
-        () -> approximateDirectoryBytes = FileUtils.sizeOf(dataDirectory),
-        directorySizeExecutorPeriod.getSeconds(),
-        directorySizeExecutorPeriod.getSeconds(),
-        TimeUnit.SECONDS);
   }
 
   /**
@@ -362,9 +337,6 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   @Override
   protected void shutDown() throws IOException {
     LOG.info("Closing indexing chunk manager.");
-
-    // Stop directory size calculations
-    directorySizeExecutorService.shutdown();
 
     // Stop executor service from taking on new tasks.
     rolloverExecutorService.shutdown();

@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_DIR;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
@@ -1100,7 +1099,6 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
-    assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
     chunkManager.getRolloverFuture().get(5, TimeUnit.SECONDS);
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -1121,7 +1119,6 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
-    assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
   }
@@ -1152,7 +1149,6 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
-    assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
     chunkManager.getRolloverFuture().get(5, TimeUnit.SECONDS);
     assertThat(chunkManager.getRolloverFuture().isDone()).isTrue();
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
@@ -1173,7 +1169,6 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(0);
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(0);
-    assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
