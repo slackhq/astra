@@ -519,7 +519,7 @@ public class LogMessageWriterImplTest {
 
     // even though we may have over 1k bytes, we only update the bytes ingested every 10s
     // as such this will only have 1 chunk at the time of query
-    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
 
     assertThat(
             chunkManager

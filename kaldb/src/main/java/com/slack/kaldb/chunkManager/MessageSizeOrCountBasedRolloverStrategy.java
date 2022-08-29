@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public class MessageSizeOrCountBasedRolloverStrategy implements ChunkRollOverStrategy {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(DiskOrMessageCountBasedRolloverStrategy.class);
+      LoggerFactory.getLogger(MessageSizeOrCountBasedRolloverStrategy.class);
 
   private final MeterRegistry registry;
 
