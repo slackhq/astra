@@ -51,6 +51,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
+  private static long MAX_BYTES_PER_CHUNK = 10000;
+
   @Before
   public void setUp() throws Exception {
     DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 10;
@@ -127,7 +129,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   @Test
   public void testDiskBasedRolloverWithMultipleChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10000, 1_000_000_000);
+        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, MAX_BYTES_PER_CHUNK, 1_000_000_000);
 
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
@@ -150,7 +152,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
       if (shouldCheckOnNextMessage) {
         assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
       }
-      shouldCheckOnNextMessage = getValue(LIVE_BYTES_DIR, metricsRegistry) > 10000;
+      shouldCheckOnNextMessage = getValue(LIVE_BYTES_DIR, metricsRegistry) > MAX_BYTES_PER_CHUNK;
     }
   }
 }
