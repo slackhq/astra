@@ -2,6 +2,7 @@ package com.slack.kaldb.chunkManager;
 
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.ReadWriteChunk;
+import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**

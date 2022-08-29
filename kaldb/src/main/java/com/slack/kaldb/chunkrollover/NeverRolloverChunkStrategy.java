@@ -1,12 +1,12 @@
-package com.slack.kaldb.chunkManager;
+package com.slack.kaldb.chunkrollover;
 
 import java.io.File;
 
 /**
- * The NeverRolloverChunkStrategyImpl always responds in the negative for a chunk roll over request.
+ * The NeverRolloverChunkStrategy always responds in the negative for a chunk roll over request.
  * It is currently used in recovery service which doesn't roll over the chunk.
  */
-public class NeverRolloverChunkStrategyImpl implements ChunkRollOverStrategy {
+public class NeverRolloverChunkStrategy implements ChunkRollOverStrategy {
   @Override
   public boolean shouldRollOver(long currentBytesIndexed, long currentMessagesIndexed) {
     return false;

@@ -1,6 +1,6 @@
-package com.slack.kaldb.chunkManager;
+package com.slack.kaldb.chunkrollover;
 
-import static com.slack.kaldb.chunkManager.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
+import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
@@ -13,6 +13,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
+import com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;

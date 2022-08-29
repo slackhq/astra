@@ -1,4 +1,4 @@
-package com.slack.kaldb.chunkManager;
+package com.slack.kaldb.chunkrollover;
 
 import java.io.File;
 
