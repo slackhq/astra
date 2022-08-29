@@ -2,8 +2,6 @@ package com.slack.kaldb.chunkrollover;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
-import com.slack.kaldb.chunkrollover.MessageSizeOrCountBasedRolloverStrategy;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

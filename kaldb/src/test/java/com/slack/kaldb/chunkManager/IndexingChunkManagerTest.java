@@ -1,9 +1,9 @@
 package com.slack.kaldb.chunkManager;
 
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.*;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.*;
+import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;

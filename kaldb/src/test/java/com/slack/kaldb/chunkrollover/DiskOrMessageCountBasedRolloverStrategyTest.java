@@ -14,8 +14,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
-import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
-import com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
