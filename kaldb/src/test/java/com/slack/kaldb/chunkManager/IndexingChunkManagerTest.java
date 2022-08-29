@@ -363,7 +363,7 @@ public class IndexingChunkManagerTest {
                     com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME)
                 .setHowMany(10)
                 .setBucketCount(1000)
-                .addAllChunkId(chunkList)
+                .addAllChunkIds(chunkList)
                 .build());
     // SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 

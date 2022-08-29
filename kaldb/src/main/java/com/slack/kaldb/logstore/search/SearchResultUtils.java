@@ -23,7 +23,7 @@ public class SearchResultUtils {
         searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),
         searchRequest.getBucketCount(),
-        searchRequest.getChunkIdList());
+        searchRequest.getChunkIdsList());
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(
