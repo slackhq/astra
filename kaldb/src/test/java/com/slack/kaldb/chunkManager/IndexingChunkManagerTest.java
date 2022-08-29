@@ -340,16 +340,6 @@ public class IndexingChunkManagerTest {
       int totalSnapshots,
       int expectedSnapshotsWithReplicas) {
 
-    //    SearchQuery searchQuery =
-    //        new SearchQuery(
-    //            MessageUtil.TEST_DATASET_NAME,
-    //            searchString,
-    //            0,
-    //            com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
-    //            10,
-    //            1000,
-    //            chunkList);
-
     KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
         new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
@@ -365,7 +355,6 @@ public class IndexingChunkManagerTest {
                 .setBucketCount(1000)
                 .addAllChunkIds(chunkList)
                 .build());
-    // SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(response.getHitsList().size()).isEqualTo(expectedHitCount);
     assertThat(response.getTotalSnapshots()).isEqualTo(totalSnapshots);
