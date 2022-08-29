@@ -29,10 +29,7 @@ import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.AlreadyClosedLogIndexSearcherImpl;
-import com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
-import com.slack.kaldb.logstore.search.SearchQuery;
-import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.*;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -40,6 +37,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -342,22 +340,38 @@ public class IndexingChunkManagerTest {
       int totalSnapshots,
       int expectedSnapshotsWithReplicas) {
 
-    SearchQuery searchQuery =
-        new SearchQuery(
-            MessageUtil.TEST_DATASET_NAME,
-            searchString,
-            0,
-            com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
-            10,
-            1000,
-            chunkList);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
+    //    SearchQuery searchQuery =
+    //        new SearchQuery(
+    //            MessageUtil.TEST_DATASET_NAME,
+    //            searchString,
+    //            0,
+    //            com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
+    //            10,
+    //            1000,
+    //            chunkList);
 
-    assertThat(result.hits.size()).isEqualTo(expectedHitCount);
-    assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
-    assertThat(result.snapshotsWithReplicas).isEqualTo(expectedSnapshotsWithReplicas);
-    assertThat(result.failedNodes).isEqualTo(0);
-    assertThat(result.totalNodes).isEqualTo(1);
+    KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
+        new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+    KaldbSearch.SearchResult response =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
+                .setQueryString(searchString)
+                .setStartTimeEpochMs(0)
+                .setEndTimeEpochMs(
+                    com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME)
+                .setHowMany(10)
+                .setBucketCount(1000)
+                .addAllChunkId(chunkList)
+                .build());
+    // SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
+
+    assertThat(response.getHitsList().size()).isEqualTo(expectedHitCount);
+    assertThat(response.getTotalSnapshots()).isEqualTo(totalSnapshots);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(expectedSnapshotsWithReplicas);
+    assertThat(response.getFailedNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
   }
 
   private void testChunkManagerSearch(
@@ -455,6 +469,7 @@ public class IndexingChunkManagerTest {
     String activeChunkId = chunkManager.getActiveChunk().info().chunkId;
     assertThat(activeChunkId).isNotEmpty();
     // Contains messages 1-10
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     String firstChunkId =
         chunkManager
             .chunkList
@@ -719,6 +734,7 @@ public class IndexingChunkManagerTest {
   }
 
   private void testOneFailedChunk(ChunkInfo secondChunk) {
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     ReadWriteChunk<LogMessage> chunk =
         (ReadWriteChunk<LogMessage>)
             chunkManager
