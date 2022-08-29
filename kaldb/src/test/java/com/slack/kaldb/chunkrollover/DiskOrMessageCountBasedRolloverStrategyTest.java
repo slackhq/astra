@@ -4,6 +4,7 @@ import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrat
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,16 +15,23 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
@@ -52,6 +60,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private SearchMetadataStore searchMetadataStore;
 
   private static long MAX_BYTES_PER_CHUNK = 10000;
+
+  private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
 
   @Before
   public void setUp() throws Exception {
@@ -113,6 +123,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    kaldbLocalQueryService = new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
   }
 
   @Test
@@ -129,12 +141,18 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   @Test
   public void testDiskBasedRolloverWithMultipleChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, MAX_BYTES_PER_CHUNK, 1_000_000_000);
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, MAX_BYTES_PER_CHUNK, 1_000_000_000);
 
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
 
-    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 10);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+    int totalMessages = 10;
+    List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, totalMessages, 1000, startTime);
     int offset = 1;
     boolean shouldCheckOnNextMessage = false;
     for (LogMessage m : messages) {
@@ -154,5 +172,31 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
       }
       shouldCheckOnNextMessage = getValue(LIVE_BYTES_DIR, metricsRegistry) > MAX_BYTES_PER_CHUNK;
     }
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
+    final long chunk1EndTimeMs = chunk1StartTimeMs + (totalMessages * 1000);
+    KaldbSearch.SearchResult response =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(10)
+                .setBucketCount(2)
+                .build());
+
+    assertThat(response.getHitsCount()).isEqualTo(1);
+    assertThat(response.getTookMicros()).isNotZero();
+    assertThat(response.getTotalCount()).isEqualTo(1);
+    assertThat(response.getFailedNodes()).isZero();
+    assertThat(response.getTotalNodes()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(3);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(3);
   }
 }
