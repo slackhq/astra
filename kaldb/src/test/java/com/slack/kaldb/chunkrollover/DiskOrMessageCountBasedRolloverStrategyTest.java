@@ -139,7 +139,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   }
 
   @Test
-  public void testDiskBasedRolloverWithMultipleChunks() throws Exception {
+  public void testDiskBasedRolloverWithMaxBytes() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(
             metricsRegistry, MAX_BYTES_PER_CHUNK, 1_000_000_000);
@@ -171,6 +171,68 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
         assertThat(getValue(LIVE_BYTES_DIR, metricsRegistry)).isEqualTo(0);
       }
       shouldCheckOnNextMessage = getValue(LIVE_BYTES_DIR, metricsRegistry) > MAX_BYTES_PER_CHUNK;
+    }
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
+
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+
+    final long chunk1StartTimeMs = startTime.toEpochMilli();
+    final long chunk1EndTimeMs = chunk1StartTimeMs + (totalMessages * 1000);
+    KaldbSearch.SearchResult response =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
+                .setQueryString("Message1")
+                .setStartTimeEpochMs(chunk1StartTimeMs)
+                .setEndTimeEpochMs(chunk1EndTimeMs)
+                .setHowMany(10)
+                .setBucketCount(2)
+                .build());
+
+    assertThat(response.getHitsCount()).isEqualTo(1);
+    assertThat(response.getTookMicros()).isNotZero();
+    assertThat(response.getTotalCount()).isEqualTo(1);
+    assertThat(response.getFailedNodes()).isZero();
+    assertThat(response.getTotalNodes()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(3);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(3);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testNegativeMaxMessagesPerChunk() {
+    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 100, -1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testNegativeMaxBytesPerChunk() {
+    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, -100, 1);
+  }
+
+  @Test
+  public void testDiskBasedRolloverWithMaxMessages() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, Long.MAX_VALUE, 4);
+
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+    int totalMessages = 10;
+    List<LogMessage> messages =
+        MessageUtil.makeMessagesWithTimeDifference(1, totalMessages, 1000, startTime);
+    int offset = 1;
+    for (LogMessage m : messages) {
+      final int msgSize = m.toString().length();
+      chunkManager.addMessage(m, msgSize, TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+      Thread.sleep(DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS);
+      if (chunkManager.getActiveChunk() != null) {
+        chunkManager.getActiveChunk().commit();
+      }
     }
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
