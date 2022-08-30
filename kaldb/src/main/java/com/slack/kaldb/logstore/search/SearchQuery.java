@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import java.util.List;
-import org.apache.logging.log4j.util.Strings;
 
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
@@ -50,7 +49,7 @@ public class SearchQuery {
         + ", bucketCount="
         + bucketCount
         + ", chunkIds="
-        + Strings.join(chunkIds, ',')
+        + String.join(",", chunkIds)
         + '}';
   }
 }
