@@ -7,9 +7,9 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
-import com.slack.kaldb.chunkManager.ChunkRollOverStrategy;
-import com.slack.kaldb.chunkManager.ChunkRollOverStrategyImpl;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
+import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
+import com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -96,7 +96,8 @@ public class ChunkManagerUtil<T> {
     this.zkServer.start();
 
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new ChunkRollOverStrategyImpl(maxBytesPerChunk, maxMessagesPerChunk);
+        new DiskOrMessageCountBasedRolloverStrategy(
+            meterRegistry, maxBytesPerChunk, maxMessagesPerChunk);
 
     this.metadataStore = metadataStore;
 

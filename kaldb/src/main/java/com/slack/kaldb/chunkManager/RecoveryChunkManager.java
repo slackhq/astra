@@ -6,6 +6,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.*;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.chunk.*;
+import com.slack.kaldb.chunkrollover.NeverRolloverChunkStrategy;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -218,7 +219,7 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
 
     ChunkRolloverFactory chunkRolloverFactory =
         new ChunkRolloverFactory(
-            new NeverRolloverChunkStrategyImpl(), blobFs, s3Config.getS3Bucket(), meterRegistry);
+            new NeverRolloverChunkStrategy(), blobFs, s3Config.getS3Bucket(), meterRegistry);
 
     return new RecoveryChunkManager<>(recoveryChunkFactory, chunkRolloverFactory, meterRegistry);
   }
