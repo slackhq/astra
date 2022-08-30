@@ -54,7 +54,7 @@ public class RollOverChunkTask<T> implements Callable<Boolean> {
 
   @Override
   public Boolean call() throws Exception {
-    return rollOverTimer.recordCallable(() -> doRollover());
+    return rollOverTimer.recordCallable(this::doRollover);
   }
 
   private Boolean doRollover() {
