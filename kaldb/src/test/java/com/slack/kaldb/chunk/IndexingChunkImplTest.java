@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -145,17 +146,39 @@ public class IndexingChunkImplTest {
       chunk.commit();
 
       SearchResult<LogMessage> results =
-          chunk.query(new SearchQuery(MessageUtil.TEST_DATASET_NAME, "*:*", 0, MAX_TIME, 10, 1000));
+          chunk.query(
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "*:*",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(100);
 
       results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "Message1",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(1);
 
       results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message*", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "Message*",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(100);
       assertThat(results.hits.size()).isEqualTo(10);
 
@@ -282,7 +305,8 @@ public class IndexingChunkImplTest {
                           startTimeMs,
                           endTimeMs,
                           10,
-                          1000))
+                          1000,
+                          Collections.emptyList()))
                   .hits
                   .size())
           .isEqualTo(expectedResultCount);
@@ -305,7 +329,14 @@ public class IndexingChunkImplTest {
 
       SearchResult<LogMessage> results =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "Message1",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(results.hits.size()).isEqualTo(1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);
@@ -358,7 +389,14 @@ public class IndexingChunkImplTest {
 
       SearchResult<LogMessage> resultsBeforeCommit =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "Message1",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
       // Snapshot forces commit and refresh
@@ -366,7 +404,14 @@ public class IndexingChunkImplTest {
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot =
           chunk.query(
-              new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000));
+              new SearchQuery(
+                  MessageUtil.TEST_DATASET_NAME,
+                  "Message1",
+                  0,
+                  MAX_TIME,
+                  10,
+                  1000,
+                  Collections.emptyList()));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
   }
@@ -453,7 +498,14 @@ public class IndexingChunkImplTest {
       chunk.preSnapshot();
 
       SearchQuery searchQuery =
-          new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+          new SearchQuery(
+              MessageUtil.TEST_DATASET_NAME,
+              "Message1",
+              0,
+              MAX_TIME,
+              10,
+              1000,
+              Collections.emptyList());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
@@ -508,7 +560,14 @@ public class IndexingChunkImplTest {
       chunk.preSnapshot();
 
       SearchQuery searchQuery =
-          new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+          new SearchQuery(
+              MessageUtil.TEST_DATASET_NAME,
+              "Message1",
+              0,
+              MAX_TIME,
+              10,
+              1000,
+              Collections.emptyList());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);

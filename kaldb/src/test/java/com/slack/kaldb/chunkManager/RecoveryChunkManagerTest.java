@@ -33,6 +33,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -161,7 +162,14 @@ public class RecoveryChunkManagerTest {
 
     // Search query
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            "Message1",
+            0,
+            MAX_TIME,
+            10,
+            1000,
+            Collections.emptyList());
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -192,7 +200,13 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message101",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -215,7 +229,13 @@ public class RecoveryChunkManagerTest {
                 .getActiveChunk()
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000))
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message102",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()))
                 .hits
                 .size())
         .isEqualTo(1);
@@ -266,7 +286,8 @@ public class RecoveryChunkManagerTest {
             0,
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
-            1000);
+            1000,
+            Collections.emptyList());
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
@@ -288,6 +309,7 @@ public class RecoveryChunkManagerTest {
     LogMessage msg100 = MessageUtil.makeMessage(100);
     MessageUtil.addFieldToMessage(msg100, LogMessage.ReservedField.HOSTNAME.fieldName, 20000);
     chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+    //noinspection UnusedAssignment
     offset++;
 
     // Commit the new chunk so we can search it.

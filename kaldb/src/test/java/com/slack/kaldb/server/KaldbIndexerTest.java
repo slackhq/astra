@@ -40,6 +40,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -598,7 +599,13 @@ public class KaldbIndexerTest {
     SearchResult<LogMessage> searchResult =
         chunkManagerUtil.chunkManager.query(
             new SearchQuery(
-                "test", "Message100", chunk1StartTimeMs, chunk1StartTimeMs + (100 * 1000), 10, 2),
+                "test",
+                "Message100",
+                chunk1StartTimeMs,
+                chunk1StartTimeMs + (100 * 1000),
+                10,
+                2,
+                Collections.emptyList()),
             Duration.ofMillis(3000));
 
     // Validate search response

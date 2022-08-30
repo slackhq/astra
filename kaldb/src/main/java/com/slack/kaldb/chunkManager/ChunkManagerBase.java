@@ -59,12 +59,25 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
+
+    List<Chunk<T>> chunksMatchingQuery;
+    if (query.chunkIds.isEmpty()) {
+      chunksMatchingQuery =
+          chunkList
+              .stream()
+              .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
+              .collect(Collectors.toList());
+    } else {
+      chunksMatchingQuery =
+          chunkList
+              .stream()
+              .filter(c -> query.chunkIds.contains(c.id()))
+              .collect(Collectors.toList());
+    }
+
     List<CompletableFuture<SearchResult<T>>> queries =
-        chunkList
+        chunksMatchingQuery
             .stream()
-            .filter(
-                chunk ->
-                    chunk.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
             .map(
                 (chunk) ->
                     CompletableFuture.supplyAsync(

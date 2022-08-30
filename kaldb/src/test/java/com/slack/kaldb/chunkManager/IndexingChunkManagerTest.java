@@ -28,10 +28,7 @@ import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.kaldb.chunkrollover.MessageSizeOrCountBasedRolloverStrategy;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.AlreadyClosedLogIndexSearcherImpl;
-import com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
-import com.slack.kaldb.logstore.search.SearchQuery;
-import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.*;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -39,6 +36,7 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -48,6 +46,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
@@ -215,7 +214,14 @@ public class IndexingChunkManagerTest {
     assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
-        new SearchQuery(MessageUtil.TEST_DATASET_NAME, "Message1", 0, MAX_TIME, 10, 1000);
+        new SearchQuery(
+            MessageUtil.TEST_DATASET_NAME,
+            "Message1",
+            0,
+            MAX_TIME,
+            10,
+            1000,
+            Collections.emptyList());
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
 
@@ -264,7 +270,13 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message101", 0, MAX_TIME, 10, 1000),
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message101",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -287,7 +299,13 @@ public class IndexingChunkManagerTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        MessageUtil.TEST_DATASET_NAME, "Message102", 0, MAX_TIME, 10, 1000),
+                        MessageUtil.TEST_DATASET_NAME,
+                        "Message102",
+                        0,
+                        MAX_TIME,
+                        10,
+                        1000,
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
@@ -307,24 +325,48 @@ public class IndexingChunkManagerTest {
 
   private void testChunkManagerSearch(
       ChunkManager<LogMessage> chunkManager,
+      List<String> chunkIds,
       String searchString,
       int expectedHitCount,
       int totalSnapshots,
       int expectedSnapshotsWithReplicas) {
 
-    SearchQuery searchQuery =
-        new SearchQuery(
-            MessageUtil.TEST_DATASET_NAME,
-            searchString,
-            0,
-            com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
-            10,
-            1000);
-    SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
+    KaldbLocalQueryService<LogMessage> kaldbLocalQueryService =
+        new KaldbLocalQueryService<>(chunkManager, Duration.ofSeconds(3));
+    KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
+    KaldbSearch.SearchResult response =
+        kaldbLocalQueryService.doSearch(
+            searchRequestBuilder
+                .setDataset(MessageUtil.TEST_DATASET_NAME)
+                .setQueryString(searchString)
+                .setStartTimeEpochMs(0)
+                .setEndTimeEpochMs(Long.MAX_VALUE)
+                .setHowMany(10)
+                .setBucketCount(1000)
+                .addAllChunkIds(chunkIds)
+                .build());
 
-    assertThat(result.hits.size()).isEqualTo(expectedHitCount);
-    assertThat(result.totalSnapshots).isEqualTo(totalSnapshots);
-    assertThat(result.snapshotsWithReplicas).isEqualTo(expectedSnapshotsWithReplicas);
+    assertThat(response.getHitsList().size()).isEqualTo(expectedHitCount);
+    assertThat(response.getTotalSnapshots()).isEqualTo(totalSnapshots);
+    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(expectedSnapshotsWithReplicas);
+    assertThat(response.getFailedNodes()).isEqualTo(0);
+    assertThat(response.getTotalNodes()).isEqualTo(1);
+  }
+
+  private void testChunkManagerSearch(
+      ChunkManager<LogMessage> chunkManager,
+      String searchString,
+      int expectedHitCount,
+      int totalSnapshots,
+      int expectedSnapshotsWithReplicas) {
+
+    testChunkManagerSearch(
+        chunkManager,
+        Collections.emptyList(),
+        searchString,
+        expectedHitCount,
+        totalSnapshots,
+        expectedSnapshotsWithReplicas);
   }
 
   private int searchAndGetHitCount(
@@ -339,7 +381,8 @@ public class IndexingChunkManagerTest {
             startTimeEpochMs,
             endTimeEpochMs,
             10,
-            1000);
+            1000,
+            Collections.emptyList());
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }
 
@@ -370,6 +413,95 @@ public class IndexingChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
+  }
+
+  @Test
+  public void testAddAndSearchMessageInSpecificChunks() throws Exception {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
+
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 15);
+    int offset = 1;
+    for (LogMessage m : messages) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    chunkManager.getActiveChunk().commit();
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+    assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(15);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 2);
+    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 2);
+
+    checkMetadata(3, 2, 1, 2, 1);
+
+    // Test searching specific chunks
+    // Contains messages 11-15
+    String activeChunkId = chunkManager.getActiveChunk().info().chunkId;
+    assertThat(activeChunkId).isNotEmpty();
+    // Contains messages 1-10
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    String firstChunkId =
+        chunkManager
+            .chunkList
+            .stream()
+            .filter(c -> !c.id().equals(activeChunkId))
+            .findFirst()
+            .get()
+            .id();
+    assertThat(firstChunkId).isNotEmpty();
+
+    // Test message in a specific chunk
+    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message1", 1, 1, 1);
+    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message11", 1, 1, 1);
+    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message1 OR Message11", 1, 1, 1);
+    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message1 OR Message11", 1, 1, 1);
+    testChunkManagerSearch(
+        chunkManager, List.of(firstChunkId, activeChunkId), "Message1 OR Message11", 2, 2, 2);
+    // Search returns empty results
+    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message1", 0, 1, 1);
+    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message11", 0, 1, 1);
+    testChunkManagerSearch(
+        chunkManager, List.of(firstChunkId, activeChunkId), "Message111", 0, 2, 2);
+    // test invalid chunk id
+    testChunkManagerSearch(chunkManager, List.of("invalidChunkId"), "Message1", 0, 0, 0);
+    testChunkManagerSearch(
+        chunkManager, List.of("invalidChunkId", firstChunkId), "Message1", 1, 1, 1);
+    testChunkManagerSearch(
+        chunkManager, List.of("invalidChunkId", activeChunkId), "Message1", 0, 1, 1);
+    testChunkManagerSearch(
+        chunkManager, List.of("invalidChunkId", firstChunkId, activeChunkId), "Message1", 1, 2, 2);
+    testChunkManagerSearch(
+        chunkManager, List.of("invalidChunkId", firstChunkId, activeChunkId), "Message11", 1, 2, 2);
+    testChunkManagerSearch(
+        chunkManager,
+        List.of("invalidChunkId", firstChunkId, activeChunkId),
+        "Message1 OR Message11",
+        2,
+        2,
+        2);
+    testChunkManagerSearch(
+        chunkManager,
+        List.of("invalidChunkId", firstChunkId, activeChunkId),
+        "Message111 OR Message11",
+        1,
+        2,
+        2);
+    testChunkManagerSearch(
+        chunkManager,
+        List.of("invalidChunkId", firstChunkId, activeChunkId),
+        "Message111",
+        0,
+        2,
+        2);
   }
 
   @Test
@@ -581,6 +713,7 @@ public class IndexingChunkManagerTest {
   }
 
   private void testOneFailedChunk(ChunkInfo secondChunk) {
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
     ReadWriteChunk<LogMessage> chunk =
         (ReadWriteChunk<LogMessage>)
             chunkManager
