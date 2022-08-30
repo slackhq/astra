@@ -325,7 +325,7 @@ public class IndexingChunkManagerTest {
 
   private void testChunkManagerSearch(
       ChunkManager<LogMessage> chunkManager,
-      List<String> chunkList,
+      List<String> chunkIds,
       String searchString,
       int expectedHitCount,
       int totalSnapshots,
@@ -340,11 +340,10 @@ public class IndexingChunkManagerTest {
                 .setDataset(MessageUtil.TEST_DATASET_NAME)
                 .setQueryString(searchString)
                 .setStartTimeEpochMs(0)
-                .setEndTimeEpochMs(
-                    com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME)
+                .setEndTimeEpochMs(Long.MAX_VALUE)
                 .setHowMany(10)
                 .setBucketCount(1000)
-                .addAllChunkIds(chunkList)
+                .addAllChunkIds(chunkIds)
                 .build());
 
     assertThat(response.getHitsList().size()).isEqualTo(expectedHitCount);
@@ -419,7 +418,7 @@ public class IndexingChunkManagerTest {
   @Test
   public void testAddAndSearchMessageInSpecificChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
-        new ChunkRollOverStrategyImpl(10 * 1024 * 1024 * 1024L, 10L);
+        new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
