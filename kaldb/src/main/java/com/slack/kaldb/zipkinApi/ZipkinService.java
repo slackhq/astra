@@ -1,11 +1,15 @@
 package com.slack.kaldb.zipkinApi;
 
+import static com.slack.kaldb.logstore.LogMessage.ReservedField.TRACE_ID;
+import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.server.annotation.*;
+import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
@@ -76,12 +80,13 @@ public class ZipkinService {
     String queryString = "trace_id:" + traceId;
     // since the traceById doesn't support a start date param max out to 1 days for now
     // todo: read this value from the replica config?
-    long startTime = TimeUnit.NANOSECONDS.toMillis(LocalDate.now().minusDays(1).atStartOfDay().getNano());
+    long startTime =
+        TimeUnit.NANOSECONDS.toMillis(LocalDate.now().minusDays(1).atStartOfDay().getNano());
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
             searchRequestBuilder
-                .setDataset("_all")
+                .setDataset(MATCH_ALL_DATASET)
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(System.currentTimeMillis())
@@ -103,29 +108,28 @@ public class ZipkinService {
       String serviceName = null;
       String timestamp = null;
       long duration = Long.MIN_VALUE;
-
-      final Map<String, String> messageTags = new HashMap<>();
+      Map<String, String> messageTags = new HashMap<>();
 
       for (String k : message.source.keySet()) {
         Object value = message.source.get(k);
 
-        switch (k) {
-          case "trace_id":
+        switch (ReservedField.valueOf(k)) {
+          case TRACE_ID:
             messageTraceId = (String) value;
             break;
-          case "parent_id":
+          case PARENT_ID:
             parentId = (String) value;
             break;
-          case "name":
+          case NAME:
             name = (String) value;
             break;
-          case "service_name":
+          case SERVICE_NAME:
             serviceName = (String) value;
             break;
-          case "@timestamp":
+          case TIMESTAMP:
             timestamp = (String) value;
             break;
-          case "duration_ms":
+          case DURATION_MS:
             duration = ((Number) value).longValue();
             break;
           default:
@@ -167,6 +171,11 @@ public class ZipkinService {
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
+  // We sadly need to create ZipkinSpan and can't reuse the Span proto
+  // The reason being, Span has id/traceId/parentId as bytes (which is correct and is how the proto
+  // definition is defined - there shouldn't be a string without encoding)
+  // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
+  // needs to decoded. Hence we decode it back and ship a ZipkinSpan
   public static Trace.ZipkinSpan makeSpan(
       String traceId,
       Optional<String> parentId,
