@@ -3,10 +3,7 @@ package com.slack.kaldb.logstore;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import java.time.*;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +36,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> systemFieldNames = new TreeSet<String>();
+    static final Set<String> systemFieldNames = new TreeSet<>();
 
     static {
       for (SystemField f : SystemField.values()) {
@@ -72,16 +69,24 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> reservedFieldNames = new TreeSet<String>();
+    static final Map<String, ReservedField> reservedFieldNames = new HashMap<>();
+
+    public String getFieldName() {
+      return this.fieldName;
+    }
 
     static {
       for (ReservedField f : ReservedField.values()) {
-        reservedFieldNames.add(f.fieldName);
+        reservedFieldNames.put(f.getFieldName().toLowerCase(), f);
       }
     }
 
-    static boolean isReservedField(String name) {
-      return ReservedField.reservedFieldNames.contains(name);
+    public static boolean isReservedField(String name) {
+      return ReservedField.reservedFieldNames.containsKey(name);
+    }
+
+    public static ReservedField get(String name) {
+      return reservedFieldNames.get(name.toLowerCase());
     }
   }
 

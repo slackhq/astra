@@ -49,7 +49,6 @@ public class ZipkinServiceTest {
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
-  private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
 
   private DatasetMetadataStore datasetMetadataStore;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
@@ -193,7 +192,29 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     assertThat(body)
         .isEqualTo(
-            "[{\"traceId\":\"1\",\"parentId\":\"1\",\"id\":\"localhost:100:0\",\"name\":\"testDataSet\",\"serviceName\":\"testDataSet\",\"timestamp\":\"1601547000000000\",\"duration\":\"5000\",\"tags\":{\"longproperty\":\"1\",\"floatproperty\":\"1.0\",\"hostname\":\"localhost\",\"intproperty\":\"1\",\"message\":\"The identifier in this message is Message1\",\"doubleproperty\":\"1.0\"}}]");
+            "[{\n"
+                + "  \"traceId\": \"1\",\n"
+                + "  \"parentId\": \"1\",\n"
+                + "  \"id\": \"localhost:100:0\",\n"
+                + "  \"name\": \"testDataSet\",\n"
+                + "  \"serviceName\": \"\",\n"
+                + "  \"timestamp\": \"1601547000000000\",\n"
+                + "  \"duration\": \"5000\",\n"
+                + "  \"tags\": {\n"
+                + "    \"longproperty\": \"1\",\n"
+                + "    \"floatproperty\": \"1.0\",\n"
+                + "    \"hostname\": \"localhost\",\n"
+                + "    \"intproperty\": \"1\",\n"
+                + "    \"message\": \"The identifier in this message is Message1\",\n"
+                + "    \"doubleproperty\": \"1.0\"\n"
+                + "  },\n"
+                + "  \"remoteEndpoint\": {\n"
+                + "    \"serviceName\": \"testDataSet\",\n"
+                + "    \"ipv4\": \"\",\n"
+                + "    \"ipv6\": \"\",\n"
+                + "    \"port\": 0\n"
+                + "  }\n"
+                + "}]");
 
     // Shutdown
     LOG.info("Shutting down query service.");

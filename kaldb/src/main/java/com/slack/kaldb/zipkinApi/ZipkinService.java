@@ -113,27 +113,31 @@ public class ZipkinService {
       for (String k : message.source.keySet()) {
         Object value = message.source.get(k);
 
-        switch (ReservedField.valueOf(k)) {
-          case TRACE_ID:
-            messageTraceId = (String) value;
-            break;
-          case PARENT_ID:
-            parentId = (String) value;
-            break;
-          case NAME:
-            name = (String) value;
-            break;
-          case SERVICE_NAME:
-            serviceName = (String) value;
-            break;
-          case TIMESTAMP:
-            timestamp = (String) value;
-            break;
-          case DURATION_MS:
-            duration = ((Number) value).longValue();
-            break;
-          default:
-            messageTags.put(k, String.valueOf(value));
+        if (ReservedField.isReservedField(k)) {
+          switch (ReservedField.get(k)) {
+            case TRACE_ID:
+              messageTraceId = (String) value;
+              break;
+            case PARENT_ID:
+              parentId = (String) value;
+              break;
+            case NAME:
+              name = (String) value;
+              break;
+            case SERVICE_NAME:
+              serviceName = (String) value;
+              break;
+            case TIMESTAMP:
+              timestamp = (String) value;
+              break;
+            case DURATION_MS:
+              duration = ((Number) value).longValue();
+              break;
+            default:
+              messageTags.put(k, String.valueOf(value));
+          }
+        } else {
+          messageTags.put(k, String.valueOf(value));
         }
       }
       // these are some mandatory fields without which the grafana zipkin plugin fails to display
