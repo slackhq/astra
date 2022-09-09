@@ -68,7 +68,6 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
-    // TODO: vthacker ensure these fields are okay?
     fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, String.valueOf(i));
     // should not be = trace_id
     fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, String.valueOf(i));
