@@ -16,7 +16,7 @@ KalDB is a cloud-native search engine for log management & analytics. It is desi
 - Designed for zero data loss. 
 - Distributed search
 - Cloud-native: Kubernetes ready
-- Add and remove nodes in seconds
+- Add and remove nodes in seconds. Elastically scale capacity up and down based on load.
 - Decoupled compute & storage
 - Ingest your documents with exactly-once semantics
 - Kafka-native ingestion
@@ -30,6 +30,14 @@ KalDB is a cloud-native search engine for log management & analytics. It is desi
 | You want to index directly from Kafka.                                                                                                      | You want to re-score documents at query time.
 | You ingest a tremendous amount of logs and don't want to pay huge bills.                                                             	      |
 | You ingest a tremendous amount of data and you don't want to waste your precious time babysitting your ElasticSearch cluster.                             
+
+# 🎨  Design
+![KalDB Architecture](docs/assets/images/kaldb_architecture.png)
+
+
+# 💬 Community
+## Talks
+[KalDB: A k8s native log search platform](https://www.youtube.com/watch?v=soC04dpOQEM&t=9391s)
 
 # 🙋 FAQ
 
