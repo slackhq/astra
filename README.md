@@ -48,7 +48,7 @@ The core difference and advantage of KalDB is its architecture that is built fro
 
 To build the binary: `mvn clean package`
 
-## Local development
+### Local development
 
 > IntelliJ: Import the project as a Maven project.
 
