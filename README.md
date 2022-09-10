@@ -1,16 +1,37 @@
-# KalDb
+# KalDB
 
-Observability data consists of 4 kinds of time series data collectively referred by the acronym **MELT** (Metrics, 
-Logs, Events and Traces). KalDb aims to unify Events, Logs and Traces (ELT) data under a single system. This unification
-simplifies data management, reduces data duplication, allows for more powerful and expressive queries and reduces 
-infrastructure costs.
+KalDB is a cloud-native search engine for log management & analytics. It is designed to be very cost-effective, easy to operate, and scale to petabytes.
 
-Internally KalDb stores all the data produced in the `SpanEvent` format. Further, these events can be grouped in causal 
-graphs to represent traces. Storing  events, logs and traces as `SpanEvent` internally not only simplifies the data 
-ingestion, but also encourages healthy data modelling practices while simplifying querying the data since the data is in
-a standard format.
+# 💡 Features
 
-# Development
+- Index data persisted on object storage(S3).
+- No delayed logs: Prioritizes ingesting fresh data over older data.
+- Ingest JSON documents with or without a strict schema
+- Plug-in for [Grafana UI](https://github.com/slackhq/slack-kaldb-app). 
+- Designed to elastically scale to handle log spikes automatically.
+- Based on Apache Lucene.
+- Works out of the box with sensible defaults
+- Built-in multi-tenancy so you don't have to run multiple clusters.
+- Co-ordination free ingestion, so failure of a single node doesn't stop ingestion.
+- Designed for zero data loss. 
+- Distributed search
+- Cloud-native: Kubernetes ready
+- Add and remove nodes in seconds
+- Decoupled compute & storage
+- Ingest your documents with exactly-once semantics
+- Kafka-native ingestion
+
+# 🔎 Uses & Limitations
+| :white_check_mark: &nbsp; When to use                                                  	                                                    | :x: When not to use                                       	|
+|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------	|
+| Your documents are immutable: application logs, system logs, access logs, user actions logs, audit trail  (logs), etc.                    	 | Your documents are mutable.   	|
+| Your data has a time component. KalDB includes optimizations and design choices specifically related to time.                               | You need a low-latency search for e-commerce websites.               	|
+| You want a full-text search in a multi-tenant environment.     	                                                                            | You provide a public-facing search with high QPS.	|
+| You want to index directly from Kafka.                                                                                                      | You want to re-score documents at query time.
+| You ingest a tremendous amount of logs and don't want to pay huge bills.                                                             	      |
+| You ingest a tremendous amount of data and you don't want to waste your precious time babysitting your ElasticSearch cluster.                             
+
+#⚡ Getting Started
 
 To build the binary: `mvn clean package`
 
