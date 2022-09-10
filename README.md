@@ -31,6 +31,11 @@ KalDB is a cloud-native search engine for log management & analytics. It is desi
 | You ingest a tremendous amount of logs and don't want to pay huge bills.                                                             	      |
 | You ingest a tremendous amount of data and you don't want to waste your precious time babysitting your ElasticSearch cluster.                             
 
+# 🙋 FAQ
+
+## How is KalDB different from traditional search engines like Elasticsearch or Solr?
+The core difference and advantage of KalDB is its architecture that is built from the ground up for cloud and log management. KalDB prioritizes indexing fresh logs over older logs, so your logs are never behind. Thanks to the true decoupled compute and storage, search instances are stateless, it is possible to auto-scale capacity within seconds. Last but not least, we implemented a highly-reliable distributed search and exactly-once semantics during indexing so that all engineers can sleep at night. To is cheaper than ES since we implement a tiered storage API, and on-demand restores.
+
 #⚡ Getting Started
 
 To build the binary: `mvn clean package`
