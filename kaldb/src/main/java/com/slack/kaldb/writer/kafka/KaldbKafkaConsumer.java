@@ -197,7 +197,7 @@ public class KaldbKafkaConsumer {
     ConsumerRecords<String, byte[]> records =
         kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
     int recordCount = records.count();
-    LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+    LOG.info("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
     if (recordCount > 0) {
       recordsReceivedCounter.increment(recordCount);
       int recordFailures = 0;
