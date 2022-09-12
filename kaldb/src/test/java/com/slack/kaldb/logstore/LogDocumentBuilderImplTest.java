@@ -25,7 +25,7 @@ public class LogDocumentBuilderImplTest {
   @Test
   public void testWithValidMessage() throws IOException {
     Document testDocument = testBuilderAllowExceptions.fromMessage(MessageUtil.makeMessage(0));
-    assertThat(testDocument.getFields().size()).isEqualTo(12);
+    assertThat(testDocument.getFields().size()).isEqualTo(15);
   }
 
   // TODO: Test IOException and JSONSerialization exception.
