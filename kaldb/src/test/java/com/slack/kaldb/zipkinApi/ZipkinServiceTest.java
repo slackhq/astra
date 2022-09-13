@@ -28,8 +28,7 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
@@ -154,8 +153,7 @@ public class ZipkinServiceTest {
 
     // Produce messages to kafka, so the indexer can consume them.
 
-    final Instant indexedMessagesStartTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant indexedMessagesStartTime = Instant.now().minus(5, ChronoUnit.MINUTES);
     final int indexedMessagesCount =
         produceMessagesToKafka(
             kafkaServer.getBroker(), indexedMessagesStartTime, TEST_KAFKA_TOPIC_1, 0);
@@ -177,7 +175,7 @@ public class ZipkinServiceTest {
 
     // Query from the grpc search service
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
+        searchUsingGrpcApi("*:*", queryServicePort, 0, Instant.now().toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -190,15 +188,15 @@ public class ZipkinServiceTest {
     AggregatedHttpResponse response = webClient.get("/api/v2/trace/1").aggregate().join();
     String body = response.content(StandardCharsets.UTF_8);
     assertThat(response.status().code()).isEqualTo(200);
-    assertThat(body)
-        .isEqualTo(
+    String expectedTrace =
+        String.format(
             "[{\n"
                 + "  \"traceId\": \"1\",\n"
                 + "  \"parentId\": \"1\",\n"
                 + "  \"id\": \"localhost:100:0\",\n"
                 + "  \"name\": \"testDataSet\",\n"
                 + "  \"serviceName\": \"\",\n"
-                + "  \"timestamp\": \"1601547000000000\",\n"
+                + "  \"timestamp\": \"%d\",\n"
                 + "  \"duration\": \"5000\",\n"
                 + "  \"tags\": {\n"
                 + "    \"longproperty\": \"1\",\n"
@@ -214,7 +212,9 @@ public class ZipkinServiceTest {
                 + "    \"ipv6\": \"\",\n"
                 + "    \"port\": 0\n"
                 + "  }\n"
-                + "}]");
+                + "}]",
+            ZipkinService.convertToMicroSeconds(indexedMessagesStartTime));
+    assertThat(body).isEqualTo(expectedTrace);
 
     // Shutdown
     LOG.info("Shutting down query service.");

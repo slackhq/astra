@@ -3,6 +3,7 @@ package com.slack.kaldb.zipkinApi;
 import static com.slack.kaldb.logstore.LogMessage.ReservedField.TRACE_ID;
 import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
 import com.linecorp.armeria.common.HttpResponse;
@@ -17,7 +18,7 @@ import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 public class ZipkinService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
+  private static long LOOKBACK_MINS = 60 * 24;
 
   private final KaldbQueryServiceBase searcher;
   JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
@@ -75,13 +77,23 @@ public class ZipkinService {
   }
 
   @Get("/api/v2/trace/{traceId}")
-  public HttpResponse getTraceByTraceId(@Param("traceId") String traceId) throws IOException {
+  public HttpResponse getTraceByTraceId(
+      @Param("traceId") String traceId,
+      @Param("startTimeEpochMs") Optional<Long> startTimeEpochMs,
+      @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs)
+      throws IOException {
 
     String queryString = "trace_id:" + traceId;
-    // since the traceById doesn't support a start date param max out to 1 days for now
-    // todo: read this value from the replica config?
-    long startTime =
-        TimeUnit.NANOSECONDS.toMillis(LocalDate.now().minusDays(1).atStartOfDay().getNano());
+
+    long startTime = Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli();
+    if (startTimeEpochMs.isPresent()) {
+      startTime = startTimeEpochMs.get();
+    }
+    long endTime = System.currentTimeMillis();
+    if (endTimeEpochMs.isPresent()) {
+      endTime = endTimeEpochMs.get();
+    }
+
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
@@ -89,7 +101,7 @@ public class ZipkinService {
                 .setDataset(MATCH_ALL_DATASET)
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
-                .setEndTimeEpochMs(System.currentTimeMillis())
+                .setEndTimeEpochMs(endTime)
                 .setHowMany(10)
                 .setBucketCount(0)
                 .build());
@@ -150,10 +162,7 @@ public class ZipkinService {
         continue;
       }
 
-      Instant instant = Instant.parse(timestamp);
-      final long messageConvertedTimestamp =
-          TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
-              + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
+      final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
 
       final Trace.ZipkinSpan span =
           makeSpan(
@@ -173,6 +182,12 @@ public class ZipkinService {
     String output = outputJsonArray.toString();
 
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
+  }
+
+  @VisibleForTesting
+  public static long convertToMicroSeconds(Instant instant) {
+    return TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
+        + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
   }
 
   // We sadly need to create ZipkinSpan and can't reuse the Span proto
