@@ -39,6 +39,7 @@ public class ZipkinService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private static long LOOKBACK_MINS = 60 * 24;
+  private static int MAX_SPANS = 20_000;
 
   private final KaldbQueryServiceBase searcher;
   JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
@@ -102,7 +103,7 @@ public class ZipkinService {
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
-                .setHowMany(10)
+                .setHowMany(MAX_SPANS)
                 .setBucketCount(0)
                 .build());
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
