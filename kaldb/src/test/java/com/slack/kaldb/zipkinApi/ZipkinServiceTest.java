@@ -2,8 +2,8 @@ package com.slack.kaldb.zipkinApi;
 
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.server.KaldbTest.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
+import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
