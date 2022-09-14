@@ -79,10 +79,9 @@ message ZipkinSpan {
   string parent_id = 2;
   string id = 3;
   string name = 4;
-  string service_name = 5;
-  fixed64 timestamp = 6;
-  uint64 duration = 7;
-  map<string, string> tags = 8;
+  fixed64 timestamp = 5;
+  uint64 duration = 6;
+  map<string, string> tags = 7;
   // When an RPC (or messaging) span, indicates the other side of the
   // connection.
   //
@@ -90,7 +89,7 @@ message ZipkinSpan {
   // even if the peer is not tracing. For example, you can record the IP from
   // the "X-Forwarded-For" header or the service name and socket of a remote
   // peer.
-  Endpoint remote_endpoint = 9;
+  Endpoint remote_endpoint = 8;
 }
 
 message Endpoint {

@@ -4,17 +4,17 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
 import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
-import static com.slack.kaldb.testlib.MessageUtil.makeWireMessage;
+import static com.slack.kaldb.testlib.MessageUtil.*;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
@@ -24,7 +24,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.Kaldb;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.prometheus.PrometheusConfig;
@@ -32,9 +31,8 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -86,9 +84,10 @@ public class ZipkinServiceTest {
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(MessageUtil.TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
+        new DatasetMetadata(TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    ZipkinService.MAX_SPANS = 20_000;
   }
 
   @After
@@ -100,49 +99,43 @@ public class ZipkinServiceTest {
     zkServer.close();
   }
 
-  @Test
-  public void testLogWireMessageToZipkinSpanConversion() throws InvalidProtocolBufferException {
+  public static LogWireMessage makeWireMessageForSpans(
+      String id,
+      String ts,
+      String traceId,
+      Optional<String> parentId,
+      long durationMs,
+      String serviceName,
+      String name) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts);
+    fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, traceId);
+    fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, serviceName);
+    fieldMap.put(LogMessage.ReservedField.NAME.fieldName, name);
+    parentId.ifPresent(s -> fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, s));
+    fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, durationMs);
+    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
+  }
+
+  public static List<LogWireMessage> generateLogWireMessagesForOneTrace(
+      Instant time, int count, String traceId) {
     List<LogWireMessage> messages = new ArrayList<>();
-    Instant time = Instant.now();
-    for (int i = 0; i < 2; i++) {
-      messages.add(makeWireMessage(i, time.toString()));
+    for (int i = 1; i <= count; i++) {
+      String parentId = null;
+      if (i > 1) {
+        parentId = String.valueOf(i - 1);
+      }
+      messages.add(
+          makeWireMessageForSpans(
+              String.valueOf(i),
+              time.plusSeconds(i).toString(),
+              traceId,
+              Optional.ofNullable(parentId),
+              i,
+              "service1",
+              ("Trace" + i)));
     }
-    // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
-    String output =
-        String.format(
-            "[{\n"
-                + "  \"traceId\": \"0\",\n"
-                + "  \"parentId\": \"0\",\n"
-                + "  \"id\": \"Message0\",\n"
-                + "  \"name\": \"\",\n"
-                + "  \"serviceName\": \"\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"5000\",\n"
-                + "  \"tags\": {\n"
-                + "    \"longproperty\": \"0\",\n"
-                + "    \"floatproperty\": \"0.0\",\n"
-                + "    \"intproperty\": \"0\",\n"
-                + "    \"message\": \"The identifier in this message is Message0\",\n"
-                + "    \"doubleproperty\": \"0.0\"\n"
-                + "  }\n"
-                + "},{\n"
-                + "  \"traceId\": \"1\",\n"
-                + "  \"parentId\": \"1\",\n"
-                + "  \"id\": \"Message1\",\n"
-                + "  \"name\": \"\",\n"
-                + "  \"serviceName\": \"\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"5000\",\n"
-                + "  \"tags\": {\n"
-                + "    \"longproperty\": \"1\",\n"
-                + "    \"floatproperty\": \"1.0\",\n"
-                + "    \"intproperty\": \"1\",\n"
-                + "    \"message\": \"The identifier in this message is Message1\",\n"
-                + "    \"doubleproperty\": \"1.0\"\n"
-                + "  }\n"
-                + "}]",
-            ZipkinService.convertToMicroSeconds(time), ZipkinService.convertToMicroSeconds(time));
-    assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
+    return messages;
   }
 
   @Test
@@ -165,12 +158,14 @@ public class ZipkinServiceTest {
             KaldbConfigs.NodeRole.QUERY,
             1000,
             "api_Log",
-            -1);
+            -1,
+            100);
     Kaldb queryService = new Kaldb(queryServiceConfig, meterRegistry);
     queryService.start();
     queryService.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     int indexerPort = 10000;
+    int totalMessagesToIndex = 8;
     LOG.info(
         "Creating indexer service at port {}, topic: {} and partition {}",
         indexerPort,
@@ -191,7 +186,8 @@ public class ZipkinServiceTest {
             KaldbConfigs.NodeRole.INDEX,
             1000,
             "api_log",
-            9003);
+            9003,
+            totalMessagesToIndex);
 
     PrometheusMeterRegistry indexerMeterRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
@@ -201,11 +197,22 @@ public class ZipkinServiceTest {
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     // Produce messages to kafka, so the indexer can consume them.
+    final Instant trace1StartTime = Instant.now().minus(20, ChronoUnit.MINUTES);
+    List<LogWireMessage> messages =
+        new ArrayList<>(generateLogWireMessagesForOneTrace(trace1StartTime, 2, "1"));
 
-    final Instant indexedMessagesStartTime = Instant.now().minus(5, ChronoUnit.MINUTES);
+    final Instant trace2StartTime = Instant.now().minus(10, ChronoUnit.MINUTES);
+    messages.addAll(generateLogWireMessagesForOneTrace(trace2StartTime, 5, "2"));
+
+    final Instant trace3StartTime = Instant.now().minus(5, ChronoUnit.MINUTES);
+    messages.addAll(generateLogWireMessagesForOneTrace(trace3StartTime, 1, "3"));
+
+    List<LogMessage> logMessages =
+        messages.stream().map(LogMessage::fromWireMessage).collect(Collectors.toList());
+
     final int indexedMessagesCount =
-        produceMessagesToKafka(
-            kafkaServer.getBroker(), indexedMessagesStartTime, TEST_KAFKA_TOPIC_1, 0);
+        produceMessagesToKafka(kafkaServer.getBroker(), TEST_KAFKA_TOPIC_1, 0, logMessages);
+    assertThat(totalMessagesToIndex).isEqualTo(indexedMessagesCount);
 
     await()
         .until(
@@ -228,8 +235,8 @@ public class ZipkinServiceTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
-    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(indexedMessagesCount);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(indexedMessagesCount);
 
     // Query from the zipkin search service
     String endpoint = "http://127.0.0.1:" + queryServicePort;
@@ -242,18 +249,28 @@ public class ZipkinServiceTest {
             "[{\n"
                 + "  \"traceId\": \"1\",\n"
                 + "  \"parentId\": \"1\",\n"
-                + "  \"id\": \"localhost:100:0\",\n"
-                + "  \"name\": \"testDataSet\",\n"
-                + "  \"serviceName\": \"\",\n"
+                + "  \"id\": \"localhost:100:1\",\n"
+                + "  \"name\": \"Trace2\",\n"
                 + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"5000\",\n"
+                + "  \"duration\": \"2\",\n"
                 + "  \"tags\": {\n"
-                + "    \"longproperty\": \"1\",\n"
-                + "    \"floatproperty\": \"1.0\",\n"
-                + "    \"hostname\": \"localhost\",\n"
-                + "    \"intproperty\": \"1\",\n"
-                + "    \"message\": \"The identifier in this message is Message1\",\n"
-                + "    \"doubleproperty\": \"1.0\"\n"
+                + "    \"hostname\": \"localhost\"\n"
+                + "  },\n"
+                + "  \"remoteEndpoint\": {\n"
+                + "    \"serviceName\": \"testDataSet\",\n"
+                + "    \"ipv4\": \"\",\n"
+                + "    \"ipv6\": \"\",\n"
+                + "    \"port\": 0\n"
+                + "  }\n"
+                + "},{\n"
+                + "  \"traceId\": \"1\",\n"
+                + "  \"parentId\": \"\",\n"
+                + "  \"id\": \"localhost:100:0\",\n"
+                + "  \"name\": \"Trace1\",\n"
+                + "  \"timestamp\": \"%d\",\n"
+                + "  \"duration\": \"1\",\n"
+                + "  \"tags\": {\n"
+                + "    \"hostname\": \"localhost\"\n"
                 + "  },\n"
                 + "  \"remoteEndpoint\": {\n"
                 + "    \"serviceName\": \"testDataSet\",\n"
@@ -262,7 +279,96 @@ public class ZipkinServiceTest {
                 + "    \"port\": 0\n"
                 + "  }\n"
                 + "}]",
-            ZipkinService.convertToMicroSeconds(indexedMessagesStartTime));
+            ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(2)),
+            ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(1)));
+    assertThat(body).isEqualTo(expectedTrace);
+
+    String params =
+        String.format(
+            "?startTimeEpochMs=%d&endTimeEpochMs=%d",
+            trace1StartTime.minus(10, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.plus(5, ChronoUnit.SECONDS).toEpochMilli());
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    assertThat(body).isEqualTo(expectedTrace);
+
+    ZipkinService.MAX_SPANS = 1;
+    response = webClient.get("/api/v2/trace/1").aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    expectedTrace =
+        String.format(
+            "[{\n"
+                + "  \"traceId\": \"1\",\n"
+                + "  \"parentId\": \"1\",\n"
+                + "  \"id\": \"localhost:100:1\",\n"
+                + "  \"name\": \"Trace2\",\n"
+                + "  \"timestamp\": \"%d\",\n"
+                + "  \"duration\": \"2\",\n"
+                + "  \"tags\": {\n"
+                + "    \"hostname\": \"localhost\"\n"
+                + "  },\n"
+                + "  \"remoteEndpoint\": {\n"
+                + "    \"serviceName\": \"testDataSet\",\n"
+                + "    \"ipv4\": \"\",\n"
+                + "    \"ipv6\": \"\",\n"
+                + "    \"port\": 0\n"
+                + "  }\n"
+                + "}]",
+            ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(2)));
+    assertThat(body).isEqualTo(expectedTrace);
+
+    params =
+        String.format(
+            "?startTimeEpochMs=%d&endTimeEpochMs=%d",
+            trace1StartTime.plus(1, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.plus(2, ChronoUnit.SECONDS).toEpochMilli());
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    assertThat(body).isEqualTo(expectedTrace);
+
+    params =
+        String.format(
+            "?startTimeEpochMs=%d&endTimeEpochMs=%d",
+            trace1StartTime.minus(10, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.minus(1, ChronoUnit.SECONDS).toEpochMilli());
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    expectedTrace = "[]";
+    assertThat(body).isEqualTo(expectedTrace);
+
+    response = webClient.get("/api/v2/trace/3").aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    expectedTrace =
+        String.format(
+            "[{\n"
+                + "  \"traceId\": \"3\",\n"
+                + "  \"parentId\": \"\",\n"
+                + "  \"id\": \"localhost:100:7\",\n"
+                + "  \"name\": \"Trace1\",\n"
+                + "  \"timestamp\": \"%d\",\n"
+                + "  \"duration\": \"1\",\n"
+                + "  \"tags\": {\n"
+                + "    \"hostname\": \"localhost\"\n"
+                + "  },\n"
+                + "  \"remoteEndpoint\": {\n"
+                + "    \"serviceName\": \"testDataSet\",\n"
+                + "    \"ipv4\": \"\",\n"
+                + "    \"ipv6\": \"\",\n"
+                + "    \"port\": 0\n"
+                + "  }\n"
+                + "}]",
+            ZipkinService.convertToMicroSeconds(trace3StartTime.plusSeconds(1)));
+    assertThat(body).isEqualTo(expectedTrace);
+
+    response = webClient.get("/api/v2/trace/4").aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    expectedTrace = "[]";
     assertThat(body).isEqualTo(expectedTrace);
 
     // Shutdown

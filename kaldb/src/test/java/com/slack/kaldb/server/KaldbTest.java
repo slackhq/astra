@@ -161,7 +161,8 @@ public class KaldbTest {
         nodeRole,
         maxOffsetDelay,
         "api_log",
-        recoveryPort);
+        recoveryPort,
+        100);
   }
 
   private Kaldb makeIndexerAndIndexMessages(

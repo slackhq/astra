@@ -39,7 +39,8 @@ public class ZipkinService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private static long LOOKBACK_MINS = 60 * 24;
-  private static int MAX_SPANS = 20_000;
+
+  @VisibleForTesting public static int MAX_SPANS = 20_000;
 
   private final KaldbQueryServiceBase searcher;
   private static final JsonFormat.Printer printer =
@@ -96,6 +97,9 @@ public class ZipkinService {
       endTime = endTimeEpochMs.get();
     }
 
+    // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
+    // reverse timestamp and the spans returned will be the tail. We should support sort in the
+    // search request
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
     KaldbSearch.SearchResult searchResult =
         searcher.doSearch(
@@ -116,7 +120,11 @@ public class ZipkinService {
   public static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
       throws InvalidProtocolBufferException {
     List<String> traces = new ArrayList<>();
+    int numSpans = 0;
     for (LogWireMessage message : messages) {
+      if (numSpans++ >= MAX_SPANS) {
+        break;
+      }
       if (message.id == null) {
         LOG.warn("Document cannot have missing id");
         continue;
