@@ -4,15 +4,18 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
 import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
+import static com.slack.kaldb.testlib.MessageUtil.makeWireMessage;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -29,6 +32,7 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
@@ -94,6 +98,51 @@ public class ZipkinServiceTest {
     datasetMetadataStore.close();
     zkMetadataStore.close();
     zkServer.close();
+  }
+
+  @Test
+  public void testLogWireMessageToZipkinSpanConversion() throws InvalidProtocolBufferException {
+    List<LogWireMessage> messages = new ArrayList<>();
+    Instant time = Instant.now();
+    for (int i = 0; i < 2; i++) {
+      messages.add(makeWireMessage(i, time.toString()));
+    }
+    // follows output format from https://zipkin.io/zipkin-api/#/default/get_trace__traceId_
+    String output =
+        String.format(
+            "[{\n"
+                + "  \"traceId\": \"0\",\n"
+                + "  \"parentId\": \"0\",\n"
+                + "  \"id\": \"Message0\",\n"
+                + "  \"name\": \"\",\n"
+                + "  \"serviceName\": \"\",\n"
+                + "  \"timestamp\": \"%d\",\n"
+                + "  \"duration\": \"5000\",\n"
+                + "  \"tags\": {\n"
+                + "    \"longproperty\": \"0\",\n"
+                + "    \"floatproperty\": \"0.0\",\n"
+                + "    \"intproperty\": \"0\",\n"
+                + "    \"message\": \"The identifier in this message is Message0\",\n"
+                + "    \"doubleproperty\": \"0.0\"\n"
+                + "  }\n"
+                + "},{\n"
+                + "  \"traceId\": \"1\",\n"
+                + "  \"parentId\": \"1\",\n"
+                + "  \"id\": \"Message1\",\n"
+                + "  \"name\": \"\",\n"
+                + "  \"serviceName\": \"\",\n"
+                + "  \"timestamp\": \"%d\",\n"
+                + "  \"duration\": \"5000\",\n"
+                + "  \"tags\": {\n"
+                + "    \"longproperty\": \"1\",\n"
+                + "    \"floatproperty\": \"1.0\",\n"
+                + "    \"intproperty\": \"1\",\n"
+                + "    \"message\": \"The identifier in this message is Message1\",\n"
+                + "    \"doubleproperty\": \"1.0\"\n"
+                + "  }\n"
+                + "}]",
+            ZipkinService.convertToMicroSeconds(time), ZipkinService.convertToMicroSeconds(time));
+    assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
   }
 
   @Test

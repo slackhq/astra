@@ -5,6 +5,7 @@ import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_AL
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -20,7 +21,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +42,8 @@ public class ZipkinService {
   private static int MAX_SPANS = 20_000;
 
   private final KaldbQueryServiceBase searcher;
-  JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
+  private static final JsonFormat.Printer printer =
+      JsonFormat.printer().includingDefaultValueFields();
 
   public ZipkinService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
@@ -107,8 +108,14 @@ public class ZipkinService {
                 .setBucketCount(0)
                 .build());
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
-    List<String> traces = new ArrayList<>();
+    String output = convertLogWireMessageToZipkinSpan(messages);
 
+    return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
+  }
+
+  public static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
+      throws InvalidProtocolBufferException {
+    List<String> traces = new ArrayList<>();
     for (LogWireMessage message : messages) {
       if (message.id == null) {
         LOG.warn("Document cannot have missing id");
@@ -180,15 +187,13 @@ public class ZipkinService {
     }
     StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
     traces.forEach(outputJsonArray::add);
-    String output = outputJsonArray.toString();
-
-    return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
+    return outputJsonArray.toString();
   }
 
   @VisibleForTesting
+  // Epoch microseconds of the start of this span, possibly absent if this an incomplete span
   public static long convertToMicroSeconds(Instant instant) {
-    return TimeUnit.SECONDS.toMicros(instant.getEpochSecond())
-        + TimeUnit.NANOSECONDS.toMicros(instant.getNano());
+    return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
   }
 
   // We sadly need to create ZipkinSpan and can't reuse the Span proto
