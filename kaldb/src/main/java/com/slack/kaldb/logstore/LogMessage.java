@@ -69,24 +69,16 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Map<String, ReservedField> reservedFieldNames = new HashMap<>();
-
-    public String getFieldName() {
-      return this.fieldName;
-    }
+    static final Set<String> reservedFieldNames = new TreeSet<String>();
 
     static {
       for (ReservedField f : ReservedField.values()) {
-        reservedFieldNames.put(f.getFieldName().toLowerCase(), f);
+        reservedFieldNames.add(f.fieldName);
       }
     }
 
-    public static boolean isReservedField(String name) {
-      return ReservedField.reservedFieldNames.containsKey(name);
-    }
-
-    public static ReservedField get(String name) {
-      return reservedFieldNames.get(name.toLowerCase());
+    static boolean isReservedField(String name) {
+      return ReservedField.reservedFieldNames.contains(name);
     }
   }
 

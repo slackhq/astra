@@ -63,7 +63,7 @@ class Kaldb {
   protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
-  public Kaldb(
+  Kaldb(
       KaldbConfigs.KaldbConfig kaldbConfig,
       S3Client s3Client,
       PrometheusMeterRegistry prometheusMeterRegistry) {

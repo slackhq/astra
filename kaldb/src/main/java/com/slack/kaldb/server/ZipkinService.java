@@ -14,7 +14,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
-import com.slack.service.murron.zipkintrace.ZipkinSpanOuterClass;
+import com.slack.service.kaldb.zipkin.ZipkinSpanOuterClass;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -48,6 +48,45 @@ public class ZipkinService {
       messages.add(hit);
     }
     return messages;
+  }
+
+  // We sadly need to create ZipkinSpan and can't reuse the Span proto
+  // The reason being, Span has id/traceId/parentId as bytes (which is correct and is how the proto
+  // definition is defined - there shouldn't be a string without encoding)
+  // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
+  // needs to decoded. Hence we decode it back and ship a ZipkinSpan
+  private static ZipkinSpanOuterClass.ZipkinSpan makeSpan(
+      String traceId,
+      Optional<String> parentId,
+      String id,
+      Optional<String> name,
+      Optional<String> serviceName,
+      long timestamp,
+      long duration,
+      Map<String, String> tags) {
+    ZipkinSpanOuterClass.ZipkinSpan.Builder spanBuilder =
+        ZipkinSpanOuterClass.ZipkinSpan.newBuilder();
+
+    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
+    spanBuilder.setTimestamp(timestamp);
+    spanBuilder.setDuration(duration);
+
+    parentId.ifPresent(
+        s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
+    name.ifPresent(spanBuilder::setName);
+    serviceName.ifPresent(
+        s ->
+            spanBuilder.setRemoteEndpoint(
+                ZipkinSpanOuterClass.Endpoint.newBuilder().setServiceName(s)));
+    spanBuilder.putAllTags(tags);
+    return spanBuilder.build();
+  }
+
+  @VisibleForTesting
+  // Epoch microseconds of the start of this span, possibly absent if this an incomplete span
+  protected static long convertToMicroSeconds(Instant instant) {
+    return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
@@ -105,6 +144,8 @@ public class ZipkinService {
     long startTime =
         startTimeEpochMs.orElseGet(
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+    // we are adding a buffer to end time also because some machines clock may be ahead of current
+    // system clock and those spans would be stored but can't be queried
     long endTime =
         endTimeEpochMs.orElseGet(
             () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
@@ -135,7 +176,7 @@ public class ZipkinService {
     List<String> traces = new ArrayList<>(messages.size());
     for (LogWireMessage message : messages) {
       if (message.id == null) {
-        LOG.warn("Document cannot have missing id");
+        LOG.warn("Document={} cannot have missing id ", message);
         continue;
       }
 
@@ -149,30 +190,18 @@ public class ZipkinService {
 
       for (String k : message.source.keySet()) {
         Object value = message.source.get(k);
-
-        if (LogMessage.ReservedField.isReservedField(k)) {
-          switch (LogMessage.ReservedField.get(k)) {
-            case TRACE_ID:
-              messageTraceId = (String) value;
-              break;
-            case PARENT_ID:
-              parentId = (String) value;
-              break;
-            case NAME:
-              name = (String) value;
-              break;
-            case SERVICE_NAME:
-              serviceName = (String) value;
-              break;
-            case TIMESTAMP:
-              timestamp = (String) value;
-              break;
-            case DURATION_MS:
-              duration = ((Number) value).longValue();
-              break;
-            default:
-              messageTags.put(k, String.valueOf(value));
-          }
+        if (LogMessage.ReservedField.TRACE_ID.fieldName.equals(k)) {
+          messageTraceId = (String) value;
+        } else if (LogMessage.ReservedField.PARENT_ID.fieldName.equals(k)) {
+          parentId = (String) value;
+        } else if (LogMessage.ReservedField.NAME.fieldName.equals(k)) {
+          name = (String) value;
+        } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
+          serviceName = (String) value;
+        } else if (LogMessage.ReservedField.TIMESTAMP.fieldName.equals(k)) {
+          timestamp = (String) value;
+        } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
+          duration = ((Number) value).longValue();
         } else {
           messageTags.put(k, String.valueOf(value));
         }
@@ -183,7 +212,7 @@ public class ZipkinService {
         messageTraceId = message.id;
       }
       if (timestamp == null) {
-        LOG.warn("Document id={} missing @timestamp", message.id);
+        LOG.warn("Document id={} missing @timestamp", message);
         continue;
       }
 
@@ -205,44 +234,5 @@ public class ZipkinService {
     StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
     traces.forEach(outputJsonArray::add);
     return outputJsonArray.toString();
-  }
-
-  @VisibleForTesting
-  // Epoch microseconds of the start of this span, possibly absent if this an incomplete span
-  public static long convertToMicroSeconds(Instant instant) {
-    return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
-  }
-
-  // We sadly need to create ZipkinSpan and can't reuse the Span proto
-  // The reason being, Span has id/traceId/parentId as bytes (which is correct and is how the proto
-  // definition is defined - there shouldn't be a string without encoding)
-  // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
-  // needs to decoded. Hence we decode it back and ship a ZipkinSpan
-  public static ZipkinSpanOuterClass.ZipkinSpan makeSpan(
-      String traceId,
-      Optional<String> parentId,
-      String id,
-      Optional<String> name,
-      Optional<String> serviceName,
-      long timestamp,
-      long duration,
-      Map<String, String> tags) {
-    ZipkinSpanOuterClass.ZipkinSpan.Builder spanBuilder =
-        ZipkinSpanOuterClass.ZipkinSpan.newBuilder();
-
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
-    spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
-    spanBuilder.setTimestamp(timestamp);
-    spanBuilder.setDuration(duration);
-
-    parentId.ifPresent(
-        s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
-    name.ifPresent(spanBuilder::setName);
-    serviceName.ifPresent(
-        s ->
-            spanBuilder.setRemoteEndpoint(
-                ZipkinSpanOuterClass.Endpoint.newBuilder().setServiceName(s)));
-    spanBuilder.putAllTags(tags);
-    return spanBuilder.build();
   }
 }
