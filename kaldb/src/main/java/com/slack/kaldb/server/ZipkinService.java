@@ -36,9 +36,74 @@ import zipkin2.proto3.Span;
  */
 public class ZipkinService {
 
-  // intentionally returning LogWireMessage instead of LogMessage
+  protected static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
+          throws InvalidProtocolBufferException {
+    List<String> traces = new ArrayList<>(messages.size());
+    for (LogWireMessage message : messages) {
+      if (message.id == null) {
+        LOG.warn("Document={} cannot have missing id ", message);
+        continue;
+      }
+
+      String messageTraceId = null;
+      String parentId = null;
+      String name = null;
+      String serviceName = null;
+      String timestamp = null;
+      long duration = Long.MIN_VALUE;
+      Map<String, String> messageTags = new HashMap<>();
+
+      for (String k : message.source.keySet()) {
+        Object value = message.source.get(k);
+        if (LogMessage.ReservedField.TRACE_ID.fieldName.equals(k)) {
+          messageTraceId = (String) value;
+        } else if (LogMessage.ReservedField.PARENT_ID.fieldName.equals(k)) {
+          parentId = (String) value;
+        } else if (LogMessage.ReservedField.NAME.fieldName.equals(k)) {
+          name = (String) value;
+        } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
+          serviceName = (String) value;
+        } else if (LogMessage.ReservedField.TIMESTAMP.fieldName.equals(k)) {
+          timestamp = (String) value;
+        } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
+          duration = ((Number) value).longValue();
+        } else {
+          messageTags.put(k, String.valueOf(value));
+        }
+      }
+      // these are some mandatory fields without which the grafana zipkin plugin fails to display
+      // the span
+      if (messageTraceId == null) {
+        messageTraceId = message.id;
+      }
+      if (timestamp == null) {
+        LOG.warn("Document id={} missing @timestamp", message);
+        continue;
+      }
+
+      final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
+
+      final Span span =
+              makeSpan(
+                      messageTraceId,
+                      Optional.ofNullable(parentId),
+                      message.id,
+                      Optional.ofNullable(name),
+                      Optional.ofNullable(serviceName),
+                      messageConvertedTimestamp,
+                      duration,
+                      messageTags);
+      String spanJson = printer.print(span);
+      traces.add(spanJson);
+    }
+    StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
+    traces.forEach(outputJsonArray::add);
+    return outputJsonArray.toString();
+  }
+
+  // returning LogWireMessage instead of LogMessage
   // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
-  // object
+  // object. To return LogWireMessage we do a JSON parse
   private static List<LogWireMessage> searchResultToLogWireMessage(
       KaldbSearch.SearchResult searchResult) throws IOException {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
@@ -51,11 +116,6 @@ public class ZipkinService {
     return messages;
   }
 
-  // We sadly need to create ZipkinSpan and can't reuse the Span proto
-  // The reason being, Span has id/traceId/parentId as bytes (which is correct and is how the proto
-  // definition is defined - there shouldn't be a string without encoding)
-  // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
-  // needs to decoded. Hence we decode it back and ship a ZipkinSpan
   private static Span makeSpan(
       String traceId,
       Optional<String> parentId,
@@ -82,7 +142,6 @@ public class ZipkinService {
   }
 
   @VisibleForTesting
-  // Epoch microseconds of the start of this span, possibly absent if this an incomplete span
   protected static long convertToMicroSeconds(Instant instant) {
     return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
   }
@@ -167,70 +226,5 @@ public class ZipkinService {
     String output = convertLogWireMessageToZipkinSpan(messages);
 
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
-  }
-
-  public static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
-      throws InvalidProtocolBufferException {
-    List<String> traces = new ArrayList<>(messages.size());
-    for (LogWireMessage message : messages) {
-      if (message.id == null) {
-        LOG.warn("Document={} cannot have missing id ", message);
-        continue;
-      }
-
-      String messageTraceId = null;
-      String parentId = null;
-      String name = null;
-      String serviceName = null;
-      String timestamp = null;
-      long duration = Long.MIN_VALUE;
-      Map<String, String> messageTags = new HashMap<>();
-
-      for (String k : message.source.keySet()) {
-        Object value = message.source.get(k);
-        if (LogMessage.ReservedField.TRACE_ID.fieldName.equals(k)) {
-          messageTraceId = (String) value;
-        } else if (LogMessage.ReservedField.PARENT_ID.fieldName.equals(k)) {
-          parentId = (String) value;
-        } else if (LogMessage.ReservedField.NAME.fieldName.equals(k)) {
-          name = (String) value;
-        } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
-          serviceName = (String) value;
-        } else if (LogMessage.ReservedField.TIMESTAMP.fieldName.equals(k)) {
-          timestamp = (String) value;
-        } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
-          duration = ((Number) value).longValue();
-        } else {
-          messageTags.put(k, String.valueOf(value));
-        }
-      }
-      // these are some mandatory fields without which the grafana zipkin plugin fails to display
-      // the span
-      if (messageTraceId == null) {
-        messageTraceId = message.id;
-      }
-      if (timestamp == null) {
-        LOG.warn("Document id={} missing @timestamp", message);
-        continue;
-      }
-
-      final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
-
-      final Span span =
-          makeSpan(
-              messageTraceId,
-              Optional.ofNullable(parentId),
-              message.id,
-              Optional.ofNullable(name),
-              Optional.ofNullable(serviceName),
-              messageConvertedTimestamp,
-              duration,
-              messageTags);
-      String spanJson = printer.print(span);
-      traces.add(spanJson);
-    }
-    StringJoiner outputJsonArray = new StringJoiner(",", "[", "]");
-    traces.forEach(outputJsonArray::add);
-    return outputJsonArray.toString();
   }
 }

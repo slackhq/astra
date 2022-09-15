@@ -3,7 +3,10 @@ package com.slack.kaldb.logstore;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import java.time.*;
-import java.util.*;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +39,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> systemFieldNames = new TreeSet<>();
+    static final Set<String> systemFieldNames = new TreeSet<String>();
 
     static {
       for (SystemField f : SystemField.values()) {

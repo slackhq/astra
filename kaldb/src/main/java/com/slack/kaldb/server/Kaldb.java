@@ -1,6 +1,5 @@
 package com.slack.kaldb.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
@@ -74,8 +73,7 @@ public class Kaldb {
     LOG.info("Started Kaldb process with config: {}", kaldbConfig);
   }
 
-  public Kaldb(
-      KaldbConfigs.KaldbConfig kaldbConfig, PrometheusMeterRegistry prometheusMeterRegistry) {
+  Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, PrometheusMeterRegistry prometheusMeterRegistry) {
     this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()), prometheusMeterRegistry);
   }
 
@@ -380,8 +378,7 @@ public class Kaldb {
     };
   }
 
-  @VisibleForTesting
-  public void shutdown() {
+  void shutdown() {
     LOG.info("Running shutdown hook.");
     try {
       serviceManager.stopAsync().awaitStopped(30, TimeUnit.SECONDS);
