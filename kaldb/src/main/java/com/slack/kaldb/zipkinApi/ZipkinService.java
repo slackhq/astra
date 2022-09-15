@@ -37,6 +37,21 @@ import org.slf4j.LoggerFactory;
  */
 public class ZipkinService {
 
+  // intentionally returning LogWireMessage instead of LogMessage
+  // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
+  // object
+  private static List<LogWireMessage> searchResultToLogWireMessage(
+          KaldbSearch.SearchResult searchResult) throws IOException {
+    List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
+    List<LogWireMessage> messages = new ArrayList<>(hitsByteList.size());
+    for (ByteString byteString : hitsByteList) {
+      LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
+      // LogMessage message = LogMessage.fromWireMessage(hit);
+      messages.add(hit);
+    }
+    return messages;
+  }
+
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private static long LOOKBACK_MINS = 60 * 24;
 
@@ -232,20 +247,5 @@ public class ZipkinService {
         s -> spanBuilder.setRemoteEndpoint(Trace.Endpoint.newBuilder().setServiceName(s)));
     spanBuilder.putAllTags(tags);
     return spanBuilder.build();
-  }
-
-  // intentionally returning LogWireMessage instead of LogMessage
-  // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
-  // object
-  public static List<LogWireMessage> searchResultToLogWireMessage(
-      KaldbSearch.SearchResult searchResult) throws IOException {
-    List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
-    List<LogWireMessage> messages = new ArrayList<>(hitsByteList.size());
-    for (ByteString byteString : hitsByteList) {
-      LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
-      // LogMessage message = LogMessage.fromWireMessage(hit);
-      messages.add(hit);
-    }
-    return messages;
   }
 }
