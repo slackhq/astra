@@ -292,7 +292,27 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     assertThat(body).isEqualTo(expectedTrace);
 
-    params = String.format("maxSpans=%d", 1);
+    params =
+        String.format(
+            "?startTimeEpochMs=%d&endTimeEpochMs=%d",
+            trace1StartTime.plus(0, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.plus(2, ChronoUnit.SECONDS).toEpochMilli());
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    assertThat(body).isEqualTo(expectedTrace);
+
+    params =
+        String.format(
+            "?startTimeEpochMs=%d&endTimeEpochMs=%d",
+            trace1StartTime.plus(1, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.plus(2, ChronoUnit.SECONDS).toEpochMilli());
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
+    body = response.content(StandardCharsets.UTF_8);
+    assertThat(response.status().code()).isEqualTo(200);
+    assertThat(body).isEqualTo(expectedTrace);
+
+    params = String.format("?maxSpans=%d", 1);
     response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
     body = response.content(StandardCharsets.UTF_8);
     assertThat(response.status().code()).isEqualTo(200);
@@ -321,8 +341,8 @@ public class ZipkinServiceTest {
     params =
         String.format(
             "?startTimeEpochMs=%d&endTimeEpochMs=%d",
-            trace1StartTime.plus(1, ChronoUnit.SECONDS).toEpochMilli(),
-            trace1StartTime.plus(2, ChronoUnit.SECONDS).toEpochMilli());
+            trace1StartTime.plus(2, ChronoUnit.SECONDS).toEpochMilli(),
+            trace1StartTime.plus(3, ChronoUnit.SECONDS).toEpochMilli());
     response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
     body = response.content(StandardCharsets.UTF_8);
     assertThat(response.status().code()).isEqualTo(200);

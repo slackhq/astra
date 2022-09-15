@@ -107,7 +107,7 @@ public class ZipkinService {
         startTimeEpochMs.orElseGet(
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
     long endTime =
-        startTimeEpochMs.orElseGet(
+        endTimeEpochMs.orElseGet(
             () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
@@ -124,6 +124,7 @@ public class ZipkinService {
                 .setHowMany(maxSpans.orElse(MAX_SPANS))
                 .setBucketCount(0)
                 .build());
+    // we don't account for any failed nodes in the searchResult today
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);
     String output = convertLogWireMessageToZipkinSpan(messages);
 
