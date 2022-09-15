@@ -65,8 +65,7 @@ public class ZipkinService {
       long timestamp,
       long duration,
       Map<String, String> tags) {
-    Span.Builder spanBuilder =
-            Span.newBuilder();
+    Span.Builder spanBuilder = Span.newBuilder();
 
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
@@ -77,9 +76,7 @@ public class ZipkinService {
         s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
     name.ifPresent(spanBuilder::setName);
     serviceName.ifPresent(
-        s ->
-            spanBuilder.setRemoteEndpoint(
-                Endpoint.newBuilder().setServiceName(s)));
+        s -> spanBuilder.setRemoteEndpoint(Endpoint.newBuilder().setServiceName(s)));
     spanBuilder.putAllTags(tags);
     return spanBuilder.build();
   }

@@ -53,7 +53,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
  * http server, register monitoring libraries, create config manager etc..
  */
-class Kaldb {
+public class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
   private final PrometheusMeterRegistry prometheusMeterRegistry;
