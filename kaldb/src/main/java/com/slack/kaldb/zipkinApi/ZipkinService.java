@@ -132,11 +132,7 @@ public class ZipkinService {
   public static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
       throws InvalidProtocolBufferException {
     List<String> traces = new ArrayList<>(messages.size());
-    int numSpans = 0;
     for (LogWireMessage message : messages) {
-      if (numSpans++ >= MAX_SPANS) {
-        break;
-      }
       if (message.id == null) {
         LOG.warn("Document cannot have missing id");
         continue;

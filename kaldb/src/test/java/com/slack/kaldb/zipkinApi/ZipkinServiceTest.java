@@ -87,7 +87,6 @@ public class ZipkinServiceTest {
         new DatasetMetadata(TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
-    ZipkinService.MAX_SPANS = 20_000;
   }
 
   @After

@@ -62,28 +62,5 @@ public class ZipkinServiceSpanConversionTest {
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
 
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(new ArrayList<>())).isEqualTo("[]");
-
-    ZipkinService.MAX_SPANS = 1;
-    output =
-        String.format(
-            "[{\n"
-                + "  \"traceId\": \"1\",\n"
-                + "  \"parentId\": \"\",\n"
-                + "  \"id\": \"1\",\n"
-                + "  \"name\": \"Trace1\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"1\",\n"
-                + "  \"tags\": {\n"
-                + "  },\n"
-                + "  \"remoteEndpoint\": {\n"
-                + "    \"serviceName\": \"service1\",\n"
-                + "    \"ipv4\": \"\",\n"
-                + "    \"ipv6\": \"\",\n"
-                + "    \"port\": 0\n"
-                + "  }\n"
-                + "}]",
-            ZipkinService.convertToMicroSeconds(time.plusSeconds(1)));
-
-    assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
   }
 }
