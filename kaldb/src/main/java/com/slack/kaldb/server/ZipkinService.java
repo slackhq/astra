@@ -14,13 +14,14 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
-import com.slack.service.kaldb.zipkin.ZipkinSpanOuterClass;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zipkin2.proto3.Endpoint;
+import zipkin2.proto3.Span;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 /**
@@ -55,7 +56,7 @@ public class ZipkinService {
   // definition is defined - there shouldn't be a string without encoding)
   // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
   // needs to decoded. Hence we decode it back and ship a ZipkinSpan
-  private static ZipkinSpanOuterClass.ZipkinSpan makeSpan(
+  private static Span makeSpan(
       String traceId,
       Optional<String> parentId,
       String id,
@@ -64,8 +65,8 @@ public class ZipkinService {
       long timestamp,
       long duration,
       Map<String, String> tags) {
-    ZipkinSpanOuterClass.ZipkinSpan.Builder spanBuilder =
-        ZipkinSpanOuterClass.ZipkinSpan.newBuilder();
+    Span.Builder spanBuilder =
+            Span.newBuilder();
 
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
@@ -78,7 +79,7 @@ public class ZipkinService {
     serviceName.ifPresent(
         s ->
             spanBuilder.setRemoteEndpoint(
-                ZipkinSpanOuterClass.Endpoint.newBuilder().setServiceName(s)));
+                Endpoint.newBuilder().setServiceName(s)));
     spanBuilder.putAllTags(tags);
     return spanBuilder.build();
   }
@@ -218,7 +219,7 @@ public class ZipkinService {
 
       final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
 
-      final ZipkinSpanOuterClass.ZipkinSpan span =
+      final Span span =
           makeSpan(
               messageTraceId,
               Optional.ofNullable(parentId),
