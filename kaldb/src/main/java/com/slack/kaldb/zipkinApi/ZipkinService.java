@@ -54,7 +54,7 @@ public class ZipkinService {
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
   private static long LOOKBACK_MINS = 60 * 2;
 
-  @VisibleForTesting public static int MAX_SPANS = 20_000;
+  private static final int MAX_SPANS = 20_000;
 
   private final KaldbQueryServiceBase searcher;
   private static final JsonFormat.Printer printer =
@@ -97,7 +97,8 @@ public class ZipkinService {
   public HttpResponse getTraceByTraceId(
       @Param("traceId") String traceId,
       @Param("startTimeEpochMs") Optional<Long> startTimeEpochMs,
-      @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs)
+      @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs,
+      @Param("maxSpans") Optional<Integer> maxSpans)
       throws IOException {
 
     String queryString = "trace_id:" + traceId;
@@ -120,7 +121,7 @@ public class ZipkinService {
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
-                .setHowMany(MAX_SPANS)
+                .setHowMany(maxSpans.orElse(MAX_SPANS))
                 .setBucketCount(0)
                 .build());
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);

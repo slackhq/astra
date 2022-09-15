@@ -292,8 +292,8 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     assertThat(body).isEqualTo(expectedTrace);
 
-    ZipkinService.MAX_SPANS = 1;
-    response = webClient.get("/api/v2/trace/1").aggregate().join();
+    params = String.format("maxSpans=%d", 1);
+    response = webClient.get("/api/v2/trace/1" + params).aggregate().join();
     body = response.content(StandardCharsets.UTF_8);
     assertThat(response.status().code()).isEqualTo(200);
     expectedTrace =

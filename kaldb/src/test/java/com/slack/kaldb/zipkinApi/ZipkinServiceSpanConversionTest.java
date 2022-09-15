@@ -8,15 +8,9 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 
 public class ZipkinServiceSpanConversionTest {
-
-  @Before
-  public void setUp() throws Exception {
-    ZipkinService.MAX_SPANS = 20_000;
-  }
 
   @Test
   public void testLogWireMessageToZipkinSpanConversion() throws InvalidProtocolBufferException {
