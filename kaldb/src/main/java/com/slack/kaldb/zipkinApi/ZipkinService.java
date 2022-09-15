@@ -106,8 +106,8 @@ public class ZipkinService {
         startTimeEpochMs.orElseGet(
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
     long endTime =
-            startTimeEpochMs.orElseGet(
-                    () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+        startTimeEpochMs.orElseGet(
+            () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
