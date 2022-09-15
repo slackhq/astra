@@ -1,6 +1,6 @@
-package com.slack.kaldb.zipkinApi;
+package com.slack.kaldb.server;
 
-import static com.slack.kaldb.zipkinApi.ZipkinServiceTest.generateLogWireMessagesForOneTrace;
+import static com.slack.kaldb.server.ZipkinServiceTest.generateLogWireMessagesForOneTrace;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.InvalidProtocolBufferException;

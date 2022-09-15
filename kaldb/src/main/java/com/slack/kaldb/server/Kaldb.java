@@ -28,7 +28,6 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
 import com.slack.kaldb.util.RuntimeHalterImpl;
-import com.slack.kaldb.zipkinApi.ZipkinService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
@@ -54,14 +53,14 @@ import software.amazon.awssdk.services.s3.S3Client;
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
  * http server, register monitoring libraries, create config manager etc..
  */
-public class Kaldb {
+class Kaldb {
   private static final Logger LOG = LoggerFactory.getLogger(Kaldb.class);
 
   private final PrometheusMeterRegistry prometheusMeterRegistry;
 
   private final KaldbConfigs.KaldbConfig kaldbConfig;
   private final S3Client s3Client;
-  @VisibleForTesting public ServiceManager serviceManager;
+  protected ServiceManager serviceManager;
   protected MetadataStore metadataStore;
 
   public Kaldb(

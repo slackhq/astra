@@ -1,4 +1,4 @@
-package com.slack.kaldb.zipkinApi;
+package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 
@@ -13,7 +13,6 @@ import com.linecorp.armeria.server.annotation.*;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
-import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.zipkintrace.ZipkinSpanOuterClass;
 import java.io.IOException;
