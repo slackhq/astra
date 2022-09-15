@@ -134,7 +134,7 @@ public class ZipkinService {
 
   public static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
       throws InvalidProtocolBufferException {
-    List<String> traces = new ArrayList<>();
+    List<String> traces = new ArrayList<>(messages.size());
     int numSpans = 0;
     for (LogWireMessage message : messages) {
       if (numSpans++ >= MAX_SPANS) {
