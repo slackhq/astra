@@ -1,10 +1,10 @@
-// A proto for capturing a trace.
+// A proto for capturing a zipkin span
 
 syntax = "proto3";
 
-package trace;
+package zipkintrace;
 
-option java_package = "com.slack.service.murron.trace";
+option java_package = "com.slack.service.murron.zipkintrace";
 
 import "google/protobuf/empty.proto";
 

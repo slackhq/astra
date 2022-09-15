@@ -1,6 +1,5 @@
 package com.slack.kaldb.zipkinApi;
 
-import static com.slack.kaldb.logstore.LogMessage.ReservedField.TRACE_ID;
 import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -11,12 +10,12 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.server.annotation.*;
-import com.slack.kaldb.logstore.LogMessage.ReservedField;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
-import com.slack.service.murron.trace.Trace;
+import com.slack.service.murron.zipkintrace.ZipkinSpanOuterClass;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -41,7 +40,7 @@ public class ZipkinService {
   // If we return LogMessage the caller then needs to call getSource which is a deep copy of the
   // object
   private static List<LogWireMessage> searchResultToLogWireMessage(
-          KaldbSearch.SearchResult searchResult) throws IOException {
+      KaldbSearch.SearchResult searchResult) throws IOException {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     List<LogWireMessage> messages = new ArrayList<>(hitsByteList.size());
     for (ByteString byteString : hitsByteList) {
@@ -103,8 +102,12 @@ public class ZipkinService {
 
     String queryString = "trace_id:" + traceId;
 
-    long startTime = startTimeEpochMs.orElseGet(() -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
-    long endTime = endTimeEpochMs.orElseGet(System::currentTimeMillis);
+    long startTime =
+        startTimeEpochMs.orElseGet(
+            () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+    long endTime =
+            startTimeEpochMs.orElseGet(
+                    () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
@@ -150,8 +153,8 @@ public class ZipkinService {
       for (String k : message.source.keySet()) {
         Object value = message.source.get(k);
 
-        if (ReservedField.isReservedField(k)) {
-          switch (ReservedField.get(k)) {
+        if (LogMessage.ReservedField.isReservedField(k)) {
+          switch (LogMessage.ReservedField.get(k)) {
             case TRACE_ID:
               messageTraceId = (String) value;
               break;
@@ -189,7 +192,7 @@ public class ZipkinService {
 
       final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
 
-      final Trace.ZipkinSpan span =
+      final ZipkinSpanOuterClass.ZipkinSpan span =
           makeSpan(
               messageTraceId,
               Optional.ofNullable(parentId),
@@ -218,7 +221,7 @@ public class ZipkinService {
   // definition is defined - there shouldn't be a string without encoding)
   // However if we ship back the bytes ( encoded data ) back to grafana it has no idea that the data
   // needs to decoded. Hence we decode it back and ship a ZipkinSpan
-  public static Trace.ZipkinSpan makeSpan(
+  public static ZipkinSpanOuterClass.ZipkinSpan makeSpan(
       String traceId,
       Optional<String> parentId,
       String id,
@@ -227,7 +230,8 @@ public class ZipkinService {
       long timestamp,
       long duration,
       Map<String, String> tags) {
-    Trace.ZipkinSpan.Builder spanBuilder = Trace.ZipkinSpan.newBuilder();
+    ZipkinSpanOuterClass.ZipkinSpan.Builder spanBuilder =
+        ZipkinSpanOuterClass.ZipkinSpan.newBuilder();
 
     spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()).toStringUtf8());
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()).toStringUtf8());
@@ -238,7 +242,9 @@ public class ZipkinService {
         s -> spanBuilder.setParentId(ByteString.copyFrom(s.getBytes()).toStringUtf8()));
     name.ifPresent(spanBuilder::setName);
     serviceName.ifPresent(
-        s -> spanBuilder.setRemoteEndpoint(Trace.Endpoint.newBuilder().setServiceName(s)));
+        s ->
+            spanBuilder.setRemoteEndpoint(
+                ZipkinSpanOuterClass.Endpoint.newBuilder().setServiceName(s)));
     spanBuilder.putAllTags(tags);
     return spanBuilder.build();
   }
