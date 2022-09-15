@@ -53,7 +53,7 @@ public class ZipkinService {
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
-  private static long LOOKBACK_MINS = 60 * 24;
+  private static long LOOKBACK_MINS = 60 * 2;
 
   @VisibleForTesting public static int MAX_SPANS = 20_000;
 
@@ -103,14 +103,8 @@ public class ZipkinService {
 
     String queryString = "trace_id:" + traceId;
 
-    long startTime = Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli();
-    if (startTimeEpochMs.isPresent()) {
-      startTime = startTimeEpochMs.get();
-    }
-    long endTime = System.currentTimeMillis();
-    if (endTimeEpochMs.isPresent()) {
-      endTime = endTimeEpochMs.get();
-    }
+    long startTime = startTimeEpochMs.orElseGet(() -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+    long endTime = endTimeEpochMs.orElseGet(System::currentTimeMillis);
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
