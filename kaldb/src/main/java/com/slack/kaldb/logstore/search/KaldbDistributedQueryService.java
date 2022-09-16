@@ -180,10 +180,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       SearchMetadata searchMetadata =
           KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadataList);
       if (nodes.containsKey(searchMetadata.url)) {
-        nodes.get(searchMetadata.url).add(searchMetadata.snapshotName);
+        nodes.get(searchMetadata.url).add(getRawSnapshotName(searchMetadata));
       } else {
         List<String> snapshotNames = new ArrayList<>();
-        snapshotNames.add(searchMetadata.snapshotName);
+        snapshotNames.add(getRawSnapshotName(searchMetadata));
         nodes.put(searchMetadata.url, snapshotNames);
       }
     }
@@ -331,15 +331,15 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
     Map<String, List<String>> nodesToQuery = getQueryNodes(searchMetadataToQuery);
 
-    ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs =
-        new ArrayList<>(nodesToQuery.size());
-    for (String searchNodeUrl : nodesToQuery.keySet()) {
-      queryStubs.add(getStub(searchNodeUrl));
-    }
+    span.tag("queryServerCount", String.valueOf(nodesToQuery.size()));
+    for (Map.Entry<String, List<String>> searchNode : nodesToQuery.entrySet()) {
+      KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
+      if (stub == null) {
+        continue;
+      }
 
-    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
-
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
+      KaldbSearch.SearchRequest localSearchReq =
+          distribSearchReq.toBuilder().addAllChunkIds(searchNode.getValue()).build();
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
@@ -347,7 +347,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .search(distribSearchReq);
+              .search(localSearchReq);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
       queryServers.add(
