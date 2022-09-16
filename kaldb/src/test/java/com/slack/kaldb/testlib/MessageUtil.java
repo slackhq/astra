@@ -68,10 +68,6 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
-    fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, String.valueOf(i));
-    // should not be = trace_id
-    fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, String.valueOf(i));
-    fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, 5000L);
     return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
   }
 
