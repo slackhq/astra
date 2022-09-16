@@ -19,7 +19,7 @@ public class DatasetPartitionMetadata {
   public final long endTimeEpochMs;
   public final ImmutableList<String> partitions;
 
-  public static String MATCH_ALL_DATASET = "_all";
+  public static final String MATCH_ALL_DATASET = "_all";
 
   public DatasetPartitionMetadata(
       long startTimeEpochMs, long endTimeEpochMs, List<String> partitions) {
