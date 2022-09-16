@@ -37,7 +37,7 @@ import zipkin2.proto3.Span;
 public class ZipkinService {
 
   protected static String convertLogWireMessageToZipkinSpan(List<LogWireMessage> messages)
-          throws InvalidProtocolBufferException {
+      throws InvalidProtocolBufferException {
     List<String> traces = new ArrayList<>(messages.size());
     for (LogWireMessage message : messages) {
       if (message.id == null) {
@@ -84,15 +84,15 @@ public class ZipkinService {
       final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
 
       final Span span =
-              makeSpan(
-                      messageTraceId,
-                      Optional.ofNullable(parentId),
-                      message.id,
-                      Optional.ofNullable(name),
-                      Optional.ofNullable(serviceName),
-                      messageConvertedTimestamp,
-                      duration,
-                      messageTags);
+          makeSpan(
+              messageTraceId,
+              Optional.ofNullable(parentId),
+              message.id,
+              Optional.ofNullable(name),
+              Optional.ofNullable(serviceName),
+              messageConvertedTimestamp,
+              duration,
+              messageTags);
       String spanJson = printer.print(span);
       traces.add(spanJson);
     }
