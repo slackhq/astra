@@ -3,6 +3,7 @@ package com.slack.kaldb.testlib;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 
 public class KaldbConfigUtil {
+
   public static KaldbConfigs.KaldbConfig makeKaldbConfig(
       String bootstrapServers,
       int indexerPort,
@@ -16,7 +17,8 @@ public class KaldbConfigUtil {
       KaldbConfigs.NodeRole nodeRole,
       int maxOffsetDelay,
       String dataTransformerConfig,
-      int recoveryPort) {
+      int recoveryPort,
+      int maxMessagesPerChunk) {
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
             .setKafkaTopic(kafkaTopic)
@@ -45,7 +47,7 @@ public class KaldbConfigUtil {
                     .setRequestTimeoutMs(5000)
                     .build())
             .setMaxBytesPerChunk(10L * 1024 * 1024 * 1024)
-            .setMaxMessagesPerChunk(100)
+            .setMaxMessagesPerChunk(maxMessagesPerChunk)
             .setLuceneConfig(
                 KaldbConfigs.LuceneConfig.newBuilder()
                     .setCommitDurationSecs(10)

@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -41,9 +40,15 @@ public class TestKafkaServer {
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
       EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId, int count)
-      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+      throws Exception {
     List<LogMessage> messages =
         MessageUtil.makeMessagesWithTimeDifference(1, count, 1000, startTime);
+    return produceMessagesToKafka(broker, kafkaTopic, partitionId, messages);
+  }
+
+  public static int produceMessagesToKafka(
+      EphemeralKafkaBroker broker, String kafkaTopic, int partitionId, List<LogMessage> messages)
+      throws Exception {
 
     int indexedCount = 0;
     // Insert messages into Kafka.
@@ -75,12 +80,12 @@ public class TestKafkaServer {
   // Create messages, format them into murron protobufs, write them to kafka
   public static int produceMessagesToKafka(
       EphemeralKafkaBroker broker, Instant startTime, String kafkaTopic, int partitionId)
-      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+      throws Exception {
     return produceMessagesToKafka(broker, startTime, kafkaTopic, partitionId, 100);
   }
 
   public static int produceMessagesToKafka(EphemeralKafkaBroker broker, Instant startTime)
-      throws InterruptedException, ExecutionException, TimeoutException, JsonProcessingException {
+      throws Exception {
     return produceMessagesToKafka(broker, startTime, TEST_KAFKA_TOPIC, 0);
   }
 
