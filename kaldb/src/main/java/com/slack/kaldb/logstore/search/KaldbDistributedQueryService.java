@@ -363,7 +363,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
-      ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
+      List<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
       for (SearchResult<LogMessage> searchResult : searchResults) {
         result.add(searchResult == null ? SearchResult.empty() : searchResult);
       }

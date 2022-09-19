@@ -92,20 +92,21 @@ public class KaldbDistributedQueryServiceTest {
   @Test
   public void testOneIndexer() {
     String indexName = "testIndex";
-    Instant chunkCreationTime = Instant.ofEpochMilli(100);
-    Instant chunkEndTime = Instant.ofEpochMilli(200);
-    createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
+    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+    Instant chunk1EndTime = Instant.ofEpochMilli(200);
+    String chunk1Name =
+        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
     await().until(() -> snapshotMetadataStore.listSync().size() == 2);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     // we don't have any dataset metadata entry, so we shouldn't be able to find any snapshot
-    Collection<String> searchNodes =
+    Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
@@ -121,11 +122,14 @@ public class KaldbDistributedQueryServiceTest {
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    List<String> chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    assertThat(chunks.iterator().next()).isEqualTo(chunk1Name);
 
     // we can't find snapshot since the time window doesn't match snapshot
     searchNodes =
@@ -133,26 +137,34 @@ public class KaldbDistributedQueryServiceTest {
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkEndTime.toEpochMilli() + 1,
-            chunkEndTime.toEpochMilli() + 100,
+            chunk1EndTime.toEpochMilli() + 1,
+            chunk1EndTime.toEpochMilli() + 100,
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
     // add another chunk on the same indexer and ensure we still find the node
-    createIndexerZKMetadata(
-        Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), "1", indexer1SearchContext);
+    Instant chunk2CreationTime = Instant.ofEpochMilli(201);
+    Instant chunk2EndTime = Instant.ofEpochMilli(300);
+    String chunk2Name =
+        createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
     await().until(() -> snapshotMetadataStore.listSync().size() == 4);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 300, indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+
     searchNodes =
         getSearchNodesToQuery(
-            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 150, indexName);
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 250, indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(2);
+    Iterator<String> chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(chunk2Name);
+    assertThat(chunkIter.next()).isEqualTo(chunk1Name);
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
     datasetMetadataStore.delete(datasetMetadata.name);
@@ -168,8 +180,8 @@ public class KaldbDistributedQueryServiceTest {
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
   }
@@ -190,7 +202,7 @@ public class KaldbDistributedQueryServiceTest {
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
-    Collection<String> searchNodes =
+    Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
@@ -199,7 +211,11 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    List<String> chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    Iterator<String> chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshotName);
 
     searchNodes =
         getSearchNodesToQuery(
@@ -212,8 +228,9 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(searchNodes.size()).isEqualTo(0);
 
     // create cache node entry for search metadata also serving the snapshot
-    ReadOnlyChunkImpl.registerSearchMetadata(
-        searchMetadataStore, cache1SearchContext, snapshotName);
+    SearchMetadata cacheNodeSearchMetada =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache1SearchContext, snapshotName);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
     searchNodes =
@@ -225,7 +242,11 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
     datasetMetadataStore.delete(datasetMetadata.name);
@@ -257,8 +278,9 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     // create first search metadata hosted by cache1
-    ReadOnlyChunkImpl.registerSearchMetadata(
-        searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
+    SearchMetadata cache1NodeSearchMetada =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 101, List.of("1"));
@@ -268,7 +290,7 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     // assert search will always find cache1
-    Collection<String> searchNodes =
+    Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
@@ -277,11 +299,16 @@ public class KaldbDistributedQueryServiceTest {
             chunkCreationTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
+    List<String> chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    Iterator<String> chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(cache1NodeSearchMetada.snapshotName);
 
     // create second search metadata hosted by cache2
-    ReadOnlyChunkImpl.registerSearchMetadata(
-        searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
+    SearchMetadata cache2NodeSearchMetada =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
     // assert search will always find cache1 or cache2
@@ -294,10 +321,18 @@ public class KaldbDistributedQueryServiceTest {
             chunkCreationTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
-    String searchNodeUrl = searchNodes.iterator().next();
+    String searchNodeUrl = searchNodes.keySet().iterator().next();
     assertThat(
             searchNodeUrl.equals(cache1SearchContext.toString())
                 || searchNodeUrl.equals((cache2SearchContext.toString())))
+        .isTrue();
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    String chunkName = chunkIter.next();
+    assertThat(
+            chunkName.equals(cache1NodeSearchMetada.snapshotName)
+                || chunkName.equals((cache2NodeSearchMetada.snapshotName)))
         .isTrue();
   }
 
@@ -362,17 +397,17 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
     // find search nodes that will be queries for the first dataset
-    Collection<String> searchNodes =
+    Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 199, name);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(cache1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name);
     assertThat(searchNodes.size()).isEqualTo(2);
-    Iterator<String> iter = searchNodes.iterator();
+    Iterator<String> iter = searchNodes.keySet().iterator();
     String node1 = iter.next();
     String node2 = iter.next();
     assertThat(
@@ -388,7 +423,7 @@ public class KaldbDistributedQueryServiceTest {
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 100, 299, name1);
     assertThat(searchNodes.size()).isEqualTo(2);
-    iter = searchNodes.iterator();
+    iter = searchNodes.keySet().iterator();
     node1 = iter.next();
     node2 = iter.next();
     assertThat(
@@ -418,7 +453,7 @@ public class KaldbDistributedQueryServiceTest {
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
-    Collection<String> searchNodes =
+    Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
@@ -427,7 +462,7 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             indexName1);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
 
     // search for partition "2" only
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
@@ -448,7 +483,7 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             indexName2);
     assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.iterator().next()).isEqualTo(indexer2SearchContext.toString());
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer2SearchContext.toString());
 
     // search for wrong indexName and see if you get 0 nodes
     searchNodes =
@@ -505,7 +540,7 @@ public class KaldbDistributedQueryServiceTest {
     return snapshotMetadata;
   }
 
-  private Collection<String> getSearchNodesToQuery(
+  private Map<String, List<String>> getSearchNodesToQuery(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       DatasetMetadataStore datasetMetadataStore,
@@ -524,6 +559,6 @@ public class KaldbDistributedQueryServiceTest {
         getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
     Map<String, List<String>> nodesToQuery = getQueryNodes(searchMetadataToQuery);
 
-    return nodesToQuery.keySet();
+    return nodesToQuery;
   }
 }
