@@ -155,6 +155,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
 
+    // if we request a time window that matches both chunks the searchable chunks will be 2
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 250, indexName);
@@ -165,6 +166,17 @@ public class KaldbDistributedQueryServiceTest {
     Iterator<String> chunkIter = chunks.iterator();
     assertThat(chunkIter.next()).isEqualTo(chunk2Name);
     assertThat(chunkIter.next()).isEqualTo(chunk1Name);
+
+    // request a time window that matches only 1 chunk
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 250, 300, indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(chunk2Name);
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
     datasetMetadataStore.delete(datasetMetadata.name);
@@ -557,8 +569,7 @@ public class KaldbDistributedQueryServiceTest {
 
     Map<String, List<SearchMetadata>> searchMetadataToQuery =
         getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
-    Map<String, List<String>> nodesToQuery = getQueryNodes(searchMetadataToQuery);
 
-    return nodesToQuery;
+    return getQueryNodes(searchMetadataToQuery);
   }
 }

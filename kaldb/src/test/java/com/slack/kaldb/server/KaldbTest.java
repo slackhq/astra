@@ -181,7 +181,8 @@ public class KaldbTest {
       String kafkaClient,
       String indexerPathPrefix,
       int indexerCount,
-      Instant indexedMessagesStartTime)
+      Instant indexedMessagesStartTime,
+      PrometheusMeterRegistry indexerMeterRegistry)
       throws Exception {
     LOG.info(
         "Creating indexer service at port {}, topic: {} and partition {}",
@@ -201,8 +202,6 @@ public class KaldbTest {
             1000,
             9003);
 
-    PrometheusMeterRegistry indexerMeterRegistry =
-        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer = new Kaldb(indexerConfig, s3Client, indexerMeterRegistry);
     indexer.start();
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == indexerCount);
@@ -249,13 +248,25 @@ public class KaldbTest {
 
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    // if you look at the produceMessages code the last document for this chunk will be this
+    // timestamp
+    final Instant end1Time = startTime.plusNanos(1000 * 1000 * 1000L * 99);
+    PrometheusMeterRegistry indexerMeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, ZK_PATH_PREFIX, 1, startTime);
+            indexerPort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            ZK_PATH_PREFIX,
+            1,
+            startTime,
+            indexerMeterRegistry);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     KaldbSearch.SearchResult indexerSearchResponse =
-        searchUsingGrpcApi("*:*", indexerPort, 0, 1601547099000L);
+        searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli());
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
@@ -269,6 +280,58 @@ public class KaldbTest {
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    // add more docs and create one more chunk on the indexer
+    final Instant start2Time =
+        LocalDateTime.of(2022, 9, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    // if you look at the produceMessages code the last document for this chunk will be this
+    // timestamp
+    final Instant end2Time = start2Time.plusNanos(1000 * 1000 * 1000L * 99);
+    produceMessagesToKafka(kafkaServer.getBroker(), start2Time, TEST_KAFKA_TOPIC_1, 0);
+
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
+                LOG.debug("Registry1 current_count={} total_count={}", count, 200);
+                return count == 200;
+              } catch (MeterNotFoundException e) {
+                return false;
+              }
+            });
+
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 2);
+    assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
+
+    // query for a time-window such that only docs from chunk 1 match
+    queryServiceSearchResponse =
+        searchUsingGrpcApi("*:*", queryServicePort, 0, end1Time.toEpochMilli());
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    // query for a time-window such that only docs from chunk 2 match
+    queryServiceSearchResponse =
+        searchUsingGrpcApi(
+            "*:*", queryServicePort, start2Time.toEpochMilli(), end2Time.toEpochMilli());
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
+
+    // query for a time-window to match both chunk1 + chunk2
+    queryServiceSearchResponse =
+        searchUsingGrpcApi(
+            "*:*", queryServicePort, startTime.toEpochMilli(), end2Time.toEpochMilli());
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // Shutdown
@@ -337,15 +400,26 @@ public class KaldbTest {
     int indexerPort = 10000;
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    PrometheusMeterRegistry indexer1MeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer1 =
         makeIndexerAndIndexMessages(
-            indexerPort, TEST_KAFKA_TOPIC_1, 0, KALDB_TEST_CLIENT_1, ZK_PATH_PREFIX, 1, startTime);
+            indexerPort,
+            TEST_KAFKA_TOPIC_1,
+            0,
+            KALDB_TEST_CLIENT_1,
+            ZK_PATH_PREFIX,
+            1,
+            startTime,
+            indexer1MeterRegistry);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
     final Instant startTime2 =
         LocalDateTime.of(2021, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    PrometheusMeterRegistry indexer2MeterRegistry =
+        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer2 =
         makeIndexerAndIndexMessages(
             indexerPort2,
@@ -354,7 +428,8 @@ public class KaldbTest {
             KALDB_TEST_CLIENT_2,
             ZK_PATH_PREFIX,
             2,
-            startTime2);
+            startTime2,
+            indexer2MeterRegistry);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
     KaldbSearch.SearchResult indexerSearchResponse =
