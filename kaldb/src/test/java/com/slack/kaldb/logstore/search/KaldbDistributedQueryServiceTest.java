@@ -164,8 +164,10 @@ public class KaldbDistributedQueryServiceTest {
     chunks = searchNodes.values().iterator().next();
     assertThat(chunks.size()).isEqualTo(2);
     Iterator<String> chunkIter = chunks.iterator();
-    assertThat(chunkIter.next()).isEqualTo(chunk2Name);
-    assertThat(chunkIter.next()).isEqualTo(chunk1Name);
+    String result1 = chunkIter.next();
+    String result2 = chunkIter.next();
+    assertThat(result1.equals(chunk1Name) || result1.equals((chunk2Name))).isTrue();
+    assertThat(result2.equals(chunk1Name) || result2.equals((chunk2Name))).isTrue();
 
     // request a time window that matches only 1 chunk
     searchNodes =
@@ -201,57 +203,94 @@ public class KaldbDistributedQueryServiceTest {
   @Test
   public void testOneIndexerOneCache() throws Exception {
     String indexName = "testIndex";
-    Instant chunkCreationTime = Instant.ofEpochMilli(100);
-    Instant chunkEndTime = Instant.ofEpochMilli(200);
-    String snapshotName =
-        createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
-    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
-
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(199, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
+    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+    Instant chunk1EndTime = Instant.ofEpochMilli(200);
+    String snapshot1Name =
+        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
     List<String> chunks = searchNodes.values().iterator().next();
     assertThat(chunks.size()).isEqualTo(1);
     Iterator<String> chunkIter = chunks.iterator();
-    assertThat(chunkIter.next()).isEqualTo(snapshotName);
+    assertThat(chunkIter.next()).isEqualTo(snapshot1Name);
+
+    Instant chunk2CreationTime = Instant.ofEpochMilli(201);
+    Instant chunk2EndTime = Instant.ofEpochMilli(300);
+    String snapshot2Name =
+        createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(4);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(2);
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkEndTime.toEpochMilli() + 1,
-            chunkEndTime.toEpochMilli() + 100,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshot1Name);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk2CreationTime.toEpochMilli(),
+            chunk2EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshot2Name);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk2EndTime.toEpochMilli() + 1,
+            chunk2EndTime.toEpochMilli() + 100,
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
 
     // create cache node entry for search metadata also serving the snapshot
     SearchMetadata cacheNodeSearchMetada =
         ReadOnlyChunkImpl.registerSearchMetadata(
-            searchMetadataStore, cache1SearchContext, snapshotName);
-    await().until(() -> searchMetadataStore.listSync().size() == 2);
+            searchMetadataStore, cache1SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStore.listSync().size() == 3);
 
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
@@ -274,8 +313,8 @@ public class KaldbDistributedQueryServiceTest {
             snapshotMetadataStore,
             searchMetadataStore,
             datasetMetadataStore,
-            chunkCreationTime.toEpochMilli(),
-            chunkEndTime.toEpochMilli(),
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
   }
