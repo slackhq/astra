@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.*;
@@ -32,7 +33,6 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
@@ -188,7 +188,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
 
@@ -232,7 +232,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -243,7 +243,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
@@ -283,7 +283,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -294,7 +294,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
@@ -339,7 +339,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -350,12 +350,11 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(
-            name, path, startTimeMs, endTimeMs, maxOffset, "0", Metadata.IndexType.LUCENE_REGULAR);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -404,7 +403,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -415,12 +414,11 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(
-            name, path, startTimeMs, endTimeMs, maxOffset, "0", Metadata.IndexType.LUCENE_REGULAR);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -476,7 +474,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -487,12 +485,11 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(
-            name, path, startTimeMs, endTimeMs, maxOffset, "0", Metadata.IndexType.LUCENE_REGULAR);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -552,7 +549,7 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "0",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
@@ -563,12 +560,11 @@ public class KaldbIndexerTest {
             endTimeMs,
             maxOffset,
             "1",
-            Metadata.IndexType.LUCENE_REGULAR);
+            LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(
-            name, path, startTimeMs, endTimeMs, maxOffset, "0", Metadata.IndexType.LUCENE_REGULAR);
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
