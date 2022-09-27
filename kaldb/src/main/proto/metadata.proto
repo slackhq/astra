@@ -46,7 +46,6 @@ message ReplicaMetadata {
 
   bool isRestored = 6;
 
-  // Add the index type of the replica metadata.
   IndexType index_type = 7;
 }
 
@@ -70,7 +69,7 @@ message SnapshotMetadata {
   // Kafka offset when this snapshot was taken for that partition.
   int64 max_offset = 6;
 
-  // The index used to store the data.
+  // The type of index used to store this data.
   IndexType index_type = 8;
 }
 
