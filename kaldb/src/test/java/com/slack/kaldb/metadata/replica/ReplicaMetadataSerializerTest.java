@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.replica;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -18,7 +19,8 @@ public class ReplicaMetadataSerializerTest {
     long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LUCENE_REGULAR);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -31,6 +33,7 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(deserializedReplicaMetadata.isRestored).isTrue();
+    assertThat(deserializedReplicaMetadata.indexType).isEqualTo(LUCENE_REGULAR);
   }
 
   @Test
@@ -50,6 +53,7 @@ public class ReplicaMetadataSerializerTest {
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(1639677020380L);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(0L);
     assertThat(deserializedReplicaMetadata.isRestored).isFalse();
+    assertThat(deserializedReplicaMetadata.indexType).isEqualTo(LUCENE_REGULAR);
   }
 
   @Test

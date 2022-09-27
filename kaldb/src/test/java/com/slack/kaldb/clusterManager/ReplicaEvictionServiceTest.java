@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -153,7 +154,8 @@ public class ReplicaEvictionServiceTest {
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
-              false);
+              false,
+              LUCENE_REGULAR);
       replicas.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -232,7 +234,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -306,7 +309,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             0,
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -380,7 +384,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -437,7 +442,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -494,7 +500,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -596,7 +603,8 @@ public class ReplicaEvictionServiceTest {
               UUID.randomUUID().toString(),
               Instant.now().toEpochMilli(),
               Instant.now().minusSeconds(60).toEpochMilli(),
-              false);
+              false,
+              LUCENE_REGULAR);
       replicas.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -726,7 +734,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataExpiredOne);
     CacheSlotMetadata cacheSlotReplicaExpiredOne =
         new CacheSlotMetadata(
@@ -742,7 +751,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().minusSeconds(60).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataExpiredTwo);
     CacheSlotMetadata cacheSlotReplicaExpireTwo =
         new CacheSlotMetadata(
@@ -758,7 +768,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().plusSeconds(360).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataUnexpiredOne);
     CacheSlotMetadata cacheSlotReplicaUnexpiredOne =
         new CacheSlotMetadata(
@@ -774,7 +785,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
             Instant.now().plusSeconds(360).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataUnexpiredTwo);
     CacheSlotMetadata cacheSlotFree =
         new CacheSlotMetadata(

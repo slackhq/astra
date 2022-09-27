@@ -13,7 +13,8 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
         replicaMetadataProto.getSnapshotId(),
         replicaMetadataProto.getCreatedTimeEpochMs(),
         replicaMetadataProto.getExpireAfterEpochMs(),
-        replicaMetadataProto.getIsRestored());
+        replicaMetadataProto.getIsRestored(),
+        Metadata.IndexType.LUCENE_REGULAR);
   }
 
   private static Metadata.ReplicaMetadata toReplicaMetadataProto(ReplicaMetadata metadata) {
@@ -23,6 +24,7 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
         .setCreatedTimeEpochMs(metadata.createdTimeEpochMs)
         .setExpireAfterEpochMs(metadata.expireAfterEpochMs)
         .setIsRestored(metadata.isRestored)
+        .setIndexType(metadata.indexType)
         .build();
   }
 

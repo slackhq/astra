@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -138,7 +139,8 @@ public class ReplicaDeletionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -192,7 +194,8 @@ public class ReplicaDeletionServiceTest {
               UUID.randomUUID().toString(),
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
-              false);
+              false,
+              LUCENE_REGULAR);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -265,7 +268,8 @@ public class ReplicaDeletionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().plusSeconds(30).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -317,7 +321,8 @@ public class ReplicaDeletionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
@@ -391,7 +396,8 @@ public class ReplicaDeletionServiceTest {
               UUID.randomUUID().toString(),
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
-              false);
+              false,
+              LUCENE_REGULAR);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -484,7 +490,8 @@ public class ReplicaDeletionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataUnassigned);
 
     ReplicaMetadata replicaMetadataAssigned =
@@ -493,7 +500,8 @@ public class ReplicaDeletionServiceTest {
             UUID.randomUUID().toString(),
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
-            false);
+            false,
+            LUCENE_REGULAR);
     replicaMetadataStore.create(replicaMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataUnassigned =
