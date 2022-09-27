@@ -4,6 +4,10 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
+enum DataType {
+  LUCENE_BASIC = 0;
+};
+
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -62,6 +66,9 @@ message SnapshotMetadata {
   string partition_id = 7;
   // Kafka offset when this snapshot was taken for that partition.
   int64 max_offset = 6;
+
+  // The type of data contained in the snapshot
+  DataType data_type = 8;
 }
 
 message SearchMetadata {
