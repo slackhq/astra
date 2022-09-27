@@ -98,6 +98,7 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
     this.metadataWriteCounter = meterRegistry.counter(METADATA_WRITE_COUNTER);
     this.metadataReadCounter = meterRegistry.counter(METADATA_READ_COUNTER);
 
+    LOG.info("READY metadataExecutorService");
     this.metadataExecutorService = this.buildExecutor();
     this.runSafeService = this.buildRunSafeService();
 

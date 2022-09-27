@@ -81,6 +81,7 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
+    LOG.info("READY setUp");
     KaldbConfigs.IndexerConfig indexerConfig = makeIndexerConfig();
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
@@ -117,6 +118,7 @@ public class KaldbIndexerTest {
     searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, false));
 
     kafkaServer = new TestKafkaServer();
+    LOG.info("KaldbIndexerTest READY");
   }
 
   private KaldbConfigs.KafkaConfig getKafkaConfig() {

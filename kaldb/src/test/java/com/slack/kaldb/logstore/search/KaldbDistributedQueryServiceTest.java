@@ -138,6 +138,7 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli() + 100,
             indexName);
     assertThat(searchNodes.size()).isEqualTo(0);
+    // nocommit
 
     // add another chunk on the same indexer and ensure we still find the node
     createIndexerZKMetadata(
