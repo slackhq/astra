@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.core;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,7 +16,6 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.NoNodeException;
 import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
-import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -53,13 +53,7 @@ public class KaldbMetadataStoreTest {
     final String partitionId = "1";
 
     return new SnapshotMetadata(
-        name,
-        snapshotPath,
-        startTimeUtc,
-        endTimeUtc,
-        maxOffset,
-        partitionId,
-        Metadata.IndexType.LUCENE_REGULAR);
+        name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LUCENE_REGULAR);
   }
 
   public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
@@ -137,13 +131,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc,
-              endTimeUtc,
-              maxOffset,
-              partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LUCENE_REGULAR);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -167,7 +155,7 @@ public class KaldbMetadataStoreTest {
               endTimeUtc + 1,
               maxOffset + 100,
               partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              LUCENE_REGULAR);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
@@ -229,13 +217,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc,
-              endTimeUtc,
-              maxOffset,
-              partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LUCENE_REGULAR);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
@@ -893,13 +875,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc,
-              endTimeUtc,
-              maxOffset,
-              partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LUCENE_REGULAR);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -923,7 +899,7 @@ public class KaldbMetadataStoreTest {
               endTimeUtc + 1,
               maxOffset + 100,
               partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              LUCENE_REGULAR);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
@@ -985,13 +961,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc,
-              endTimeUtc,
-              maxOffset,
-              partitionId,
-              Metadata.IndexType.LUCENE_REGULAR);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LUCENE_REGULAR);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
