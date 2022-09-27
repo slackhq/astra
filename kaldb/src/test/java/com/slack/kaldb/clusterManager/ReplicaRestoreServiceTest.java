@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertThrows;
@@ -15,7 +16,6 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -95,8 +95,7 @@ public class ReplicaRestoreServiceTest {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
       SnapshotMetadata snapshotIncluded =
-          new SnapshotMetadata(
-              id, id, now + 10, now + 15, 0, id, Metadata.IndexType.LUCENE_REGULAR);
+          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR);
       replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
       Thread.sleep(300);
     }
@@ -131,8 +130,7 @@ public class ReplicaRestoreServiceTest {
               long now = Instant.now().toEpochMilli();
               String id = "loop" + UUID.randomUUID();
               SnapshotMetadata snapshotIncluded =
-                  new SnapshotMetadata(
-                      id, id, now + 10, now + 15, 0, id, Metadata.IndexType.LUCENE_REGULAR);
+                  new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR);
               try {
                 replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
                 Thread.sleep(300);
@@ -176,8 +174,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < 10; i++) {
       String id = "duplicate";
       duplicateSnapshots.add(
-          new SnapshotMetadata(
-              id, id, now + 10, now + 15, 0, id, Metadata.IndexType.LUCENE_REGULAR));
+          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
@@ -190,9 +187,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < 3; i++) {
       now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(
-          new SnapshotMetadata(
-              id, id, now + 10, now + 15, 0, id, Metadata.IndexType.LUCENE_REGULAR));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(snapshots);
@@ -227,9 +222,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(
-          new SnapshotMetadata(
-              id, id, now + 10, now + 15, 0, id, Metadata.IndexType.LUCENE_REGULAR));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
     }
 
     assertThrows(
