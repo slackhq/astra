@@ -465,7 +465,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 1,
-                "partitionId"))
+                "partitionId",
+                Metadata.IndexType.LUCENE_REGULAR))
         .get(5, TimeUnit.SECONDS);
   }
 

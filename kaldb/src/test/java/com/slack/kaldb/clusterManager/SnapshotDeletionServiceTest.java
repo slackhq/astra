@@ -26,6 +26,7 @@ import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -151,7 +152,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -206,7 +208,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
 
     ReplicaMetadata replicaMetadata =
@@ -316,7 +319,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
     String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
@@ -375,7 +379,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
 
     // replica is also expired
@@ -447,7 +452,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
@@ -504,7 +510,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -565,7 +572,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -621,7 +629,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -714,7 +723,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
 
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
@@ -786,7 +796,8 @@ public class SnapshotDeletionServiceTest {
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             0,
-            "1");
+            "1",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.create(snapshotMetadata);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 

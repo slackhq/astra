@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.snapshot;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -19,7 +19,8 @@ public class SnapshotMetadataTest {
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name, path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR);
 
     assertThat(snapshotMetadata.name).isEqualTo(name);
     assertThat(snapshotMetadata.snapshotPath).isEqualTo(path);
@@ -28,6 +29,7 @@ public class SnapshotMetadataTest {
     assertThat(snapshotMetadata.endTimeEpochMs).isEqualTo(endTime);
     assertThat(snapshotMetadata.maxOffset).isEqualTo(maxOffset);
     assertThat(snapshotMetadata.partitionId).isEqualTo(partitionId);
+    assertThat(snapshotMetadata.indexType).isEqualTo(LUCENE_REGULAR);
   }
 
   @Test
@@ -40,9 +42,11 @@ public class SnapshotMetadataTest {
     final String partitionId = "1";
 
     SnapshotMetadata snapshot1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name, path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR);
     SnapshotMetadata snapshot2 =
-        new SnapshotMetadata(name + "2", path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name + "2", path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR);
 
     assertThat(snapshot1).isEqualTo(snapshot1);
     // Ensure the name field from super class is included.
@@ -65,34 +69,53 @@ public class SnapshotMetadataTest {
 
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new SnapshotMetadata("", path, startTime, endTime, maxOffset, partitionId));
+            () ->
+                new SnapshotMetadata(
+                    "", path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new SnapshotMetadata(name, "", startTime, endTime, maxOffset, partitionId));
+            () ->
+                new SnapshotMetadata(
+                    name, "", startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, 0, endTime, maxOffset, partitionId));
+        .isThrownBy(
+            () ->
+                new SnapshotMetadata(
+                    name, path, 0, endTime, maxOffset, partitionId, LUCENE_REGULAR));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, 0, maxOffset, partitionId));
+        .isThrownBy(
+            () ->
+                new SnapshotMetadata(
+                    name, path, startTime, 0, maxOffset, partitionId, LUCENE_REGULAR));
 
     // Start time < end time
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new SnapshotMetadata(name, path, endTime, startTime, maxOffset, partitionId));
+            () ->
+                new SnapshotMetadata(
+                    name, path, endTime, startTime, maxOffset, partitionId, LUCENE_REGULAR));
 
     // Start time same as end time.
     assertThat(
-            new SnapshotMetadata(name, path, startTime, startTime, maxOffset, partitionId)
+            new SnapshotMetadata(
+                    name, path, startTime, startTime, maxOffset, partitionId, LUCENE_REGULAR)
                 .endTimeEpochMs)
         .isEqualTo(startTime);
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, -1, partitionId));
+        .isThrownBy(
+            () ->
+                new SnapshotMetadata(
+                    name, path, startTime, endTime, -1, partitionId, LUCENE_REGULAR));
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new SnapshotMetadata(name, path, startTime, endTime, maxOffset, ""));
+        .isThrownBy(
+            () ->
+                new SnapshotMetadata(
+                    name, path, startTime, endTime, maxOffset, "", LUCENE_REGULAR));
   }
 
   @Test
@@ -105,12 +128,19 @@ public class SnapshotMetadataTest {
     final String partitionId = "1";
 
     SnapshotMetadata nonLiveSnapshot =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name, path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR);
     assertThat(SnapshotMetadata.isLive(nonLiveSnapshot)).isFalse();
 
     SnapshotMetadata liveSnapshot =
         new SnapshotMetadata(
-            name, SnapshotMetadata.LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name,
+            SnapshotMetadata.LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            LUCENE_REGULAR);
     assertThat(SnapshotMetadata.isLive(liveSnapshot)).isTrue();
   }
 }

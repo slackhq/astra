@@ -23,6 +23,7 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.util.CountingFatalErrorHandler;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -85,17 +86,50 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 123;
 
     SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition2 =
-        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
 
     assertThat(getStaleLiveSnapshots(List.of(partition1), partitionId)).isEmpty();
     assertThat(getStaleLiveSnapshots(List.of(partition2), partitionId)).isEmpty();
@@ -131,17 +165,50 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 123;
 
     SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition2 =
-        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
 
     testDeleteSnapshots(List.of(partition1), 0, List.of(partition1));
     testDeleteSnapshots(List.of(partition2), 0, List.of(partition2));
@@ -199,17 +266,50 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 123;
 
     SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata livePartition2 =
-        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
 
     testDeleteSnapshotsTimeouts(List.of(partition1), List.of(partition1), false);
     testDeleteSnapshotsTimeouts(List.of(livePartition1), List.of(livePartition1), true);
@@ -276,17 +376,50 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 123;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata livePartition2 =
-        new SnapshotMetadata(name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
 
     List<SnapshotMetadata> snapshots =
         List.of(partition1, livePartition1, livePartition11, partition2, livePartition2);
@@ -347,24 +480,62 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
-            name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId);
+            name + "1",
+            path,
+            endTime + 1,
+            endTime * 2,
+            maxOffset * 2,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata partition12 =
         new SnapshotMetadata(
-            name + "12", path, endTime * 2 + 1, endTime * 3, maxOffset * 3, partitionId);
+            name + "12",
+            path,
+            endTime * 2 + 1,
+            endTime * 3,
+            maxOffset * 3,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
 
     final String partitionId2 = "2";
     final long partition2Offset = maxOffset * 10;
     final SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "2", path, startTime, endTime, partition2Offset, partitionId2);
+        new SnapshotMetadata(
+            name + "2",
+            path,
+            startTime,
+            endTime,
+            partition2Offset,
+            partitionId2,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata partition21 =
         new SnapshotMetadata(
-            name + "21", path, endTime + 1, endTime * 2, partition2Offset * 2, partitionId2);
+            name + "21",
+            path,
+            endTime + 1,
+            endTime * 2,
+            partition2Offset * 2,
+            partitionId2,
+            Metadata.IndexType.LUCENE_REGULAR);
     final SnapshotMetadata partition22 =
         new SnapshotMetadata(
-            name + "22", path, endTime * 2 + 1, endTime * 3, partition2Offset * 3, partitionId2);
+            name + "22",
+            path,
+            endTime * 2 + 1,
+            endTime * 3,
+            partition2Offset * 3,
+            partitionId2,
+            Metadata.IndexType.LUCENE_REGULAR);
 
     // empty results
     assertThat(
@@ -599,13 +770,21 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2");
+        new SnapshotMetadata(
+            name, path, startTime, endTime, maxOffset, "2", Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final SnapshotMetadata partition11 =
-        new SnapshotMetadata(name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, "2");
+        new SnapshotMetadata(
+            name + "1",
+            path,
+            endTime + 1,
+            endTime * 2,
+            maxOffset * 2,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
@@ -866,7 +1045,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -880,7 +1066,13 @@ public class RecoveryTaskCreatorTest {
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
-            name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId);
+            name + "11",
+            path,
+            endTime + 1,
+            endTime * 2,
+            maxOffset * 2,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
 
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
@@ -895,7 +1087,13 @@ public class RecoveryTaskCreatorTest {
     // Live partition is cleaned up, no delay.
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
@@ -908,7 +1106,13 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition1);
     SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "live11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "live11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition11);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition11);
@@ -923,7 +1127,13 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition11);
     SnapshotMetadata livePartition2 =
         new SnapshotMetadata(
-            name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2");
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset * 5,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2);
@@ -938,7 +1148,14 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition1);
     snapshotMetadataStore.createSync(livePartition11);
     SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset * 3, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset * 3,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
@@ -974,7 +1191,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -997,7 +1221,13 @@ public class RecoveryTaskCreatorTest {
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
-            name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId);
+            name + "11",
+            path,
+            endTime + 1,
+            endTime * 2,
+            maxOffset * 2,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
 
     snapshotMetadataStore.createSync(partition11);
     assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
@@ -1019,7 +1249,13 @@ public class RecoveryTaskCreatorTest {
     // Live partition is cleaned up, new recovery task is created.
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTask1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
@@ -1043,7 +1279,13 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition1);
     SnapshotMetadata livePartition11 =
         new SnapshotMetadata(
-            name + "live11", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "live11",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition11);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition11);
@@ -1074,7 +1316,13 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition11);
     SnapshotMetadata livePartition2 =
         new SnapshotMetadata(
-            name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2");
+            name + "2",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset * 5,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2);
@@ -1107,7 +1355,14 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(livePartition1);
     snapshotMetadataStore.createSync(livePartition11);
     SnapshotMetadata partition2 =
-        new SnapshotMetadata(name + "3", path, startTime, endTime, maxOffset * 3, "2");
+        new SnapshotMetadata(
+            name + "3",
+            path,
+            startTime,
+            endTime,
+            maxOffset * 3,
+            "2",
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition2);
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
@@ -1169,7 +1424,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -1218,7 +1480,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -1267,7 +1536,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -1316,7 +1592,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
@@ -1335,7 +1618,13 @@ public class RecoveryTaskCreatorTest {
     // Add a live partition to be deleted.
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "1", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset, partitionId);
+            name + "1",
+            LIVE_SNAPSHOT_PATH,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.list().get())
         .containsExactlyInAnyOrder(partition1, livePartition1);
@@ -1467,7 +1756,14 @@ public class RecoveryTaskCreatorTest {
     final long maxOffset = 100;
 
     final SnapshotMetadata partition1 =
-        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId);
+        new SnapshotMetadata(
+            name,
+            path,
+            startTime,
+            endTime,
+            maxOffset,
+            partitionId,
+            Metadata.IndexType.LUCENE_REGULAR);
     snapshotMetadataStore.createSync(partition1);
     assertThat(snapshotMetadataStore.listSync()).contains(partition1);
     assertThat(
