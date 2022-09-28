@@ -207,7 +207,7 @@ public class RecoveryTaskCreator {
       createRecoveryTasks(
           partitionId,
           nextOffsetForPartition,
-          currentHeadOffsetForPartition -1,
+          currentHeadOffsetForPartition - 1,
           maxMessagesPerRecoveryTask);
       return currentHeadOffsetForPartition;
     } else {
