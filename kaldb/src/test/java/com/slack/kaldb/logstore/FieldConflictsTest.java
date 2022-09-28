@@ -16,7 +16,7 @@ import org.junit.Test;
 
 public class FieldConflictsTest {
   @BeforeClass
-  public static void beforeClass() throws Exception {
+  public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
@@ -27,7 +27,7 @@ public class FieldConflictsTest {
   public FieldConflictsTest() throws IOException {}
 
   @Test
-  public void testFieldConflictingFieldTypeWithSameValue() throws InterruptedException {
+  public void testFieldConflictingFieldTypeWithSameValue() {
     final String conflictingFieldName = "conflictingField";
 
     LogMessage msg1 =
@@ -105,7 +105,7 @@ public class FieldConflictsTest {
   }
 
   @Test
-  public void testFieldConflictingFieldTypeWithDifferentValue() throws InterruptedException {
+  public void testFieldConflictingFieldTypeWithDifferentValue() {
     final String conflictingFieldName = "conflictingField";
 
     LogMessage msg0 =
