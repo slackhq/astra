@@ -19,8 +19,6 @@ public class DatasetPartitionMetadata {
   public final long endTimeEpochMs;
   public final ImmutableList<String> partitions;
 
-  public static final String MATCH_ALL_DATASET = "_all";
-
   public DatasetPartitionMetadata(
       long startTimeEpochMs, long endTimeEpochMs, List<String> partitions) {
     checkArgument(startTimeEpochMs > 0, "startTimeEpochMs must be greater than 0");
@@ -99,7 +97,7 @@ public class DatasetPartitionMetadata {
       long startTimeEpochMs,
       long endTimeEpochMs,
       String dataset) {
-    boolean skipDatasetFilter = (dataset.equals("*") || dataset.equals(MATCH_ALL_DATASET));
+    boolean skipDatasetFilter = (dataset.equals("*") || dataset.equals("_all"));
     return datasetMetadataStore
         .getCached()
         .stream()

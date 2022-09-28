@@ -3,7 +3,6 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
-import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +12,7 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
@@ -20,6 +20,7 @@ import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -64,6 +65,28 @@ public class KaldbTest {
   private DatasetMetadataStore datasetMetadataStore;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
   private PrometheusMeterRegistry meterRegistry;
+
+  private static KaldbSearch.SearchResult searchUsingGrpcApi(
+      String queryString, int port, long startTime, long endTime) {
+    KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
+        GrpcClients.builder(uri(port))
+            .build(KaldbServiceGrpc.KaldbServiceBlockingStub.class)
+            .withCompression("gzip");
+
+    return kaldbService.search(
+        KaldbSearch.SearchRequest.newBuilder()
+            .setDataset(MessageUtil.TEST_DATASET_NAME)
+            .setQueryString(queryString)
+            .setStartTimeEpochMs(startTime)
+            .setEndTimeEpochMs(endTime)
+            .setHowMany(100)
+            .setBucketCount(2)
+            .build());
+  }
+
+  private static String uri(int port) {
+    return "gproto+http://127.0.0.1:" + port + '/';
+  }
 
   private static String getHealthCheckResponse(String url) {
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
@@ -161,8 +184,7 @@ public class KaldbTest {
         nodeRole,
         maxOffsetDelay,
         "api_log",
-        recoveryPort,
-        100);
+        recoveryPort);
   }
 
   private Kaldb makeIndexerAndIndexMessages(

@@ -5,15 +5,6 @@ deleteDatasources:
     orgId: 1
 
 datasources:
-  - name: KalDB Trace
-    type: zipkin
-    access: proxy
-    url: "host.docker.internal:8081"
-    basicAuth: false
-    basicAuthUser:
-    basicAuthPassword:
-    withCredentials:
-    version: 1
   - name: KalDB Query
     type: elasticsearch
     access: proxy

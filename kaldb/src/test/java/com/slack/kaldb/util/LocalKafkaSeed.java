@@ -2,6 +2,7 @@ package com.slack.kaldb.util;
 
 import static com.slack.kaldb.testlib.TestKafkaServer.TEST_KAFKA_TOPIC;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -13,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -32,7 +35,8 @@ public class LocalKafkaSeed {
   /** Initializes local kafka broker with sample messages occurring in the immediate future. */
   @Ignore
   @Test
-  public void seedLocalBrokerWithSampleData() throws Exception {
+  public void seedLocalBrokerWithSampleData()
+      throws ExecutionException, InterruptedException, JsonProcessingException, TimeoutException {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);
     final Instant startTime = Instant.now();
     TestKafkaServer.produceMessagesToKafka(broker, startTime);

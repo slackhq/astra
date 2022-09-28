@@ -95,8 +95,7 @@ public class RecoveryServiceTest {
         KaldbConfigs.NodeRole.RECOVERY,
         10000,
         "api_log",
-        9003,
-        100);
+        9003);
   }
 
   @Test
