@@ -80,7 +80,6 @@ public class KaldbIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    LOG.info("READY setUp");
     KaldbConfigs.IndexerConfig indexerConfig = makeIndexerConfig();
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
@@ -119,7 +118,6 @@ public class KaldbIndexerTest {
     kafkaServer = new TestKafkaServer();
     // Produce messages to kafka, so the indexer can consume them.
     produceMessagesToKafka(kafkaServer.getBroker(), startTime);
-    LOG.info("KaldbIndexerTest READY");
   }
 
   private KaldbConfigs.KafkaConfig getKafkaConfig() {
@@ -340,6 +338,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerCreatesRecoveryTask() throws Exception {
+    LOG.info("Running testIndexerCreatesRecoveryTask");
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
@@ -398,6 +397,7 @@ public class KaldbIndexerTest {
 
   @Test
   public void testIndexerShutdownTwice() throws Exception {
+    LOG.info("Running testIndexerShutdownTwice");
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
     assertThat(recoveryTaskStore.listSync()).isEmpty();
 
