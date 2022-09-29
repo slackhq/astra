@@ -43,11 +43,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -439,9 +435,6 @@ public class KaldbIndexerTest {
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
-
-    // Produce more messages since the recovery task is created for head.
-    produceMessagesToKafka(kafkaServer.getBroker(), startTime);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
 
