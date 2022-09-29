@@ -131,11 +131,21 @@ public class KaldbTest {
 
   @After
   public void teardown() throws Exception {
-    kafkaServer.close();
-    meterRegistry.close();
-    datasetMetadataStore.close();
-    zkMetadataStore.close();
-    zkServer.close();
+    if (kafkaServer != null) {
+      kafkaServer.close();
+    }
+    if (meterRegistry != null) {
+      meterRegistry.close();
+    }
+    if (datasetMetadataStore != null) {
+      datasetMetadataStore.close();
+    }
+    if (zkMetadataStore != null) {
+      zkMetadataStore.close();
+    }
+    if (zkServer != null) {
+      zkServer.close();
+    }
   }
 
   private KaldbConfigs.KaldbConfig makeKaldbConfig(
