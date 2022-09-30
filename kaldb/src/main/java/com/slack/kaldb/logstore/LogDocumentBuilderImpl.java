@@ -34,7 +34,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   private static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
       new PropertyDescription(PropertyType.ANY, false, true, true);
 
-  private enum PropertyType {
+  enum PropertyType {
     TEXT,
     INTEGER,
     LONG,
