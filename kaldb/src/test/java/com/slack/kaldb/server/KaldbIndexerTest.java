@@ -129,6 +129,7 @@ public class KaldbIndexerTest {
 
   @After
   public void tearDown() throws Exception {
+    LOG.info("Calling tearDown() ");
     chunkManagerUtil.close();
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
@@ -440,10 +441,20 @@ public class KaldbIndexerTest {
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
+    LOG.info("Checkpoint 1");
+
     // Produce more messages since the recovery task is created for head.
     produceMessagesToKafka(kafkaServer.getBroker(), startTime);
 
-    consumeMessagesAndSearchMessagesTest(100, 1);
+    LOG.info("Checkpoint 2");
+
+    try {
+      consumeMessagesAndSearchMessagesTest(100, 1);
+    } catch (Exception e) {
+      LOG.error("Failed at ", e);
+    }
+
+    LOG.info("Checkpoint 3");
 
     // Live snapshot is deleted, recovery task is created.
     assertThat(snapshotMetadataStore.listSync()).contains(livePartition1, partition0);
@@ -455,10 +466,14 @@ public class KaldbIndexerTest {
     assertThat(recoveryTask1.endOffset).isEqualTo(99);
     assertThat(recoveryTask1.partitionId).isEqualTo("0");
 
+    LOG.info("Checkpoint 4");
+
     // Shutting down is idempotent. So, doing it twice shouldn't throw an error.
     kaldbIndexer.shutDown();
     kaldbIndexer.shutDown();
     kaldbIndexer = null;
+
+    LOG.info("Checkpoint 5");
   }
 
   @Test
