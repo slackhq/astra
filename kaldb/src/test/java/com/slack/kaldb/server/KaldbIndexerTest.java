@@ -35,6 +35,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -587,7 +588,24 @@ public class KaldbIndexerTest {
       activeChunk.commit();
     }
 
-    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
+    await()
+        .until(
+            () -> {
+              try {
+                double count = getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry);
+                LOG.debug(
+                    "MESSAGES_RECEIVED_COUNTER current_count={} total_count={}",
+                    count,
+                    messagesReceived);
+                return count == messagesReceived;
+              } catch (MeterNotFoundException e) {
+                // this is key, otherwise the first time this is called the meter has not beein
+                // initialized
+                // this causes MeterNotFoundException and for some reason doesn't get bubbled up in
+                // the unit test case
+                return false;
+              }
+            });
     assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     if (rolloversCompleted > 0) {
