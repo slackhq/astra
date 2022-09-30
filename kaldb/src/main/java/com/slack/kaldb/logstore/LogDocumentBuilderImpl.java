@@ -31,10 +31,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   private static final Logger LOG = LoggerFactory.getLogger(LogDocumentBuilderImpl.class);
 
-  public static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
+  private static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
       new PropertyDescription(PropertyType.ANY, false, true, true);
 
-  enum PropertyType {
+  private enum PropertyType {
     TEXT,
     INTEGER,
     LONG,
@@ -83,6 +83,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
+  // TODO: private?
   public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
     ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
         ImmutableMap.builder();
@@ -139,21 +140,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         LogMessage.ReservedField.PARENT_ID.fieldName,
         new PropertyDescription(PropertyType.TEXT, false, true, false));
 
-    return new LogDocumentBuilderImpl(
-        ignoreExceptions, propertyDescriptionBuilder.build(), DEFAULT_PROPERTY_DESCRIPTION);
-  }
-
-  private final boolean ignorePropertyTypeExceptions;
-  // private final PropertyDescription defaultDescription;
-  private final Map<String, PropertyDescription> propertyDescriptions;
-
-  public LogDocumentBuilderImpl(
-      boolean ignorePropertyTypeExceptions,
-      Map<String, PropertyDescription> propertyDescriptions,
-      PropertyDescription defaultDescription) {
-    this.ignorePropertyTypeExceptions = ignorePropertyTypeExceptions;
-    this.propertyDescriptions = propertyDescriptions;
-    // this.defaultDescription = defaultDescription;
+    return new LogDocumentBuilderImpl(ignoreExceptions, propertyDescriptionBuilder.build());
   }
 
   private static PropertyDescription getDescription(
@@ -181,7 +168,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   @SuppressWarnings("unchecked")
-  public static void addProperty(
+  private static void addProperty(
       Document doc,
       String name,
       Object value,
@@ -357,6 +344,15 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         throw p;
       }
     }
+  }
+
+  private final boolean ignorePropertyTypeExceptions;
+  private final Map<String, PropertyDescription> propertyDescriptions;
+
+  public LogDocumentBuilderImpl(
+      boolean ignorePropertyTypeExceptions, Map<String, PropertyDescription> propertyDescriptions) {
+    this.ignorePropertyTypeExceptions = ignorePropertyTypeExceptions;
+    this.propertyDescriptions = propertyDescriptions;
   }
 
   @Override
