@@ -31,6 +31,9 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   private static final Logger LOG = LoggerFactory.getLogger(LogDocumentBuilderImpl.class);
 
+  public static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
+      new PropertyDescription(PropertyType.ANY, false, true, true);
+
   enum PropertyType {
     TEXT,
     INTEGER,
@@ -136,14 +139,12 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         LogMessage.ReservedField.PARENT_ID.fieldName,
         new PropertyDescription(PropertyType.TEXT, false, true, false));
 
-    PropertyDescription defaultDescription =
-        new PropertyDescription(PropertyType.ANY, false, true, true);
     return new LogDocumentBuilderImpl(
-        ignoreExceptions, propertyDescriptionBuilder.build(), defaultDescription);
+        ignoreExceptions, propertyDescriptionBuilder.build(), DEFAULT_PROPERTY_DESCRIPTION);
   }
 
   private final boolean ignorePropertyTypeExceptions;
-  private final PropertyDescription defaultDescription;
+  // private final PropertyDescription defaultDescription;
   private final Map<String, PropertyDescription> propertyDescriptions;
 
   public LogDocumentBuilderImpl(
@@ -152,18 +153,19 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       PropertyDescription defaultDescription) {
     this.ignorePropertyTypeExceptions = ignorePropertyTypeExceptions;
     this.propertyDescriptions = propertyDescriptions;
-    this.defaultDescription = defaultDescription;
+    // this.defaultDescription = defaultDescription;
   }
 
-  private PropertyDescription getDescription(String propertyName) {
-    return propertyDescriptions.getOrDefault(propertyName, defaultDescription);
+  private static PropertyDescription getDescription(
+      String propertyName, Map<String, PropertyDescription> propertyDescriptions) {
+    return propertyDescriptions.getOrDefault(propertyName, DEFAULT_PROPERTY_DESCRIPTION);
   }
 
-  private Field.Store getStoreEnum(boolean isStored) {
+  private static Field.Store getStoreEnum(boolean isStored) {
     return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
-  private void addStringProperty(
+  private static void addStringProperty(
       Document doc, String name, String value, PropertyDescription description) {
     if (description.isIndexed) {
       if (description.isAnalyzed) {
@@ -179,8 +181,13 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   @SuppressWarnings("unchecked")
-  public void addProperty(Document doc, String name, Object value) {
-    PropertyDescription desc = getDescription(name);
+  public static void addProperty(
+      Document doc,
+      String name,
+      Object value,
+      Map<String, PropertyDescription> propertyDescriptions,
+      boolean ignorePropertyTypeExceptions) {
+    PropertyDescription desc = getDescription(name, propertyDescriptions);
 
     // Match string
     if (value instanceof String) {
@@ -299,7 +306,12 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
     // Match boolean
     if (value instanceof Boolean) {
-      addProperty(doc, name, String.valueOf((boolean) value));
+      addProperty(
+          doc,
+          name,
+          String.valueOf((boolean) value),
+          propertyDescriptions,
+          ignorePropertyTypeExceptions);
       return;
     }
 
@@ -308,7 +320,8 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       Map<Object, Object> mapValue = (Map<Object, Object>) value;
       for (Object k : mapValue.keySet()) {
         if (k instanceof String) {
-          addPropertyHandleExceptions(doc, (String) k, mapValue.get(k));
+          addPropertyHandleExceptions(
+              doc, (String) k, mapValue.get(k), propertyDescriptions, ignorePropertyTypeExceptions);
         } else {
           throw new PropertyTypeMismatchException(
               String.format(
@@ -323,9 +336,14 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         String.format("Property %s, %s has unsupported type.", name, value));
   }
 
-  private void addPropertyHandleExceptions(Document doc, String name, Object value) {
+  private static void addPropertyHandleExceptions(
+      Document doc,
+      String name,
+      Object value,
+      Map<String, PropertyDescription> propertyDescriptions,
+      boolean ignorePropertyTypeExceptions) {
     try {
-      addProperty(doc, name, value);
+      addProperty(doc, name, value, propertyDescriptions, ignorePropertyTypeExceptions);
     } catch (UnSupportedPropertyTypeException u) {
       if (ignorePropertyTypeExceptions) {
         LOG.debug(u.toString());
@@ -346,8 +364,6 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     return "LogDocumentBuilderImpl{"
         + "ignorePropertyTypeExceptions="
         + ignorePropertyTypeExceptions
-        + ", defaultDescription="
-        + defaultDescription
         + ", propertyDescriptions="
         + propertyDescriptions
         + '}';
@@ -356,17 +372,39 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   @Override
   public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
-    addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex());
     addProperty(
-        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli);
-    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType());
-    addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
+        doc,
+        LogMessage.SystemField.INDEX.fieldName,
+        message.getIndex(),
+        propertyDescriptions,
+        ignorePropertyTypeExceptions);
+    addProperty(
+        doc,
+        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+        message.timeSinceEpochMilli,
+        propertyDescriptions,
+        ignorePropertyTypeExceptions);
+    addProperty(
+        doc,
+        LogMessage.SystemField.TYPE.fieldName,
+        message.getType(),
+        propertyDescriptions,
+        ignorePropertyTypeExceptions);
+    addProperty(
+        doc,
+        LogMessage.SystemField.ID.fieldName,
+        message.id,
+        propertyDescriptions,
+        ignorePropertyTypeExceptions);
     addProperty(
         doc,
         LogMessage.SystemField.SOURCE.fieldName,
-        JsonUtil.writeAsString(message.toWireMessage()));
+        JsonUtil.writeAsString(message.toWireMessage()),
+        propertyDescriptions,
+        ignorePropertyTypeExceptions);
     for (String key : message.source.keySet()) {
-      addPropertyHandleExceptions(doc, key, message.source.get(key));
+      addPropertyHandleExceptions(
+          doc, key, message.source.get(key), propertyDescriptions, ignorePropertyTypeExceptions);
     }
     return doc;
   }
