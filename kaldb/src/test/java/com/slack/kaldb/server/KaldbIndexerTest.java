@@ -408,6 +408,7 @@ public class KaldbIndexerTest {
   }
 
   @Test
+  @Ignore
   public void testIndexerShutdownTwice() throws Exception {
     startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
@@ -447,6 +448,9 @@ public class KaldbIndexerTest {
     kaldbIndexer.startAsync();
     kaldbIndexer.awaitRunning(DEFAULT_START_STOP_DURATION);
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
+
+    // Produce more messages since the recovery task is created for head.
+    produceMessagesToKafka(kafkaServer.getBroker(), startTime);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
 
