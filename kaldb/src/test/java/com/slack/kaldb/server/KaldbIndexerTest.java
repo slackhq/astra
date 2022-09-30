@@ -409,7 +409,6 @@ public class KaldbIndexerTest {
   }
 
   @Test
-  @Ignore
   public void testIndexerShutdownTwice() throws Exception {
     startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
@@ -472,7 +471,6 @@ public class KaldbIndexerTest {
   }
 
   @Test
-  @Ignore
   public void testIndexerRestart() throws Exception {
     startKafkaServer();
     assertThat(snapshotMetadataStore.listSync()).isEmpty();
