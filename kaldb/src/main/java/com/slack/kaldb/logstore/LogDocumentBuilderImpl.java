@@ -83,8 +83,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
-  // TODO: private?
-  public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
+  private static ImmutableMap<String, PropertyDescription> getDefaultPropertyDescriptions() {
     ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
         ImmutableMap.builder();
     propertyDescriptionBuilder.put(
@@ -140,7 +139,14 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         LogMessage.ReservedField.PARENT_ID.fieldName,
         new PropertyDescription(PropertyType.TEXT, false, true, false));
 
-    return new LogDocumentBuilderImpl(ignoreExceptions, propertyDescriptionBuilder.build());
+    return propertyDescriptionBuilder.build();
+  }
+
+  // TODO: private?
+  public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
+    final ImmutableMap<String, PropertyDescription> propertyDescriptions =
+        getDefaultPropertyDescriptions();
+    return new LogDocumentBuilderImpl(ignoreExceptions, propertyDescriptions);
   }
 
   private static PropertyDescription getDescription(
