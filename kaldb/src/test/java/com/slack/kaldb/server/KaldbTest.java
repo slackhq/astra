@@ -23,7 +23,6 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.io.IOException;
@@ -215,15 +214,8 @@ public class KaldbTest {
 
     await()
         .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
-                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
-                return count == indexedMessagesCount;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
+            () ->
+                getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == indexedMessagesCount);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
