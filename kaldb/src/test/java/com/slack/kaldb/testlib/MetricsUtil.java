@@ -33,10 +33,18 @@ public class MetricsUtil {
   }
 
   public static double getValue(String guageName, MeterRegistry metricsRegistry) {
-    return metricsRegistry.get(guageName).gauge().value();
+    try {
+      return metricsRegistry.get(guageName).gauge().value();
+    } catch (MeterNotFoundException e) {
+      return 0;
+    }
   }
 
-  public static double getTimerCount(String timerName, MeterRegistry meterRegistry) {
-    return meterRegistry.get(timerName).timer().count();
+  public static double getTimerCount(String timerName, MeterRegistry metricsRegistry) {
+    try {
+      return metricsRegistry.get(timerName).timer().count();
+    } catch (MeterNotFoundException e) {
+      return 0;
+    }
   }
 }

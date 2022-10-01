@@ -587,7 +587,6 @@ public class KaldbIndexerTest {
 
     await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
     assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
-
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     if (rolloversCompleted > 0) {
       assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry))
