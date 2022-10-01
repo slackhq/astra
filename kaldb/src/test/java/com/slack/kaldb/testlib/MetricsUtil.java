@@ -1,14 +1,20 @@
 package com.slack.kaldb.testlib;
 
+import com.slack.kaldb.server.Kaldb;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MetricsUtil {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MetricsUtil.class);
 
   public static double getCount(String counterName, MeterRegistry metricsRegistry) {
     try {
       return metricsRegistry.get(counterName).counter().count();
-    } catch (MeterNotFoundException e) {
+    } catch (Exception e) {
+      LOG.info("Metric not found");
       // most likely we'll be calling getCount from a await() and waiting for the counter to match
       // expected value
       // Now the thing is, when the meter has not been initialized we want await() to actually wait
@@ -35,7 +41,7 @@ public class MetricsUtil {
   public static double getValue(String guageName, MeterRegistry metricsRegistry) {
     try {
       return metricsRegistry.get(guageName).gauge().value();
-    } catch (MeterNotFoundException e) {
+    } catch (Exception e) {
       return 0;
     }
   }
@@ -43,7 +49,7 @@ public class MetricsUtil {
   public static double getTimerCount(String timerName, MeterRegistry metricsRegistry) {
     try {
       return metricsRegistry.get(timerName).timer().count();
-    } catch (MeterNotFoundException e) {
+    } catch (Exception e) {
       return 0;
     }
   }

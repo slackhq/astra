@@ -73,11 +73,21 @@ public class RecoveryServiceTest {
     if (metadataStore != null) {
       metadataStore.close();
     }
-    blobFs.close();
-    kafkaServer.close();
-    zkServer.close();
-    meterRegistry.close();
-    s3Client.close();
+    if (blobFs != null) {
+      blobFs.close();
+    }
+    if (kafkaServer != null) {
+      kafkaServer.close();
+    }
+    if (zkServer != null) {
+      zkServer.close();
+    }
+    if (meterRegistry != null) {
+      meterRegistry.close();
+    }
+    if (s3Client != null) {
+      s3Client.close();
+    }
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
