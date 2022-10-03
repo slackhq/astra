@@ -32,10 +32,10 @@ public class MetricsUtil {
     try {
       return metricsRegistry.get(counterName).counter().count();
     } catch (MeterNotFoundException e) {
-      LOG.error("Metric not found", e);
+      LOG.warn("Metric not found", e);
       return 0;
     } catch (Exception e) {
-      LOG.error("Error while getting metric", e);
+      LOG.warn("Error while getting metric", e);
       throw e;
     }
   }
@@ -44,10 +44,10 @@ public class MetricsUtil {
     try {
       return metricsRegistry.get(guageName).gauge().value();
     } catch (MeterNotFoundException e) {
-      LOG.error("Metric not found", e);
+      LOG.warn("Metric not found", e);
       return 0;
     } catch (Exception e) {
-      LOG.error("Error while getting metric", e);
+      LOG.warn("Error while getting metric", e);
       throw e;
     }
   }
@@ -56,10 +56,10 @@ public class MetricsUtil {
     try {
       return metricsRegistry.get(timerName).timer().count();
     } catch (MeterNotFoundException e) {
-      LOG.error("Metric not found", e);
+      LOG.warn("Metric not found", e);
       return 0;
     } catch (Exception e) {
-      LOG.error("Error while getting metric", e);
+      LOG.warn("Error while getting metric", e);
       throw e;
     }
   }
