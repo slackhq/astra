@@ -171,7 +171,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   @VisibleForTesting
-  public static Map<String, List<String>> getQueryNodes(
+  protected static Map<String, List<String>> getQueryNodes(
       Map<String, List<SearchMetadata>> searchMetadataGroupedByName) {
     ScopedSpan getQueryNodesSpan =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.getQueryNodes");
