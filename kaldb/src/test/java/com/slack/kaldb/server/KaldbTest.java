@@ -290,17 +290,7 @@ public class KaldbTest {
     final Instant end2Time = start2Time.plusNanos(1000 * 1000 * 1000L * 99);
     produceMessagesToKafka(kafkaServer.getBroker(), start2Time, TEST_KAFKA_TOPIC_1, 0);
 
-    await()
-        .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
-                LOG.debug("Registry1 current_count={} total_count={}", count, 200);
-                return count == 200;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
+    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == 200);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 2);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
