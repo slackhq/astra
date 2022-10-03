@@ -43,11 +43,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,16 +125,28 @@ public class KaldbIndexerTest {
 
   @After
   public void tearDown() throws Exception {
-    chunkManagerUtil.close();
+    if (chunkManagerUtil != null) {
+      chunkManagerUtil.close();
+    }
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
       kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    kafkaServer.close();
-    snapshotMetadataStore.close();
-    recoveryTaskStore.close();
-    zkMetadataStore.close();
-    testZKServer.close();
+    if (kafkaServer != null) {
+      kafkaServer.close();
+    }
+    if (snapshotMetadataStore != null) {
+      snapshotMetadataStore.close();
+    }
+    if (recoveryTaskStore != null) {
+      recoveryTaskStore.close();
+    }
+    if (zkMetadataStore != null) {
+      zkMetadataStore.close();
+    }
+    if (testZKServer != null) {
+      testZKServer.close();
+    }
   }
 
   @Test
