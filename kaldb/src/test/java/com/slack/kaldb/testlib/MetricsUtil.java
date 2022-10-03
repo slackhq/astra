@@ -1,6 +1,5 @@
 package com.slack.kaldb.testlib;
 
-import com.slack.kaldb.server.Kaldb;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import org.slf4j.Logger;
