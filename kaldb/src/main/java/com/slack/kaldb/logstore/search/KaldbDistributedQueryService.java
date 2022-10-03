@@ -195,7 +195,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   protected static Map<String, List<SearchMetadata>> getMatchingSearchMetadata(
       SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
     // iterate every search metadata whose snapshot needs to be searched.
-    // if there are multiple search metadata nodes then pck the most on based on
+    // if there are multiple search metadata nodes then pick the most on based on
     // pickSearchNodeToQuery
     ScopedSpan getMatchingSearchMetadataSpan =
         Tracing.currentTracer()
