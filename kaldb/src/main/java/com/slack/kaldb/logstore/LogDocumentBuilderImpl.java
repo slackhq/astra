@@ -158,7 +158,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
-  private static void addStringProperty(
+  static void addStringProperty(
       Document doc, String name, String value, PropertyDescription description) {
     if (description.isIndexed) {
       if (description.isAnalyzed) {

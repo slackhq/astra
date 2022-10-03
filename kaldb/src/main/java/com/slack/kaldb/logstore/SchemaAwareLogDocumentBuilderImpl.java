@@ -26,19 +26,10 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   // TODO: Should this be a per field policy? For now, may be keep it index level?
-  private enum FieldConflictPolicy {
+  enum FieldConflictPolicy {
     DROP_FIELD,
     CONVERT_FIELD_VALUE,
     CONVERT_AND_DUPLICATE_FIELD
-  }
-
-  private enum PropertyType {
-    TEXT,
-    INTEGER,
-    LONG,
-    FLOAT,
-    DOUBLE,
-    ANY
   }
 
   // TODO: Add other types. Make immutable.
@@ -48,6 +39,15 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
               "Long",
               new LogDocumentBuilderImpl.PropertyDescription(
                   LogDocumentBuilderImpl.PropertyType.LONG, false, true, false),
+              "Float",
+              new LogDocumentBuilderImpl.PropertyDescription(
+                  LogDocumentBuilderImpl.PropertyType.FLOAT, false, true, false),
+              "Int",
+              new LogDocumentBuilderImpl.PropertyDescription(
+                  LogDocumentBuilderImpl.PropertyType.INTEGER, false, true, false),
+              "Double",
+              new LogDocumentBuilderImpl.PropertyDescription(
+                  LogDocumentBuilderImpl.PropertyType.DOUBLE, false, true, false),
               "String",
               new LogDocumentBuilderImpl.PropertyDescription(
                   LogDocumentBuilderImpl.PropertyType.TEXT, false, true, true));
@@ -158,7 +158,11 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       Document doc,
       String key,
       Object value,
-      LogDocumentBuilderImpl.PropertyDescription defaultPropDescription) {}
+      LogDocumentBuilderImpl.PropertyDescription propertyDescription) {
+    if (value instanceof String) {
+      LogDocumentBuilderImpl.addStringProperty(doc, key, (String) value, propertyDescription);
+    }
+  }
 
   // TODO: Return enum or java class.
   private String getJsonType(Object value) {
