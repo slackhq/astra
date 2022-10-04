@@ -21,7 +21,7 @@
         <kafka.version>3.2.0</kafka.version>
         <jackson.version>2.13.3</jackson.version>
         <jackson.databind.version>2.12.7</jackson.databind.version>
-        <lucene.version>8.4.1</lucene.version>
+        <lucene.version>9.0.0</lucene.version>
         <curator.version>5.2.1</curator.version>
         <log4j.version>2.17.2</log4j.version>
         <aws.sdk.version>2.17.209</aws.sdk.version>
@@ -146,7 +146,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers-common</artifactId>
+            <artifactId>lucene-analysis-common</artifactId>
             <version>${lucene.version}</version>
         </dependency>
         <dependency>
