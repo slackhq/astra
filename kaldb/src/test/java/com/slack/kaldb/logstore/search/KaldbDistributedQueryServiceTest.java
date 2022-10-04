@@ -609,6 +609,6 @@ public class KaldbDistributedQueryServiceTest {
     Map<String, List<SearchMetadata>> searchMetadataToQuery =
         getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
 
-    return getQueryNodes(searchMetadataToQuery);
+    return getNodesAndSnapshotsToQuery(searchMetadataToQuery);
   }
 }
