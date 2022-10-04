@@ -314,6 +314,24 @@ public class KaldbTest {
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
+    queryServiceSearchResponse =
+            searchUsingGrpcApi(
+                    "Message1", queryServicePort,0, end1Time.toEpochMilli());
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
+
+    queryServiceSearchResponse =
+            searchUsingGrpcApi(
+                    "Message1", queryServicePort,end1Time.toEpochMilli() + 1, end2Time.toEpochMilli());
+
+    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
+
     // query for a time-window to match both chunk1 + chunk2
     queryServiceSearchResponse =
         searchUsingGrpcApi(
