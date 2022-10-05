@@ -27,23 +27,137 @@ import org.slf4j.LoggerFactory;
  *
  * <p>In case of a field conflict, this class uses FieldConflictPolicy to handle them.
  */
-class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
+public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
-  private static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
-      new PropertyDescription(PropertyType.ANY, false, true, true);
-
   // TODO: Add abstract methods to enum to structure fields better.
   // TODO: Add a string field name which is a string.
-  enum PropertyType {
-    TEXT,
-    INTEGER,
-    LONG,
-    FLOAT,
-    DOUBLE,
-    BOOLEAN,
-    ANY
+  public enum PropertyType {
+    TEXT("text") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object value, PropertyDescription propertyDescription) {
+        addStringProperty(doc, name, (String) value, propertyDescription);
+      }
+    },
+
+    INTEGER("integer") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+        int value = (int) v;
+        if (propertyDescription.isIndexed) {
+          doc.add(new IntPoint(name, value));
+        }
+        if (propertyDescription.isStored) {
+          doc.add(new StoredField(name, value));
+        }
+        if (propertyDescription.storeNumericDocValue) {
+          doc.add(new NumericDocValuesField(name, value));
+        }
+      }
+    },
+    LONG("long") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+        long value = (long) v;
+        if (propertyDescription.isIndexed) {
+          doc.add(new LongPoint(name, value));
+        }
+        if (propertyDescription.isStored) {
+          doc.add(new StoredField(name, value));
+        }
+        if (propertyDescription.storeNumericDocValue) {
+          doc.add(new NumericDocValuesField(name, value));
+        }
+      }
+    },
+    FLOAT("float") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+        float value = (float) v;
+        if (propertyDescription.isIndexed) {
+          doc.add(new FloatPoint(name, value));
+        }
+        if (propertyDescription.isStored) {
+          doc.add(new StoredField(name, value));
+        }
+        if (propertyDescription.storeNumericDocValue) {
+          doc.add(new FloatDocValuesField(name, value));
+        }
+      }
+    },
+    DOUBLE("double") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+        double value = (double) v;
+        if (propertyDescription.isIndexed) {
+          doc.add(new DoublePoint(name, value));
+        }
+        if (propertyDescription.isStored) {
+          doc.add(new StoredField(name, value));
+        }
+        if (propertyDescription.storeNumericDocValue) {
+          doc.add(new DoubleDocValuesField(name, value));
+        }
+      }
+    },
+    BOOLEAN("boolean") {
+      @Override
+      public Object toType(PropertyType toType) {
+        return null;
+      }
+
+      @Override
+      public void addField(
+          Document doc, String name, Object value, PropertyDescription propertyDescription) {
+        if ((boolean) value) {
+          addStringProperty(doc, name, "true", propertyDescription);
+        } else {
+          addStringProperty(doc, name, "false", propertyDescription);
+        }
+      }
+    };
+
+    private final String name;
+
+    PropertyType(String name) {
+      this.name = name;
+    }
+
+    public abstract Object toType(PropertyType toType);
+
+    public abstract void addField(
+        Document doc, String name, Object value, PropertyDescription propertyDescription);
   }
 
   /*
@@ -72,8 +186,7 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
             "Cannot set isAnalyzed without setting isIndexed");
       }
 
-      if (isAnalyzed
-          && !(propertyType.equals(PropertyType.TEXT) || propertyType.equals(PropertyType.ANY))) {
+      if (isAnalyzed && !(propertyType.equals(PropertyType.TEXT))) {
         throw new InvalidPropertyDescriptionException(
             "Only text and any types can have isAnalyzed set");
       }
@@ -159,7 +272,7 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   // TODO: Should this be a per field policy? For now, may be keep it index level?
-  enum FieldConflictPolicy {
+  public enum FieldConflictPolicy {
     DROP_FIELD,
     CONVERT_FIELD_VALUE,
     CONVERT_AND_DUPLICATE_FIELD
@@ -275,33 +388,8 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   private static void indexTypedField(
       Document doc, String key, Object value, PropertyDescription propertyDescription) {
-    if (propertyDescription.propertyType == PropertyType.TEXT) {
-      addStringProperty(doc, key, (String) value, propertyDescription);
-    }
 
-    if (propertyDescription.propertyType == PropertyType.INTEGER) {
-      addIntegerProperty(doc, key, (int) value, propertyDescription);
-    }
-
-    if (propertyDescription.propertyType == PropertyType.LONG) {
-      addLongProperty(doc, key, (long) value, propertyDescription);
-    }
-
-    if (propertyDescription.propertyType == PropertyType.DOUBLE) {
-      addDoubleProperty(doc, key, (double) value, propertyDescription);
-    }
-
-    if (propertyDescription.propertyType == PropertyType.FLOAT) {
-      addFloatProperty(doc, key, (float) value, propertyDescription);
-    }
-
-    if (propertyDescription.propertyType == PropertyType.BOOLEAN) {
-      if ((boolean) value) {
-        addStringProperty(doc, key, "true", propertyDescription);
-      } else {
-        addStringProperty(doc, key, "false", propertyDescription);
-      }
-    }
+    propertyDescription.propertyType.addField(doc, key, value, propertyDescription);
 
     // TODO: Add logic for map type.
     // TODO: Ignore exceptional fields when needed?
@@ -325,60 +413,6 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   private static Field.Store getStoreEnum(boolean isStored) {
     return isStored ? Field.Store.YES : Field.Store.NO;
-  }
-
-  private static void addIntegerProperty(
-      Document doc, String name, int value, PropertyDescription description) {
-    // TODO: Add a test to ensure IntPoint works as well as IntField.
-    // TODO: GetStoreEnum field is missing as a param.
-    if (description.isIndexed) {
-      doc.add(new IntPoint(name, value));
-    }
-    if (description.isStored) {
-      doc.add(new StoredField(name, value));
-    }
-    if (description.storeNumericDocValue) {
-      doc.add(new NumericDocValuesField(name, value));
-    }
-  }
-
-  private static void addFloatProperty(
-      Document doc, String key, float value, PropertyDescription propertyDescription) {
-    if (propertyDescription.isIndexed) {
-      doc.add(new FloatPoint(key, value));
-    }
-    if (propertyDescription.isStored) {
-      doc.add(new StoredField(key, value));
-    }
-    if (propertyDescription.storeNumericDocValue) {
-      doc.add(new FloatDocValuesField(key, value));
-    }
-  }
-
-  private static void addDoubleProperty(
-      Document doc, String key, double value, PropertyDescription propertyDescription) {
-    if (propertyDescription.isIndexed) {
-      doc.add(new DoublePoint(key, value));
-    }
-    if (propertyDescription.isStored) {
-      doc.add(new StoredField(key, value));
-    }
-    if (propertyDescription.storeNumericDocValue) {
-      doc.add(new DoubleDocValuesField(key, value));
-    }
-  }
-
-  private static void addLongProperty(
-      Document doc, String key, long value, PropertyDescription propertyDescription) {
-    if (propertyDescription.isIndexed) {
-      doc.add(new LongPoint(key, value));
-    }
-    if (propertyDescription.isStored) {
-      doc.add(new StoredField(key, value));
-    }
-    if (propertyDescription.storeNumericDocValue) {
-      doc.add(new NumericDocValuesField(key, value));
-    }
   }
 
   private static PropertyType getJsonType(Object value) {
