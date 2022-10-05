@@ -33,7 +33,9 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   private static final PropertyDescription DEFAULT_PROPERTY_DESCRIPTION =
       new PropertyDescription(PropertyType.ANY, false, true, true);
 
-  private enum PropertyType {
+  // TODO: Add abstract methods to enum to structure fields better.
+  // TODO: Add a string field name which is a string.
+  enum PropertyType {
     TEXT,
     INTEGER,
     LONG,
@@ -165,17 +167,26 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   private static final Map<PropertyType, PropertyDescription> defaultPropDescriptionForType =
       Map.of(
           PropertyType.LONG,
-          new PropertyDescription(PropertyType.LONG, false, true, false, true),
+          new PropertyDescription(PropertyType.LONG, true, false, false, true),
           PropertyType.FLOAT,
-          new PropertyDescription(PropertyType.FLOAT, false, true, false, true),
+          new PropertyDescription(PropertyType.FLOAT, true, false, false, true),
           PropertyType.INTEGER,
-          new PropertyDescription(PropertyType.INTEGER, false, true, false, true),
+          new PropertyDescription(PropertyType.INTEGER, true, false, false, true),
           PropertyType.DOUBLE,
-          new PropertyDescription(PropertyType.DOUBLE, false, true, false, true),
+          new PropertyDescription(PropertyType.DOUBLE, true, false, false, true),
           PropertyType.TEXT,
           new PropertyDescription(PropertyType.TEXT, false, true, true));
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
+
+  public FieldConflictPolicy getIndexFieldConflictPolicy() {
+    return indexFieldConflictPolicy;
+  }
+
+  public Map<String, FieldDef> getFieldDefMap() {
+    return fieldDefMap;
+  }
+
   private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
 
   SchemaAwareLogDocumentBuilderImpl(FieldConflictPolicy indexFieldConflictPolicy) {
