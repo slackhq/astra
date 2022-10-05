@@ -236,7 +236,7 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     indexTypedField(doc, key, value, defaultPropDescription);
   }
 
-  private static String makeNewFieldOfType(String key, PropertyType valueType) {
+  static String makeNewFieldOfType(String key, PropertyType valueType) {
     return key + "_" + valueType.name();
   }
 
@@ -318,6 +318,7 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   private static void addStringProperty(
       Document doc, String name, String value, PropertyDescription description) {
+
     if (description.isIndexed) {
       if (description.isAnalyzed) {
         doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
@@ -329,6 +330,10 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         doc.add(new StoredField(name, value));
       }
     }
+  }
+
+  private static Field.Store getStoreEnum(boolean isStored) {
+    return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
   private static void addIntegerProperty(
@@ -407,10 +412,6 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
     // TODO: Handle other tyoes like map and list or nested objects?
     throw new RuntimeException("Unknown type");
-  }
-
-  private static Field.Store getStoreEnum(boolean isStored) {
-    return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
   @Override
