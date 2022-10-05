@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
 import java.util.HashMap;
@@ -158,6 +159,10 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
     public abstract void addField(
         Document doc, String name, Object value, PropertyDescription propertyDescription);
+
+    public String getName() {
+      return name;
+    }
   }
 
   /*
@@ -292,6 +297,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           PropertyType.TEXT,
           new PropertyDescription(PropertyType.TEXT, false, true, true));
 
+  @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
     return indexFieldConflictPolicy;
   }
@@ -341,7 +347,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   static String makeNewFieldOfType(String key, PropertyType valueType) {
-    return key + "_" + valueType.name();
+    return key + "_" + valueType.getName();
   }
 
   private static void convertValueAndIndexField(

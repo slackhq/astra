@@ -20,6 +20,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   public void testBasicDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
