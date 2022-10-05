@@ -1,6 +1,8 @@
 package com.slack.kaldb.logstore;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
+import com.slack.kaldb.util.JsonUtil;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.document.Document;
@@ -160,17 +162,17 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   // TODO: Add other types. Make immutable.
-  private static final Map<String, PropertyDescription> defaultPropDescriptionForType =
+  private static final Map<PropertyType, PropertyDescription> defaultPropDescriptionForType =
       Map.of(
-          "Long",
+          PropertyType.LONG,
           new PropertyDescription(PropertyType.LONG, false, true, false, true),
-          "Float",
+          PropertyType.FLOAT,
           new PropertyDescription(PropertyType.FLOAT, false, true, false, true),
-          "Int",
+          PropertyType.INTEGER,
           new PropertyDescription(PropertyType.INTEGER, false, true, false, true),
-          "Double",
+          PropertyType.DOUBLE,
           new PropertyDescription(PropertyType.DOUBLE, false, true, false, true),
-          "String",
+          PropertyType.TEXT,
           new PropertyDescription(PropertyType.TEXT, false, true, true));
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
@@ -183,24 +185,15 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         .forEach((k, v) -> fieldDefMap.put(k, new FieldDef(v.propertyType, v)));
   }
 
-  @Override
-  public Document fromMessage(LogMessage message) {
-    Document doc = new Document();
-    for (String key : message.source.keySet()) {
-      addProperty(doc, key, message.source.get(key));
-    }
-    return doc;
-  }
-
   private void addProperty(Document doc, String key, Object value) {
     PropertyType valueType = getJsonType(value);
     if (!fieldDefMap.containsKey(key)) {
-      addFieldAndIndexField(doc, key, value, valueType);
+      indexNewField(doc, key, value, valueType);
     } else {
       FieldDef registeredField = fieldDefMap.get(key);
       if (registeredField.type == valueType) {
         // No field conflicts index it using previous description.
-        indexFieldWithType(doc, key, value, registeredField.propertyDescription);
+        indexTypedField(doc, key, value, registeredField.propertyDescription);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
         if (indexFieldConflictPolicy == FieldConflictPolicy.DROP_FIELD) {
@@ -213,14 +206,13 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
           convertValueAndIndexField(value, valueType, registeredField, doc, key);
           // Add new field with new type
           String newFieldName = makeNewFieldOfType(key, valueType);
-          addFieldAndIndexField(doc, newFieldName, value, valueType);
+          indexNewField(doc, newFieldName, value, valueType);
         }
       }
     }
   }
 
-  private void addFieldAndIndexField(
-      Document doc, String key, Object value, PropertyType valueType) {
+  private void indexNewField(Document doc, String key, Object value, PropertyType valueType) {
     // If we are seeing a field for the first time index it with default template for the
     // valueType and create a field def.
     if (!defaultPropDescriptionForType.containsKey(valueType)) {
@@ -230,23 +222,24 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     PropertyDescription defaultPropDescription = defaultPropDescriptionForType.get(valueType);
     // add the document to this field.
     fieldDefMap.put(key, new FieldDef(valueType, defaultPropDescription));
-    indexFieldWithType(doc, key, value, defaultPropDescription);
+    indexTypedField(doc, key, value, defaultPropDescription);
   }
 
-  private String makeNewFieldOfType(String key, PropertyType valueType) {
+  private static String makeNewFieldOfType(String key, PropertyType valueType) {
     return key + "_" + valueType.name();
   }
 
-  private void convertValueAndIndexField(
+  private static void convertValueAndIndexField(
       Object value, PropertyType valueType, FieldDef registeredField, Document doc, String key) {
     Object convertedValue = convertFieldValue(value, valueType, registeredField.type);
     if (convertedValue == null) {
       throw new RuntimeException("No mapping found to convert value");
     }
-    indexFieldWithType(doc, key, convertedValue, registeredField.propertyDescription);
+    indexTypedField(doc, key, convertedValue, registeredField.propertyDescription);
   }
 
-  private Object convertFieldValue(Object value, PropertyType fromType, PropertyType toType) {
+  private static Object convertFieldValue(
+      Object value, PropertyType fromType, PropertyType toType) {
     // String type
     if (fromType == PropertyType.TEXT) {
       if (toType == PropertyType.INTEGER) {
@@ -278,15 +271,110 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     return null;
   }
 
-  private void indexFieldWithType(
+  private static void indexTypedField(
       Document doc, String key, Object value, PropertyDescription propertyDescription) {
-    if (value instanceof String) {
+    if (propertyDescription.propertyType == PropertyType.TEXT) {
       addStringProperty(doc, key, (String) value, propertyDescription);
+    }
+
+    if (propertyDescription.propertyType == PropertyType.INTEGER) {
+      addIntegerProperty(doc, key, (int) value, propertyDescription);
+    }
+
+    if (propertyDescription.propertyType == PropertyType.LONG) {
+      addLongProperty(doc, key, (long) value, propertyDescription);
+    }
+
+    if (propertyDescription.propertyType == PropertyType.DOUBLE) {
+      addDoubleProperty(doc, key, (double) value, propertyDescription);
+    }
+
+    if (propertyDescription.propertyType == PropertyType.FLOAT) {
+      addFloatProperty(doc, key, (float) value, propertyDescription);
+    }
+
+    if (propertyDescription.propertyType == PropertyType.BOOLEAN) {
+      if ((boolean) value) {
+        addStringProperty(doc, key, "true", propertyDescription);
+      } else {
+        addStringProperty(doc, key, "false", propertyDescription);
+      }
+    }
+
+    // TODO: Add logic for map type.
+    // TODO: Ignore exceptional fields when needed?
+  }
+
+  private static void addStringProperty(
+      Document doc, String name, String value, PropertyDescription description) {
+    if (description.isIndexed) {
+      if (description.isAnalyzed) {
+        doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
+      } else {
+        doc.add(new StringField(name, value, getStoreEnum(description.isStored)));
+      }
+    } else {
+      if (description.isStored) {
+        doc.add(new StoredField(name, value));
+      }
     }
   }
 
-  // TODO: Return enum or java class.
-  private PropertyType getJsonType(Object value) {
+  private static void addIntegerProperty(
+      Document doc, String name, int value, PropertyDescription description) {
+    // TODO: Add a test to ensure IntPoint works as well as IntField.
+    // TODO: GetStoreEnum field is missing as a param.
+    if (description.isIndexed) {
+      doc.add(new IntPoint(name, value));
+    }
+    if (description.isStored) {
+      doc.add(new StoredField(name, value));
+    }
+    if (description.storeNumericDocValue) {
+      doc.add(new NumericDocValuesField(name, value));
+    }
+  }
+
+  private static void addFloatProperty(
+      Document doc, String key, float value, PropertyDescription propertyDescription) {
+    if (propertyDescription.isIndexed) {
+      doc.add(new FloatPoint(key, value));
+    }
+    if (propertyDescription.isStored) {
+      doc.add(new StoredField(key, value));
+    }
+    if (propertyDescription.storeNumericDocValue) {
+      doc.add(new FloatDocValuesField(key, value));
+    }
+  }
+
+  private static void addDoubleProperty(
+      Document doc, String key, double value, PropertyDescription propertyDescription) {
+    if (propertyDescription.isIndexed) {
+      doc.add(new DoublePoint(key, value));
+    }
+    if (propertyDescription.isStored) {
+      doc.add(new StoredField(key, value));
+    }
+    if (propertyDescription.storeNumericDocValue) {
+      doc.add(new DoubleDocValuesField(key, value));
+    }
+  }
+
+  private static void addLongProperty(
+      Document doc, String key, long value, PropertyDescription propertyDescription) {
+    if (propertyDescription.isIndexed) {
+      doc.add(new LongPoint(key, value));
+    }
+    if (propertyDescription.isStored) {
+      doc.add(new StoredField(key, value));
+    }
+    if (propertyDescription.storeNumericDocValue) {
+      doc.add(new NumericDocValuesField(key, value));
+    }
+  }
+
+  private static PropertyType getJsonType(Object value) {
     if (value instanceof Long) {
       return PropertyType.LONG;
     }
@@ -305,206 +393,31 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     if (value instanceof Double) {
       return PropertyType.DOUBLE;
     }
-    // Fix this.
+
+    // TODO: Handle other tyoes like map and list or nested objects?
     throw new RuntimeException("Unknown type");
-  }
-
-  @SuppressWarnings("unchecked")
-  private static void addProperty(
-      Document doc,
-      String name,
-      Object value,
-      Map<String, PropertyDescription> propertyDescriptions,
-      boolean ignorePropertyTypeExceptions) {
-    PropertyDescription desc =
-        propertyDescriptions.getOrDefault(name, DEFAULT_PROPERTY_DESCRIPTION);
-
-    // Match string
-    if (value instanceof String) {
-      if (!(desc.propertyType.equals(PropertyType.ANY)
-          || desc.propertyType.equals(PropertyType.TEXT))) {
-        throw new PropertyTypeMismatchException(
-            String.format("Found string but property %s was not configured as TextProperty", name));
-      }
-      if (desc.storeNumericDocValue) {
-        throw new PropertyTypeMismatchException(
-            String.format(
-                "Found string but property %s was configured with storeNumericDocValue=true.",
-                name));
-      }
-      addStringProperty(doc, name, (String) value, desc);
-      return;
-    }
-
-    // Match int
-    if (value instanceof Integer) {
-      int intValue = (Integer) value;
-      if (desc.propertyType.equals(PropertyType.INTEGER)) {
-        // TODO: Add a test to ensure IntPoint works as well as IntField.
-        // TODO: GetStoreEnum field is missing as a param.
-        if (desc.isIndexed) {
-          doc.add(new IntPoint(name, intValue));
-        }
-        if (desc.isStored) {
-          doc.add(new StoredField(name, intValue));
-        }
-        if (desc.storeNumericDocValue) {
-          doc.add(new NumericDocValuesField(name, intValue));
-        }
-      } else if (desc.propertyType.equals(PropertyType.ANY)) {
-        // Treat integers as a string in this case because Lucene QueryParser doesn't numeric types
-        addStringProperty(doc, name, String.valueOf(intValue), desc);
-      } else {
-        throw new PropertyTypeMismatchException(
-            String.format(
-                "Found int but property %s was not configured to be an int property.", name));
-      }
-      return;
-    }
-
-    // Match long
-    if (value instanceof Long) {
-      long longValue = (Long) value;
-      if (desc.propertyType.equals(PropertyType.LONG)) {
-        if (desc.isIndexed) {
-          doc.add(new LongPoint(name, longValue));
-        }
-        if (desc.isStored) {
-          doc.add(new StoredField(name, longValue));
-        }
-        if (desc.storeNumericDocValue) {
-          doc.add(new NumericDocValuesField(name, longValue));
-        }
-      } else if (desc.propertyType.equals(PropertyType.ANY)) {
-        // Treat longs as strings in this case since LuceneQueryParser doesn't understand numeric
-        // types.
-        addStringProperty(doc, name, String.valueOf(longValue), desc);
-      } else {
-        throw new PropertyTypeMismatchException(
-            String.format("Found long but property %s was not configured to be a Long.", name));
-      }
-      return;
-    }
-
-    // Match float
-    if (value instanceof Float) {
-      float floatValue = (Float) value;
-      if (desc.propertyType.equals(PropertyType.FLOAT)) {
-        if (desc.isIndexed) {
-          doc.add(new FloatPoint(name, floatValue));
-        }
-        if (desc.isStored) {
-          doc.add(new StoredField(name, floatValue));
-        }
-        if (desc.storeNumericDocValue) {
-          doc.add(new FloatDocValuesField(name, floatValue));
-        }
-      } else if (desc.propertyType.equals(PropertyType.ANY)) {
-        // Treat floats as strings in this case since LuceneQueryParser doesn't understand numeric
-        // types.
-        addStringProperty(doc, name, String.valueOf(floatValue), desc);
-      } else {
-        throw new PropertyTypeMismatchException(
-            String.format("Found float but property %s was not configured to be a Float.", name));
-      }
-      return;
-    }
-
-    // Match double
-    if (value instanceof Double) {
-      double doubleValue = (Double) value;
-      if (desc.propertyType.equals(PropertyType.DOUBLE)) {
-        if (desc.isIndexed) {
-          doc.add(new DoublePoint(name, doubleValue));
-        }
-        if (desc.isStored) {
-          doc.add(new StoredField(name, doubleValue));
-        }
-        if (desc.storeNumericDocValue) {
-          doc.add(new DoubleDocValuesField(name, doubleValue));
-        }
-      } else if (desc.propertyType.equals(PropertyType.ANY)) {
-        // Treat doubles  as strings in this case since LuceneQueryParser doesn't understand numeric
-        // types.
-        addStringProperty(doc, name, String.valueOf(doubleValue), desc);
-      } else {
-        throw new PropertyTypeMismatchException(
-            String.format("Found double but property %s was not configured to be a Double.", name));
-      }
-      return;
-    }
-
-    // Match boolean
-    if (value instanceof Boolean) {
-      addProperty(
-          doc,
-          name,
-          String.valueOf((boolean) value),
-          propertyDescriptions,
-          ignorePropertyTypeExceptions);
-      return;
-    }
-
-    // Add a map of properties at once.
-    if (value instanceof Map) {
-      Map<Object, Object> mapValue = (Map<Object, Object>) value;
-      for (Object k : mapValue.keySet()) {
-        if (k instanceof String) {
-          addPropertyHandleExceptions(
-              doc, (String) k, mapValue.get(k), propertyDescriptions, ignorePropertyTypeExceptions);
-        } else {
-          throw new PropertyTypeMismatchException(
-              String.format(
-                  "Property %s,%s has an non-string type which is unsupported", name, value));
-        }
-      }
-      return;
-    }
-
-    // Unknown type.
-    throw new UnSupportedPropertyTypeException(
-        String.format("Property %s, %s has unsupported type.", name, value));
   }
 
   private static Field.Store getStoreEnum(boolean isStored) {
     return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
-  private static void addStringProperty(
-      Document doc, String name, String value, PropertyDescription description) {
-    if (description.isIndexed) {
-      if (description.isAnalyzed) {
-        doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
-      } else {
-        doc.add(new StringField(name, value, getStoreEnum(description.isStored)));
-      }
-    } else {
-      if (description.isStored) {
-        doc.add(new StoredField(name, value));
-      }
+  @Override
+  public Document fromMessage(LogMessage message) throws JsonProcessingException {
+    Document doc = new Document();
+    addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex());
+    addProperty(
+        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli);
+    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType());
+    addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
+    addProperty(
+        doc,
+        LogMessage.SystemField.SOURCE.fieldName,
+        JsonUtil.writeAsString(message.toWireMessage()));
+    for (String key : message.source.keySet()) {
+      LOG.info("Adding key {}", key);
+      addProperty(doc, key, message.source.get(key));
     }
-  }
-
-  private static void addPropertyHandleExceptions(
-      Document doc,
-      String name,
-      Object value,
-      Map<String, PropertyDescription> propertyDescriptions,
-      boolean ignorePropertyTypeExceptions) {
-    try {
-      addProperty(doc, name, value, propertyDescriptions, ignorePropertyTypeExceptions);
-    } catch (UnSupportedPropertyTypeException u) {
-      if (ignorePropertyTypeExceptions) {
-        LOG.debug(u.toString());
-      } else {
-        throw u;
-      }
-    } catch (PropertyTypeMismatchException p) {
-      if (ignorePropertyTypeExceptions) {
-        LOG.error("Property type mismatch", p);
-      } else {
-        throw p;
-      }
-    }
+    return doc;
   }
 }

@@ -22,7 +22,11 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
-    Document testDocument = docBuilder.fromMessage(MessageUtil.makeMessage(0));
+    final LogMessage message = MessageUtil.makeMessage(0);
+    Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(12);
   }
+
+  // TODO: Add a unit test for messages with field conflicts and handling
+  // TODO: Add every type to every type change.
 }
