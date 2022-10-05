@@ -19,7 +19,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testBasicDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        new SchemaAwareLogDocumentBuilderImpl(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
@@ -39,7 +39,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testDroppingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        new SchemaAwareLogDocumentBuilderImpl(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -109,7 +109,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        new SchemaAwareLogDocumentBuilderImpl(CONVERT_FIELD_VALUE);
+        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_FIELD_VALUE);
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -180,7 +180,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingAndDuplicatingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        new SchemaAwareLogDocumentBuilderImpl(CONVERT_AND_DUPLICATE_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD);
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 

@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.document.Document;
@@ -85,6 +86,7 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
+  // TODO: Map to FieldDef
   private static ImmutableMap<String, PropertyDescription> getDefaultPropertyDescriptions() {
     ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
         ImmutableMap.builder();
@@ -177,23 +179,12 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
           PropertyType.TEXT,
           new PropertyDescription(PropertyType.TEXT, false, true, true));
 
-  private final FieldConflictPolicy indexFieldConflictPolicy;
-
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
     return indexFieldConflictPolicy;
   }
 
   public Map<String, FieldDef> getFieldDefMap() {
     return fieldDefMap;
-  }
-
-  private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
-
-  SchemaAwareLogDocumentBuilderImpl(FieldConflictPolicy indexFieldConflictPolicy) {
-    this.indexFieldConflictPolicy = indexFieldConflictPolicy;
-    // Add default fields and their property descriptions
-    getDefaultPropertyDescriptions()
-        .forEach((k, v) -> fieldDefMap.put(k, new FieldDef(v.propertyType, v)));
   }
 
   private void addProperty(Document doc, String key, Object value) {
@@ -412,6 +403,23 @@ class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
     // TODO: Handle other tyoes like map and list or nested objects?
     throw new RuntimeException("Unknown type");
+  }
+
+  private final FieldConflictPolicy indexFieldConflictPolicy;
+  private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
+
+  SchemaAwareLogDocumentBuilderImpl(
+      FieldConflictPolicy indexFieldConflictPolicy, final Map<String, FieldDef> initialFields) {
+    this.indexFieldConflictPolicy = indexFieldConflictPolicy;
+    fieldDefMap.putAll(initialFields);
+  }
+
+  public static SchemaAwareLogDocumentBuilderImpl build(FieldConflictPolicy fieldConflictPolicy) {
+    Map<String, FieldDef> initialFields = new HashMap<>();
+    // Add default fields and their property descriptions
+    getDefaultPropertyDescriptions()
+        .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
+    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields);
   }
 
   @Override

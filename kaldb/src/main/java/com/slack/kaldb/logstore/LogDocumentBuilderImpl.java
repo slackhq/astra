@@ -142,7 +142,6 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     return propertyDescriptionBuilder.build();
   }
 
-  // TODO: private?
   public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
     final ImmutableMap<String, PropertyDescription> propertyDescriptions =
         getDefaultPropertyDescriptions();
