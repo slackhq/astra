@@ -5,7 +5,7 @@ import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
 import static com.slack.kaldb.chunk.ReadWriteChunk.toSearchMetadata;
 import static com.slack.kaldb.logstore.search.KaldbDistributedQueryService.*;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.spy;
 
@@ -26,6 +26,8 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -201,6 +203,166 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @Test
+  // snaphost1[100-200] -> hosted on indexer1 , cache1 , cache2
+  // snapshot2[51-150] -> cache2
+  // snapshot3[151-250] - cache1
+  public void testOneIndexerTwoCacheNode()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    String indexName = "testIndex";
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadataStore.createSync(datasetMetadata);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+
+    Instant chunk1CreationTime = Instant.ofEpochMilli(100);
+    Instant chunk1EndTime = Instant.ofEpochMilli(200);
+    String snapshot1Name =
+        createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+
+    Map<String, List<String>> searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(indexer1SearchContext.toString());
+    List<String> chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    Iterator<String> chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(snapshot1Name);
+
+    // create cache node entry for search metadata also serving the snapshot
+    SearchMetadata cacheNodeSearchMetada =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache1SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStore.listSync().size() == 2);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    assertThat(searchNodes.keySet().iterator().next()).isEqualTo(cache1SearchContext.toString());
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
+
+    // create cache node entry for search metadata also serving the snapshot
+    SearchMetadata snapshot1Cache2SearchMetadata =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache2SearchContext, snapshot1Name);
+    await().until(() -> searchMetadataStore.listSync().size() == 3);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(1);
+    String searchNodeUrl = searchNodes.keySet().iterator().next();
+    assertThat(
+            searchNodeUrl.equals(cache1SearchContext.toString())
+                || searchNodeUrl.equals(cache2SearchContext.toString())
+                || searchNodeUrl.equals((cache3SearchContext.toString())))
+        .isTrue();
+    chunks = searchNodes.values().iterator().next();
+    assertThat(chunks.size()).isEqualTo(1);
+    chunkIter = chunks.iterator();
+    assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
+
+    Instant snapshot2CreationTime = Instant.ofEpochMilli(51);
+    Instant snapshot2EndTime = Instant.ofEpochMilli(150);
+    SnapshotMetadata snapshot2Metadata =
+        createSnapshot(snapshot2CreationTime, snapshot2EndTime, false, "1");
+    await()
+        .until(
+            () ->
+                snapshotMetadataStore.listSync().size()
+                    == 3); // snapshot1(live + non_live) + snapshot2
+
+    SearchMetadata snapshot2Cache2SearchMetadata =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 4);
+
+    Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
+    Instant snapshot3EndTime = Instant.ofEpochMilli(250);
+    SnapshotMetadata snapshot3Metadata =
+        createSnapshot(snapshot3CreationTime, snapshot3EndTime, false, "1");
+    await()
+        .until(
+            () ->
+                snapshotMetadataStore.listSync().size()
+                    == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
+
+    SearchMetadata snapshot3Cache1SearchMetadata =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 5);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunk1CreationTime.toEpochMilli(),
+            chunk1EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    // snapshot1 ( could be picked from either cache1 or cache2) + snapshot2 + snapshot3
+    int totalChunksToBeSearched = 3;
+    int count = 0;
+    for (Map.Entry<String, List<String>> node : searchNodes.entrySet()) {
+      // must not be the index node
+      assertThat(searchNodeUrl.equals(indexer1SearchContext.toString())).isFalse();
+      count += node.getValue().size();
+    }
+    assertThat(count).isEqualTo(totalChunksToBeSearched);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            snapshot2CreationTime.toEpochMilli(),
+            snapshot2EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size() == 1 || searchNodes.size() == 2).isTrue();
+    if (searchNodes.size() == 1) {
+      chunks = searchNodes.values().iterator().next();
+      assertThat(chunks.size()).isEqualTo(2);
+    } else {
+      for (Map.Entry<String, List<String>> searchNode : searchNodes.entrySet()) {
+        if (searchNode.getKey().equals(cache1SearchContext.toUrl())) {
+          assertThat(searchNode.getValue().size()).isEqualTo(1);
+          assertThat(searchNode.getValue().iterator().next()).isEqualTo(snapshot1Name);
+        } else if (searchNode.getKey().equals(cache2SearchContext.toUrl())) {
+          assertThat(searchNode.getValue().size()).isEqualTo(1);
+          assertThat(searchNode.getValue().iterator().next()).isEqualTo(snapshot2Metadata.name);
+        } else {
+          fail(
+              "SearchNodes should only query cache1 and cache2 but is trying to search "
+                  + searchNode.getKey());
+        }
+      }
+    }
+  }
+
+  @Test
   public void testOneIndexerOneCache() throws Exception {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(199, 500, List.of("1"));
@@ -320,6 +482,9 @@ public class KaldbDistributedQueryServiceTest {
   }
 
   @Test
+  // snaphost1[100-200] -> hosted on cache1 , cache2
+  // snapshot2[51-150] -> cache2
+  // snapshot3[151-250] - cache1
   public void testTwoCacheNodes() throws Exception {
     String indexName = "testIndex";
     // create snapshot
@@ -334,7 +499,7 @@ public class KaldbDistributedQueryServiceTest {
             searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
     await().until(() -> searchMetadataStore.listSync().size() == 1);
 
-    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 101, List.of("1"));
+    DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
     datasetMetadataStore.createSync(datasetMetadata);
@@ -385,6 +550,79 @@ public class KaldbDistributedQueryServiceTest {
             chunkName.equals(cache1NodeSearchMetada.snapshotName)
                 || chunkName.equals((cache2NodeSearchMetada.snapshotName)))
         .isTrue();
+
+    // now add snapshot2 to cache2
+    Instant snapshot2CreationTime = Instant.ofEpochMilli(51);
+    Instant snapshot2EndTime = Instant.ofEpochMilli(150);
+    SnapshotMetadata snapshot2Metadata =
+        createSnapshot(snapshot2CreationTime, snapshot2EndTime, false, "1");
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2); // snapshot1 + snapshot2
+
+    SearchMetadata snapshot2Cache2SearchMetadata =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 3);
+
+    // now add snapshot3 to cache1
+    Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
+    Instant snapshot3EndTime = Instant.ofEpochMilli(250);
+    SnapshotMetadata snapshot3Metadata =
+        createSnapshot(snapshot3CreationTime, snapshot3EndTime, false, "1");
+    await()
+        .until(
+            () ->
+                snapshotMetadataStore.listSync().size() == 3); // snapshot1 + snapshot2 + snapshot3
+
+    SearchMetadata snapshot3Cache1SearchMetadata =
+        ReadOnlyChunkImpl.registerSearchMetadata(
+            searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
+    await().until(() -> searchMetadataStore.listSync().size() == 4);
+
+    // assert search will always find cache1 AND cache2
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            chunkCreationTime.toEpochMilli(),
+            chunkEndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size()).isEqualTo(2);
+    // snapshot1 ( could be picked from either cache1 or cache2) + snapshot2 + snapshot3
+    int totalChunksToBeSearched = 3;
+    int count = 0;
+    for (Map.Entry<String, List<String>> node : searchNodes.entrySet()) {
+      count += node.getValue().size();
+    }
+    assertThat(count).isEqualTo(totalChunksToBeSearched);
+
+    searchNodes =
+        getSearchNodesToQuery(
+            snapshotMetadataStore,
+            searchMetadataStore,
+            datasetMetadataStore,
+            snapshot2CreationTime.toEpochMilli(),
+            snapshot2EndTime.toEpochMilli(),
+            indexName);
+    assertThat(searchNodes.size() == 1 || searchNodes.size() == 2).isTrue();
+    if (searchNodes.size() == 1) {
+      chunks = searchNodes.values().iterator().next();
+      assertThat(chunks.size()).isEqualTo(2);
+    } else {
+      for (Map.Entry<String, List<String>> searchNode : searchNodes.entrySet()) {
+        if (searchNode.getKey().equals(cache1SearchContext.toUrl())) {
+          assertThat(searchNode.getValue().size()).isEqualTo(1);
+          assertThat(searchNode.getValue().iterator().next()).isEqualTo(snapshotMetadata.name);
+        } else if (searchNode.getKey().equals(cache2SearchContext.toUrl())) {
+          assertThat(searchNode.getValue().size()).isEqualTo(1);
+          assertThat(searchNode.getValue().iterator().next()).isEqualTo(snapshot2Metadata.name);
+        } else {
+          fail(
+              "SearchNodes should only query cache1 and cache2 but is trying to search "
+                  + searchNode.getKey());
+        }
+      }
+    }
   }
 
   @Test
