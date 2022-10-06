@@ -27,6 +27,12 @@ import org.slf4j.LoggerFactory;
  * conflicts.
  *
  * <p>In case of a field conflict, this class uses FieldConflictPolicy to handle them.
+ *
+ * <p>NOTE: Currently, if building a document raises errors, we still register the type of the
+ * fields in this document partially. While the document may not be indexed, this partial field
+ * config will exist in the system. For now, we assume storing this metadata is fine since it is
+ * rarely an issue and helps with performance. If this is an issue, we need to scan the json twice
+ * to ensure document is good to index.
  */
 public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   private static final Logger LOG =
@@ -167,6 +173,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   /*
    * PropertyDescription describes various properties that can be set on a field.
+   * TODO: Merge FieldDef and PropertyDescription?
    */
   private static class PropertyDescription {
     final PropertyType propertyType;
@@ -278,8 +285,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   // TODO: Should this be a per field policy? For now, may be keep it index level?
   public enum FieldConflictPolicy {
+    // Throw an error on field conflict.
+    RAISE_ERROR,
+    // Drop the conflicting field.
     DROP_FIELD,
+    // Convert the field value to the type of the conflicting field.
     CONVERT_FIELD_VALUE,
+    // Covert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
   }
 
@@ -317,17 +329,24 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         indexTypedField(doc, key, value, registeredField.propertyDescription);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
-        if (indexFieldConflictPolicy == FieldConflictPolicy.DROP_FIELD) {
-          return;
-        }
-        if (indexFieldConflictPolicy == FieldConflictPolicy.CONVERT_FIELD_VALUE) {
-          convertValueAndIndexField(value, valueType, registeredField, doc, key);
-        }
-        if (indexFieldConflictPolicy == FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD) {
-          convertValueAndIndexField(value, valueType, registeredField, doc, key);
-          // Add new field with new type
-          String newFieldName = makeNewFieldOfType(key, valueType);
-          indexNewField(doc, newFieldName, value, valueType);
+        switch (indexFieldConflictPolicy) {
+          case DROP_FIELD:
+            // TODO: Add a metric.
+            break;
+          case CONVERT_FIELD_VALUE:
+            convertValueAndIndexField(value, valueType, registeredField, doc, key);
+            break;
+          case CONVERT_AND_DUPLICATE_FIELD:
+            convertValueAndIndexField(value, valueType, registeredField, doc, key);
+            // Add new field with new type
+            String newFieldName = makeNewFieldOfType(key, valueType);
+            indexNewField(doc, newFieldName, value, valueType);
+            break;
+          case RAISE_ERROR:
+            throw new PropertyTypeMismatchException(
+                String.format(
+                    "Property type for field %s is %s but new value is of type  %s. ",
+                    key, registeredField.type, valueType));
         }
       }
     }

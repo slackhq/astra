@@ -3,8 +3,10 @@ package com.slack.kaldb.logstore;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD;
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -35,6 +37,72 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "intproperty",
                 "message",
                 "doubleproperty"));
+  }
+
+  @Test
+  public void testRaiseErrorOnConflictingField() throws JsonProcessingException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        SchemaAwareLogDocumentBuilderImpl.build(RAISE_ERROR);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+    String conflictingFieldName = "conflictingField";
+
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                conflictingFieldName,
+                1));
+
+    Document msg1Doc = docBuilder.fromMessage(msg1);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(12);
+    assertThat(
+            msg1Doc
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals(conflictingFieldName))
+                .findFirst())
+        .isNotEmpty();
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(18);
+    assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                "newFieldText",
+                "newFieldValue",
+                conflictingFieldName,
+                "1"));
+    assertThatThrownBy(() -> docBuilder.fromMessage(msg2))
+        .isInstanceOf(PropertyTypeMismatchException.class);
+    // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
+    // So, the fieldMap may contain an additional item than before.
+    assertThat(docBuilder.getFieldDefMap().size()).isGreaterThanOrEqualTo(18);
+    assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
   }
 
   @Test
