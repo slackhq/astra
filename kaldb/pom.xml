@@ -10,7 +10,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>11</javac.target>
+        <javac.target>19</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.13</http.client.version>
         <http.core.version>4.4.15</http.core.version>
@@ -479,11 +479,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.10.1</version>
                 <configuration>
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
-                    <testSource>${javac.target}</testSource>
                     <target>${javac.target}</target>
                     <fork>true</fork>
                     <compilerArgs>
