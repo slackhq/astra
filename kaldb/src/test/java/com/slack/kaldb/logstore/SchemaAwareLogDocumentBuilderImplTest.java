@@ -20,6 +20,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
+    // TODO: Add an assert for standard fields.
     SchemaAwareLogDocumentBuilderImpl docBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
@@ -37,6 +38,74 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "intproperty",
                 "message",
                 "doubleproperty"));
+  }
+
+  // TODO: Add a test for nested field with same name as top level field.
+  // TODO: Add a test for duplicate field in the map.
+
+  @Test
+  public void testNestedDocumentCreation() throws IOException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+
+    LogMessage message =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                "nested",
+                Map.of("nested1", "value1", "nested2", 2)));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(12);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(20);
+    assertThat(docBuilder.getFieldDefMap().keySet())
+        .containsAll(
+            List.of("duplicateproperty", "@timestamp", "nested.nested1", "nested.nested2"));
+  }
+
+  @Test
+  public void testMultiLevelNestedDocumentCreation() throws IOException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+
+    LogMessage message =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                "nested",
+                Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(21);
+    assertThat(docBuilder.getFieldDefMap().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                "@timestamp",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
   }
 
   @Test

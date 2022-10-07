@@ -318,15 +318,32 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return fieldDefMap;
   }
 
-  private void addProperty(Document doc, String key, Object value) {
+  private void addProperty(Document doc, String key, Object value, String keyPrefix) {
+    String fieldName = keyPrefix.isBlank() || keyPrefix.isEmpty() ? key : keyPrefix + "." + key;
+    // TODO: Add fieldName prefix and depth limit for recursion.
+    // Ingest nested map field recursively.
+    if (value instanceof Map) {
+      Map<Object, Object> mapValue = (Map<Object, Object>) value;
+      for (Object k : mapValue.keySet()) {
+        if (k instanceof String) {
+          addProperty(doc, (String) k, mapValue.get(k), fieldName);
+        } else {
+          throw new PropertyTypeMismatchException(
+              String.format(
+                  "Property %s,%s has an non-string type which is unsupported", k, value));
+        }
+      }
+      return;
+    }
+
     PropertyType valueType = getJsonType(value);
-    if (!fieldDefMap.containsKey(key)) {
-      indexNewField(doc, key, value, valueType);
+    if (!fieldDefMap.containsKey(fieldName)) {
+      indexNewField(doc, fieldName, value, valueType);
     } else {
-      FieldDef registeredField = fieldDefMap.get(key);
+      FieldDef registeredField = fieldDefMap.get(fieldName);
       if (registeredField.type == valueType) {
         // No field conflicts index it using previous description.
-        indexTypedField(doc, key, value, registeredField.propertyDescription);
+        indexTypedField(doc, fieldName, value, registeredField.propertyDescription);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
         switch (indexFieldConflictPolicy) {
@@ -334,19 +351,19 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             // TODO: Add a metric.
             break;
           case CONVERT_FIELD_VALUE:
-            convertValueAndIndexField(value, valueType, registeredField, doc, key);
+            convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
             break;
           case CONVERT_AND_DUPLICATE_FIELD:
-            convertValueAndIndexField(value, valueType, registeredField, doc, key);
+            convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
             // Add new field with new type
-            String newFieldName = makeNewFieldOfType(key, valueType);
+            String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
             break;
           case RAISE_ERROR:
             throw new PropertyTypeMismatchException(
                 String.format(
                     "Property type for field %s is %s but new value is of type  %s. ",
-                    key, registeredField.type, valueType));
+                    fieldName, registeredField.type, valueType));
         }
       }
     }
@@ -378,6 +395,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     indexTypedField(doc, key, convertedValue, registeredField.propertyDescription);
   }
 
+  // TODO: Move to PropertyType?
   private static Object convertFieldValue(
       Object value, PropertyType fromType, PropertyType toType) {
     // String type
@@ -484,18 +502,19 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   @Override
   public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
-    addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex());
+    addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "");
     addProperty(
-        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli);
-    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType());
-    addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
+        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "");
+    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "");
+    addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id, "");
     addProperty(
         doc,
         LogMessage.SystemField.SOURCE.fieldName,
-        JsonUtil.writeAsString(message.toWireMessage()));
+        JsonUtil.writeAsString(message.toWireMessage()),
+        "");
     for (String key : message.source.keySet()) {
       LOG.info("Adding key {}", key);
-      addProperty(doc, key, message.source.get(key));
+      addProperty(doc, key, message.source.get(key), "");
     }
     return doc;
   }
