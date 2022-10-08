@@ -10,19 +10,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.testlib.MessageUtil;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
+import org.junit.Before;
 import org.junit.Test;
 
 public class SchemaAwareLogDocumentBuilderImplTest {
+
+  private SimpleMeterRegistry meterRegistry;
+
+  @Before
+  public void setup() throws Exception {
+    meterRegistry = new SimpleMeterRegistry();
+  }
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
     // TODO: Add an assert for standard fields.
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     final LogMessage message = MessageUtil.makeMessage(0);
@@ -46,7 +55,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
 
@@ -76,7 +85,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testMultiLevelNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
 
@@ -111,7 +120,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testRaiseErrorOnConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(RAISE_ERROR);
+        SchemaAwareLogDocumentBuilderImpl.build(RAISE_ERROR, meterRegistry);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -177,7 +186,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testDroppingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -247,7 +256,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_FIELD_VALUE);
+        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_FIELD_VALUE, meterRegistry);
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -318,7 +327,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingAndDuplicatingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 

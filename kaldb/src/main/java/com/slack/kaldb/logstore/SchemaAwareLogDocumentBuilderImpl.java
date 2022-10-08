@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -295,9 +297,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     CONVERT_AND_DUPLICATE_FIELD
   }
 
-  // TODO: Add other types. Make immutable.
   private static final Map<PropertyType, PropertyDescription> defaultPropDescriptionForType =
-      Map.of(
+      ImmutableMap.of(
           PropertyType.LONG,
           new PropertyDescription(PropertyType.LONG, true, false, false, true),
           PropertyType.FLOAT,
@@ -348,16 +349,27 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         // There is a field type conflict, index it using the field conflict policy.
         switch (indexFieldConflictPolicy) {
           case DROP_FIELD:
-            // TODO: Add a metric.
+            LOG.debug("Dropped field %s due to field type conflict", fieldName);
+            droppedFieldsCounter.increment();
             break;
           case CONVERT_FIELD_VALUE:
             convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
+            LOG.debug(
+                "Converting field %s value from type %s to %s due to type conflict",
+                fieldName, valueType, registeredField.type);
+            convertFieldValueCounter.increment();
             break;
           case CONVERT_AND_DUPLICATE_FIELD:
             convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
+            LOG.debug(
+                "Converting field %s value from type %s to %s due to type conflict",
+                fieldName, valueType, registeredField.type);
             // Add new field with new type
             String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
+            LOG.debug(
+                "Added new field %s of type %s %s due to type conflict", newFieldName, valueType);
+            convertAndDuplicateFieldCounter.increment();
             break;
             // TODO: Another option is to duplicate field value only and not add?
           case RAISE_ERROR:
@@ -483,21 +495,35 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     throw new RuntimeException("Unknown type");
   }
 
-  public static SchemaAwareLogDocumentBuilderImpl build(FieldConflictPolicy fieldConflictPolicy) {
+  public static SchemaAwareLogDocumentBuilderImpl build(
+      FieldConflictPolicy fieldConflictPolicy, MeterRegistry meterRegistry) {
     Map<String, FieldDef> initialFields = new HashMap<>();
     // Add default fields and their property descriptions
     getDefaultPropertyDescriptions()
         .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
-    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields);
+    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields, meterRegistry);
   }
+
+  private static final String DROP_FIELDS_COUNTER = "dropped_fields";
+  private static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
+  private static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
+  private final Counter droppedFieldsCounter;
+  private final Counter convertFieldValueCounter;
+  private final Counter convertAndDuplicateFieldCounter;
 
   SchemaAwareLogDocumentBuilderImpl(
-      FieldConflictPolicy indexFieldConflictPolicy, final Map<String, FieldDef> initialFields) {
+      FieldConflictPolicy indexFieldConflictPolicy,
+      final Map<String, FieldDef> initialFields,
+      MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
+    // TODO: In future consider adding field name as a tag, for easily tracking dropped fields.
+    droppedFieldsCounter = meterRegistry.counter(DROP_FIELDS_COUNTER);
+    convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
+    convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
   }
 
   @Override
