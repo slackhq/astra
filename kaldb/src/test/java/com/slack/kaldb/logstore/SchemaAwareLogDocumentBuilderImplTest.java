@@ -1,5 +1,8 @@
 package com.slack.kaldb.logstore;
 
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.CONVERT_AND_DUPLICATE_FIELD_COUNTER;
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.CONVERT_FIELD_VALUE_COUNTER;
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.DROP_FIELDS_COUNTER;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD;
@@ -10,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
@@ -47,6 +51,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "intproperty",
                 "message",
                 "doubleproperty"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   // TODO: Add a test for nested field with same name as top level field.
@@ -80,6 +87,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet())
         .containsAll(
             List.of("duplicateproperty", "@timestamp", "nested.nested1", "nested.nested2"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   @Test
@@ -115,6 +125,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   @Test
@@ -154,6 +167,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
     LogMessage msg2 =
         new LogMessage(
@@ -181,6 +197,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   @Test
@@ -220,6 +239,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
     LogMessage msg2 =
         new LogMessage(
@@ -251,6 +273,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   @Test
@@ -290,6 +315,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
     LogMessage msg2 =
         new LogMessage(
@@ -322,6 +350,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 
   @Test
@@ -361,6 +392,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
 
     LogMessage msg2 =
         new LogMessage(
@@ -403,6 +437,10 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
     assertThat(convertFieldBuilder.getFieldDefMap().get(additionalCreatedFieldName).type)
         .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
+        .isEqualTo(1);
   }
 
   // TODO: Add a unit test for messages with field conflicts and handling

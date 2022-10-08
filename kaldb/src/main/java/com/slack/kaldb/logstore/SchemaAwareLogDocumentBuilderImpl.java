@@ -349,26 +349,30 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         // There is a field type conflict, index it using the field conflict policy.
         switch (indexFieldConflictPolicy) {
           case DROP_FIELD:
-            LOG.debug("Dropped field %s due to field type conflict", fieldName);
+            LOG.debug("Dropped field {} due to field type conflict", fieldName);
             droppedFieldsCounter.increment();
             break;
           case CONVERT_FIELD_VALUE:
             convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
             LOG.debug(
-                "Converting field %s value from type %s to %s due to type conflict",
-                fieldName, valueType, registeredField.type);
+                "Converting field {} value from type {} to {} due to type conflict",
+                fieldName,
+                valueType,
+                registeredField.type);
             convertFieldValueCounter.increment();
             break;
           case CONVERT_AND_DUPLICATE_FIELD:
             convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
             LOG.debug(
-                "Converting field %s value from type %s to %s due to type conflict",
-                fieldName, valueType, registeredField.type);
+                "Converting field {} value from type {} to {} due to type conflict",
+                fieldName,
+                valueType,
+                registeredField.type);
             // Add new field with new type
             String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
             LOG.debug(
-                "Added new field %s of type %s %s due to type conflict", newFieldName, valueType);
+                "Added new field {} of type {} due to type conflict", newFieldName, valueType);
             convertAndDuplicateFieldCounter.increment();
             break;
             // TODO: Another option is to duplicate field value only and not add?
@@ -504,9 +508,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields, meterRegistry);
   }
 
-  private static final String DROP_FIELDS_COUNTER = "dropped_fields";
-  private static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
-  private static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
+  static final String DROP_FIELDS_COUNTER = "dropped_fields";
+  static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
+  static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
@@ -520,7 +524,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
-    // TODO: In future consider adding field name as a tag, for easily tracking dropped fields.
+    // Note: Consider adding field name as a tag to help debugging, but it's high cardinality.
     droppedFieldsCounter = meterRegistry.counter(DROP_FIELDS_COUNTER);
     convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
     convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
