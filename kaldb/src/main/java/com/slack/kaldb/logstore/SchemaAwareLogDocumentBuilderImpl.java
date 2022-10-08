@@ -359,6 +359,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
             break;
+            // TODO: Another option is to duplicate field value only and not add?
           case RAISE_ERROR:
             throw new PropertyTypeMismatchException(
                 String.format(
@@ -482,6 +483,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     throw new RuntimeException("Unknown type");
   }
 
+  public static SchemaAwareLogDocumentBuilderImpl build(FieldConflictPolicy fieldConflictPolicy) {
+    Map<String, FieldDef> initialFields = new HashMap<>();
+    // Add default fields and their property descriptions
+    getDefaultPropertyDescriptions()
+        .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
+    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields);
+  }
+
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
 
@@ -489,14 +498,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       FieldConflictPolicy indexFieldConflictPolicy, final Map<String, FieldDef> initialFields) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
-  }
-
-  public static SchemaAwareLogDocumentBuilderImpl build(FieldConflictPolicy fieldConflictPolicy) {
-    Map<String, FieldDef> initialFields = new HashMap<>();
-    // Add default fields and their property descriptions
-    getDefaultPropertyDescriptions()
-        .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
-    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields);
   }
 
   @Override
