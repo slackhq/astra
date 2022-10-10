@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
@@ -329,13 +328,11 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     // If value is a list, convert the value to a String and index the field.
     if (value instanceof List) {
       addProperty(doc, key, Strings.join((List) value, ','), keyPrefix);
-//      // For now, we fail indexing list objects. They should be converted to Strings and indexed.
-//      throw new PropertyTypeMismatchException(String.format("List type for key %s is not " +
-//              "supported", key));
+      return;
     }
 
     String fieldName = keyPrefix.isBlank() || keyPrefix.isEmpty() ? key : keyPrefix + "." + key;
-    // TODO: Add fieldName prefix and depth limit for recursion.
+    // TODO: Add a depth limit for recursion.
     // Ingest nested map field recursively.
     if (value instanceof Map) {
       Map<Object, Object> mapValue = (Map<Object, Object>) value;
