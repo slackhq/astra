@@ -489,4 +489,5 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isEqualTo(1);
   }
   // TODO: Add tests to check valye conversion from every type to every type change.
+  // TODO: Add a test to assert fields of reserved fields can't be changed.
 }
