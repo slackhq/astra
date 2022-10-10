@@ -489,6 +489,5 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
   }
-  // Add repeated field names test.
   // TODO: Add tests to check valye conversion from every type to every type change.
 }
