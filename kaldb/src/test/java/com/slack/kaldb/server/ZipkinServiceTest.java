@@ -24,7 +24,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
-import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
@@ -90,11 +89,21 @@ public class ZipkinServiceTest {
 
   @After
   public void teardown() throws Exception {
-    kafkaServer.close();
-    meterRegistry.close();
-    datasetMetadataStore.close();
-    zkMetadataStore.close();
-    zkServer.close();
+    if (kafkaServer != null) {
+      kafkaServer.close();
+    }
+    if (meterRegistry != null) {
+      meterRegistry.close();
+    }
+    if (datasetMetadataStore != null) {
+      datasetMetadataStore.close();
+    }
+    if (zkMetadataStore != null) {
+      zkMetadataStore.close();
+    }
+    if (zkServer != null) {
+      zkServer.close();
+    }
   }
 
   public static LogWireMessage makeWireMessageForSpans(
@@ -214,15 +223,8 @@ public class ZipkinServiceTest {
 
     await()
         .until(
-            () -> {
-              try {
-                double count = getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry);
-                LOG.debug("Registry1 current_count={} total_count={}", count, indexedMessagesCount);
-                return count == indexedMessagesCount;
-              } catch (MeterNotFoundException e) {
-                return false;
-              }
-            });
+            () ->
+                getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == indexedMessagesCount);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();

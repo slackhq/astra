@@ -45,7 +45,9 @@ public class S3BlobFsTest {
 
   @After
   public void tearDown() throws IOException {
-    s3BlobFs.close();
+    if (s3BlobFs != null) {
+      s3BlobFs.close();
+    }
   }
 
   private void createEmptyFile(String folderName, String fileName) {

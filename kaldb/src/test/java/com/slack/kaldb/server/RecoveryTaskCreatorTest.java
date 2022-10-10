@@ -69,11 +69,21 @@ public class RecoveryTaskCreatorTest {
 
   @After
   public void shutdown() throws IOException {
-    recoveryTaskStore.close();
-    snapshotMetadataStore.close();
-    zkMetadataStore.close();
-    testingServer.close();
-    meterRegistry.close();
+    if (recoveryTaskStore != null) {
+      recoveryTaskStore.close();
+    }
+    if (snapshotMetadataStore != null) {
+      snapshotMetadataStore.close();
+    }
+    if (zkMetadataStore != null) {
+      zkMetadataStore.close();
+    }
+    if (testingServer != null) {
+      testingServer.close();
+    }
+    if (meterRegistry != null) {
+      meterRegistry.close();
+    }
   }
 
   @Test
