@@ -7,8 +7,11 @@ import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
 import org.apache.lucene.document.DoublePoint;
@@ -295,6 +298,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     CONVERT_FIELD_VALUE,
     // Covert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
+    // TODO: Consider another option where all conflicting fields are stored as strings. This
+    //  option is simpler on the query side.
   }
 
   private static final Map<PropertyType, PropertyDescription> defaultPropDescriptionForType =
@@ -319,7 +324,16 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return fieldDefMap;
   }
 
-  private void addProperty(Document doc, String key, Object value, String keyPrefix) {
+  private void addProperty(
+      final Document doc, final String key, final Object value, final String keyPrefix) {
+    // If value is a list, convert the value to a String and index the field.
+    if (value instanceof List) {
+      addProperty(doc, key, Strings.join((List) value, ','), keyPrefix);
+//      // For now, we fail indexing list objects. They should be converted to Strings and indexed.
+//      throw new PropertyTypeMismatchException(String.format("List type for key %s is not " +
+//              "supported", key));
+    }
+
     String fieldName = keyPrefix.isBlank() || keyPrefix.isEmpty() ? key : keyPrefix + "." + key;
     // TODO: Add fieldName prefix and depth limit for recursion.
     // Ingest nested map field recursively.
@@ -331,7 +345,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         } else {
           throw new PropertyTypeMismatchException(
               String.format(
-                  "Property %s,%s has an non-string type which is unsupported", k, value));
+                  "Property %s, %s has an non-string type which is unsupported", k, value));
         }
       }
       return;

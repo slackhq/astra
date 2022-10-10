@@ -9,6 +9,7 @@ import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldCo
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,6 +17,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
@@ -125,6 +127,39 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+  }
+
+  @Test
+  public void testListTypeInDocument() throws IOException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+            SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+
+    LogMessage message =
+            new LogMessage(
+                    MessageUtil.TEST_DATASET_NAME,
+                    "INFO",
+                    "1",
+                    Map.of(
+                            LogMessage.ReservedField.TIMESTAMP.fieldName,
+                            MessageUtil.getCurrentLogDate(),
+                            LogMessage.ReservedField.MESSAGE.fieldName,
+                            "Test message",
+                            "duplicateproperty",
+                            "duplicate1",
+                            "listType",
+                            Collections.emptyList(),
+                            "nested",
+                            Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(21);
+    assertThat(docBuilder.getFieldDefMap().size()).isGreaterThanOrEqualTo(17);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();

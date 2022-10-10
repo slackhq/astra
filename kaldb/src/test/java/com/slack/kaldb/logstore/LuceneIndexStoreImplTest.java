@@ -101,7 +101,7 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result1 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "key1:value1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
@@ -111,7 +111,7 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result3 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:2", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:2", 0, MAX_TIME, 100, 1);
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 
