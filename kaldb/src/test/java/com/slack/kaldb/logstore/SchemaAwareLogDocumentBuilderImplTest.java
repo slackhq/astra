@@ -58,7 +58,6 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   }
 
   // TODO: Add a test for nested field with same name as top level field.
-  // TODO: Add a test for duplicate field in the map.
 
   @Test
   public void testNestedDocumentCreation() throws IOException {
