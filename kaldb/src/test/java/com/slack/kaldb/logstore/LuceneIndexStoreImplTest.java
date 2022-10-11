@@ -76,7 +76,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
-
+    // TODO: Add a search on all field native types.
     @Test
     public void testSearchAndQueryDocsWithNestedJson() throws InterruptedException {
       // TODO: Use ImmutableMap from Guava instead of Map.of which is Java 9 only?
@@ -90,10 +90,20 @@ public class LuceneIndexStoreImplTest {
                   MessageUtil.getCurrentLogDate(),
                   ReservedField.MESSAGE.fieldName,
                   "Test message",
-                  "duplicateproperty",
-                  "duplicate1",
+                  "duplicateStrProp",
+                  "duplicateValue",
+                  "intValue",
+                  3,
+                  "duplicateIntProp",
+                  5,
                   "nested",
-                  Map.of("key1", "value1", "duplicateproperty", 2)));
+                  Map.of(
+                      "key1",
+                      "value1",
+                      "duplicateStrProp",
+                      "duplicateValue",
+                      "duplicateIntProp",
+                      5)));
       forgivingLogStore.logStore.addMessage(msg);
       forgivingLogStore.logStore.commit();
       forgivingLogStore.logStore.refresh();
@@ -104,15 +114,35 @@ public class LuceneIndexStoreImplTest {
               MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
       assertThat(result1.hits.size()).isEqualTo(1);
 
-      SearchResult<LogMessage> result2 =
+      SearchResult<LogMessage> resultDuplicateStrProp =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:duplicate1", 0, MAX_TIME, 100, 1);
-      assertThat(result2.hits.size()).isEqualTo(1);
+              MessageUtil.TEST_DATASET_NAME,
+              "duplicateStrProp:duplicateValue",
+              0,
+              MAX_TIME,
+              100,
+              1);
+      assertThat(resultDuplicateStrProp.hits.size()).isEqualTo(1);
 
-      SearchResult<LogMessage> result3 =
+      SearchResult<LogMessage> resultNestedDuplicateStrProp =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:2", 0, MAX_TIME, 100, 1);
-      assertThat(result3.hits.size()).isEqualTo(1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.duplicateStrProp:duplicateValue",
+              0,
+              MAX_TIME,
+              100,
+              1);
+      assertThat(resultNestedDuplicateStrProp.hits.size()).isEqualTo(1);
+
+      SearchResult<LogMessage> resultIntValue =
+          forgivingLogStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME, "intValue:[3 TO 3]", 0, MAX_TIME, 100, 1);
+      assertThat(resultIntValue.hits.size()).isEqualTo(1);
+
+      SearchResult<LogMessage> result4 =
+          forgivingLogStore.logSearcher.search(
+              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:[2]", 0, MAX_TIME, 100, 1);
+      assertThat(result4.hits.size()).isEqualTo(1);
     }
 
     @Test
