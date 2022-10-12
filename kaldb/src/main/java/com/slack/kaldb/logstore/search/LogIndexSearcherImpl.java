@@ -28,19 +28,10 @@ import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery.Builder;
-import org.apache.lucene.search.CollectorManager;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MultiCollectorManager;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.SearcherManager;
-import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
-import org.apache.lucene.search.TopFieldCollector;
-import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,8 +97,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
-      Query query = buildQuery(dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch);
-      span.tag("lucene query", query.toString());
+      Query query = buildQuery(span, dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch);
 
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
@@ -227,7 +217,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   private Query buildQuery(
-      String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
+      ScopedSpan span, String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
       throws ParseException {
     Builder queryBuilder = new Builder();
 
@@ -243,7 +233,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     if (queryStr.length() > 0) {
       queryBuilder.add(buildQueryParser().parse(queryStr), Occur.MUST);
     }
-    return queryBuilder.build();
+    BooleanQuery query = queryBuilder.build();
+    span.tag("lucene_query", query.toString());
+    span.tag("lucene_query_num_clauses", Integer.toString(query.clauses().size()));
+    return query;
   }
 
   @Override
