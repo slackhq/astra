@@ -5,7 +5,7 @@ package slack.proto.kaldb;
 option java_package = "com.slack.kaldb.proto.metadata";
 
 enum IndexType {
-  LUCENE_REGULAR = 0;
+  LOGS_LUCENE9 = 0;
 };
 
 message CacheSlotMetadata {

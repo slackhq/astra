@@ -42,7 +42,7 @@ public class ChunkInfo {
         chunkInfo.getDataEndTimeEpochMs(),
         chunkInfo.maxOffset,
         chunkInfo.kafkaPartitionId,
-        Metadata.IndexType.LUCENE_REGULAR);
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 
   /* A unique identifier for a the chunk. */

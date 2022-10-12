@@ -14,7 +14,7 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
         replicaMetadataProto.getCreatedTimeEpochMs(),
         replicaMetadataProto.getExpireAfterEpochMs(),
         replicaMetadataProto.getIsRestored(),
-        Metadata.IndexType.LUCENE_REGULAR);
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 
   private static Metadata.ReplicaMetadata toReplicaMetadataProto(ReplicaMetadata metadata) {

@@ -7,7 +7,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
@@ -467,7 +467,7 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().toEpochMilli(),
                 1,
                 "partitionId",
-                LUCENE_REGULAR))
+                LOGS_LUCENE9))
         .get(5, TimeUnit.SECONDS);
   }
 
@@ -482,7 +482,7 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().toEpochMilli(),
                 Instant.now().plusSeconds(60).toEpochMilli(),
                 false,
-                LUCENE_REGULAR))
+                LOGS_LUCENE9))
         .get(5, TimeUnit.SECONDS);
   }
 

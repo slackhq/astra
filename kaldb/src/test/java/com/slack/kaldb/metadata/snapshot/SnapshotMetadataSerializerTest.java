@@ -1,6 +1,6 @@
 package com.slack.kaldb.metadata.snapshot;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -19,8 +19,7 @@ public class SnapshotMetadataSerializerTest {
     final String partitionId = "1";
 
     SnapshotMetadata snapshotMetadata =
-        new SnapshotMetadata(
-            name, path, startTime, endTime, maxOffset, partitionId, LUCENE_REGULAR);
+        new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
 
     String serializedSnapshot = serDe.toJsonStr(snapshotMetadata);
     assertThat(serializedSnapshot).isNotEmpty();
@@ -35,7 +34,7 @@ public class SnapshotMetadataSerializerTest {
     assertThat(deserializedSnapshotMetadata.endTimeEpochMs).isEqualTo(endTime);
     assertThat(deserializedSnapshotMetadata.maxOffset).isEqualTo(maxOffset);
     assertThat(deserializedSnapshotMetadata.partitionId).isEqualTo(partitionId);
-    assertThat(deserializedSnapshotMetadata.indexType).isEqualTo(LUCENE_REGULAR);
+    assertThat(deserializedSnapshotMetadata.indexType).isEqualTo(LOGS_LUCENE9);
   }
 
   @Test(expected = IllegalArgumentException.class)

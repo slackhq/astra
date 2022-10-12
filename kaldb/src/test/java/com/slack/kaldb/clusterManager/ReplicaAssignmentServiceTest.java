@@ -1,6 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -174,7 +174,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -282,7 +282,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -361,7 +361,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -464,7 +464,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -532,7 +532,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
               Instant.now().minusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataExpiredList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -545,7 +545,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             false,
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     replicaMetadataExpiredList.add(replicaMetadataZero);
     replicaMetadataStore.create(replicaMetadataZero);
 
@@ -557,7 +557,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -651,7 +651,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -775,7 +775,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -874,7 +874,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -987,7 +987,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataStore.create(replicaMetadata);
     }
 
@@ -1060,7 +1060,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
-              LUCENE_REGULAR);
+              LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
       replicaMetadataStore.create(replicaMetadata);
     }
@@ -1137,7 +1137,7 @@ public class ReplicaAssignmentServiceTest {
             now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     replicaMetadataStore.create(olderReplicaMetadata);
 
     ReplicaMetadata newerReplicaMetadata =
@@ -1147,7 +1147,7 @@ public class ReplicaAssignmentServiceTest {
             now.toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     replicaMetadataStore.create(newerReplicaMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);

@@ -1,6 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -90,7 +90,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     replicaMetadataStore.createSync(
@@ -141,7 +141,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -185,7 +185,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -240,7 +240,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotNotLive);
 
     SnapshotMetadata snapshotLive =
@@ -251,7 +251,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "b",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotLive);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -335,7 +335,7 @@ public class ReplicaCreationServiceTest {
                       Instant.now().minus(1441, ChronoUnit.MINUTES).toEpochMilli(),
                       0,
                       snapshotId,
-                      LUCENE_REGULAR);
+                      LOGS_LUCENE9);
               snapshotList.add(snapshot);
             });
 
@@ -351,7 +351,7 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli(),
                       0,
                       snapshotId,
-                      LUCENE_REGULAR);
+                      LOGS_LUCENE9);
               snapshotList.add(snapshot);
             });
 
@@ -368,7 +368,7 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli(),
                       0,
                       snapshotId,
-                      LUCENE_REGULAR);
+                      LOGS_LUCENE9);
               eligibleSnapshots.add(snapshot);
             });
     snapshotList.addAll(eligibleSnapshots);
@@ -453,7 +453,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
@@ -521,7 +521,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     await()
@@ -574,7 +574,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -622,7 +622,7 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli(),
             0,
             "a",
-            LUCENE_REGULAR);
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 

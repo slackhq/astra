@@ -235,6 +235,6 @@ public class ReplicaCreationService extends AbstractScheduledService {
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
         isRestored,
-        Metadata.IndexType.LUCENE_REGULAR);
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 }

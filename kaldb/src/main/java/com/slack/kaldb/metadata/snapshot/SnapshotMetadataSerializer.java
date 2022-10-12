@@ -29,7 +29,7 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         protoSnapshotMetadata.getEndTimeEpochMs(),
         protoSnapshotMetadata.getMaxOffset(),
         protoSnapshotMetadata.getPartitionId(),
-        Metadata.IndexType.LUCENE_REGULAR);
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 
   @Override

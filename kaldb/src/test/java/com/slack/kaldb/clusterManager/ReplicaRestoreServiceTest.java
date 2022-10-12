@@ -1,6 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LUCENE_REGULAR;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertThrows;
@@ -95,7 +95,7 @@ public class ReplicaRestoreServiceTest {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
       SnapshotMetadata snapshotIncluded =
-          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR);
+          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9);
       replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
       Thread.sleep(300);
     }
@@ -130,7 +130,7 @@ public class ReplicaRestoreServiceTest {
               long now = Instant.now().toEpochMilli();
               String id = "loop" + UUID.randomUUID();
               SnapshotMetadata snapshotIncluded =
-                  new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR);
+                  new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9);
               try {
                 replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
                 Thread.sleep(300);
@@ -173,8 +173,7 @@ public class ReplicaRestoreServiceTest {
     List<SnapshotMetadata> duplicateSnapshots = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       String id = "duplicate";
-      duplicateSnapshots.add(
-          new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
+      duplicateSnapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
@@ -187,7 +186,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < 3; i++) {
       now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
     }
 
     replicaRestoreService.queueSnapshotsForRestoration(snapshots);
@@ -222,7 +221,7 @@ public class ReplicaRestoreServiceTest {
     for (int i = 0; i < MAX_QUEUE_SIZE; i++) {
       long now = Instant.now().toEpochMilli();
       String id = "loop" + i;
-      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LUCENE_REGULAR));
+      snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
     }
 
     assertThrows(
