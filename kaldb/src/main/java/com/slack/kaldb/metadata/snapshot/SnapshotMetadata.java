@@ -3,6 +3,7 @@ package com.slack.kaldb.metadata.snapshot;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.proto.metadata.Metadata;
 
 /**
  * The SnapshotMetadata class contains all the metadata related to a snapshot.
@@ -30,6 +31,7 @@ public class SnapshotMetadata extends KaldbMetadata {
   public final long endTimeEpochMs;
   public final long maxOffset;
   public final String partitionId;
+  public final Metadata.IndexType indexType;
 
   public SnapshotMetadata(
       String snapshotId,
@@ -37,7 +39,8 @@ public class SnapshotMetadata extends KaldbMetadata {
       long startTimeEpochMs,
       long endTimeEpochMs,
       long maxOffset,
-      String partitionId) {
+      String partitionId,
+      Metadata.IndexType indexType) {
     this(
         snapshotId,
         snapshotPath,
@@ -45,7 +48,8 @@ public class SnapshotMetadata extends KaldbMetadata {
         startTimeEpochMs,
         endTimeEpochMs,
         maxOffset,
-        partitionId);
+        partitionId,
+        indexType);
   }
 
   private SnapshotMetadata(
@@ -55,7 +59,8 @@ public class SnapshotMetadata extends KaldbMetadata {
       long startTimeEpochMs,
       long endTimeEpochMs,
       long maxOffset,
-      String partitionId) {
+      String partitionId,
+      Metadata.IndexType indexType) {
     super(name);
     checkArgument(snapshotId != null && !snapshotId.isEmpty(), "snapshotId can't be null or empty");
     checkArgument(startTimeEpochMs > 0, "start time should be greater than zero.");
@@ -75,6 +80,7 @@ public class SnapshotMetadata extends KaldbMetadata {
     this.endTimeEpochMs = endTimeEpochMs;
     this.maxOffset = maxOffset;
     this.partitionId = partitionId;
+    this.indexType = indexType;
   }
 
   @Override
@@ -88,20 +94,25 @@ public class SnapshotMetadata extends KaldbMetadata {
     if (startTimeEpochMs != that.startTimeEpochMs) return false;
     if (endTimeEpochMs != that.endTimeEpochMs) return false;
     if (maxOffset != that.maxOffset) return false;
-    if (!snapshotPath.equals(that.snapshotPath)) return false;
-    if (!snapshotId.equals(that.snapshotId)) return false;
-    return partitionId.equals(that.partitionId);
+    if (snapshotPath != null ? !snapshotPath.equals(that.snapshotPath) : that.snapshotPath != null)
+      return false;
+    if (snapshotId != null ? !snapshotId.equals(that.snapshotId) : that.snapshotId != null)
+      return false;
+    if (partitionId != null ? !partitionId.equals(that.partitionId) : that.partitionId != null)
+      return false;
+    return indexType == that.indexType;
   }
 
   @Override
   public int hashCode() {
     int result = super.hashCode();
-    result = 31 * result + snapshotPath.hashCode();
-    result = 31 * result + snapshotId.hashCode();
+    result = 31 * result + (snapshotPath != null ? snapshotPath.hashCode() : 0);
+    result = 31 * result + (snapshotId != null ? snapshotId.hashCode() : 0);
     result = 31 * result + (int) (startTimeEpochMs ^ (startTimeEpochMs >>> 32));
     result = 31 * result + (int) (endTimeEpochMs ^ (endTimeEpochMs >>> 32));
     result = 31 * result + (int) (maxOffset ^ (maxOffset >>> 32));
-    result = 31 * result + partitionId.hashCode();
+    result = 31 * result + (partitionId != null ? partitionId.hashCode() : 0);
+    result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
     return result;
   }
 
@@ -127,6 +138,8 @@ public class SnapshotMetadata extends KaldbMetadata {
         + ", partitionId='"
         + partitionId
         + '\''
+        + ", indexType="
+        + indexType
         + '}';
   }
 }

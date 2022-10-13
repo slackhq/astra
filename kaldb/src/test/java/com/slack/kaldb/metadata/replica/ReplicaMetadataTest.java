@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.replica;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
@@ -16,22 +17,26 @@ public class ReplicaMetadataTest {
     long expireAfterEpochMs = Instant.now().toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, false);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, false, LOGS_LUCENE9);
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(replicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(replicaMetadata.isRestored).isFalse();
+    assertThat(replicaMetadata.indexType).isEqualTo(LOGS_LUCENE9);
 
     ReplicaMetadata restoredReplicaMetadata =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LOGS_LUCENE9);
 
     assertThat(restoredReplicaMetadata.name).isEqualTo(name);
     assertThat(restoredReplicaMetadata.snapshotId).isEqualTo(snapshotId);
     assertThat(restoredReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(restoredReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(restoredReplicaMetadata.isRestored).isTrue();
+    assertThat(restoredReplicaMetadata.indexType).isEqualTo(LOGS_LUCENE9);
   }
 
   @Test
@@ -42,15 +47,20 @@ public class ReplicaMetadataTest {
     long expireAfterEpochMs = Instant.now().toEpochMilli();
 
     ReplicaMetadata replicaMetadataA =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LOGS_LUCENE9);
     ReplicaMetadata replicaMetadataB =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LOGS_LUCENE9);
     ReplicaMetadata replicaMetadataC =
-        new ReplicaMetadata("nameC", snapshotId, createdTimeEpochMs, expireAfterEpochMs, true);
+        new ReplicaMetadata(
+            "nameC", snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LOGS_LUCENE9);
     ReplicaMetadata replicaMetadataD =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs + 1, expireAfterEpochMs, false);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs + 1, expireAfterEpochMs, false, LOGS_LUCENE9);
     ReplicaMetadata replicaMetadataE =
-        new ReplicaMetadata(name, snapshotId, createdTimeEpochMs, expireAfterEpochMs + 1, false);
+        new ReplicaMetadata(
+            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs + 1, false, LOGS_LUCENE9);
 
     assertThat(replicaMetadataA).isEqualTo(replicaMetadataB);
     assertThat(replicaMetadataA).isNotEqualTo(replicaMetadataC);
@@ -69,7 +79,12 @@ public class ReplicaMetadataTest {
         .isThrownBy(
             () ->
                 new ReplicaMetadata(
-                    "name", "", Instant.now().toEpochMilli(), Instant.now().toEpochMilli(), false));
+                    "name",
+                    "",
+                    Instant.now().toEpochMilli(),
+                    Instant.now().toEpochMilli(),
+                    false,
+                    LOGS_LUCENE9));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -78,12 +93,17 @@ public class ReplicaMetadataTest {
                     null,
                     Instant.now().toEpochMilli(),
                     Instant.now().toEpochMilli(),
-                    true));
+                    true,
+                    LOGS_LUCENE9));
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new ReplicaMetadata("name", "123", 0, Instant.now().toEpochMilli(), false));
+            () ->
+                new ReplicaMetadata(
+                    "name", "123", 0, Instant.now().toEpochMilli(), false, LOGS_LUCENE9));
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new ReplicaMetadata("name", "123", Instant.now().toEpochMilli(), -1, true));
+            () ->
+                new ReplicaMetadata(
+                    "name", "123", Instant.now().toEpochMilli(), -1, true, LOGS_LUCENE9));
   }
 }

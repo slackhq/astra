@@ -4,6 +4,10 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
+enum IndexType {
+  LOGS_LUCENE9 = 0;
+};
+
 message CacheSlotMetadata {
   enum CacheSlotState {
     FREE = 0;
@@ -41,6 +45,8 @@ message ReplicaMetadata {
   int64 expire_after_epoch_ms = 5;
 
   bool isRestored = 6;
+
+  IndexType index_type = 7;
 }
 
 message SnapshotMetadata {
@@ -62,6 +68,9 @@ message SnapshotMetadata {
   string partition_id = 7;
   // Kafka offset when this snapshot was taken for that partition.
   int64 max_offset = 6;
+
+  // The type of index used to store this data.
+  IndexType index_type = 8;
 }
 
 message SearchMetadata {

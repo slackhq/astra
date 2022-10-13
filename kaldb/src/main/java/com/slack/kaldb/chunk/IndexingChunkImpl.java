@@ -6,6 +6,7 @@ import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +75,8 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
             chunkInfo.getDataStartTimeEpochMs(),
             chunkInfo.getDataEndTimeEpochMs(),
             chunkInfo.getMaxOffset(),
-            chunkInfo.getKafkaPartitionId());
+            chunkInfo.getKafkaPartitionId(),
+            Metadata.IndexType.LOGS_LUCENE9);
     snapshotMetadataStore.updateSync(updatedSnapshotMetadata);
     liveSnapshotMetadata = updatedSnapshotMetadata;
 

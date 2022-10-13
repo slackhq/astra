@@ -3,6 +3,7 @@ package com.slack.kaldb.server;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_PATH;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.*;
 import static com.slack.kaldb.testlib.KaldbConfigUtil.*;
@@ -189,7 +190,13 @@ public class KaldbIndexerTest {
     final long maxOffset = 50;
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1);
 
@@ -227,12 +234,24 @@ public class KaldbIndexerTest {
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
@@ -266,12 +285,24 @@ public class KaldbIndexerTest {
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
@@ -310,16 +341,28 @@ public class KaldbIndexerTest {
     final long maxOffset = 50;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -362,16 +405,28 @@ public class KaldbIndexerTest {
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -421,16 +476,28 @@ public class KaldbIndexerTest {
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())
@@ -484,16 +551,28 @@ public class KaldbIndexerTest {
     final long maxOffset = 30;
     SnapshotMetadata livePartition0 =
         new SnapshotMetadata(
-            name + "live0", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "0");
+            name + "live0",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "0",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition0);
 
     SnapshotMetadata livePartition1 =
         new SnapshotMetadata(
-            name + "live1", LIVE_SNAPSHOT_PATH, startTimeMs, endTimeMs, maxOffset, "1");
+            name + "live1",
+            LIVE_SNAPSHOT_PATH,
+            startTimeMs,
+            endTimeMs,
+            maxOffset,
+            "1",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
 
     final SnapshotMetadata partition0 =
-        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0");
+        new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
     assertThat(snapshotMetadataStore.listSync())

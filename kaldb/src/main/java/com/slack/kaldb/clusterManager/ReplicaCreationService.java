@@ -15,6 +15,7 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -233,6 +234,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
         snapshotId,
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
-        isRestored);
+        isRestored,
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 }

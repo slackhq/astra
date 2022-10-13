@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -83,7 +84,13 @@ public class ReplicaCreationServiceTest {
 
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     replicaMetadataStore.createSync(
@@ -128,7 +135,13 @@ public class ReplicaCreationServiceTest {
   public void shouldCreateZeroReplicasNoneConfigured() throws Exception {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -166,7 +179,13 @@ public class ReplicaCreationServiceTest {
   public void shouldCreateFourReplicasIfNoneExist() throws Exception {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -215,7 +234,13 @@ public class ReplicaCreationServiceTest {
   public void shouldNotCreateReplicasForLiveSnapshots() {
     SnapshotMetadata snapshotNotLive =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotNotLive);
 
     SnapshotMetadata snapshotLive =
@@ -225,7 +250,8 @@ public class ReplicaCreationServiceTest {
             Instant.now().toEpochMilli() - 1,
             Instant.now().toEpochMilli(),
             0,
-            "b");
+            "b",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotLive);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
@@ -308,7 +334,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().minus(1450, ChronoUnit.MINUTES).toEpochMilli(),
                       Instant.now().minus(1441, ChronoUnit.MINUTES).toEpochMilli(),
                       0,
-                      snapshotId);
+                      snapshotId,
+                      LOGS_LUCENE9);
               snapshotList.add(snapshot);
             });
 
@@ -323,7 +350,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli() - 1,
                       Instant.now().toEpochMilli(),
                       0,
-                      snapshotId);
+                      snapshotId,
+                      LOGS_LUCENE9);
               snapshotList.add(snapshot);
             });
 
@@ -339,7 +367,8 @@ public class ReplicaCreationServiceTest {
                       Instant.now().toEpochMilli() - 1,
                       Instant.now().toEpochMilli(),
                       0,
-                      snapshotId);
+                      snapshotId,
+                      LOGS_LUCENE9);
               eligibleSnapshots.add(snapshot);
             });
     snapshotList.addAll(eligibleSnapshots);
@@ -418,7 +447,13 @@ public class ReplicaCreationServiceTest {
     // EventAggregationSecs duration, attempt to create the replicas
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 2);
@@ -480,7 +515,13 @@ public class ReplicaCreationServiceTest {
     // attempt to create the replicas
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
 
     await()
@@ -527,7 +568,13 @@ public class ReplicaCreationServiceTest {
   public void shouldHandleFailedCreateFutures() {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 
@@ -569,7 +616,13 @@ public class ReplicaCreationServiceTest {
   public void shouldHandleMixOfSuccessfulFailedZkFutures() {
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
-            "a", "a", Instant.now().toEpochMilli() - 1, Instant.now().toEpochMilli(), 0, "a");
+            "a",
+            "a",
+            Instant.now().toEpochMilli() - 1,
+            Instant.now().toEpochMilli(),
+            0,
+            "a",
+            LOGS_LUCENE9);
     snapshotMetadataStore.createSync(snapshotA);
     await().until(() -> snapshotMetadataStore.getCached().size() == 1);
 

@@ -3,7 +3,7 @@ package com.slack.kaldb.metadata.replica;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.slack.kaldb.metadata.core.KaldbMetadata;
-import java.util.Objects;
+import com.slack.kaldb.proto.metadata.Metadata;
 
 /**
  * The replica metadata is used to allow associating multiple cache nodes to a single snapshot. The
@@ -16,13 +16,15 @@ public class ReplicaMetadata extends KaldbMetadata {
   public final long createdTimeEpochMs;
   public final long expireAfterEpochMs;
   public boolean isRestored;
+  public final Metadata.IndexType indexType;
 
   public ReplicaMetadata(
       String name,
       String snapshotId,
       long createdTimeEpochMs,
       long expireAfterEpochMs,
-      boolean isRestored) {
+      boolean isRestored,
+      Metadata.IndexType indexType) {
     super(name);
     checkArgument(createdTimeEpochMs > 0, "Created time must be greater than 0");
     checkArgument(expireAfterEpochMs >= 0, "Expiration time must be greater than or equal to 0");
@@ -33,6 +35,7 @@ public class ReplicaMetadata extends KaldbMetadata {
     this.createdTimeEpochMs = createdTimeEpochMs;
     this.expireAfterEpochMs = expireAfterEpochMs;
     this.isRestored = isRestored;
+    this.indexType = indexType;
   }
 
   public String getSnapshotId() {
@@ -56,15 +59,26 @@ public class ReplicaMetadata extends KaldbMetadata {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
+
     ReplicaMetadata that = (ReplicaMetadata) o;
-    return createdTimeEpochMs == that.createdTimeEpochMs
-        && expireAfterEpochMs == that.expireAfterEpochMs
-        && snapshotId.equals(that.snapshotId);
+
+    if (createdTimeEpochMs != that.createdTimeEpochMs) return false;
+    if (expireAfterEpochMs != that.expireAfterEpochMs) return false;
+    if (isRestored != that.isRestored) return false;
+    if (snapshotId != null ? !snapshotId.equals(that.snapshotId) : that.snapshotId != null)
+      return false;
+    return indexType == that.indexType;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), snapshotId, createdTimeEpochMs, expireAfterEpochMs);
+    int result = super.hashCode();
+    result = 31 * result + (snapshotId != null ? snapshotId.hashCode() : 0);
+    result = 31 * result + (int) (createdTimeEpochMs ^ (createdTimeEpochMs >>> 32));
+    result = 31 * result + (int) (expireAfterEpochMs ^ (expireAfterEpochMs >>> 32));
+    result = 31 * result + (isRestored ? 1 : 0);
+    result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
+    return result;
   }
 
   @Override
@@ -82,6 +96,8 @@ public class ReplicaMetadata extends KaldbMetadata {
         + expireAfterEpochMs
         + ", isRestored="
         + isRestored
+        + ", indexType="
+        + indexType
         + '}';
   }
 }
