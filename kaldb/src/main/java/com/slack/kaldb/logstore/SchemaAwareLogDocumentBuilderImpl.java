@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -179,12 +178,12 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
    * PropertyDescription describes various properties that can be set on a field.
    * TODO: Merge FieldDef and PropertyDescription?
    */
-  private static class PropertyDescription {
-    final PropertyType propertyType;
-    final boolean isStored;
-    final boolean isIndexed;
-    final boolean isAnalyzed;
-    final boolean storeNumericDocValue;
+  static class PropertyDescription {
+    public final PropertyType propertyType;
+    public final boolean isStored;
+    public final boolean isIndexed;
+    public final boolean isAnalyzed;
+    public final boolean storeNumericDocValue;
 
     PropertyDescription(
         PropertyType propertyType, boolean isStored, boolean isIndexed, boolean isAnalyzed) {
@@ -275,18 +274,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return propertyDescriptionBuilder.build();
   }
 
-  static class FieldDef {
-    public final PropertyType type;
-    public final PropertyDescription propertyDescription;
-    // No per field, field conflict policy for now. But placeholder for future.
-    // public final FieldConflictPolicy fieldConflictPolicy = null;
-
-    FieldDef(PropertyType type, PropertyDescription propertyDescription) {
-      this.type = type;
-      this.propertyDescription = propertyDescription;
-    }
-  }
-
   // TODO: Should this be a per field policy? For now, may be keep it index level?
   public enum FieldConflictPolicy {
     // Throw an error on field conflict.
@@ -319,7 +306,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return indexFieldConflictPolicy;
   }
 
-  public Map<String, FieldDef> getFieldDefMap() {
+  public Map<String, PropertyDescription> getFieldDefMap() {
     return fieldDefMap;
   }
 
@@ -352,10 +339,10 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     if (!fieldDefMap.containsKey(fieldName)) {
       indexNewField(doc, fieldName, value, valueType);
     } else {
-      FieldDef registeredField = fieldDefMap.get(fieldName);
-      if (registeredField.type == valueType) {
+      PropertyDescription registeredField = fieldDefMap.get(fieldName);
+      if (registeredField.propertyType == valueType) {
         // No field conflicts index it using previous description.
-        indexTypedField(doc, fieldName, value, registeredField.propertyDescription);
+        indexTypedField(doc, fieldName, value, registeredField);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
         switch (indexFieldConflictPolicy) {
@@ -369,7 +356,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Converting field {} value from type {} to {} due to type conflict",
                 fieldName,
                 valueType,
-                registeredField.type);
+                registeredField.propertyType);
             convertFieldValueCounter.increment();
             break;
           case CONVERT_AND_DUPLICATE_FIELD:
@@ -378,7 +365,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Converting field {} value from type {} to {} due to type conflict",
                 fieldName,
                 valueType,
-                registeredField.type);
+                registeredField.propertyType);
             // Add new field with new type
             String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
@@ -391,7 +378,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             throw new PropertyTypeMismatchException(
                 String.format(
                     "Property type for field %s is %s but new value is of type  %s. ",
-                    fieldName, registeredField.type, valueType));
+                    fieldName, registeredField.propertyType, valueType));
         }
       }
     }
@@ -406,7 +393,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
     PropertyDescription defaultPropDescription = defaultPropDescriptionForType.get(valueType);
     // add the document to this field.
-    fieldDefMap.put(key, new FieldDef(valueType, defaultPropDescription));
+    fieldDefMap.put(key, defaultPropDescription);
     indexTypedField(doc, key, value, defaultPropDescription);
   }
 
@@ -415,12 +402,16 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   private static void convertValueAndIndexField(
-      Object value, PropertyType valueType, FieldDef registeredField, Document doc, String key) {
-    Object convertedValue = convertFieldValue(value, valueType, registeredField.type);
+      Object value,
+      PropertyType valueType,
+      PropertyDescription registeredField,
+      Document doc,
+      String key) {
+    Object convertedValue = convertFieldValue(value, valueType, registeredField.propertyType);
     if (convertedValue == null) {
       throw new RuntimeException("No mapping found to convert value");
     }
-    indexTypedField(doc, key, convertedValue, registeredField.propertyDescription);
+    indexTypedField(doc, key, convertedValue, registeredField);
   }
 
   // TODO: Move to PropertyType?
@@ -512,11 +503,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   public static SchemaAwareLogDocumentBuilderImpl build(
       FieldConflictPolicy fieldConflictPolicy, MeterRegistry meterRegistry) {
-    Map<String, FieldDef> initialFields = new HashMap<>();
-    // Add default fields and their property descriptions
-    getDefaultPropertyDescriptions()
-        .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
-    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields, meterRegistry);
+    // Add basic fields by default
+    return new SchemaAwareLogDocumentBuilderImpl(
+        fieldConflictPolicy, getDefaultPropertyDescriptions(), meterRegistry);
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
@@ -524,14 +513,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
-  private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
+  private final Map<String, PropertyDescription> fieldDefMap = new ConcurrentHashMap<>();
   private final Counter droppedFieldsCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
 
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
-      final Map<String, FieldDef> initialFields,
+      final Map<String, PropertyDescription> initialFields,
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
