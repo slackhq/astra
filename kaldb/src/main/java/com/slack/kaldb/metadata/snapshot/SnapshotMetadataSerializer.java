@@ -16,6 +16,7 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         .setEndTimeEpochMs(snapshotMetadata.endTimeEpochMs)
         .setPartitionId(snapshotMetadata.partitionId)
         .setMaxOffset(snapshotMetadata.maxOffset)
+        .setIndexType(snapshotMetadata.indexType)
         .build();
   }
 
@@ -27,7 +28,8 @@ public class SnapshotMetadataSerializer implements MetadataSerializer<SnapshotMe
         protoSnapshotMetadata.getStartTimeEpochMs(),
         protoSnapshotMetadata.getEndTimeEpochMs(),
         protoSnapshotMetadata.getMaxOffset(),
-        protoSnapshotMetadata.getPartitionId());
+        protoSnapshotMetadata.getPartitionId(),
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 
   @Override
