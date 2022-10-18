@@ -302,7 +302,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return defaultFieldDefMapBuilder.build();
   }
 
-  // TODO: Should this be a per field policy? For now, may be keep it index level?
+  /**
+   * This enum tracks the field conflict policy for a chunk.
+   *
+   * <p>NOTE: In future, we may need this granularity at a per field level. Also, other potential
+   * options for handling these conflicts: (a) store all the conflicted fields as strings by default
+   * so querying those fields is more consistent. (b) duplicate field value only but don't create a
+   * field.
+   */
   public enum FieldConflictPolicy {
     // Throw an error on field conflict.
     RAISE_ERROR,
@@ -312,8 +319,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     CONVERT_FIELD_VALUE,
     // Covert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
-    // TODO: Consider another option where all conflicting fields are stored as strings. This
-    //  option is simpler on the query side.
   }
 
   private static final Map<FieldType, FieldDef> defaultPropDescriptionForType =
@@ -402,7 +407,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Added new field {} of type {} due to type conflict", newFieldName, valueType);
             convertAndDuplicateFieldCounter.increment();
             break;
-            // TODO: Another option is to duplicate field value only and not add?
           case RAISE_ERROR:
             throw new FieldDefMismatchException(
                 String.format(
