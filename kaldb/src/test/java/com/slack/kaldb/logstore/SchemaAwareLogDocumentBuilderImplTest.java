@@ -306,6 +306,68 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
+
+    LogMessage msg3 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                123,
+                "newFieldText",
+                "newFieldValue"));
+    assertThatThrownBy(() -> docBuilder.fromMessage(msg3))
+        .isInstanceOf(FieldDefMismatchException.class);
+    // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
+    // So, the fieldMap may contain an additional item than before.
+    assertThat(docBuilder.getFieldDefMap().size()).isGreaterThanOrEqualTo(18);
+    assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(FieldType.INTEGER);
+    assertThat(
+            docBuilder.getFieldDefMap().get(LogMessage.ReservedField.HOSTNAME.fieldName).fieldType)
+        .isEqualTo(FieldType.TEXT);
+
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+  }
+
+  @Test
+  public void testRaiseErrorOnConflictingReservedField() throws JsonProcessingException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, meterRegistry);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+    final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
+    assertThat(docBuilder.getFieldDefMap().keySet()).contains(hostNameField);
+    assertThat(docBuilder.getFieldDefMap().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
+
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                hostNameField,
+                123));
+
+    assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
+        .isInstanceOf(FieldDefMismatchException.class);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+    assertThat(docBuilder.getFieldDefMap().keySet()).contains(hostNameField);
+    assertThat(docBuilder.getFieldDefMap().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
