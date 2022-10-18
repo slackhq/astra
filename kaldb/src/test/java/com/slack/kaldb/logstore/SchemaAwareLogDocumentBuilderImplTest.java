@@ -35,7 +35,6 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
-    // TODO: Add an assert for standard fields.
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
@@ -735,6 +734,4 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
   }
-
-  // TODO: Add a test to assert fields of reserved fields can't be changed.
 }
