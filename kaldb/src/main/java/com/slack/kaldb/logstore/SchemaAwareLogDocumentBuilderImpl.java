@@ -424,7 +424,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   private static void addStringProperty(
       Document doc, String name, String value, PropertyDescription description) {
-
     if (description.isIndexed) {
       if (description.isAnalyzed) {
         doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
