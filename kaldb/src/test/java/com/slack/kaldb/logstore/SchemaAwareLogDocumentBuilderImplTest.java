@@ -75,15 +75,24 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "Test message",
                 "duplicateproperty",
                 "duplicate1",
+                "booleanproperty",
+                true,
                 "nested",
                 Map.of("nested1", "value1", "nested2", 2)));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(12);
-    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(20);
+    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(21);
     assertThat(docBuilder.getFieldDefMap().keySet())
         .containsAll(
-            List.of("duplicateproperty", "@timestamp", "nested.nested1", "nested.nested2"));
+            List.of(
+                "duplicateproperty",
+                "@timestamp",
+                "nested.nested1",
+                "nested.nested2",
+                "booleanproperty"));
+    assertThat(docBuilder.getFieldDefMap().get("booleanproperty").fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();

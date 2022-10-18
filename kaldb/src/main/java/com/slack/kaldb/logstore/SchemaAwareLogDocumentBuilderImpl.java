@@ -41,7 +41,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
-  // TODO: Add a string field name which is a string.
   public enum FieldType {
     TEXT("text") {
       @Override
@@ -112,6 +111,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     BOOLEAN("boolean") {
       @Override
       public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
+        // Lucene has no native support for Booleans so store that field as text.
         if ((boolean) value) {
           addStringField(doc, name, "true", fieldDef);
         } else {
@@ -181,7 +181,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       // Float type
       if (fromType == FieldType.FLOAT) {
         if (toType == FieldType.TEXT) {
-          return ((Float) value).toString();
+          return value.toString();
         }
         if (toType == FieldType.INTEGER) {
           return ((Float) value).intValue();
@@ -197,7 +197,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       // Double type
       if (fromType == FieldType.DOUBLE) {
         if (toType == FieldType.TEXT) {
-          return ((Double) value).toString();
+          return value.toString();
         }
         if (toType == FieldType.INTEGER) {
           return ((Double) value).intValue();
@@ -327,7 +327,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           FieldType.DOUBLE,
           new FieldDef(FieldType.DOUBLE, true, false, false, true),
           FieldType.TEXT,
-          new FieldDef(FieldType.TEXT, false, true, true));
+          new FieldDef(FieldType.TEXT, false, true, true),
+          FieldType.BOOLEAN,
+          new FieldDef(FieldType.BOOLEAN, false, true, false));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
