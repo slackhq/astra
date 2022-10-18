@@ -418,10 +418,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   private static void indexTypedField(
       Document doc, String key, Object value, PropertyDescription propertyDescription) {
-
     propertyDescription.propertyType.addField(doc, key, value, propertyDescription);
-
-    // TODO: Add logic for map type.
     // TODO: Ignore exceptional fields when needed?
   }
 
