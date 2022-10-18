@@ -41,7 +41,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
-  // TODO: Add abstract methods to enum to structure fields better.
   // TODO: Add a string field name which is a string.
   public enum FieldType {
     TEXT("text") {
