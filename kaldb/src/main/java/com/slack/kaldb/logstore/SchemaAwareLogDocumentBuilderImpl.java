@@ -51,7 +51,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         addStringProperty(doc, name, (String) value, propertyDescription);
       }
     },
-
     INTEGER("integer") {
       @Override
       public void addField(
