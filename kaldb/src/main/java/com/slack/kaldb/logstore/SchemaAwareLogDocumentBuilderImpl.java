@@ -45,7 +45,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     TEXT("text") {
       @Override
       public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
-        addStringField(doc, name, (String) value, fieldDef);
+        addTextField(doc, name, (String) value, fieldDef);
       }
     },
     INTEGER("integer") {
@@ -113,9 +113,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
         // Lucene has no native support for Booleans so store that field as text.
         if ((boolean) value) {
-          addStringField(doc, name, "true", fieldDef);
+          addTextField(doc, name, "true", fieldDef);
         } else {
-          addStringField(doc, name, "false", fieldDef);
+          addTextField(doc, name, "false", fieldDef);
         }
       }
     };
@@ -445,8 +445,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     // TODO: Ignore exceptional fields when needed?
   }
 
-  private static void addStringField(
-      Document doc, String name, String value, FieldDef description) {
+  private static void addTextField(Document doc, String name, String value, FieldDef description) {
     if (description.isIndexed) {
       if (description.isAnalyzed) {
         doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
