@@ -132,6 +132,38 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     public String getName() {
       return name;
     }
+
+    static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
+      // String type
+      if (fromType == FieldType.TEXT) {
+        if (toType == FieldType.INTEGER) {
+          return Integer.valueOf((String) value);
+        }
+        if (toType == FieldType.LONG) {
+          return Long.valueOf((String) value);
+        }
+        if (toType == FieldType.FLOAT || toType == FieldType.DOUBLE) {
+          return Double.valueOf((String) value);
+        }
+      }
+
+      // Int type
+      if (fromType == FieldType.INTEGER) {
+        if (toType == FieldType.TEXT) {
+          return ((Integer) value).toString();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Integer) value).longValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Integer) value).floatValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Integer) value).doubleValue();
+        }
+      }
+      return null;
+    }
   }
 
   /*
@@ -350,44 +382,12 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   private static void convertValueAndIndexField(
       Object value, FieldType valueType, FieldDef registeredField, Document doc, String key) {
-    Object convertedValue = convertFieldValue(value, valueType, registeredField.fieldType);
+    Object convertedValue =
+        FieldType.convertFieldValue(value, valueType, registeredField.fieldType);
     if (convertedValue == null) {
       throw new RuntimeException("No mapping found to convert value");
     }
     indexTypedField(doc, key, convertedValue, registeredField);
-  }
-
-  // TODO: Move to PropertyType?
-  private static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
-    // String type
-    if (fromType == FieldType.TEXT) {
-      if (toType == FieldType.INTEGER) {
-        return Integer.valueOf((String) value);
-      }
-      if (toType == FieldType.LONG) {
-        return Long.valueOf((String) value);
-      }
-      if (toType == FieldType.FLOAT || toType == FieldType.DOUBLE) {
-        return Double.valueOf((String) value);
-      }
-    }
-
-    // Int type
-    if (fromType == FieldType.INTEGER) {
-      if (toType == FieldType.TEXT) {
-        return ((Integer) value).toString();
-      }
-      if (toType == FieldType.LONG) {
-        return ((Integer) value).longValue();
-      }
-      if (toType == FieldType.FLOAT) {
-        return ((Integer) value).floatValue();
-      }
-      if (toType == FieldType.DOUBLE) {
-        return ((Integer) value).doubleValue();
-      }
-    }
-    return null;
   }
 
   private static void indexTypedField(Document doc, String key, Object value, FieldDef fieldDef) {
