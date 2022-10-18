@@ -458,7 +458,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   private static void indexTypedField(Document doc, String key, Object value, FieldDef fieldDef) {
     fieldDef.fieldType.addField(doc, key, value, fieldDef);
-    // TODO: Ignore exceptional fields when needed?
   }
 
   private static void addTextField(Document doc, String name, String value, FieldDef description) {
