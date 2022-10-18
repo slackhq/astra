@@ -162,6 +162,55 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           return ((Integer) value).doubleValue();
         }
       }
+
+      // Long type
+      if (fromType == FieldType.LONG) {
+        if (toType == FieldType.TEXT) {
+          return ((Long) value).toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Long) value).intValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Long) value).floatValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Long) value).doubleValue();
+        }
+      }
+
+      // Float type
+      if (fromType == FieldType.FLOAT) {
+        if (toType == FieldType.TEXT) {
+          return ((Float) value).toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Float) value).intValue();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Float) value).longValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Float) value).doubleValue();
+        }
+      }
+
+      // Double type
+      if (fromType == FieldType.DOUBLE) {
+        if (toType == FieldType.TEXT) {
+          return ((Double) value).toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Double) value).intValue();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Double) value).longValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Double) value).floatValue();
+        }
+      }
+
       return null;
     }
   }
