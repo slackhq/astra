@@ -41,6 +41,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
+  // TODO: In future, make this value configurable.
+  private static final int MAX_NESTING_DEPTH = 3;
+
   public enum FieldType {
     TEXT("text") {
       @Override
@@ -346,24 +349,33 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   private void addField(
-      final Document doc, final String key, final Object value, final String keyPrefix) {
+      final Document doc,
+      final String key,
+      final Object value,
+      final String keyPrefix,
+      int nestingDepth) {
     // If value is a list, convert the value to a String and index the field.
     if (value instanceof List) {
-      addField(doc, key, Strings.join((List) value, ','), keyPrefix);
+      addField(doc, key, Strings.join((List) value, ','), keyPrefix, nestingDepth);
       return;
     }
 
     String fieldName = keyPrefix.isBlank() || keyPrefix.isEmpty() ? key : keyPrefix + "." + key;
-    // TODO: Add a depth limit for recursion.
-    // Ingest nested map field recursively.
+    // Ingest nested map field recursively upto max nesting. After that index it as a string.
     if (value instanceof Map) {
-      Map<Object, Object> mapValue = (Map<Object, Object>) value;
-      for (Object k : mapValue.keySet()) {
-        if (k instanceof String) {
-          addField(doc, (String) k, mapValue.get(k), fieldName);
-        } else {
-          throw new FieldDefMismatchException(
-              String.format("Field %s, %s has an non-string type which is unsupported", k, value));
+      if (nestingDepth >= MAX_NESTING_DEPTH) {
+        // Once max nesting depth is reached, index the field as a string.
+        addField(doc, key, value.toString(), keyPrefix, nestingDepth + 1);
+      } else {
+        Map<Object, Object> mapValue = (Map<Object, Object>) value;
+        for (Object k : mapValue.keySet()) {
+          if (k instanceof String) {
+            addField(doc, (String) k, mapValue.get(k), fieldName, nestingDepth + 1);
+          } else {
+            throw new FieldDefMismatchException(
+                String.format(
+                    "Field %s, %s has an non-string type which is unsupported", k, value));
+          }
         }
       }
       return;
@@ -487,7 +499,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       return FieldType.DOUBLE;
     }
 
-    // TODO: Handle other tyoes like map and list or nested objects?
     throw new RuntimeException("Unknown type");
   }
 
@@ -523,19 +534,20 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   @Override
   public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
-    addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "");
+    addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "", 0);
     addField(
-        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "");
-    addField(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "");
-    addField(doc, LogMessage.SystemField.ID.fieldName, message.id, "");
+        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "", 0);
+    addField(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "", 0);
+    addField(doc, LogMessage.SystemField.ID.fieldName, message.id, "", 0);
     addField(
         doc,
         LogMessage.SystemField.SOURCE.fieldName,
         JsonUtil.writeAsString(message.toWireMessage()),
-        "");
+        "",
+        0);
     for (String key : message.source.keySet()) {
       LOG.info("Adding key {}", key);
-      addField(doc, key, message.source.get(key), "");
+      addField(doc, key, message.source.get(key), "", 0);
     }
     return doc;
   }

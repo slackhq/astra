@@ -99,6 +99,65 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   }
 
   @Test
+  public void testMaxRecursionNestedDocumentCreation() throws IOException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
+
+    LogMessage message =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                "booleanproperty",
+                true,
+                "nested",
+                Map.of(
+                    "nested1",
+                    "value1",
+                    "nested11",
+                    2,
+                    "nested12",
+                    Map.of(
+                        "nested21",
+                        21,
+                        "nested22",
+                        Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
+
+    Document testDocument = docBuilder.fromMessage(message);
+    assertThat(testDocument.getFields().size()).isEqualTo(18);
+    assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(24);
+    assertThat(docBuilder.getFieldDefMap().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                "@timestamp",
+                "nested.nested1",
+                "nested.nested11",
+                "nested.nested12.nested21",
+                "nested.nested12.nested22.nested31",
+                "nested.nested12.nested22.nested32",
+                "booleanproperty"));
+    assertThat(docBuilder.getFieldDefMap().keySet())
+        .doesNotContainAnyElementsOf(
+            List.of("nested.nested12", "nested.nested12.nested22.nested32.nested41"));
+    assertThat(docBuilder.getFieldDefMap().get("booleanproperty").fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(docBuilder.getFieldDefMap().get("nested.nested12.nested22.nested32").fieldType)
+        .isEqualTo(FieldType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+  }
+
+  @Test
   public void testMultiLevelNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
