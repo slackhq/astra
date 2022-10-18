@@ -46,11 +46,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   public enum PropertyType {
     TEXT("text") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
       public void addField(
           Document doc, String name, Object value, PropertyDescription propertyDescription) {
         addStringProperty(doc, name, (String) value, propertyDescription);
@@ -58,11 +53,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     },
 
     INTEGER("integer") {
-      @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
       @Override
       public void addField(
           Document doc, String name, Object v, PropertyDescription propertyDescription) {
@@ -80,11 +70,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     },
     LONG("long") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
       public void addField(
           Document doc, String name, Object v, PropertyDescription propertyDescription) {
         long value = (long) v;
@@ -100,11 +85,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       }
     },
     FLOAT("float") {
-      @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
       @Override
       public void addField(
           Document doc, String name, Object v, PropertyDescription propertyDescription) {
@@ -122,11 +102,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     },
     DOUBLE("double") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
       public void addField(
           Document doc, String name, Object v, PropertyDescription propertyDescription) {
         double value = (double) v;
@@ -143,11 +118,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     },
     BOOLEAN("boolean") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
       public void addField(
           Document doc, String name, Object value, PropertyDescription propertyDescription) {
         if ((boolean) value) {
@@ -163,8 +133,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     PropertyType(String name) {
       this.name = name;
     }
-
-    public abstract Object toType(PropertyType toType);
 
     public abstract void addField(
         Document doc, String name, Object value, PropertyDescription propertyDescription);
