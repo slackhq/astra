@@ -211,8 +211,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isNotEmpty();
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -236,13 +236,13 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 conflictingFieldName,
                 "1"));
     assertThatThrownBy(() -> docBuilder.fromMessage(msg2))
-        .isInstanceOf(PropertyTypeMismatchException.class);
+        .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
     // So, the fieldMap may contain an additional item than before.
     assertThat(docBuilder.getFieldDefMap().size()).isGreaterThanOrEqualTo(18);
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -283,8 +283,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isNotEmpty();
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -317,8 +317,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isEmpty();
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(docBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(docBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -359,8 +359,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isNotEmpty();
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -394,8 +394,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("1");
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -436,8 +436,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isNotEmpty();
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getFieldDefMap().keySet()).contains(conflictingFieldName);
-    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
+    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -462,7 +462,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(msg2Doc.getFields().size()).isEqualTo(13);
     String additionalCreatedFieldName =
         makeNewFieldOfType(
-            conflictingFieldName, SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+            conflictingFieldName, SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
             msg2Doc
@@ -479,10 +479,10 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(convertFieldBuilder.getFieldDefMap().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getFieldDefMap().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
-    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.TEXT);
-    assertThat(convertFieldBuilder.getFieldDefMap().get(additionalCreatedFieldName).propertyType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.PropertyType.INTEGER);
+    assertThat(convertFieldBuilder.getFieldDefMap().get(conflictingFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT);
+    assertThat(convertFieldBuilder.getFieldDefMap().get(additionalCreatedFieldName).fieldType)
+        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
