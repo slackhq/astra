@@ -2,7 +2,8 @@ package com.slack.kaldb.logstore;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import java.time.*;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
