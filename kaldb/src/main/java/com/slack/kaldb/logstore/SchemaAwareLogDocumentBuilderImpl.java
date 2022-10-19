@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,172 +41,211 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Logger LOG =
       LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImpl.class);
 
-  // TODO: Add abstract methods to enum to structure fields better.
-  // TODO: Add a string field name which is a string.
-  public enum PropertyType {
+  // TODO: In future, make this value configurable.
+  private static final int MAX_NESTING_DEPTH = 3;
+
+  public enum FieldType {
     TEXT("text") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object value, PropertyDescription propertyDescription) {
-        addStringProperty(doc, name, (String) value, propertyDescription);
+      public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
+        addTextField(doc, name, (String) value, fieldDef);
       }
     },
-
     INTEGER("integer") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
         int value = (int) v;
-        if (propertyDescription.isIndexed) {
+        if (fieldDef.isIndexed) {
           doc.add(new IntPoint(name, value));
         }
-        if (propertyDescription.isStored) {
+        if (fieldDef.isStored) {
           doc.add(new StoredField(name, value));
         }
-        if (propertyDescription.storeNumericDocValue) {
+        if (fieldDef.storeNumericDocValue) {
           doc.add(new NumericDocValuesField(name, value));
         }
       }
     },
     LONG("long") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
         long value = (long) v;
-        if (propertyDescription.isIndexed) {
+        if (fieldDef.isIndexed) {
           doc.add(new LongPoint(name, value));
         }
-        if (propertyDescription.isStored) {
+        if (fieldDef.isStored) {
           doc.add(new StoredField(name, value));
         }
-        if (propertyDescription.storeNumericDocValue) {
+        if (fieldDef.storeNumericDocValue) {
           doc.add(new NumericDocValuesField(name, value));
         }
       }
     },
     FLOAT("float") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
         float value = (float) v;
-        if (propertyDescription.isIndexed) {
+        if (fieldDef.isIndexed) {
           doc.add(new FloatPoint(name, value));
         }
-        if (propertyDescription.isStored) {
+        if (fieldDef.isStored) {
           doc.add(new StoredField(name, value));
         }
-        if (propertyDescription.storeNumericDocValue) {
+        if (fieldDef.storeNumericDocValue) {
           doc.add(new FloatDocValuesField(name, value));
         }
       }
     },
     DOUBLE("double") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object v, PropertyDescription propertyDescription) {
+      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
         double value = (double) v;
-        if (propertyDescription.isIndexed) {
+        if (fieldDef.isIndexed) {
           doc.add(new DoublePoint(name, value));
         }
-        if (propertyDescription.isStored) {
+        if (fieldDef.isStored) {
           doc.add(new StoredField(name, value));
         }
-        if (propertyDescription.storeNumericDocValue) {
+        if (fieldDef.storeNumericDocValue) {
           doc.add(new DoubleDocValuesField(name, value));
         }
       }
     },
     BOOLEAN("boolean") {
       @Override
-      public Object toType(PropertyType toType) {
-        return null;
-      }
-
-      @Override
-      public void addField(
-          Document doc, String name, Object value, PropertyDescription propertyDescription) {
+      public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
+        // Lucene has no native support for Booleans so store that field as text.
         if ((boolean) value) {
-          addStringProperty(doc, name, "true", propertyDescription);
+          addTextField(doc, name, "true", fieldDef);
         } else {
-          addStringProperty(doc, name, "false", propertyDescription);
+          addTextField(doc, name, "false", fieldDef);
         }
       }
     };
 
     private final String name;
 
-    PropertyType(String name) {
+    FieldType(String name) {
       this.name = name;
     }
 
-    public abstract Object toType(PropertyType toType);
-
-    public abstract void addField(
-        Document doc, String name, Object value, PropertyDescription propertyDescription);
+    public abstract void addField(Document doc, String name, Object value, FieldDef fieldDef);
 
     public String getName() {
       return name;
     }
+
+    static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
+      // String type
+      if (fromType == FieldType.TEXT) {
+        if (toType == FieldType.INTEGER) {
+          return Integer.valueOf((String) value);
+        }
+        if (toType == FieldType.LONG) {
+          return Long.valueOf((String) value);
+        }
+        if (toType == FieldType.FLOAT || toType == FieldType.DOUBLE) {
+          return Double.valueOf((String) value);
+        }
+      }
+
+      // Int type
+      if (fromType == FieldType.INTEGER) {
+        if (toType == FieldType.TEXT) {
+          return ((Integer) value).toString();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Integer) value).longValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Integer) value).floatValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Integer) value).doubleValue();
+        }
+      }
+
+      // Long type
+      if (fromType == FieldType.LONG) {
+        if (toType == FieldType.TEXT) {
+          return ((Long) value).toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Long) value).intValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Long) value).floatValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Long) value).doubleValue();
+        }
+      }
+
+      // Float type
+      if (fromType == FieldType.FLOAT) {
+        if (toType == FieldType.TEXT) {
+          return value.toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Float) value).intValue();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Float) value).longValue();
+        }
+        if (toType == FieldType.DOUBLE) {
+          return ((Float) value).doubleValue();
+        }
+      }
+
+      // Double type
+      if (fromType == FieldType.DOUBLE) {
+        if (toType == FieldType.TEXT) {
+          return value.toString();
+        }
+        if (toType == FieldType.INTEGER) {
+          return ((Double) value).intValue();
+        }
+        if (toType == FieldType.LONG) {
+          return ((Double) value).longValue();
+        }
+        if (toType == FieldType.FLOAT) {
+          return ((Double) value).floatValue();
+        }
+      }
+
+      return null;
+    }
   }
 
   /*
-   * PropertyDescription describes various properties that can be set on a field.
-   * TODO: Merge FieldDef and PropertyDescription?
+   * FieldDef describes the configs that can be set on a field.
    */
-  private static class PropertyDescription {
-    final PropertyType propertyType;
-    final boolean isStored;
-    final boolean isIndexed;
-    final boolean isAnalyzed;
-    final boolean storeNumericDocValue;
+  static class FieldDef {
+    public final FieldType fieldType;
+    public final boolean isStored;
+    public final boolean isIndexed;
+    public final boolean isAnalyzed;
+    public final boolean storeNumericDocValue;
 
-    PropertyDescription(
-        PropertyType propertyType, boolean isStored, boolean isIndexed, boolean isAnalyzed) {
-      this(propertyType, isStored, isIndexed, isAnalyzed, false);
+    FieldDef(FieldType fieldType, boolean isStored, boolean isIndexed, boolean isAnalyzed) {
+      this(fieldType, isStored, isIndexed, isAnalyzed, false);
     }
 
-    PropertyDescription(
-        PropertyType propertyType,
+    FieldDef(
+        FieldType fieldType,
         boolean isStored,
         boolean isIndexed,
         boolean isAnalyzed,
         boolean storeNumericDocValue) {
       if (isAnalyzed && !isIndexed) {
-        throw new InvalidPropertyDescriptionException(
-            "Cannot set isAnalyzed without setting isIndexed");
+        throw new InvalidFieldDefException("Cannot set isAnalyzed without setting isIndexed");
       }
 
-      if (isAnalyzed && !(propertyType.equals(PropertyType.TEXT))) {
-        throw new InvalidPropertyDescriptionException(
-            "Only text and any types can have isAnalyzed set");
+      if (isAnalyzed && !(fieldType.equals(FieldType.TEXT))) {
+        throw new InvalidFieldDefException("Only text and any types can have isAnalyzed set");
       }
 
-      this.propertyType = propertyType;
+      this.fieldType = fieldType;
       this.isStored = isStored;
       this.isIndexed = isIndexed;
       this.isAnalyzed = isAnalyzed;
@@ -215,79 +253,66 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     }
   }
 
-  // TODO: Map to FieldDef
-  private static ImmutableMap<String, PropertyDescription> getDefaultPropertyDescriptions() {
-    ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
-        ImmutableMap.builder();
-    propertyDescriptionBuilder.put(
-        LogMessage.SystemField.SOURCE.fieldName,
-        new PropertyDescription(PropertyType.TEXT, true, false, false));
-    propertyDescriptionBuilder.put(
-        LogMessage.SystemField.ID.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
-        LogMessage.SystemField.INDEX.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+  private static ImmutableMap<String, FieldDef> getDefaultFieldDefinitions() {
+    ImmutableMap.Builder<String, FieldDef> defaultFieldDefMapBuilder = ImmutableMap.builder();
+    defaultFieldDefMapBuilder.put(
+        LogMessage.SystemField.SOURCE.fieldName, new FieldDef(FieldType.TEXT, true, false, false));
+    defaultFieldDefMapBuilder.put(
+        LogMessage.SystemField.ID.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
+        LogMessage.SystemField.INDEX.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        new PropertyDescription(PropertyType.LONG, false, true, false, true));
-    propertyDescriptionBuilder.put(
-        LogMessage.SystemField.TYPE.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
+        new FieldDef(FieldType.LONG, false, true, false, true));
+    defaultFieldDefMapBuilder.put(
+        LogMessage.SystemField.TYPE.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
 
-    propertyDescriptionBuilder.put(
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.HOSTNAME.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.PACKAGE.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.MESSAGE.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
-        LogMessage.ReservedField.TAG.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
+        LogMessage.ReservedField.TAG.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.TIMESTAMP.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.USERNAME.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, true));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.PAYLOAD.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, false, false));
-    propertyDescriptionBuilder.put(
-        LogMessage.ReservedField.NAME.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, false));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, false, false));
+    defaultFieldDefMapBuilder.put(
+        LogMessage.ReservedField.NAME.fieldName, new FieldDef(FieldType.TEXT, false, true, false));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.SERVICE_NAME.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, false));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, false));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.DURATION_MS.fieldName,
-        new PropertyDescription(PropertyType.LONG, false, true, false));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.LONG, false, true, false));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.TRACE_ID.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, false));
-    propertyDescriptionBuilder.put(
+        new FieldDef(FieldType.TEXT, false, true, false));
+    defaultFieldDefMapBuilder.put(
         LogMessage.ReservedField.PARENT_ID.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, false));
+        new FieldDef(FieldType.TEXT, false, true, false));
 
-    return propertyDescriptionBuilder.build();
+    return defaultFieldDefMapBuilder.build();
   }
 
-  static class FieldDef {
-    public final PropertyType type;
-    public final PropertyDescription propertyDescription;
-    // No per field, field conflict policy for now. But placeholder for future.
-    // public final FieldConflictPolicy fieldConflictPolicy = null;
-
-    FieldDef(PropertyType type, PropertyDescription propertyDescription) {
-      this.type = type;
-      this.propertyDescription = propertyDescription;
-    }
-  }
-
-  // TODO: Should this be a per field policy? For now, may be keep it index level?
+  /**
+   * This enum tracks the field conflict policy for a chunk.
+   *
+   * <p>NOTE: In future, we may need this granularity at a per field level. Also, other potential
+   * options for handling these conflicts: (a) store all the conflicted fields as strings by default
+   * so querying those fields is more consistent. (b) duplicate field value only but don't create a
+   * field.
+   */
   public enum FieldConflictPolicy {
     // Throw an error on field conflict.
     RAISE_ERROR,
@@ -297,22 +322,22 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     CONVERT_FIELD_VALUE,
     // Covert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
-    // TODO: Consider another option where all conflicting fields are stored as strings. This
-    //  option is simpler on the query side.
   }
 
-  private static final Map<PropertyType, PropertyDescription> defaultPropDescriptionForType =
+  private static final Map<FieldType, FieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
-          PropertyType.LONG,
-          new PropertyDescription(PropertyType.LONG, true, false, false, true),
-          PropertyType.FLOAT,
-          new PropertyDescription(PropertyType.FLOAT, true, false, false, true),
-          PropertyType.INTEGER,
-          new PropertyDescription(PropertyType.INTEGER, true, false, false, true),
-          PropertyType.DOUBLE,
-          new PropertyDescription(PropertyType.DOUBLE, true, false, false, true),
-          PropertyType.TEXT,
-          new PropertyDescription(PropertyType.TEXT, false, true, true));
+          FieldType.LONG,
+          new FieldDef(FieldType.LONG, true, false, false, true),
+          FieldType.FLOAT,
+          new FieldDef(FieldType.FLOAT, true, false, false, true),
+          FieldType.INTEGER,
+          new FieldDef(FieldType.INTEGER, true, false, false, true),
+          FieldType.DOUBLE,
+          new FieldDef(FieldType.DOUBLE, true, false, false, true),
+          FieldType.TEXT,
+          new FieldDef(FieldType.TEXT, false, true, true),
+          FieldType.BOOLEAN,
+          new FieldDef(FieldType.BOOLEAN, false, true, false));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
@@ -323,39 +348,47 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return fieldDefMap;
   }
 
-  private void addProperty(
-      final Document doc, final String key, final Object value, final String keyPrefix) {
+  private void addField(
+      final Document doc,
+      final String key,
+      final Object value,
+      final String keyPrefix,
+      int nestingDepth) {
     // If value is a list, convert the value to a String and index the field.
     if (value instanceof List) {
-      addProperty(doc, key, Strings.join((List) value, ','), keyPrefix);
+      addField(doc, key, Strings.join((List) value, ','), keyPrefix, nestingDepth);
       return;
     }
 
     String fieldName = keyPrefix.isBlank() || keyPrefix.isEmpty() ? key : keyPrefix + "." + key;
-    // TODO: Add a depth limit for recursion.
-    // Ingest nested map field recursively.
+    // Ingest nested map field recursively upto max nesting. After that index it as a string.
     if (value instanceof Map) {
-      Map<Object, Object> mapValue = (Map<Object, Object>) value;
-      for (Object k : mapValue.keySet()) {
-        if (k instanceof String) {
-          addProperty(doc, (String) k, mapValue.get(k), fieldName);
-        } else {
-          throw new PropertyTypeMismatchException(
-              String.format(
-                  "Property %s, %s has an non-string type which is unsupported", k, value));
+      if (nestingDepth >= MAX_NESTING_DEPTH) {
+        // Once max nesting depth is reached, index the field as a string.
+        addField(doc, key, value.toString(), keyPrefix, nestingDepth + 1);
+      } else {
+        Map<Object, Object> mapValue = (Map<Object, Object>) value;
+        for (Object k : mapValue.keySet()) {
+          if (k instanceof String) {
+            addField(doc, (String) k, mapValue.get(k), fieldName, nestingDepth + 1);
+          } else {
+            throw new FieldDefMismatchException(
+                String.format(
+                    "Field %s, %s has an non-string type which is unsupported", k, value));
+          }
         }
       }
       return;
     }
 
-    PropertyType valueType = getJsonType(value);
+    FieldType valueType = getJsonType(value);
     if (!fieldDefMap.containsKey(fieldName)) {
       indexNewField(doc, fieldName, value, valueType);
     } else {
       FieldDef registeredField = fieldDefMap.get(fieldName);
-      if (registeredField.type == valueType) {
+      if (registeredField.fieldType == valueType) {
         // No field conflicts index it using previous description.
-        indexTypedField(doc, fieldName, value, registeredField.propertyDescription);
+        indexTypedField(doc, fieldName, value, registeredField);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
         switch (indexFieldConflictPolicy) {
@@ -369,7 +402,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Converting field {} value from type {} to {} due to type conflict",
                 fieldName,
                 valueType,
-                registeredField.type);
+                registeredField.fieldType);
             convertFieldValueCounter.increment();
             break;
           case CONVERT_AND_DUPLICATE_FIELD:
@@ -378,7 +411,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Converting field {} value from type {} to {} due to type conflict",
                 fieldName,
                 valueType,
-                registeredField.type);
+                registeredField.fieldType);
             // Add new field with new type
             String newFieldName = makeNewFieldOfType(fieldName, valueType);
             indexNewField(doc, newFieldName, value, valueType);
@@ -386,89 +419,48 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 "Added new field {} of type {} due to type conflict", newFieldName, valueType);
             convertAndDuplicateFieldCounter.increment();
             break;
-            // TODO: Another option is to duplicate field value only and not add?
           case RAISE_ERROR:
-            throw new PropertyTypeMismatchException(
+            throw new FieldDefMismatchException(
                 String.format(
-                    "Property type for field %s is %s but new value is of type  %s. ",
-                    fieldName, registeredField.type, valueType));
+                    "Field type for field %s is %s but new value is of type  %s. ",
+                    fieldName, registeredField.fieldType, valueType));
         }
       }
     }
   }
 
-  private void indexNewField(Document doc, String key, Object value, PropertyType valueType) {
+  private void indexNewField(Document doc, String key, Object value, FieldType valueType) {
     // If we are seeing a field for the first time index it with default template for the
     // valueType and create a field def.
     if (!defaultPropDescriptionForType.containsKey(valueType)) {
       throw new RuntimeException("No default prop description");
     }
 
-    PropertyDescription defaultPropDescription = defaultPropDescriptionForType.get(valueType);
+    FieldDef defaultPropDescription = defaultPropDescriptionForType.get(valueType);
     // add the document to this field.
-    fieldDefMap.put(key, new FieldDef(valueType, defaultPropDescription));
+    fieldDefMap.put(key, defaultPropDescription);
     indexTypedField(doc, key, value, defaultPropDescription);
   }
 
-  static String makeNewFieldOfType(String key, PropertyType valueType) {
+  static String makeNewFieldOfType(String key, FieldType valueType) {
     return key + "_" + valueType.getName();
   }
 
   private static void convertValueAndIndexField(
-      Object value, PropertyType valueType, FieldDef registeredField, Document doc, String key) {
-    Object convertedValue = convertFieldValue(value, valueType, registeredField.type);
+      Object value, FieldType valueType, FieldDef registeredField, Document doc, String key) {
+    Object convertedValue =
+        FieldType.convertFieldValue(value, valueType, registeredField.fieldType);
     if (convertedValue == null) {
       throw new RuntimeException("No mapping found to convert value");
     }
-    indexTypedField(doc, key, convertedValue, registeredField.propertyDescription);
+    indexTypedField(doc, key, convertedValue, registeredField);
   }
 
-  // TODO: Move to PropertyType?
-  private static Object convertFieldValue(
-      Object value, PropertyType fromType, PropertyType toType) {
-    // String type
-    if (fromType == PropertyType.TEXT) {
-      if (toType == PropertyType.INTEGER) {
-        return Integer.valueOf((String) value);
-      }
-      if (toType == PropertyType.LONG) {
-        return Long.valueOf((String) value);
-      }
-      if (toType == PropertyType.FLOAT || toType == PropertyType.DOUBLE) {
-        return Double.valueOf((String) value);
-      }
-    }
-
-    // Int type
-    if (fromType == PropertyType.INTEGER) {
-      if (toType == PropertyType.TEXT) {
-        return ((Integer) value).toString();
-      }
-      if (toType == PropertyType.LONG) {
-        return ((Integer) value).longValue();
-      }
-      if (toType == PropertyType.FLOAT) {
-        return ((Integer) value).floatValue();
-      }
-      if (toType == PropertyType.DOUBLE) {
-        return ((Integer) value).doubleValue();
-      }
-    }
-    return null;
+  private static void indexTypedField(Document doc, String key, Object value, FieldDef fieldDef) {
+    fieldDef.fieldType.addField(doc, key, value, fieldDef);
   }
 
-  private static void indexTypedField(
-      Document doc, String key, Object value, PropertyDescription propertyDescription) {
-
-    propertyDescription.propertyType.addField(doc, key, value, propertyDescription);
-
-    // TODO: Add logic for map type.
-    // TODO: Ignore exceptional fields when needed?
-  }
-
-  private static void addStringProperty(
-      Document doc, String name, String value, PropertyDescription description) {
-
+  private static void addTextField(Document doc, String name, String value, FieldDef description) {
     if (description.isIndexed) {
       if (description.isAnalyzed) {
         doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
@@ -486,37 +478,34 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
-  private static PropertyType getJsonType(Object value) {
+  private static FieldType getJsonType(Object value) {
     if (value instanceof Long) {
-      return PropertyType.LONG;
+      return FieldType.LONG;
     }
     if (value instanceof Integer) {
-      return PropertyType.INTEGER;
+      return FieldType.INTEGER;
     }
     if (value instanceof String) {
-      return PropertyType.TEXT;
+      return FieldType.TEXT;
     }
     if (value instanceof Float) {
-      return PropertyType.FLOAT;
+      return FieldType.FLOAT;
     }
     if (value instanceof Boolean) {
-      return PropertyType.BOOLEAN;
+      return FieldType.BOOLEAN;
     }
     if (value instanceof Double) {
-      return PropertyType.DOUBLE;
+      return FieldType.DOUBLE;
     }
 
-    // TODO: Handle other tyoes like map and list or nested objects?
     throw new RuntimeException("Unknown type");
   }
 
   public static SchemaAwareLogDocumentBuilderImpl build(
       FieldConflictPolicy fieldConflictPolicy, MeterRegistry meterRegistry) {
-    Map<String, FieldDef> initialFields = new HashMap<>();
-    // Add default fields and their property descriptions
-    getDefaultPropertyDescriptions()
-        .forEach((k, v) -> initialFields.put(k, new FieldDef(v.propertyType, v)));
-    return new SchemaAwareLogDocumentBuilderImpl(fieldConflictPolicy, initialFields, meterRegistry);
+    // Add basic fields by default
+    return new SchemaAwareLogDocumentBuilderImpl(
+        fieldConflictPolicy, getDefaultFieldDefinitions(), meterRegistry);
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
@@ -544,19 +533,20 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   @Override
   public Document fromMessage(LogMessage message) throws JsonProcessingException {
     Document doc = new Document();
-    addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "");
-    addProperty(
-        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "");
-    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "");
-    addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id, "");
-    addProperty(
+    addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "", 0);
+    addField(
+        doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "", 0);
+    addField(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "", 0);
+    addField(doc, LogMessage.SystemField.ID.fieldName, message.id, "", 0);
+    addField(
         doc,
         LogMessage.SystemField.SOURCE.fieldName,
         JsonUtil.writeAsString(message.toWireMessage()),
-        "");
+        "",
+        0);
     for (String key : message.source.keySet()) {
       LOG.info("Adding key {}", key);
-      addProperty(doc, key, message.source.get(key), "");
+      addField(doc, key, message.source.get(key), "", 0);
     }
     return doc;
   }
