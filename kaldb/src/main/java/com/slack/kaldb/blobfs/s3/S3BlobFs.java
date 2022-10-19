@@ -68,7 +68,7 @@ public class S3BlobFs extends BlobFs {
     AwsCredentialsProvider awsCredentialsProvider;
     try {
 
-      if (!isNullOrEmpty(config.getS3AccessKey()) && !isNullOrEmpty(config.getS3AccessKey())) {
+      if (!isNullOrEmpty(config.getS3AccessKey()) && !isNullOrEmpty(config.getS3SecretKey())) {
         String accessKey = config.getS3AccessKey();
         String secretKey = config.getS3SecretKey();
         AwsBasicCredentials awsBasicCredentials = AwsBasicCredentials.create(accessKey, secretKey);
