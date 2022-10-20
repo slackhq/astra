@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore;
 
-import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.*;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.CONVERT_AND_DUPLICATE_FIELD_COUNTER;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.CONVERT_FIELD_VALUE_COUNTER;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.DROP_FIELDS_COUNTER;
@@ -8,7 +7,9 @@ import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldCo
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR;
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldType;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldType.convertFieldValue;
+import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.build;
 import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -340,7 +341,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   }
 
   @Test
-  public void testRaiseErrorOnConflictingReservedField() throws JsonProcessingException {
+  public void testRaiseErrorOnConflictingReservedField() {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, meterRegistry);
     assertThat(docBuilder.getFieldDefMap().size()).isEqualTo(17);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
