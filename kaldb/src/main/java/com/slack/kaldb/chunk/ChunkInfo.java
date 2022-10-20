@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.Objects;
 
 /**
@@ -40,7 +41,8 @@ public class ChunkInfo {
         chunkInfo.getDataStartTimeEpochMs(),
         chunkInfo.getDataEndTimeEpochMs(),
         chunkInfo.maxOffset,
-        chunkInfo.kafkaPartitionId);
+        chunkInfo.kafkaPartitionId,
+        Metadata.IndexType.LOGS_LUCENE9);
   }
 
   /* A unique identifier for a the chunk. */

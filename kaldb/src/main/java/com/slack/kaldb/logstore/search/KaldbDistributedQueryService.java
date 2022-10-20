@@ -171,14 +171,37 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   @VisibleForTesting
-  protected static Set<String> getMatchingSearchMetadata(
+  protected static Map<String, List<String>> getNodesAndSnapshotsToQuery(
+      Map<String, List<SearchMetadata>> searchMetadataNodesBySnapshotName) {
+    ScopedSpan getQueryNodesSpan =
+        Tracing.currentTracer()
+            .startScopedSpan("KaldbDistributedQueryService.getNodesAndSnapshotsToQuery");
+    Map<String, List<String>> nodeUrlToSnapshotNames = new HashMap<>();
+    for (List<SearchMetadata> searchMetadataList : searchMetadataNodesBySnapshotName.values()) {
+      SearchMetadata searchMetadata =
+          KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadataList);
+
+      if (nodeUrlToSnapshotNames.containsKey(searchMetadata.url)) {
+        nodeUrlToSnapshotNames.get(searchMetadata.url).add(getRawSnapshotName(searchMetadata));
+      } else {
+        List<String> snapshotNames = new ArrayList<>();
+        snapshotNames.add(getRawSnapshotName(searchMetadata));
+        nodeUrlToSnapshotNames.put(searchMetadata.url, snapshotNames);
+      }
+    }
+    getQueryNodesSpan.finish();
+    return nodeUrlToSnapshotNames;
+  }
+
+  @VisibleForTesting
+  protected static Map<String, List<SearchMetadata>> getMatchingSearchMetadata(
       SearchMetadataStore searchMetadataStore, Map<String, SnapshotMetadata> snapshotsToSearch) {
     // iterate every search metadata whose snapshot needs to be searched.
-    // if there are multiple search metadata nodes then pck the most on based on
+    // if there are multiple search metadata nodes then pick the most on based on
     // pickSearchNodeToQuery
-    ScopedSpan pickSearchNodeToQuerySpan =
+    ScopedSpan getMatchingSearchMetadataSpan =
         Tracing.currentTracer()
-            .startScopedSpan("KaldbDistributedQueryService.pickSearchNodeToQuery");
+            .startScopedSpan("KaldbDistributedQueryService.getMatchingSearchMetadata");
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
     for (SearchMetadata searchMetadata : searchMetadataStore.getCached()) {
@@ -195,14 +218,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         searchMetadataGroupedByName.put(rawSnapshotName, searchMetadataList);
       }
     }
-
-    Set<String> nodes = new HashSet<>();
-    for (List<SearchMetadata> searchMetadata : searchMetadataGroupedByName.values()) {
-      nodes.add(KaldbDistributedQueryService.pickSearchNodeToQuery(searchMetadata));
-    }
-    pickSearchNodeToQuerySpan.finish();
-
-    return nodes;
+    getMatchingSearchMetadataSpan.finish();
+    return searchMetadataGroupedByName;
   }
 
   @VisibleForTesting
@@ -265,9 +282,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
    If the same snapshot exists on indexer and cache node prefer cache
    If there are multiple cache nodes, pick a cache node at random
   */
-  private static String pickSearchNodeToQuery(List<SearchMetadata> queryableSearchMetadataNodes) {
+  private static SearchMetadata pickSearchNodeToQuery(
+      List<SearchMetadata> queryableSearchMetadataNodes) {
     if (queryableSearchMetadataNodes.size() == 1) {
-      return queryableSearchMetadataNodes.get(0).url;
+      return queryableSearchMetadataNodes.get(0);
     } else {
       List<SearchMetadata> cacheNodeHostedSearchMetadata = new ArrayList<>();
       for (SearchMetadata searchMetadata : queryableSearchMetadataNodes) {
@@ -276,11 +294,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         }
       }
       if (cacheNodeHostedSearchMetadata.size() == 1) {
-        return cacheNodeHostedSearchMetadata.get(0).url;
+        return cacheNodeHostedSearchMetadata.get(0);
       } else {
         return cacheNodeHostedSearchMetadata.get(
-                ThreadLocalRandom.current().nextInt(cacheNodeHostedSearchMetadata.size()))
-            .url;
+            ThreadLocalRandom.current().nextInt(cacheNodeHostedSearchMetadata.size()));
       }
     }
   }
@@ -296,31 +313,41 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
   }
 
-  private List<SearchResult<LogMessage>> distributedSearch(KaldbSearch.SearchRequest request) {
-    LOG.info("Starting distributed search for request: {}", request);
+  private List<SearchResult<LogMessage>> distributedSearch(
+      final KaldbSearch.SearchRequest distribSearchReq) {
+    LOG.info("Starting distributed search for request: {}", distribSearchReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
-    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
-
-    Map<String, SnapshotMetadata> snapshotsToSearch =
+    Map<String, SnapshotMetadata> snapshotsMatchingQuery =
         getMatchingSnapshots(
             snapshotMetadataStore,
             datasetMetadataStore,
-            request.getStartTimeEpochMs(),
-            request.getEndTimeEpochMs(),
-            request.getDataset());
+            distribSearchReq.getStartTimeEpochMs(),
+            distribSearchReq.getEndTimeEpochMs(),
+            distribSearchReq.getDataset());
 
-    Collection<String> nodes = getMatchingSearchMetadata(searchMetadataStore, snapshotsToSearch);
+    // for each matching snapshot, we find the search metadata nodes that we can potentially query
+    Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
+        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
 
-    ArrayList<KaldbServiceGrpc.KaldbServiceFutureStub> queryStubs = new ArrayList<>(nodes.size());
-    for (String searchNodeUrl : nodes) {
-      queryStubs.add(getStub(searchNodeUrl));
-    }
+    // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
+    // underlying URL to query
+    Map<String, List<String>> nodesAndSnapshotsToQuery =
+        getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
-    span.tag("queryServerCount", String.valueOf(queryStubs.size()));
+    span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
+    List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
+    for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
+      KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
+      if (stub == null) {
+        // TODO: insert a failed result in the results object that we return from this method
+        // mimicing
+        continue;
+      }
 
-    for (KaldbServiceGrpc.KaldbServiceFutureStub stub : queryStubs) {
+      KaldbSearch.SearchRequest localSearchReq =
+          distribSearchReq.toBuilder().addAllChunkIds(searchNode.getValue()).build();
 
       // make sure all underlying futures finish executing (successful/cancelled/failed/other)
       // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
@@ -328,9 +355,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
               .withInterceptors(
                   GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
-              .search(request);
+              .search(localSearchReq);
       Function<KaldbSearch.SearchResult, SearchResult<LogMessage>> searchRequestTransform =
           SearchResultUtils::fromSearchResultProtoOrEmpty;
+
       queryServers.add(
           Futures.transform(
               searchRequest,
@@ -344,11 +372,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
           searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
       LOG.debug("searchResults.size={} searchResults={}", searchResults.size(), searchResults);
 
-      ArrayList<SearchResult<LogMessage>> result = new ArrayList(searchResults.size());
+      List<SearchResult<LogMessage>> response = new ArrayList(searchResults.size());
       for (SearchResult<LogMessage> searchResult : searchResults) {
-        result.add(searchResult == null ? SearchResult.empty() : searchResult);
+        response.add(searchResult == null ? SearchResult.empty() : searchResult);
       }
-      return result;
+      return response;
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
@@ -357,12 +385,12 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       // always request future cancellation, so that any exceptions or incomplete futures don't
       // continue to consume CPU on work that will not be used
       searchFuture.cancel(false);
-      LOG.info("Finished distributed search for request: {}", request);
+      LOG.info("Finished distributed search for request: {}", distribSearchReq);
       span.finish();
     }
   }
 
-  public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
+  public KaldbSearch.SearchResult doSearch(final KaldbSearch.SearchRequest request) {
     try {
       List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
       SearchResult<LogMessage> aggregatedResult =

@@ -98,9 +98,15 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    metadataStore.close();
-    s3Client.close();
-    localZkServer.stop();
+    if (metadataStore != null) {
+      metadataStore.close();
+    }
+    if (s3Client != null) {
+      s3Client.close();
+    }
+    if (localZkServer != null) {
+      localZkServer.stop();
+    }
   }
 
   private void initChunkManager(

@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.core;
 
 import static com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore.SNAPSHOT_METADATA_STORE_ZK_PATH;
 import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,7 +53,7 @@ public class KaldbMetadataStoreTest {
     final String partitionId = "1";
 
     return new SnapshotMetadata(
-        name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+        name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
   }
 
   public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
@@ -130,7 +131,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -148,7 +149,13 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata newSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc + 1, endTimeUtc + 1, maxOffset + 100, partitionId);
+              name,
+              snapshotPath,
+              startTimeUtc + 1,
+              endTimeUtc + 1,
+              maxOffset + 100,
+              partitionId,
+              LOGS_LUCENE9);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
@@ -210,7 +217,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
@@ -868,7 +875,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata snapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
 
       assertThat(store.list().get()).isEmpty();
       assertThat(store.create(snapshot).get()).isNull();
@@ -886,7 +893,13 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata newSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc + 1, endTimeUtc + 1, maxOffset + 100, partitionId);
+              name,
+              snapshotPath,
+              startTimeUtc + 1,
+              endTimeUtc + 1,
+              maxOffset + 100,
+              partitionId,
+              LOGS_LUCENE9);
       assertThat(store.update(newSnapshot).get()).isNull();
       assertThat(store.list().get().size()).isEqualTo(1);
       assertThat(store.list().get()).containsOnly(newSnapshot);
@@ -948,7 +961,7 @@ public class KaldbMetadataStoreTest {
 
       final SnapshotMetadata testSnapshot =
           new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId);
+              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
       assertThat(store.create(testSnapshot).get()).isNull();
 
       SnapshotMetadata metadata = store.getNode(name).get();
