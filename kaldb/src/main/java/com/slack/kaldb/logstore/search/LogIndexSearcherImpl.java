@@ -15,6 +15,8 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.logstore.query.KaldbQueryParser;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -22,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
@@ -45,6 +48,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final SearcherManager searcherManager;
   private final StandardAnalyzer analyzer;
+  private final Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> fieldDefMap;
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
@@ -61,14 +65,23 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return numDocs;
   }
 
+  // TODO: Deprecate this method
   public LogIndexSearcherImpl(SearcherManager searcherManager) {
+    this(searcherManager, Collections.emptyMap());
+  }
+
+  public LogIndexSearcherImpl(
+      SearcherManager searcherManager,
+      Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> fieldDefMap) {
     this.searcherManager = searcherManager;
+    this.fieldDefMap = fieldDefMap;
     this.analyzer = new StandardAnalyzer();
   }
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
   private QueryParser buildQueryParser() {
-    return new QueryParser(ReservedField.MESSAGE.fieldName, analyzer);
+    // TODO: Pass in the actual field map.
+    return new KaldbQueryParser(ReservedField.MESSAGE.fieldName, analyzer, fieldDefMap);
   }
 
   public SearchResult<LogMessage> search(
