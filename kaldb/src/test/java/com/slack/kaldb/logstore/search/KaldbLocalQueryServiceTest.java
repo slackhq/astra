@@ -32,7 +32,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
 
 public class KaldbLocalQueryServiceTest {
   private static final String TEST_KAFKA_PARITION_ID = "10";
