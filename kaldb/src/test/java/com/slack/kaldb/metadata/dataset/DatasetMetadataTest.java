@@ -53,6 +53,7 @@ public class DatasetMetadataTest {
   }
 
   @Test
+  @SuppressWarnings("DoNotCall")
   public void testServiceMetadataImmutableList() {
     final String name = "testService";
     final String owner = "serviceOwner";

@@ -1,6 +1,10 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ChunkInfo.*;
+import static com.slack.kaldb.chunk.ChunkInfo.DEFAULT_MAX_OFFSET;
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
+import static com.slack.kaldb.chunk.ChunkInfo.fromSnapshotMetadata;
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
