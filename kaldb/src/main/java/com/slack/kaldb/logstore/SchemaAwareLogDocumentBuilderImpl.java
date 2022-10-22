@@ -135,17 +135,37 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       return name;
     }
 
+    @VisibleForTesting
     static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
       // String type
       if (fromType == FieldType.TEXT) {
         if (toType == FieldType.INTEGER) {
-          return Integer.valueOf((String) value);
+          try {
+            return Integer.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (int) 0;
+          }
         }
         if (toType == FieldType.LONG) {
-          return Long.valueOf((String) value);
+          try {
+            return Long.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (long) 0;
+          }
         }
-        if (toType == FieldType.FLOAT || toType == FieldType.DOUBLE) {
-          return Double.valueOf((String) value);
+        if (toType == FieldType.DOUBLE) {
+          try {
+            return Double.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (double) 0;
+          }
+        }
+        if (toType == FieldType.FLOAT) {
+          try {
+            return Float.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (float) 0;
+          }
         }
       }
 
