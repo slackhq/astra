@@ -6,8 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"spangen/spangen/proto"
 	"time"
-	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
 
 	"strconv"
 	"strings"
@@ -42,33 +42,33 @@ func reporterHelp() string {
 	return str
 }
 
-func StringKV(key, val string) *tracepb.KeyValue {
-	return makeKV(key, val, tracepb.ValueType_STRING)
+func StringKV(key, val string) *proto.KeyValue {
+	return makeKV(key, val, proto.ValueType_STRING)
 }
-func BinaryKV(key string, val []byte) *tracepb.KeyValue {
-	return makeKV(key, val, tracepb.ValueType_BINARY)
+func BinaryKV(key string, val []byte) *proto.KeyValue {
+	return makeKV(key, val, proto.ValueType_BINARY)
 }
-func BoolKV(key string, val bool) *tracepb.KeyValue {
-	return makeKV(key, val, tracepb.ValueType_BOOL)
+func BoolKV(key string, val bool) *proto.KeyValue {
+	return makeKV(key, val, proto.ValueType_BOOL)
 }
-func Float64KV(key string, val float64) *tracepb.KeyValue {
-	return makeKV(key, val, tracepb.ValueType_FLOAT64)
+func Float64KV(key string, val float64) *proto.KeyValue {
+	return makeKV(key, val, proto.ValueType_FLOAT64)
 }
-func Int64KV(key string, val int64) *tracepb.KeyValue {
-	return makeKV(key, val, tracepb.ValueType_INT64)
+func Int64KV(key string, val int64) *proto.KeyValue {
+	return makeKV(key, val, proto.ValueType_INT64)
 }
-func makeKV(key string, val interface{}, vtype tracepb.ValueType) *tracepb.KeyValue {
-	kv := &tracepb.KeyValue{Key: key, VType: vtype}
+func makeKV(key string, val interface{}, vtype proto.ValueType) *proto.KeyValue {
+	kv := &proto.KeyValue{Key: key, VType: vtype}
 	switch vtype {
-	case tracepb.ValueType_STRING:
+	case proto.ValueType_STRING:
 		kv.VStr = val.(string)
-	case tracepb.ValueType_BINARY:
+	case proto.ValueType_BINARY:
 		kv.VBinary = val.([]byte)
-	case tracepb.ValueType_BOOL:
+	case proto.ValueType_BOOL:
 		kv.VBool = val.(bool)
-	case tracepb.ValueType_FLOAT64:
+	case proto.ValueType_FLOAT64:
 		kv.VFloat64 = val.(float64)
-	case tracepb.ValueType_INT64:
+	case proto.ValueType_INT64:
 		kv.VInt64 = val.(int64)
 	}
 	return kv
@@ -128,21 +128,21 @@ type spanArgs struct {
 	id, parentID, traceID, name string
 	startMicros, durationMicros int64
 
-	tags []*tracepb.KeyValue
+	tags []*proto.KeyValue
 }
 
 // appends to tags
-func (x *spanArgs) appendTag(tag *tracepb.KeyValue) { x.tags = append(x.tags, tag) }
+func (x *spanArgs) appendTag(tag *proto.KeyValue) { x.tags = append(x.tags, tag) }
 
 // convert spanArgs into a span pb
-func (x *spanArgs) ToSpan() *tracepb.Span {
+func (x *spanArgs) ToSpan() *proto.Span {
 	if oneOff && x.id == "" {
 		x.id = string(NewSpanID())
 	}
 	if oneOff && x.traceID == "" {
 		x.traceID = string(NewTraceID())
 	}
-	return &tracepb.Span{
+	return &proto.Span{
 		Id:                   []byte(x.id),
 		ParentId:             []byte(x.parentID),
 		TraceId:              []byte(x.traceID),
@@ -284,7 +284,7 @@ func main() {
 // prints error to stderr
 // prints results json to stdout if verbose
 // exits the program with given code
-func exitOnError(span *tracepb.Span, code int, pre string, err error) {
+func exitOnError(span *proto.Span, code int, pre string, err error) {
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s: %v\n", pre, err)
 		printResults(span, err)
@@ -294,13 +294,13 @@ func exitOnError(span *tracepb.Span, code int, pre string, err error) {
 
 // prints results json to stdout if verbose
 // exists the program with code 0
-func exitSuccess(span *tracepb.Span) {
+func exitSuccess(span *proto.Span) {
 	printResults(span, nil)
 	os.Exit(0)
 }
 
 // prints results json to stdout if verbose
-func printResults(span *tracepb.Span, err error) {
+func printResults(span *proto.Span, err error) {
 	// print the span back to user as json
 	if verbose {
 		msg := map[string]interface{}{"span": span, "ok": err == nil}

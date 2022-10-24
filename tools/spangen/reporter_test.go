@@ -1,16 +1,15 @@
 package main
 
 import (
+	"spangen/spangen/proto"
 	// "slack-github.com/slack/murron/pkg/inputs/wallace"
 	// "slack-github.com/slack/murron/pkg/traces"
 	"testing"
-
-	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
 )
 
 func Test_noopReporter_Report(t *testing.T) {
 	type args struct {
-		span *tracepb.Span
+		span *proto.Span
 	}
 	for _, tt := range []struct {
 		name    string

@@ -1,2 +1,2 @@
 gen:
-  protoc --go_out=vendor/ proto/trace.proto
+  protoc --go_out=spangen/spangen/proto proto/trace.proto

@@ -1,15 +1,15 @@
 package main
 
 import (
-	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
+	"spangen/spangen/proto"
 )
 
 // Interface for reporting a span
 type Reporter interface {
-	Report(span *tracepb.Span) error
+	Report(span *proto.Span) error
 }
 
 // does nothing
 type noopReporter struct{}
 
-func (x *noopReporter) Report(span *tracepb.Span) error { return nil }
+func (x *noopReporter) Report(span *proto.Span) error { return nil }

@@ -3,7 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/stretchr/testify/assert"
-	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
+	"spangen/spangen/proto"
+
 	// "slack-github.com/slack/murron/pkg/traces"
 	"testing"
 )
@@ -18,7 +19,7 @@ type tagValueTest struct {
 	expectedVStr     string  // result tag string value (if no error)
 }
 
-func runTagValueTests(t *testing.T, setter flag.Value, expectedVType tracepb.ValueType, tests []*tagValueTest) {
+func runTagValueTests(t *testing.T, setter flag.Value, expectedVType proto.ValueType, tests []*tagValueTest) {
 	assert := assert.New(t)
 
 	// tests that should always pass
@@ -74,7 +75,7 @@ func TestBoolTagValue(t *testing.T) {
 		{argString: "test-key:True", expectedKey: "test-key", expectedVBool: true},
 		{argString: "test-key:False", expectedKey: "test-key", expectedVBool: false},
 	}
-	runTagValueTests(t, new(boolTagValue), tracepb.ValueType_BOOL, tests)
+	runTagValueTests(t, new(boolTagValue), proto.ValueType_BOOL, tests)
 }
 
 func TestFloatTagValue(t *testing.T) {
@@ -84,7 +85,7 @@ func TestFloatTagValue(t *testing.T) {
 		{argString: "test-key:2.718", expectedKey: "test-key", expectedVFloat64: 2.718},
 		{argString: "test-key:-2.718", expectedKey: "test-key", expectedVFloat64: -2.718},
 	}
-	runTagValueTests(t, new(floatTagValue), tracepb.ValueType_FLOAT64, tests)
+	runTagValueTests(t, new(floatTagValue), proto.ValueType_FLOAT64, tests)
 }
 
 func TestIntTagValue(t *testing.T) {
@@ -94,7 +95,7 @@ func TestIntTagValue(t *testing.T) {
 		{argString: "test-key:420", expectedKey: "test-key", expectedVInt64: 420},
 		{argString: "test-key:-420", expectedKey: "test-key", expectedVInt64: -420},
 	}
-	runTagValueTests(t, new(intTagValue), tracepb.ValueType_INT64, tests)
+	runTagValueTests(t, new(intTagValue), proto.ValueType_INT64, tests)
 }
 
 func TestStringTagValue(t *testing.T) {
@@ -105,7 +106,7 @@ func TestStringTagValue(t *testing.T) {
 		{argString: "test-key:a simple string", expectedKey: "test-key", expectedVStr: "a simple string"},
 		{argString: "test-key:::colon::::separated::string:", expectedKey: "test-key", expectedVStr: "::colon::::separated::string:"},
 	}
-	runTagValueTests(t, new(stringTagValue), tracepb.ValueType_STRING, tests)
+	runTagValueTests(t, new(stringTagValue), proto.ValueType_STRING, tests)
 }
 
 func TestSpanArgs_ToSpan(t *testing.T) {
@@ -118,7 +119,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 		name     string
 		spanArgs *spanArgs
 		oneOff   bool
-		want     *tracepb.Span
+		want     *proto.Span
 	}{
 		{
 			name: "all fields one-off=false",
@@ -129,16 +130,16 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
 			},
-			want: &tracepb.Span{
+			want: &proto.Span{
 				Id:                   []byte("mock-id"),
 				ParentId:             []byte("mock-parent-id"),
 				TraceId:              []byte("mock-trace-id"),
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				Tags:                 []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -151,16 +152,16 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
 			},
-			want: &tracepb.Span{
+			want: &proto.Span{
 				Id:                   []byte("mock-id"),
 				ParentId:             []byte("mock-parent-id"),
 				TraceId:              []byte("mock-trace-id"),
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
+				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -172,16 +173,16 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
-			want: &tracepb.Span{
+			want: &proto.Span{
 				Id:                   []byte("new-id"),
 				ParentId:             []byte("mock-parent-id"),
 				TraceId:              []byte("mock-trace-id"),
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
+				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -193,16 +194,16 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
-			want: &tracepb.Span{
+			want: &proto.Span{
 				Id:                   []byte("mock-id"),
 				ParentId:             []byte("mock-parent-id"),
 				TraceId:              []byte("new-trace-id"),
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
+				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 	} {

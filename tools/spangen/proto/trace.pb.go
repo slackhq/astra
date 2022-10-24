@@ -6,7 +6,7 @@
 // 	protoc        v3.21.8
 // source: proto/trace.proto
 
-package tracepb
+package proto
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -89,9 +89,9 @@ type KeyValue struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key      string    `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	VType    ValueType `protobuf:"varint,2,opt,name=v_type,json=vType,proto3,enum=trace.ValueType" json:"v_type,omitempty"`
-	VStr     string    `protobuf:"bytes,3,opt,name=v_str,json=vStr,proto3" json:"v_str,omitempty"`
+	Key   string    `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	VType ValueType `protobuf:"varint,2,opt,name=v_type,json=vType,proto3,enum=trace.ValueType" json:"v_type,omitempty"`
+	VStr  string    `protobuf:"bytes,3,opt,name=v_str,json=vStr,proto3" json:"v_str,omitempty"`
 	VBool    bool      `protobuf:"varint,4,opt,name=v_bool,json=vBool,proto3" json:"v_bool,omitempty"`
 	VInt64   int64     `protobuf:"varint,5,opt,name=v_int64,json=vInt64,proto3" json:"v_int64,omitempty"`
 	VFloat64 float64   `protobuf:"fixed64,6,opt,name=v_float64,json=vFloat64,proto3" json:"v_float64,omitempty"`
