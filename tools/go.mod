@@ -4,9 +4,11 @@ go 1.19
 
 require (
   google.golang.org/protobuf v1.25.0
+  github.com/stretchr/testify v1.7.0
 )
 
 require (
-	golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	golang.org/x/text v0.3.3 // indirect
 	rsc.io/sampler v1.3.0 // indirect
 )

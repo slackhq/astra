@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"slack-github.com/slack/murron/gen/proto/tracepb"
-	client "slack-github.com/slack/murron/pkg/clients/go"
-	"slack-github.com/slack/murron/pkg/core/lib"
-	"slack-github.com/slack/murron/pkg/traces"
+	// client "slack-github.com/slack/murron/pkg/clients/go"
+	// "slack-github.com/slack/murron/pkg/core/lib"
+	// "slack-github.com/slack/murron/pkg/traces"
 )
 
 // Interface for reporting a span
