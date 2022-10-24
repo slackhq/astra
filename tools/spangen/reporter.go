@@ -22,44 +22,7 @@ type noopReporter struct{}
 
 func (x *noopReporter) Report(span *tracepb.Span) error { return nil }
 
-// reports to murron-agent
-type agentReporter struct{}
-
-func (x *agentReporter) Report(span *tracepb.Span) error {
-	// read the agent config
-	config, err := lib.ReadConfig(configFile)
-	if err != nil {
-		return fmt.Errorf("lib.ReadConfig() failed: %v", err)
-	}
-
-	// create the murron writer config
-	writerConfig := client.NewDefaultConfig()
-	writerConfig.AsyncEnabled = false
-	writerConfig.SocketPath = config.BinaryInputSocket
-	writerConfig.BacklogPath = config.BinaryBacklog
-	writerConfig.Logger = nil // suppress logging in the writer
-
-	// create the murron writer
-	murronWriter := client.NewMurronWriter(writerConfig)
-
-	// format as binary murron message
-	// this method returns a slice, but it'll always only include a singe message since
-	// we're formatting a single span.
-	messages, err := (traces.Spans)([]*tracepb.Span{span}).FormatBinaryMurronMessage()
-	if err != nil {
-		return fmt.Errorf("span.FormatBinaryMurronMessage() failed: %v", err)
-	}
-
-	// write the messages to murron-agent
-	for _, message := range messages {
-		err := murronWriter.WriteMessage(message)
-		if err != nil {
-			return fmt.Errorf("murronWriter.WriteMessage() failed: %v", err)
-		}
-	}
-	return nil
-}
-
+/*
 // reports to wallace http endpoint
 type wallaceReporter struct{ endpoint string }
 
@@ -104,3 +67,4 @@ func (x *wallaceReporter) do(req *http.Request) error {
 	}
 	return nil
 }
+*/

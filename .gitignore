@@ -20,3 +20,6 @@ benchmarks/jmh-output/
 
 # Test files
 indices/
+
+# go vendor files.
+vendor/
