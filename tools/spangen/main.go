@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	math_rand "math/rand"
 	"os"
 	"spangen/spangen/proto"
-	"time"
-
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Trace helpers
@@ -247,12 +247,6 @@ func parseTagArg(argString string) (string, string, error) {
 func main() {
 	// parse flags
 	flag.Parse()
-
-	// check if version was requested
-	if verFlag {
-		fmt.Println(version.String())
-		os.Exit(0)
-	}
 
 	spanReporter := reporters[reporter]
 	if spanReporter == nil {

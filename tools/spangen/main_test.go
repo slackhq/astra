@@ -4,8 +4,6 @@ import (
 	"flag"
 	"github.com/stretchr/testify/assert"
 	"spangen/spangen/proto"
-
-	// "slack-github.com/slack/murron/pkg/traces"
 	"testing"
 )
 
@@ -130,7 +128,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
 				Id:                   []byte("mock-id"),
@@ -139,7 +137,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
+				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -152,7 +150,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*proto.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
 				Id:                   []byte("mock-id"),
