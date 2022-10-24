@@ -3,7 +3,7 @@ package com.slack.kaldb.metadata.zookeeper;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.slack.kaldb.metadata.core.CacheableMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
-import java.util.*;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

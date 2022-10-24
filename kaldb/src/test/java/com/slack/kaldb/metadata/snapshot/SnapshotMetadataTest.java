@@ -1,7 +1,8 @@
 package com.slack.kaldb.metadata.snapshot;
 
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.util.HashSet;
 import java.util.Map;
