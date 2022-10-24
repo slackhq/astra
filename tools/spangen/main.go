@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"slack-github.com/slack/murron/gen/proto/tracepb"
+	"com.slack.kaldb/slack/gen/proto/tracepb"
 	"slack-github.com/slack/murron/pkg/traces"
 	"strconv"
 	"strings"
