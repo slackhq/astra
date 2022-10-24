@@ -1077,4 +1077,3 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }
 }
-
