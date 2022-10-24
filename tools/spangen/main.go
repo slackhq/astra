@@ -6,12 +6,75 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"com.slack/kaldb/slack/gen/proto/tracepb"
-	// "slack-github.com/slack/murron/pkg/traces"
+	"time"
+	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
+
 	"strconv"
 	"strings"
 )
 
+// Trace helpers
+const PipelineTagKey = "__dataset"
+
+// create a seeded rand
+var rand = math_rand.New(math_rand.NewSource(time.Now().UnixNano()))
+
+// Generate trace and span id valid per open tracing specs
+// https://github.com/opentracing/specification/blob/master/rfc/trace_identifiers.md
+var NewTraceID = func() []byte {
+	hi := rand.Uint64()
+	lo := rand.Uint64()
+	if hi == 0 {
+		return []byte(fmt.Sprintf("%x", lo))
+	}
+	return []byte(fmt.Sprintf("%x%016x", hi, lo))
+}
+
+var NewSpanID = func() []byte {
+	return []byte(fmt.Sprintf("%x", rand.Uint64()))
+}
+
+func reporterHelp() string {
+	str := "allowed reporters:"
+	for k := range reporters {
+		str += " " + k
+	}
+	return str
+}
+
+func StringKV(key, val string) *tracepb.KeyValue {
+	return makeKV(key, val, tracepb.ValueType_STRING)
+}
+func BinaryKV(key string, val []byte) *tracepb.KeyValue {
+	return makeKV(key, val, tracepb.ValueType_BINARY)
+}
+func BoolKV(key string, val bool) *tracepb.KeyValue {
+	return makeKV(key, val, tracepb.ValueType_BOOL)
+}
+func Float64KV(key string, val float64) *tracepb.KeyValue {
+	return makeKV(key, val, tracepb.ValueType_FLOAT64)
+}
+func Int64KV(key string, val int64) *tracepb.KeyValue {
+	return makeKV(key, val, tracepb.ValueType_INT64)
+}
+func makeKV(key string, val interface{}, vtype tracepb.ValueType) *tracepb.KeyValue {
+	kv := &tracepb.KeyValue{Key: key, VType: vtype}
+	switch vtype {
+	case tracepb.ValueType_STRING:
+		kv.VStr = val.(string)
+	case tracepb.ValueType_BINARY:
+		kv.VBinary = val.([]byte)
+	case tracepb.ValueType_BOOL:
+		kv.VBool = val.(bool)
+	case tracepb.ValueType_FLOAT64:
+		kv.VFloat64 = val.(float64)
+	case tracepb.ValueType_INT64:
+		kv.VInt64 = val.(int64)
+	}
+	return kv
+}
+
+// Span gen code.
 var (
 	// set from cmd flags
 	rawSpan     *spanArgs
@@ -25,18 +88,10 @@ var (
 
 // list of reporter end points
 var reporters = map[string]Reporter{
-	"noop":           new(noopReporter),
-  // TODO: Add a http reporter.
-  // TODO: Add a console reporter.
-  // TODO: Remove no-op in favor of console?
-}
-
-func reporterHelp() string {
-	str := "allowed reporters:"
-	for k := range reporters {
-		str += " " + k
-	}
-	return str
+	"noop": new(noopReporter),
+	// TODO: Add a http reporter.
+	// TODO: Add a console reporter.
+	// TODO: Remove no-op in favor of console?
 }
 
 func init() {
@@ -50,7 +105,7 @@ func init() {
 	flag.Int64Var(&rawSpan.durationMicros, "duration-micros", 0, "duration of event in microseconds (required)")
 	flag.Int64Var(&rawSpan.startMicros, "start-micros", 0, "start of event in microseconds since epoch (required)")
 	flag.BoolVar(&oneOff, "one-off", false, "use a random span id and trace id")
-  // TODO: Set a dataset tag.
+	// TODO: Set a dataset tag.
 	flag.StringVar(&spanDataset, "dataset", "", "set a dataset tag")
 
 	// tags for span flags
@@ -82,10 +137,10 @@ func (x *spanArgs) appendTag(tag *tracepb.KeyValue) { x.tags = append(x.tags, ta
 // convert spanArgs into a span pb
 func (x *spanArgs) ToSpan() *tracepb.Span {
 	if oneOff && x.id == "" {
-		x.id = string(traces.NewSpanID())
+		x.id = string(NewSpanID())
 	}
 	if oneOff && x.traceID == "" {
-		x.traceID = string(traces.NewTraceID())
+		x.traceID = string(NewTraceID())
 	}
 	return &tracepb.Span{
 		Id:                   []byte(x.id),
@@ -114,7 +169,7 @@ func (stringTagValue) Set(arg string) error {
 		return err
 	}
 	// format as string kv and append to all tags
-	rawSpan.appendTag(traces.StringKV(key, val))
+	rawSpan.appendTag(StringKV(key, val))
 	return nil
 }
 
@@ -133,7 +188,7 @@ func (boolTagValue) Set(arg string) error {
 		return err
 	}
 	// format as bool kv and append to all tags
-	rawSpan.appendTag(traces.BoolKV(key, val))
+	rawSpan.appendTag(BoolKV(key, val))
 	return nil
 }
 
@@ -151,7 +206,7 @@ func (intTagValue) Set(arg string) error {
 		return err
 	}
 	// format as int kv and append to all tags
-	rawSpan.appendTag(traces.Int64KV(key, val))
+	rawSpan.appendTag(Int64KV(key, val))
 	return nil
 }
 
@@ -169,7 +224,7 @@ func (floatTagValue) Set(arg string) error {
 		return err
 	}
 	// format as float kv and append to all tags
-	rawSpan.appendTag(traces.Float64KV(key, val))
+	rawSpan.appendTag(Float64KV(key, val))
 	return nil
 }
 
@@ -211,15 +266,12 @@ func main() {
 
 	// set the span dataset
 	if spanDataset != "" {
-		span.Tags = append(span.Tags, traces.StringKV(traces.PipelineTagKey, spanDataset))
-		// if (*traces.Span)(span).MurronType() == murron_types.TracesV1Lost {
-		//	exitOnError(span, 1, "dataset error", fmt.Errorf("span dataset `%s` is invalid", spanDataset))
-		//}
+		span.Tags = append(span.Tags, StringKV(PipelineTagKey, spanDataset))
 	}
 
 	// validate span
-	err := (*traces.Span)(span).Validate()
-	exitOnError(span, 1, "span.Validate() failed", err)
+	// err := (*traces.Span)(span).Validate()
+	// exitOnError(span, 1, "span.Validate() failed", err)
 
 	// report the span
 	err = spanReporter.Report(span)

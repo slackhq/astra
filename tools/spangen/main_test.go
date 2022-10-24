@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/stretchr/testify/assert"
-	"slack-github.com/slack/murron/gen/proto/tracepb"
-	"slack-github.com/slack/murron/pkg/traces"
+	"vendor/com.slack/kaldb/gen/proto/tracepb/tracepb"
+	// "slack-github.com/slack/murron/pkg/traces"
 	"testing"
 )
 
@@ -111,8 +111,8 @@ func TestStringTagValue(t *testing.T) {
 func TestSpanArgs_ToSpan(t *testing.T) {
 	assert := assert.New(t)
 
-	traces.NewSpanID = func() []byte { return []byte("new-id") }
-	traces.NewTraceID = func() []byte { return []byte("new-trace-id") }
+	NewSpanID = func() []byte { return []byte("new-id") }
+	NewTraceID = func() []byte { return []byte("new-trace-id") }
 
 	for _, tt := range []struct {
 		name     string
@@ -160,7 +160,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*tracepb.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &tracepb.Span{
 				Id:                   []byte("new-id"),
@@ -181,7 +181,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -193,7 +193,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				name:           "mock name",
 				startMicros:    1576717447222827,
 				durationMicros: 300,
-				tags:           []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				tags:           []*tracepb.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &tracepb.Span{
 				Id:                   []byte("mock-id"),
@@ -202,7 +202,7 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				Name:                 "mock name",
 				StartTimestampMicros: 1576717447222827,
 				DurationMicros:       300,
-				Tags:                 []*tracepb.KeyValue{traces.StringKV("test-key", "test-val")},
+				Tags:                 []*tracepb.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 	} {
