@@ -77,7 +77,7 @@ public class PreprocessorValueMapper {
       String dataTransformer) {
     Preconditions.checkArgument(
         PRE_PROCESSOR_DATA_TRANSFORMER_MAP.containsKey(dataTransformer),
-        "Invalid data transformer provided, must be one of {}",
+        "Invalid data transformer provided, must be one of %s",
         PRE_PROCESSOR_DATA_TRANSFORMER_MAP.toString());
     return messageBytes -> {
       try {
