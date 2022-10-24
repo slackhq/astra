@@ -22,4 +22,4 @@ benchmarks/jmh-output/
 indices/
 
 # go vendor files.
-vendor/
+#vendor/
