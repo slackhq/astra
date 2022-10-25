@@ -80,7 +80,6 @@ var (
 	rawSpan     *spanArgs
 	verFlag     bool
 	verbose     bool
-	configFile  string
 	reporter    string
 	oneOff      bool
 	spanDataset string
@@ -88,10 +87,9 @@ var (
 
 // list of reporter end points
 var reporters = map[string]Reporter{
-	"noop": new(noopReporter),
+	"noop":    new(noopReporter),
+	"console": new(consoleReporter),
 	// TODO: Add a http reporter.
-	// TODO: Add a console reporter.
-	// TODO: Remove no-op in favor of console?
 }
 
 func init() {
@@ -115,10 +113,9 @@ func init() {
 	flag.Var(new(floatTagValue), "float-tag", "tag formatted as key:value, where value is a float (repeatable)")
 
 	// how we emit the spans
-	flag.StringVar(&reporter, "reporter", "murron-agent", "tell murron-tracer how to report spans; "+reporterHelp())
+	flag.StringVar(&reporter, "reporter", "console", "tell the generator how to report spans; "+reporterHelp())
 
 	// common flags
-	flag.StringVar(&configFile, "conf", "/etc/murron-agent/config.json", "murron-agent config file")
 	flag.BoolVar(&verFlag, "version", false, "print version and quit")
 	flag.BoolVar(&verbose, "verbose", false, "print results as json object")
 }
