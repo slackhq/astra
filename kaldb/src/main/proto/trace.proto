@@ -5,7 +5,7 @@ syntax = "proto3";
 package trace;
 
 option java_package = "com.slack.service.murron.trace";
-option go_package = "com.slack.kaldb/gen/proto/tracepb";
+option go_package = "com.slack/kaldb/gen/proto/tracepb";
 
 import "google/protobuf/empty.proto";
 
