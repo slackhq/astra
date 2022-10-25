@@ -103,7 +103,6 @@ func init() {
 	flag.Int64Var(&rawSpan.durationMicros, "duration-micros", 0, "duration of event in microseconds (required)")
 	flag.Int64Var(&rawSpan.startMicros, "start-micros", 0, "start of event in microseconds since epoch (required)")
 	flag.BoolVar(&oneOff, "one-off", false, "use a random span id and trace id")
-	// TODO: Set a dataset tag.
 	flag.StringVar(&spanDataset, "dataset", "", "set a dataset tag")
 
 	// tags for span flags
