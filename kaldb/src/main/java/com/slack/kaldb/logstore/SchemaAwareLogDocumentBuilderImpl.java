@@ -3,11 +3,13 @@ package com.slack.kaldb.logstore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
@@ -43,6 +45,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
+
+  public static final Set<FieldType> NUMERIC_FIELD_TYPES =
+      Sets.immutableEnumSet(
+          SchemaAwareLogDocumentBuilderImpl.FieldType.DOUBLE,
+          SchemaAwareLogDocumentBuilderImpl.FieldType.FLOAT,
+          SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER,
+          SchemaAwareLogDocumentBuilderImpl.FieldType.LONG);
 
   public enum FieldType {
     TEXT("text") {
@@ -240,7 +249,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   /*
    * FieldDef describes the configs that can be set on a field.
    */
-  static class FieldDef {
+  public static class FieldDef {
     public final FieldType fieldType;
     public final boolean isStored;
     public final boolean isIndexed;
