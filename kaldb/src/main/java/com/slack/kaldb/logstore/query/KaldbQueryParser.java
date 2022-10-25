@@ -28,22 +28,27 @@ public class KaldbQueryParser extends QueryParser {
   protected Query getRangeQuery(
       String field, String min, String max, boolean minInclusive, boolean maxInclusive)
       throws ParseException {
-    SchemaAwareLogDocumentBuilderImpl.FieldType fieldType = fieldDefMap.get(field).fieldType;
-    if (NUMERIC_FIELD_TYPES.contains(fieldDefMap.get(field).fieldType)) {
-      switch (fieldType) {
-        case INTEGER:
-          return IntPoint.newRangeQuery(field, Integer.parseInt(min), Integer.parseInt(max));
-        case FLOAT:
-          return FloatPoint.newRangeQuery(field, Float.parseFloat(min), Float.parseFloat(max));
-        case LONG:
-          return LongPoint.newRangeQuery(field, Long.parseLong(min), Long.parseLong(max));
-        case DOUBLE:
-          return DoublePoint.newRangeQuery(field, Double.parseDouble(min), Double.parseDouble(max));
-        default:
-          throw new IllegalStateException(
-              "Unknown numeric field type: " + fieldType + "for field" + " " + field);
+    // TODO: Handle inclusive and exclusive range.
+    if (fieldDefMap.containsKey(field)) {
+      SchemaAwareLogDocumentBuilderImpl.FieldType fieldType = fieldDefMap.get(field).fieldType;
+      if (NUMERIC_FIELD_TYPES.contains(fieldDefMap.get(field).fieldType)) {
+        switch (fieldType) {
+          case INTEGER:
+            return IntPoint.newRangeQuery(field, Integer.parseInt(min), Integer.parseInt(max));
+          case FLOAT:
+            return FloatPoint.newRangeQuery(field, Float.parseFloat(min), Float.parseFloat(max));
+          case LONG:
+            return LongPoint.newRangeQuery(field, Long.parseLong(min), Long.parseLong(max));
+          case DOUBLE:
+            return DoublePoint.newRangeQuery(
+                field, Double.parseDouble(min), Double.parseDouble(max));
+          default:
+            throw new IllegalStateException(
+                "Unknown numeric field type: " + fieldType + "for field" + " " + field);
+        }
       }
     }
+    // TODO:  If fieldDefMap is empty, this will hide a bug
     return super.getRangeQuery(field, min, max, minInclusive, maxInclusive);
   }
 }

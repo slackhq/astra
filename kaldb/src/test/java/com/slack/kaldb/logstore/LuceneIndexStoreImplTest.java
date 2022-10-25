@@ -134,6 +134,7 @@ public class LuceneIndexStoreImplTest {
               1);
       assertThat(resultNestedDuplicateStrProp.hits.size()).isEqualTo(1);
 
+      // TODO: Ensure fieldDefMap has the expected fields.
       SearchResult<LogMessage> resultIntValue =
           forgivingLogStore.logSearcher.search(
               MessageUtil.TEST_DATASET_NAME, "intValue:[3 TO 3]", 0, MAX_TIME, 100, 1);

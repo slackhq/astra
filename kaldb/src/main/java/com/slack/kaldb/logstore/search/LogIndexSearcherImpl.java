@@ -76,7 +76,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   // TODO: Deprecate this method
+  @Deprecated
   public LogIndexSearcherImpl(SearcherManager searcherManager) {
+    // TODO: Pass in a real fieldMap or populate this map.
     this(searcherManager, Collections.emptyMap());
   }
 
@@ -121,6 +123,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
       Query query = buildQuery(span, dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch);
+      LOG.info("query is {}", query.toString());
 
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
