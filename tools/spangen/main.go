@@ -263,12 +263,8 @@ func main() {
 		span.Tags = append(span.Tags, StringKV(PipelineTagKey, spanDataset))
 	}
 
-	// validate span
-	// err := (*traces.Span)(span).Validate()
-	// exitOnError(span, 1, "span.Validate() failed", err)
-
 	// report the span
-	err = spanReporter.Report(span)
+	err := spanReporter.Report(span)
 	exitOnError(span, 1, "spanReporter.Report() failed", err)
 
 	// we're done!

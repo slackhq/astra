@@ -1,6 +1,9 @@
 package main
 
-import proto "spangen/spangen/generated"
+import (
+	"fmt"
+	proto "spangen/spangen/generated"
+)
 
 // Interface for reporting a span
 type Reporter interface {
@@ -11,3 +14,11 @@ type Reporter interface {
 type noopReporter struct{}
 
 func (x *noopReporter) Report(span *proto.Span) error { return nil }
+
+// does nothing
+type consoleReporter struct{}
+
+func (x *consoleReporter) Report(span *proto.Span) error {
+	fmt.Printf("{}", span)
+	return nil
+}
