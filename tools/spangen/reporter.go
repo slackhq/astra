@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	proto "spangen/spangen/generated"
 )
@@ -19,6 +20,7 @@ func (x *noopReporter) Report(span *proto.Span) error { return nil }
 type consoleReporter struct{}
 
 func (x *consoleReporter) Report(span *proto.Span) error {
-	fmt.Printf("%s", span)
+	jsonBytes, _ := json.MarshalIndent(span, "", "    ")
+	fmt.Println(string(jsonBytes))
 	return nil
 }
