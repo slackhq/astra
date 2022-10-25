@@ -3,3 +3,6 @@ gen:
 
 build:
   go build spangen/*.go
+
+test:
+  go test spangen/*.go
