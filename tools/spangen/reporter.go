@@ -19,6 +19,6 @@ func (x *noopReporter) Report(span *proto.Span) error { return nil }
 type consoleReporter struct{}
 
 func (x *consoleReporter) Report(span *proto.Span) error {
-	fmt.Printf("{}", span)
+	fmt.Printf("%s", span)
 	return nil
 }

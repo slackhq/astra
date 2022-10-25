@@ -143,13 +143,13 @@ func (x *spanArgs) ToSpan() *proto.Span {
 		x.traceID = string(NewTraceID())
 	}
 	return &proto.Span{
-		Id:                   []byte(x.id),
-		ParentId:             []byte(x.parentID),
-		TraceId:              []byte(x.traceID),
-		Name:                 x.name,
-		StartTimestampMicros: uint64(x.startMicros),
-		DurationMicros:       uint64(x.durationMicros),
-		Tags:                 x.tags,
+		Id:        []byte(x.id),
+		ParentId:  []byte(x.parentID),
+		TraceId:   []byte(x.traceID),
+		Name:      x.name,
+		Timestamp: uint64(x.startMicros),
+		Duration:  uint64(x.durationMicros),
+		Tags:      x.tags,
 	}
 }
 

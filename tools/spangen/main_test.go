@@ -131,13 +131,13 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
-				Id:                   []byte("mock-id"),
-				ParentId:             []byte("mock-parent-id"),
-				TraceId:              []byte("mock-trace-id"),
-				Name:                 "mock name",
-				StartTimestampMicros: 1576717447222827,
-				DurationMicros:       300,
-				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
+				Id:        []byte("mock-id"),
+				ParentId:  []byte("mock-parent-id"),
+				TraceId:   []byte("mock-trace-id"),
+				Name:      "mock name",
+				Timestamp: 1576717447222827,
+				Duration:  300,
+				Tags:      []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -153,13 +153,13 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
-				Id:                   []byte("mock-id"),
-				ParentId:             []byte("mock-parent-id"),
-				TraceId:              []byte("mock-trace-id"),
-				Name:                 "mock name",
-				StartTimestampMicros: 1576717447222827,
-				DurationMicros:       300,
-				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
+				Id:        []byte("mock-id"),
+				ParentId:  []byte("mock-parent-id"),
+				TraceId:   []byte("mock-trace-id"),
+				Name:      "mock name",
+				Timestamp: 1576717447222827,
+				Duration:  300,
+				Tags:      []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -174,13 +174,13 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
-				Id:                   []byte("new-id"),
-				ParentId:             []byte("mock-parent-id"),
-				TraceId:              []byte("mock-trace-id"),
-				Name:                 "mock name",
-				StartTimestampMicros: 1576717447222827,
-				DurationMicros:       300,
-				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
+				Id:        []byte("new-id"),
+				ParentId:  []byte("mock-parent-id"),
+				TraceId:   []byte("mock-trace-id"),
+				Name:      "mock name",
+				Timestamp: 1576717447222827,
+				Duration:  300,
+				Tags:      []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 		{
@@ -195,13 +195,13 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 				tags:           []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 			want: &proto.Span{
-				Id:                   []byte("mock-id"),
-				ParentId:             []byte("mock-parent-id"),
-				TraceId:              []byte("new-trace-id"),
-				Name:                 "mock name",
-				StartTimestampMicros: 1576717447222827,
-				DurationMicros:       300,
-				Tags:                 []*proto.KeyValue{StringKV("test-key", "test-val")},
+				Id:        []byte("mock-id"),
+				ParentId:  []byte("mock-parent-id"),
+				TraceId:   []byte("new-trace-id"),
+				Name:      "mock name",
+				Timestamp: 1576717447222827,
+				Duration:  300,
+				Tags:      []*proto.KeyValue{StringKV("test-key", "test-val")},
 			},
 		},
 	} {
@@ -213,8 +213,8 @@ func TestSpanArgs_ToSpan(t *testing.T) {
 			assert.Equal(string(tt.want.ParentId), string(got.ParentId), "span.ParentId")
 			assert.Equal(string(tt.want.TraceId), string(got.TraceId), "span.TraceId")
 			assert.Equal(tt.want.Name, got.Name, "span.Name")
-			assert.Equal(tt.want.StartTimestampMicros, got.StartTimestampMicros, "span.TimestampMicros")
-			assert.Equal(tt.want.DurationMicros, got.DurationMicros, "span.DurationMicros")
+			assert.Equal(tt.want.Timestamp, got.Timestamp, "span.TimestampMicros")
+			assert.Equal(tt.want.Duration, got.Duration, "span.Duration")
 			assert.Equal(tt.want.Tags, got.Tags, "span.Tags")
 		})
 	}
