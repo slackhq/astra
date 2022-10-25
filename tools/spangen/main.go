@@ -7,7 +7,7 @@ import (
 	"fmt"
 	math_rand "math/rand"
 	"os"
-	"spangen/spangen/proto"
+	proto "spangen/spangen/generated"
 	"strconv"
 	"strings"
 	"time"

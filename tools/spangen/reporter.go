@@ -1,8 +1,6 @@
 package main
 
-import (
-	"spangen/spangen/proto"
-)
+import proto "spangen/spangen/generated"
 
 // Interface for reporting a span
 type Reporter interface {

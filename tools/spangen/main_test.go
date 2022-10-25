@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/stretchr/testify/assert"
-	"spangen/spangen/proto"
+	proto "spangen/spangen/generated"
 	"testing"
 )
 

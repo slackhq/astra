@@ -1,9 +1,7 @@
 package main
 
 import (
-	"spangen/spangen/proto"
-	// "slack-github.com/slack/murron/pkg/inputs/wallace"
-	// "slack-github.com/slack/murron/pkg/traces"
+	proto "spangen/spangen/generated"
 	"testing"
 )
 
