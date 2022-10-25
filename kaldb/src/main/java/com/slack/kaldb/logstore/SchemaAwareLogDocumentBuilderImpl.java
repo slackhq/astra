@@ -3,13 +3,11 @@ package com.slack.kaldb.logstore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
@@ -45,13 +43,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
-
-  public static final Set<FieldType> NUMERIC_FIELD_TYPES =
-      Sets.immutableEnumSet(
-          SchemaAwareLogDocumentBuilderImpl.FieldType.DOUBLE,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.FLOAT,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.LONG);
 
   public enum FieldType {
     TEXT("text") {
@@ -144,17 +135,37 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       return name;
     }
 
+    @VisibleForTesting
     static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
       // String type
       if (fromType == FieldType.TEXT) {
         if (toType == FieldType.INTEGER) {
-          return Integer.valueOf((String) value);
+          try {
+            return Integer.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (int) 0;
+          }
         }
         if (toType == FieldType.LONG) {
-          return Long.valueOf((String) value);
+          try {
+            return Long.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (long) 0;
+          }
         }
-        if (toType == FieldType.FLOAT || toType == FieldType.DOUBLE) {
-          return Double.valueOf((String) value);
+        if (toType == FieldType.DOUBLE) {
+          try {
+            return Double.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (double) 0;
+          }
+        }
+        if (toType == FieldType.FLOAT) {
+          try {
+            return Float.valueOf((String) value);
+          } catch (NumberFormatException e) {
+            return (float) 0;
+          }
         }
       }
 
@@ -229,7 +240,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   /*
    * FieldDef describes the configs that can be set on a field.
    */
-  public static class FieldDef {
+  static class FieldDef {
     public final FieldType fieldType;
     public final boolean isStored;
     public final boolean isIndexed;
