@@ -129,7 +129,7 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      String serviceName = PreprocessorValueMapper.getDatasetName(value);
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
       int bytes = value.getSerializedSize();
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided

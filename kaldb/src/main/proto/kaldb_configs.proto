@@ -225,4 +225,8 @@ message PreprocessorConfig {
 
   // Amount of time in seconds the rate limiter can burst
   int32 rate_limiter_max_burst_seconds = 7;
+
+  // The dataset that the upstream topic contains
+  // We use this to match the dataset metadata
+  string upstream_topic_dataset_name = 8;
 }
