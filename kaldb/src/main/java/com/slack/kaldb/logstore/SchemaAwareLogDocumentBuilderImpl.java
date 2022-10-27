@@ -356,13 +356,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Map<FieldType, FieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
           FieldType.LONG,
-          new FieldDef(FieldType.LONG, true, true, false, true),
+          new FieldDef(FieldType.LONG, false, true, false, true),
           FieldType.FLOAT,
-          new FieldDef(FieldType.FLOAT, true, true, false, true),
+          new FieldDef(FieldType.FLOAT, false, true, false, true),
           FieldType.INTEGER,
-          new FieldDef(FieldType.INTEGER, true, true, false, true),
+          new FieldDef(FieldType.INTEGER, false, true, false, true),
           FieldType.DOUBLE,
-          new FieldDef(FieldType.DOUBLE, true, true, false, true),
+          new FieldDef(FieldType.DOUBLE, false, true, false, true),
           FieldType.TEXT,
           new FieldDef(FieldType.TEXT, false, true, true),
           FieldType.BOOLEAN,
@@ -371,12 +371,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
     return indexFieldConflictPolicy;
-  }
-
-  // TODO: Remove this method and use getSchema instead?
-  @Deprecated
-  public Map<String, FieldDef> getFieldDefMap() {
-    return fieldDefMap;
   }
 
   private void addField(
@@ -582,6 +576,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return doc;
   }
 
+  // TODO: Rename this method getFieldDefMap instead?
   @Override
   public Map<String, FieldDef> getSchema() {
     return fieldDefMap;

@@ -40,11 +40,12 @@ public class KaldbQueryParser extends QueryParser {
           case INTEGER:
             int minValue = Integer.parseInt(min);
             int maxValue = Integer.parseInt(max);
-            Query pointRangeQuery = IntPoint.newRangeQuery(field, Integer.parseInt(min),
-                    Integer.parseInt(max));
+            Query pointRangeQuery =
+                IntPoint.newRangeQuery(field, Integer.parseInt(min), Integer.parseInt(max));
             if (fieldDef.storeNumericDocValue) {
-              Query docValuesQuery = SortedNumericDocValuesField.newSlowRangeQuery(field, minValue, maxValue);
-              return  new IndexOrDocValuesQuery(pointRangeQuery, docValuesQuery);
+              Query docValuesQuery =
+                  SortedNumericDocValuesField.newSlowRangeQuery(field, minValue, maxValue);
+              return new IndexOrDocValuesQuery(pointRangeQuery, docValuesQuery);
             }
             return pointRangeQuery;
           case FLOAT:

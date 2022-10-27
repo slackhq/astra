@@ -146,8 +146,12 @@ public class LuceneIndexStoreImplTest {
       // TODO: Add a single value in range
       SearchResult<LogMessage> result4 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.duplicateIntProp:[5 TO 5]", 0, MAX_TIME, 100,
-                  1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.duplicateIntProp:[5 TO 5]",
+              0,
+              MAX_TIME,
+              100,
+              1);
       assertThat(result4.hits.size()).isEqualTo(1);
     }
 
