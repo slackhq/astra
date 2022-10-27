@@ -147,3 +147,23 @@ message DatasetPartitionMetadata {
   // List of Kafka partition ids
   repeated string partitions = 3;
 }
+
+// Schema definition.
+message LuceneFieldDef {
+  // Name of the field
+  string name = 1;
+
+  // Type of the field
+  string type = 2;
+
+  bool isStored = 3;
+  bool isIndexed = 4;
+  bool isAnalyzed = 5;
+  bool storeNumericDocValue = 6;
+}
+
+// Schema of a chunk.
+message ChunkSchema {
+  map<string, LuceneFieldDef> fieldDefMap = 1;
+  // TODO: is a list better?
+}
