@@ -149,21 +149,27 @@ message DatasetPartitionMetadata {
 }
 
 // Schema definition.
-message LuceneFieldDef {
+message LuceneFieldDefMetadata {
   // Name of the field
   string name = 1;
 
   // Type of the field
   string type = 2;
 
+  // Is the field stored.
   bool isStored = 3;
+  // Is the field indexed
   bool isIndexed = 4;
+  // Should the field be analyzed
   bool isAnalyzed = 5;
+
+  // Store numeric doc values for a field.
   bool storeNumericDocValue = 6;
 }
 
 // Schema of a chunk.
 message ChunkSchema {
-  map<string, LuceneFieldDef> fieldDefMap = 1;
+  map<string, LuceneFieldDefMetadata> fieldDefMap = 1;
+  map<string, string> metadata = 2;
   // TODO: is a list better?
 }

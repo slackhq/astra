@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.util.JsonUtil;
 import java.util.Collections;
 import java.util.Map;

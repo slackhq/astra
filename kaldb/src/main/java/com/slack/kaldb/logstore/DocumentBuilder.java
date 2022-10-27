@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import java.io.IOException;
 import java.util.Map;
 import org.apache.lucene.document.Document;

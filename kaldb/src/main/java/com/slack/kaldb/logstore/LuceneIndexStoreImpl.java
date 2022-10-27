@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

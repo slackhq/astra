@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;

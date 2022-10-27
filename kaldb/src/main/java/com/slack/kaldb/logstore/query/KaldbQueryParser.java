@@ -1,8 +1,8 @@
 package com.slack.kaldb.logstore.query;
 
-import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.NUMERIC_FIELD_TYPES;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.NUMERIC_FIELD_TYPES;
 
-import com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import java.util.Map;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.DoublePoint;

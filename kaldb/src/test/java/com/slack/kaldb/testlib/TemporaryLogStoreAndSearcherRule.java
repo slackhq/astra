@@ -1,12 +1,12 @@
 package com.slack.kaldb.testlib;
 
-import static com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
 
 import com.google.common.io.Files;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
-import com.slack.kaldb.logstore.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
