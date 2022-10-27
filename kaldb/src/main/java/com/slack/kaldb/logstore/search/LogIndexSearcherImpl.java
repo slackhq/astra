@@ -6,7 +6,6 @@ import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 import brave.ScopedSpan;
 import brave.Tracing;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
@@ -52,6 +51,7 @@ import org.slf4j.LoggerFactory;
 /*
  * A wrapper around lucene that helps us search a single index containing logs.
  * TODO: Add template type to this class definition.
+ * TODO: Rename this class LuceneIndexSearcher.
  */
 public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private static final Logger LOG = LoggerFactory.getLogger(LogIndexSearcherImpl.class);
@@ -60,7 +60,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final StandardAnalyzer analyzer;
   private final Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> fieldDefMap;
 
-  @VisibleForTesting
+  // TODO: This method is no longer for testing. Move it to where it's used?
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
     return new SearcherManager(directory, null);
@@ -73,13 +73,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     int numDocs = directoryReader.numDocs();
     directoryReader.close();
     return numDocs;
-  }
-
-  // TODO: Deprecate this method
-  @Deprecated
-  public LogIndexSearcherImpl(SearcherManager searcherManager) {
-    // TODO: Pass in a real fieldMap or populate this map.
-    this(searcherManager, Collections.emptyMap());
   }
 
   public LogIndexSearcherImpl(
@@ -261,6 +254,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     }
     BooleanQuery query = queryBuilder.build();
     span.tag("lucene_query", query.toString());
+    LOG.info("Lucene query %s", query.toString());
     span.tag("lucene_query_num_clauses", Integer.toString(query.clauses().size()));
     return query;
   }

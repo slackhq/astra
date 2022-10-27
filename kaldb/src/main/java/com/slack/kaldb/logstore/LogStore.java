@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
@@ -42,6 +43,7 @@ public interface LogStore<T> extends Closeable {
 
   public void releaseIndexCommit(IndexCommit indexCommit);
 
-  // TODO: Add an isReadOnly and setReadOnly API here.
+  public Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> getSchema();
 
+  // TODO: Add an isReadOnly and setReadOnly API here.
 }

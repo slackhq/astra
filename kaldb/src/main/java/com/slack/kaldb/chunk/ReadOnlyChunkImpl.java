@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -201,9 +202,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
+      // TODO: There is no log store here. So, just read serialized file into a map?
+      // TODO: Fix schema here
       this.logSearcher =
           (LogIndexSearcher<T>)
-              new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+              new LogIndexSearcherImpl(
+                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                  Collections.emptyMap());
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {

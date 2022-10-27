@@ -137,12 +137,17 @@ public class LuceneIndexStoreImplTest {
       // TODO: Ensure fieldDefMap has the expected fields.
       SearchResult<LogMessage> resultIntValue =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "intValue:[3 TO 3]", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "intValue:[1 TO 4]", 0, MAX_TIME, 100, 1);
       assertThat(resultIntValue.hits.size()).isEqualTo(1);
 
+      // TODO: Test with only one value in range. Does lucene syntax allow this?
+      // TODO: Test with inclusive and exclusive values.
+      // TODO: Add tests for all numeric field range queries.
+      // TODO: Add a single value in range
       SearchResult<LogMessage> result4 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:[2]", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "nested.duplicateIntProp:[5 TO 5]", 0, MAX_TIME, 100,
+                  1);
       assertThat(result4.hits.size()).isEqualTo(1);
     }
 
@@ -443,10 +448,12 @@ public class LuceneIndexStoreImplTest {
           copyFromS3(bucket, prefix, s3BlobFs, Paths.get(tempFolder.getRoot().getAbsolutePath()));
       assertThat(s3Files.length).isEqualTo(activeFiles.size());
 
+      // TODO: Use schema here. This test needs schema to be serialized.
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
+              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
+              Collections.emptyMap());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
       assertThat(newResults.size()).isEqualTo(1);
@@ -486,9 +493,11 @@ public class LuceneIndexStoreImplTest {
       copyToLocalPath(
           dirPath, activeFiles, Paths.get(tempFolder.getRoot().getAbsolutePath()), blobFs);
 
+      // TODO: Another case, where we need schema serialized to disk.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
+              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
+              Collections.emptyMap());
 
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);

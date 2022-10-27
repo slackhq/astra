@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -101,7 +102,7 @@ public class QueryBenchmark {
 
     logStore.commit();
     logStore.refresh();
-    logIndexSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
+    logIndexSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
   }
 
   @TearDown(Level.Trial)

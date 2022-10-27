@@ -9,8 +9,10 @@ import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
+import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexOrDocValuesQuery;
 import org.apache.lucene.search.Query;
 
 public class KaldbQueryParser extends QueryParser {
@@ -29,12 +31,22 @@ public class KaldbQueryParser extends QueryParser {
       String field, String min, String max, boolean minInclusive, boolean maxInclusive)
       throws ParseException {
     // TODO: Handle inclusive and exclusive range.
+    // TODO: Use IndexOrDocValuesQuery here?
     if (fieldDefMap.containsKey(field)) {
-      SchemaAwareLogDocumentBuilderImpl.FieldType fieldType = fieldDefMap.get(field).fieldType;
-      if (NUMERIC_FIELD_TYPES.contains(fieldDefMap.get(field).fieldType)) {
+      final SchemaAwareLogDocumentBuilderImpl.FieldDef fieldDef = fieldDefMap.get(field);
+      final SchemaAwareLogDocumentBuilderImpl.FieldType fieldType = fieldDef.fieldType;
+      if (NUMERIC_FIELD_TYPES.contains(fieldDef.fieldType)) {
         switch (fieldType) {
           case INTEGER:
-            return IntPoint.newRangeQuery(field, Integer.parseInt(min), Integer.parseInt(max));
+            int minValue = Integer.parseInt(min);
+            int maxValue = Integer.parseInt(max);
+            Query pointRangeQuery = IntPoint.newRangeQuery(field, Integer.parseInt(min),
+                    Integer.parseInt(max));
+            if (fieldDef.storeNumericDocValue) {
+              Query docValuesQuery = SortedNumericDocValuesField.newSlowRangeQuery(field, minValue, maxValue);
+              return  new IndexOrDocValuesQuery(pointRangeQuery, docValuesQuery);
+            }
+            return pointRangeQuery;
           case FLOAT:
             return FloatPoint.newRangeQuery(field, Float.parseFloat(min), Float.parseFloat(max));
           case LONG:

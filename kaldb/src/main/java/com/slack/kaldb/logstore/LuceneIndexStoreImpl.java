@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Timer;
@@ -82,7 +83,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false), metricsRegistry);
+        indexStoreCfg,
+        SchemaAwareLogDocumentBuilderImpl.build(
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+            metricsRegistry),
+        metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(
@@ -274,6 +279,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LOG.warn("Tried to release snapshot index commit but failed", e);
       }
     }
+  }
+
+  @Override
+  public Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> getSchema() {
+    return documentBuilder.getSchema();
   }
 
   /**

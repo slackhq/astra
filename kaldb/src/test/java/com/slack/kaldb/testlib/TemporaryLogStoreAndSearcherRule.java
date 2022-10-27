@@ -69,7 +69,8 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
             indexStoreCfg,
             SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD, metricsRegistry),
             metricsRegistry);
-    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
+    // TODO: Ensure this works well.
+    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
   }
 
   public static LuceneIndexStoreConfig getIndexStoreConfig(
