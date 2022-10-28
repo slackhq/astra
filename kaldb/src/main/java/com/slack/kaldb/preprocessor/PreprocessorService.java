@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,7 +62,6 @@ public class PreprocessorService extends AbstractService {
   private final String downstreamTopic;
   private final String dataTransformer;
   private final MeterRegistry meterRegistry;
-  private final String upstreamTopicDatasetName;
 
   private KafkaStreams kafkaStreams;
   private KafkaStreamsMetrics kafkaStreamsMetrics;
@@ -87,7 +87,6 @@ public class PreprocessorService extends AbstractService {
             preprocessorConfig.getPreprocessorInstanceCount(),
             preprocessorConfig.getRateLimiterMaxBurstSeconds(),
             INITIALIZE_RATE_LIMIT_WARM);
-    this.upstreamTopicDatasetName = preprocessorConfig.getUpstreamTopicDatasetName();
   }
 
   @Override
@@ -158,8 +157,7 @@ public class PreprocessorService extends AbstractService {
                 rateLimiter,
                 upstreamTopics,
                 downstreamTopic,
-                dataTransformer,
-                upstreamTopicDatasetName);
+                dataTransformer);
         kafkaStreams = new KafkaStreams(topology, kafkaProperties);
         kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
         kafkaStreamsMetrics.bindTo(meterRegistry);
@@ -185,8 +183,7 @@ public class PreprocessorService extends AbstractService {
       PreprocessorRateLimiter rateLimiter,
       List<String> upstreamTopics,
       String downstreamTopic,
-      String dataTransformer,
-      String upstreamTopicDatasetName) {
+      String dataTransformer) {
     Preconditions.checkArgument(
         !datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
     Preconditions.checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
@@ -202,9 +199,9 @@ public class PreprocessorService extends AbstractService {
         streamPartitioner(
             datasetMetadataList
                 .stream()
-                .filter(
-                    datasetMetadata -> datasetMetadata.getName().equals(upstreamTopicDatasetName))
-                .collect(Collectors.toList()));
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        KaldbMetadata::getName, DatasetMetadata::getDataset)));
 
     Predicate<String, Trace.Span> rateLimitPredicate =
         rateLimiter.createRateLimiter(
@@ -272,25 +269,33 @@ public class PreprocessorService extends AbstractService {
    * valid dataset metadata are provided throws an exception.
    */
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      List<DatasetMetadata> datasetMetadataList) {
-    checkArgument(datasetMetadataList.size() > 0, "datasetToPartitionList cannot be empty");
+      Map<String, DatasetMetadata> datasets) {
+    checkArgument(datasets.size() > 0, "datasets cannot be empty");
 
     return (topic, key, value, numPartitions) -> {
+      if (!datasets.containsKey(topic)) {
+        // this shouldn't happen, as we should have filtered all the missing datasets in the value
+        // mapper stage
+        throw new IllegalStateException(
+            String.format("Dataset '%s' was not found in dataset metadata", topic));
+      }
+
       String serviceName = PreprocessorValueMapper.getServiceName(value);
-      DatasetMetadata datasetMetadata = datasetMetadataList.get(0);
+      DatasetMetadata datasetMetadata = datasets.get(topic);
       String datasetServiceName =
           datasetMetadata.serviceName == null ? datasetMetadata.name : datasetMetadata.serviceName;
+
       if (datasetServiceName.equals(MATCH_ALL_DATASET)
           || datasetServiceName.equals("*")
           || serviceName.equals(datasetServiceName)) {
         List<Integer> partitions = getActivePartitionList(datasetMetadata);
         return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Service name '%s' was not found in dataset %s",
+                serviceName, datasetMetadata.getName()));
       }
-
-      // this shouldn't happen, as we should have filtered all the missing datasets in
-      // the value mapper stage
-      throw new IllegalStateException(
-          String.format("Service '%s' was not found in dataset metadata", serviceName));
     };
   }
 

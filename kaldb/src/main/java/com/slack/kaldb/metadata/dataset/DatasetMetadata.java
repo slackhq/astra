@@ -44,6 +44,10 @@ public class DatasetMetadata extends KaldbMetadata {
     this.partitionConfigs = ImmutableList.copyOf(partitionConfigs);
   }
 
+  public DatasetMetadata getDataset() {
+    return this;
+  }
+
   public String getOwner() {
     return owner;
   }
