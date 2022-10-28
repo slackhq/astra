@@ -8,14 +8,14 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 /*
  * FieldDef describes the configs that can be set on a field.
  */
-public class LuceneFieldDefMetadata extends KaldbMetadata {
+public class LuceneFieldDef extends KaldbMetadata {
   public final SchemaAwareLogDocumentBuilderImpl.FieldType fieldType;
   public final boolean isStored;
   public final boolean isIndexed;
   public final boolean isAnalyzed;
   public final boolean storeNumericDocValue;
 
-  public LuceneFieldDefMetadata(
+  public LuceneFieldDef(
       String name,
       String fieldType,
       boolean isStored,
@@ -50,7 +50,7 @@ public class LuceneFieldDefMetadata extends KaldbMetadata {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     if (!super.equals(o)) return false;
-    LuceneFieldDefMetadata that = (LuceneFieldDefMetadata) o;
+    LuceneFieldDef that = (LuceneFieldDef) o;
     return isStored == that.isStored
         && isIndexed == that.isIndexed
         && isAnalyzed == that.isAnalyzed
@@ -66,7 +66,7 @@ public class LuceneFieldDefMetadata extends KaldbMetadata {
 
   @Override
   public String toString() {
-    return "LuceneFieldDefMetadata{"
+    return "LuceneFieldDef{"
         + "name='"
         + name
         + '\''

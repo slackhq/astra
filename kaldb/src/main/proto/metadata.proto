@@ -148,8 +148,8 @@ message DatasetPartitionMetadata {
   repeated string partitions = 3;
 }
 
-// Schema definition.
-message LuceneFieldDefMetadata {
+// Schema definitions.
+message LuceneFieldDef {
   // Name of the field
   string name = 1;
 
@@ -162,14 +162,13 @@ message LuceneFieldDefMetadata {
   bool isIndexed = 4;
   // Should the field be analyzed
   bool isAnalyzed = 5;
-
   // Store numeric doc values for a field.
   bool storeNumericDocValue = 6;
 }
 
-// Schema of a chunk.
 message ChunkSchema {
-  map<string, LuceneFieldDefMetadata> fieldDefMap = 1;
-  map<string, string> metadata = 2;
+  string name = 1;
+  map<string, LuceneFieldDef> fieldDefMap = 2;
+  map<string, string> metadata = 3;
   // TODO: is a list better?
 }
