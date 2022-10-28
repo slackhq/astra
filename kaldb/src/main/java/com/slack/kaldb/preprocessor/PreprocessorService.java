@@ -283,8 +283,12 @@ public class PreprocessorService extends AbstractService {
       if (!datasetToPartitionList.containsKey(datasetName)) {
         // this shouldn't happen, as we should have filtered all the missing datasets in the value
         // mapper stage
-        throw new IllegalStateException(
-            String.format("Dataset '%s' was not found in dataset metadata", datasetName));
+        String errorMsg =
+            String.format("Dataset '%s' was not found in dataset metadata", datasetName);
+        // temp log to confirm that we hit this scenario i.e when ingesting data with more than one
+        // service
+        LOG.warn(errorMsg);
+        throw new IllegalStateException(errorMsg);
       }
 
       List<Integer> partitions = datasetToPartitionList.getOrDefault(datasetName, List.of());
