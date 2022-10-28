@@ -136,6 +136,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       }
     };
 
+    // TODO: Remove the name field since it's not needed.
     private final String name;
 
     FieldType(String name) {
