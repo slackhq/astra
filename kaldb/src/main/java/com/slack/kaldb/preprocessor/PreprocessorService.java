@@ -1,8 +1,7 @@
 package com.slack.kaldb.preprocessor;
 
-import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractService;
@@ -15,7 +14,11 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -190,14 +193,6 @@ public class PreprocessorService extends AbstractService {
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
 
-    StreamPartitioner<String, Trace.Span> streamPartitioner =
-        streamPartitioner(
-            datasetMetadataList
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, DatasetMetadata::getDataset)));
-
     Map<String, DatasetMetadata> datasetMetadataMap =
         datasetMetadataList
             .stream()
@@ -206,9 +201,8 @@ public class PreprocessorService extends AbstractService {
 
     upstreamTopics
         .stream()
-        .
         // ensure that the topic we are indexing has a dataset metadata entry for it
-        filter(datasetMetadataMap::containsKey)
+        .filter(datasetMetadataMap::containsKey)
         .forEach(
             (upstreamTopic ->
                 builder
@@ -225,7 +219,9 @@ public class PreprocessorService extends AbstractService {
                     .to(
                         downstreamTopic,
                         Produced.with(
-                            Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner))));
+                            Serdes.String(),
+                            KaldbSerdes.TraceSpan(),
+                            streamPartitioner(datasetMetadataMap.get(upstreamTopic))))));
 
     return builder.build();
   }
@@ -268,33 +264,12 @@ public class PreprocessorService extends AbstractService {
    * valid dataset metadata are provided throws an exception.
    */
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      Map<String, DatasetMetadata> datasets) {
-    checkArgument(datasets.size() > 0, "datasets cannot be empty");
+      DatasetMetadata datasetMetadata) {
+    checkNotNull(datasetMetadata, "dataset cannot be null");
 
     return (topic, key, value, numPartitions) -> {
-      if (!datasets.containsKey(topic)) {
-        // this shouldn't happen, as we should have filtered all the missing datasets in the value
-        // mapper stage
-        throw new IllegalStateException(
-            String.format("Dataset '%s' was not found in dataset metadata", topic));
-      }
-
-      String serviceName = PreprocessorValueMapper.getServiceName(value);
-      DatasetMetadata datasetMetadata = datasets.get(topic);
-      String datasetServiceName =
-          datasetMetadata.serviceName == null ? datasetMetadata.name : datasetMetadata.serviceName;
-
-      if (datasetServiceName.equals(MATCH_ALL_DATASET)
-          || datasetServiceName.equals("*")
-          || serviceName.equals(datasetServiceName)) {
-        List<Integer> partitions = getActivePartitionList(datasetMetadata);
-        return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
-      } else {
-        throw new IllegalStateException(
-            String.format(
-                "Service name '%s' was not found in dataset %s",
-                serviceName, datasetMetadata.getName()));
-      }
+      List<Integer> partitions = getActivePartitionList(datasetMetadata);
+      return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
     };
   }
 

@@ -91,7 +91,7 @@ public class PreprocessorServiceIntegrationTest {
 
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(1);
-    datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of()));
+    datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of(), "name"));
 
     // wait for the cache to be updated
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
@@ -167,7 +167,8 @@ public class PreprocessorServiceIntegrationTest {
             serviceName,
             "owner",
             100,
-            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("3"))));
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("3"))),
+            serviceName);
     datasetMetadataStore.createSync(datasetMetadata);
 
     // wait for the cache to be updated
@@ -186,7 +187,8 @@ public class PreprocessorServiceIntegrationTest {
             Long.MAX_VALUE,
             List.of(
                 new DatasetPartitionMetadata(1, 10000, List.of("3")),
-                new DatasetPartitionMetadata(10001, Long.MAX_VALUE, List.of("2"))));
+                new DatasetPartitionMetadata(10001, Long.MAX_VALUE, List.of("2"))),
+            datasetMetadata.getName());
     datasetMetadataStore.updateSync(updatedDatasetMetadata);
 
     // wait for the cache to be updated

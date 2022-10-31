@@ -7,9 +7,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
+import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.List;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.junit.Test;
 
@@ -34,7 +36,13 @@ public class PreprocessorRateLimiterTest {
     // set the target so that we pass the first add, then fail the second
     long targetThroughput = ((long) span.toByteArray().length * preprocessorCount) + 1;
 
-    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            name,
+            name,
+            targetThroughput,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            name);
     Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     // try to get just below the scaled limit, then try to go over
@@ -80,11 +88,11 @@ public class PreprocessorRateLimiterTest {
 
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
-            "unprovisioned_service",
-            "unprovisioned_service",
+            "wrong_service",
+            "wrong_service",
             Long.MAX_VALUE,
-            null,
-            "unprovisioned_service");
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            "wrong_service");
     Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     // this should be immediately dropped
@@ -122,7 +130,13 @@ public class PreprocessorRateLimiterTest {
 
     String name = "rateLimiter";
     long targetThroughput = 1000;
-    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            name,
+            name,
+            targetThroughput,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            name);
     Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", Trace.Span.newBuilder().build())).isFalse();
@@ -150,7 +164,13 @@ public class PreprocessorRateLimiterTest {
     PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 3, true);
 
     long targetThroughput = span.getSerializedSize() - 1;
-    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            name,
+            name,
+            targetThroughput,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            name);
     Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", span)).isTrue();
@@ -177,7 +197,13 @@ public class PreprocessorRateLimiterTest {
     PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 3, false);
 
     long targetThroughput = span.getSerializedSize() - 1;
-    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            name,
+            name,
+            targetThroughput,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            name);
     Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", span)).isTrue();

@@ -28,7 +28,8 @@ public class DatasetMetadataSerializerTest {
         Collections.singletonList(
             new DatasetPartitionMetadata(
                 partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, name);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -59,7 +60,8 @@ public class DatasetMetadataSerializerTest {
                 partitionStart1.toEpochMilli(), partitionEnd1.toEpochMilli(), partitionList),
             new DatasetPartitionMetadata(
                 partitionStart2.toEpochMilli(), partitionEnd2.toEpochMilli(), partitionList));
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, name);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -77,7 +79,8 @@ public class DatasetMetadataSerializerTest {
     final String owner = "testOwner";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list = Collections.emptyList();
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, name);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();

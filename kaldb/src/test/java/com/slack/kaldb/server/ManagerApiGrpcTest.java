@@ -445,8 +445,10 @@ public class ManagerApiGrpcTest {
             .listSync()
             .containsAll(
                 List.of(
-                    new DatasetMetadata(datasetName1, datasetOwner1, 0, Collections.emptyList()),
-                    new DatasetMetadata(datasetName2, datasetOwner2, 0, Collections.emptyList()))));
+                    new DatasetMetadata(
+                        datasetName1, datasetOwner1, 0, Collections.emptyList(), datasetName1),
+                    new DatasetMetadata(
+                        datasetName2, datasetOwner2, 0, Collections.emptyList(), datasetName2))));
   }
 
   @Test
@@ -458,7 +460,9 @@ public class ManagerApiGrpcTest {
     doThrow(new InternalMetadataStoreException(errorString))
         .when(datasetMetadataStore)
         .createSync(
-            eq(new DatasetMetadata(datasetName, datasetOwner, 0L, Collections.emptyList())));
+            eq(
+                new DatasetMetadata(
+                    datasetName, datasetOwner, 0L, Collections.emptyList(), datasetName)));
 
     StatusRuntimeException throwableCreate =
         (StatusRuntimeException)
@@ -476,7 +480,9 @@ public class ManagerApiGrpcTest {
     doThrow(new InternalMetadataStoreException(errorString))
         .when(datasetMetadataStore)
         .updateSync(
-            eq(new DatasetMetadata(datasetName, datasetOwner, 0L, Collections.emptyList())));
+            eq(
+                new DatasetMetadata(
+                    datasetName, datasetOwner, 0L, Collections.emptyList(), datasetName)));
 
     StatusRuntimeException throwableUpdate =
         (StatusRuntimeException)
@@ -540,7 +546,8 @@ public class ManagerApiGrpcTest {
             "foo",
             "a",
             1,
-            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))),
+            "foo");
 
     datasetMetadataStore.createSync(datasetWithDataInPartitionA);
 
@@ -596,7 +603,8 @@ public class ManagerApiGrpcTest {
             "foo",
             "a",
             1,
-            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))));
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a"))),
+            "foo");
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
@@ -643,7 +651,8 @@ public class ManagerApiGrpcTest {
             "foo",
             "a",
             1,
-            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a", "b"))));
+            List.of(new DatasetPartitionMetadata(startTime + 5, startTime + 6, List.of("a", "b"))),
+            "foo");
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
