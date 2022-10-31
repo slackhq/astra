@@ -7,7 +7,7 @@ import com.slack.kaldb.proto.metadata.Metadata;
 
 public class LuceneFieldDefSerializer implements MetadataSerializer<LuceneFieldDef> {
 
-  private static Metadata.LuceneFieldDef toLuceneFieldDefProto(LuceneFieldDef fieldDef) {
+  public static Metadata.LuceneFieldDef toLuceneFieldDefProto(LuceneFieldDef fieldDef) {
     return Metadata.LuceneFieldDef.newBuilder()
         .setName(fieldDef.name)
         .setType(fieldDef.fieldType.toString())
@@ -18,7 +18,7 @@ public class LuceneFieldDefSerializer implements MetadataSerializer<LuceneFieldD
         .build();
   }
 
-  private static LuceneFieldDef fromLuceneFieldDefProto(
+  public static LuceneFieldDef fromLuceneFieldDefProto(
       Metadata.LuceneFieldDef luceneFieldDefProto) {
     return new LuceneFieldDef(
         luceneFieldDefProto.getName(),
