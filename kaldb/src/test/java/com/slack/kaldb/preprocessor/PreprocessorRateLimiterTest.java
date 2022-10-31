@@ -6,10 +6,10 @@ import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.Map;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.junit.Test;
 
@@ -33,8 +33,9 @@ public class PreprocessorRateLimiterTest {
 
     // set the target so that we pass the first add, then fail the second
     long targetThroughput = ((long) span.toByteArray().length * preprocessorCount) + 1;
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(Map.of(name, targetThroughput));
+
+    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     // try to get just below the scaled limit, then try to go over
     assertThat(predicate.test("key", span)).isTrue();
@@ -76,8 +77,15 @@ public class PreprocessorRateLimiterTest {
                     .setVStr("unprovisioned_service")
                     .build())
             .build();
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(Map.of("provisioned_service", Long.MAX_VALUE));
+
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            "unprovisioned_service",
+            "unprovisioned_service",
+            Long.MAX_VALUE,
+            null,
+            "unprovisioned_service");
+    Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     // this should be immediately dropped
     assertThat(predicate.test("key", span)).isFalse();
@@ -114,8 +122,8 @@ public class PreprocessorRateLimiterTest {
 
     String name = "rateLimiter";
     long targetThroughput = 1000;
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(Map.of(name, targetThroughput));
+    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", Trace.Span.newBuilder().build())).isFalse();
     assertThat(predicate.test("key", null)).isFalse();
@@ -142,8 +150,8 @@ public class PreprocessorRateLimiterTest {
     PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 3, true);
 
     long targetThroughput = span.getSerializedSize() - 1;
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(Map.of(name, targetThroughput));
+    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isTrue();
@@ -169,8 +177,8 @@ public class PreprocessorRateLimiterTest {
     PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 3, false);
 
     long targetThroughput = span.getSerializedSize() - 1;
-    Predicate<String, Trace.Span> predicate =
-        rateLimiter.createRateLimiter(Map.of(name, targetThroughput));
+    DatasetMetadata datasetMetadata = new DatasetMetadata(name, name, targetThroughput, null, name);
+    Predicate<String, Trace.Span> predicate = rateLimiter.createRateLimiter(datasetMetadata);
 
     assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isFalse();

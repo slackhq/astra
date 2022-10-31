@@ -15,11 +15,7 @@ import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -29,7 +25,6 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
-import org.apache.kafka.streams.kstream.Predicate;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.ValueMapper;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -203,30 +198,34 @@ public class PreprocessorService extends AbstractService {
                     Collectors.toUnmodifiableMap(
                         KaldbMetadata::getName, DatasetMetadata::getDataset)));
 
-    Predicate<String, Trace.Span> rateLimitPredicate =
-        rateLimiter.createRateLimiter(
-            datasetMetadataList
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, DatasetMetadata::getThroughputBytes)));
+    Map<String, DatasetMetadata> datasetMetadataMap =
+        datasetMetadataList
+            .stream()
+            .collect(
+                Collectors.toUnmodifiableMap(KaldbMetadata::getName, DatasetMetadata::getDataset));
 
-    upstreamTopics.forEach(
-        (upstreamTopic ->
-            builder
-                .stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
-                .flatMapValues(valueMapper)
-                .filter(rateLimitPredicate)
-                .peek(
-                    (key, span) ->
-                        LOG.debug(
-                            "Processed span {} from topic {} to topic {}",
-                            span,
-                            upstreamTopic,
-                            downstreamTopic))
-                .to(
-                    downstreamTopic,
-                    Produced.with(Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner))));
+    upstreamTopics
+        .stream()
+        .
+        // ensure that the topic we are indexing has a dataset metadata entry for it
+        filter(datasetMetadataMap::containsKey)
+        .forEach(
+            (upstreamTopic ->
+                builder
+                    .stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
+                    .flatMapValues(valueMapper)
+                    .filter(rateLimiter.createRateLimiter(datasetMetadataMap.get(upstreamTopic)))
+                    .peek(
+                        (key, span) ->
+                            LOG.debug(
+                                "Processed span {} from topic {} to topic {}",
+                                span,
+                                upstreamTopic,
+                                downstreamTopic))
+                    .to(
+                        downstreamTopic,
+                        Produced.with(
+                            Serdes.String(), KaldbSerdes.TraceSpan(), streamPartitioner))));
 
     return builder.build();
   }
