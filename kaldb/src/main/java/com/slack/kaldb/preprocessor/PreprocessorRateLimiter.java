@@ -103,14 +103,6 @@ public class PreprocessorRateLimiter {
     }
   }
 
-  class MyRateLimiter implements Predicate<String, Trace.Span> {
-
-    @Override
-    public boolean test(String s, Trace.Span span) {
-      return false;
-    }
-  }
-
   public Predicate<String, Trace.Span> createRateLimiter(DatasetMetadata datasetMetadata) {
 
     double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;

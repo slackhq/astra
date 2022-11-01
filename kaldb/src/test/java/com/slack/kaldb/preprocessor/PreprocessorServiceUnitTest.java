@@ -264,17 +264,23 @@ public class PreprocessorServiceUnitTest {
     List<DatasetMetadata> datasetMetadata =
         List.of(
             new DatasetMetadata(
-                "dataset1",
-                "owner1",
+                "upstream1",
+                "upstream1",
                 1000,
                 List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
-                "dataset1"),
+                "upstream1"),
             new DatasetMetadata(
-                "dataset2",
-                "owner1",
+                "upstream2",
+                "upstream2",
                 1000,
                 List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
-                "dataset2"));
+                "upstream2"),
+            new DatasetMetadata(
+                "upstream3",
+                "upstream3",
+                1000,
+                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
+                "upstream3"));
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;
