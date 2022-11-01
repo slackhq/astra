@@ -31,6 +31,8 @@ message CreateDatasetMetadataRequest {
   string name = 1;
   // Owner information, maybe be any string
   string owner = 2;
+  // The service name(s) that the dataset is indexing
+  string service_name = 3;
 }
 
 // UpdateDatasetMetadataRequest represents a request to update an existing dataset
