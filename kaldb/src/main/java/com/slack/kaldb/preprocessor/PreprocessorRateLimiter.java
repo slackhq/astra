@@ -12,6 +12,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
@@ -105,6 +107,14 @@ public class PreprocessorRateLimiter {
 
   public Predicate<String, Trace.Span> createRateLimiter(DatasetMetadata datasetMetadata) {
 
+    Pattern pattern;
+    if (datasetMetadata.getServiceName().equals("*")) {
+      pattern = Pattern.compile(".+");
+    } else {
+      pattern = Pattern.compile(datasetMetadata.getServiceName());
+    }
+    Matcher matcher = pattern.matcher("");
+
     double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;
     LOG.info(
         "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
@@ -130,26 +140,34 @@ public class PreprocessorRateLimiter {
         //  inadvertently swamp the system if we want to increase this logging level
         //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
         meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .counter(
+                MESSAGES_DROPPED,
+                getMeterTags(datasetMetadata.getName(), MessageDropReason.MISSING_SERVICE_NAME))
             .increment();
         meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .counter(
+                BYTES_DROPPED,
+                getMeterTags(datasetMetadata.getName(), MessageDropReason.MISSING_SERVICE_NAME))
             .increment(bytes);
         return false;
       }
 
-      String datasetServiceName = datasetMetadata.serviceName;
+      String datasetServiceName = datasetMetadata.getServiceName();
       boolean isProvisionedService =
           datasetServiceName.equals(MATCH_ALL_DATASET)
               || datasetServiceName.equals("*")
-              || serviceName.equals(datasetServiceName);
+              || matcher.reset(serviceName).matches();
       if (!isProvisionedService) {
         // service isn't provisioned
         meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+            .counter(
+                MESSAGES_DROPPED,
+                getMeterTags(datasetMetadata.getName(), MessageDropReason.NOT_PROVISIONED))
             .increment();
         meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+            .counter(
+                BYTES_DROPPED,
+                getMeterTags(datasetMetadata.getName(), MessageDropReason.NOT_PROVISIONED))
             .increment(bytes);
         LOG.debug(
             "Message was dropped from service '{}' as it not currently provisioned", serviceName);
@@ -162,10 +180,13 @@ public class PreprocessorRateLimiter {
 
       // message should be dropped due to rate limit
       meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .counter(
+              MESSAGES_DROPPED,
+              getMeterTags(datasetMetadata.getName(), MessageDropReason.OVER_LIMIT))
           .increment();
       meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .counter(
+              BYTES_DROPPED, getMeterTags(datasetMetadata.getName(), MessageDropReason.OVER_LIMIT))
           .increment(bytes);
       LOG.debug(
           "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",

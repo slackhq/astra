@@ -23,13 +23,14 @@ public class DatasetMetadataSerializerTest {
 
     final String name = "testDataset";
     final String owner = "testOwner";
+    final String serviceName = "service1";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list =
         Collections.singletonList(
             new DatasetPartitionMetadata(
                 partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
     final DatasetMetadata datasetMetadata =
-        new DatasetMetadata(name, owner, throughput, list, name);
+        new DatasetMetadata(name, owner, throughput, list, serviceName);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -38,7 +39,52 @@ public class DatasetMetadataSerializerTest {
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceName).isEqualTo(serviceName);
     assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
+  }
+
+  @Test
+  public void testDatasetMetadataSerializerForRegexServiceNames()
+      throws InvalidProtocolBufferException {
+    final Instant partitionStart = Instant.now();
+    final Instant partitionEnd = Instant.now().plus(1, ChronoUnit.DAYS);
+    final String partitionName = "partitionName";
+    final List<String> partitionList = List.of(partitionName);
+
+    final String name = "testDataset";
+    final String owner = "testOwner";
+    final String serviceName1 = "[abc]";
+    final long throughput = 2000;
+    final List<DatasetPartitionMetadata> list =
+        Collections.singletonList(
+            new DatasetPartitionMetadata(
+                partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, serviceName1);
+
+    String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
+    assertThat(serializedDatasetMetadata).isNotEmpty();
+
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedDatasetMetadata);
+    assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
+
+    assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceName).isEqualTo(serviceName1);
+    assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
+
+    final String serviceName2 = "[^abc]";
+    DatasetMetadata datasetMetadata2 =
+        new DatasetMetadata(name, owner, throughput, list, serviceName2);
+    String serializedDatasetMetadata2 = serDe.toJsonStr(datasetMetadata2);
+    DatasetMetadata deserializedDatasetMetadata2 = serDe.fromJsonStr(serializedDatasetMetadata2);
+    assertThat(deserializedDatasetMetadata2.serviceName).isEqualTo(serviceName2);
+
+    final String serviceName3 = "\\d";
+    DatasetMetadata datasetMetadata3 =
+        new DatasetMetadata(name, owner, throughput, list, serviceName3);
+    String serializedDatasetMetadata3 = serDe.toJsonStr(datasetMetadata3);
+    DatasetMetadata deserializedDatasetMetadata3 = serDe.fromJsonStr(serializedDatasetMetadata3);
+    assertThat(deserializedDatasetMetadata3.serviceName).isEqualTo(serviceName3);
   }
 
   @Test

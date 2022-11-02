@@ -36,6 +36,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
     return Metadata.DatasetMetadata.newBuilder()
         .setName(metadata.name)
         .setOwner(metadata.owner)
+        .setServiceName(metadata.serviceName)
         .setThroughputBytes(metadata.throughputBytes)
         .addAllPartitionConfigs(datasetPartitionMetadata)
         .build();

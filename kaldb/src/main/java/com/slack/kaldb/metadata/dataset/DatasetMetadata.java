@@ -35,8 +35,6 @@ public class DatasetMetadata extends KaldbMetadata {
     checkPartitions(partitionConfigs, "partitionConfigs must not overlap start and end times");
 
     checkArgument(serviceName.length() <= 256, "serviceName must be no longer than 256 chars");
-    checkArgument(
-        serviceName.matches("^[a-zA-Z0-9_-]*$"), "serviceName must contain only [a-zA-Z0-9_-]");
 
     this.owner = owner;
     this.serviceName = serviceName;
