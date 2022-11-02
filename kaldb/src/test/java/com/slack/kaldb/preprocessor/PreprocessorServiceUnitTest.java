@@ -19,6 +19,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -129,8 +130,10 @@ public class PreprocessorServiceUnitTest {
             1,
             List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("33", "44", "55"))),
             datasetName);
+    Map<String, DatasetMetadata> datasetMetadataMap =
+        PreprocessorService.getDatasetMetadataMap(List.of(datasetMetadata));
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        PreprocessorService.streamPartitioner(datasetMetadata);
+        PreprocessorService.streamPartitioner(datasetMetadataMap, datasetName);
 
     Trace.Span span =
         Trace.Span.newBuilder()
@@ -149,9 +152,72 @@ public class PreprocessorServiceUnitTest {
   }
 
   @Test
+  public void testValidDatasetMetadataMappingAndStreamPartition() {
+    String datasetName1 = "datasetName1";
+    List<Integer> partitionList1 = List.of(33, 44, 55);
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(
+            datasetName1,
+            datasetName1,
+            1,
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("33", "44", "55"))),
+            datasetName1);
+
+    String datasetName2 = "datasetName2";
+    List<Integer> partitionList2 = List.of(1, 2, 3);
+    DatasetMetadata datasetMetadata2 =
+        new DatasetMetadata(
+            datasetName2,
+            datasetName2,
+            1,
+            List.of(new DatasetPartitionMetadata(500, Long.MAX_VALUE, List.of("1", "2", "3"))),
+            datasetName2);
+
+    Map<String, DatasetMetadata> datasetMetadataMap =
+        PreprocessorService.getDatasetMetadataMap(List.of(datasetMetadata1, datasetMetadata2));
+
+    StreamPartitioner<String, Trace.Span> streamPartitioner =
+        PreprocessorService.streamPartitioner(datasetMetadataMap, datasetName1);
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName1).build())
+            .build();
+
+    // all arguments except value are currently unused for determining the partition to assign, as
+    // this comes the internal partition list that is set on stream partitioner initialization
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", null, span, 0)))
+        .isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", null, span, 1)))
+        .isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", "", span, 0))).isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("", null, span, 0))).isTrue();
+
+    StreamPartitioner<String, Trace.Span> streamPartitioner2 =
+        PreprocessorService.streamPartitioner(datasetMetadataMap, datasetName2);
+
+    Trace.Span span2 =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName2).build())
+            .build();
+
+    // all arguments except value are currently unused for determining the partition to assign, as
+    // this comes the internal partition list that is set on stream partitioner initialization
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", null, span2, 0)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", null, span2, 1)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", "", span2, 0)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("", null, span2, 0))).isTrue();
+  }
+
+  @Test
   public void shouldPreventInvalidStreamPartitionConfigurations() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(null));
+        .isThrownBy(() -> PreprocessorService.streamPartitioner(null, "name"));
     String datasetName = "datasetName";
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(
@@ -160,8 +226,11 @@ public class PreprocessorServiceUnitTest {
             1,
             List.of(new DatasetPartitionMetadata(100, 200, List.of())),
             datasetName);
+
+    Map<String, DatasetMetadata> datasetMetadataMap =
+        PreprocessorService.getDatasetMetadataMap(List.of(datasetMetadata));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(datasetMetadata));
+        .isThrownBy(() -> PreprocessorService.streamPartitioner(datasetMetadataMap, datasetName));
   }
 
   @Test

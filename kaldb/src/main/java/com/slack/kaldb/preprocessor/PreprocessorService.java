@@ -1,8 +1,10 @@
 package com.slack.kaldb.preprocessor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -185,17 +187,14 @@ public class PreprocessorService extends AbstractService {
     checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
+    checkNotNull(rateLimiter, "rateLimiter cannot be null");
 
     StreamsBuilder builder = new StreamsBuilder();
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
 
-    Map<String, DatasetMetadata> datasetMetadataMap =
-        datasetMetadataList
-            .stream()
-            .collect(
-                Collectors.toUnmodifiableMap(KaldbMetadata::getName, DatasetMetadata::getDataset));
+    Map<String, DatasetMetadata> datasetMetadataMap = getDatasetMetadataMap(datasetMetadataList);
 
     upstreamTopics
         .stream()
@@ -219,7 +218,7 @@ public class PreprocessorService extends AbstractService {
                         Produced.with(
                             Serdes.String(),
                             KaldbSerdes.TraceSpan(),
-                            streamPartitioner(datasetMetadataMap.get(upstreamTopic))))));
+                            streamPartitioner(datasetMetadataMap, upstreamTopic)))));
 
     return builder.build();
   }
@@ -257,13 +256,24 @@ public class PreprocessorService extends AbstractService {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  @VisibleForTesting
+  public static Map<String, DatasetMetadata> getDatasetMetadataMap(
+      List<DatasetMetadata> datasetMetadataList) {
+    return datasetMetadataList
+        .stream()
+        .collect(Collectors.toUnmodifiableMap(KaldbMetadata::getName, DatasetMetadata::getDataset));
+  }
+
   /**
    * Returns a StreamPartitioner that selects from the provided list of dataset metadata. If no
    * valid dataset metadata are provided throws an exception.
    */
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      DatasetMetadata datasetMetadata) {
-    //    checkNotNull(datasetMetadata, "dataset cannot be null");
+      Map<String, DatasetMetadata> datasetMetadataMap, String name) {
+    checkNotNull(name, "name cannot be null");
+    checkArgument(datasetMetadataMap != null, "datasetMetadataMap cannot be null");
+
+    DatasetMetadata datasetMetadata = datasetMetadataMap.get(name);
     checkArgument(datasetMetadata != null, "dataset cannot be null");
     checkArgument(
         getActivePartitionList(datasetMetadata).size() > 0,
