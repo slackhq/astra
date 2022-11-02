@@ -119,14 +119,22 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         CollectorManager<StatsCollector, Histogram> statsCollector =
             buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
 
+        CollectorManager<ArithmeticCollector, ArithmeticResult> arithmeticCollectorManager =
+            buildArithmeticCollector(SystemField.TIME_SINCE_EPOCH.fieldName);
+
+        Object arithmeticResults;
+
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
-            collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
+            collectorManager =
+                new MultiCollectorManager(
+                    topFieldCollector, statsCollector, arithmeticCollectorManager);
           } else {
-            collectorManager = new MultiCollectorManager(topFieldCollector);
+            collectorManager =
+                new MultiCollectorManager(topFieldCollector, arithmeticCollectorManager);
           }
           Object[] collector = searcher.search(query, collectorManager);
 
@@ -137,10 +145,17 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
           if (bucketCount > 0) {
             histogram = ((Histogram) collector[1]);
+            arithmeticResults = collector[2];
+          } else {
+            arithmeticResults = collector[1];
           }
         } else {
           results = Collections.emptyList();
-          histogram = searcher.search(query, statsCollector);
+          Object[] collector =
+              searcher.search(
+                  query, new MultiCollectorManager(statsCollector, arithmeticCollectorManager));
+          histogram = ((Histogram) collector[0]);
+          arithmeticResults = collector[1];
         }
 
         elapsedTime.stop();
@@ -152,7 +167,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             0,
             0,
             1,
-            1);
+            1,
+            arithmeticResults);
       } finally {
         searcherManager.release(searcher);
       }
@@ -222,6 +238,30 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
         }
         return histogram;
+      }
+    };
+  }
+
+  private CollectorManager<ArithmeticCollector, ArithmeticResult> buildArithmeticCollector(
+      String field) {
+
+    return new CollectorManager<>() {
+      @Override
+      public ArithmeticCollector newCollector() {
+        return new ArithmeticCollector(field);
+      }
+
+      @Override
+      public ArithmeticResult reduce(Collection<ArithmeticCollector> collectors) {
+        ArithmeticResult result = null;
+        for (ArithmeticCollector collector : collectors) {
+          if (result == null) {
+            result = collector.getResult();
+          } else {
+            result.merge(collector.getResult());
+          }
+        }
+        return result;
       }
     };
   }
