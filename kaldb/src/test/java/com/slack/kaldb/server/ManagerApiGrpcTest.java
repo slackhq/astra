@@ -472,6 +472,7 @@ public class ManagerApiGrpcTest {
                         ManagerApi.CreateDatasetMetadataRequest.newBuilder()
                             .setName(datasetName)
                             .setOwner(datasetOwner)
+                            .setServiceName(datasetName)
                             .build()));
 
     assertThat(throwableCreate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
