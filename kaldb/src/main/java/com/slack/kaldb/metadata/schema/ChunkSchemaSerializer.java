@@ -1,39 +1,38 @@
 package com.slack.kaldb.metadata.schema;
 
-import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.proto.metadata.Metadata;
-
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class ChunkSchemaSerializer implements MetadataSerializer<ChunkSchema> {
   private static Metadata.ChunkSchema toChunkSchemaProto(ChunkSchema chunkSchema) {
+    final Map<String, Metadata.LuceneFieldDef> fieldDefProtoMap =
+        new HashMap<>(chunkSchema.fieldDefMap.size());
+    for (String key : chunkSchema.fieldDefMap.keySet()) {
+      fieldDefProtoMap.put(
+          key, LuceneFieldDefSerializer.toLuceneFieldDefProto(chunkSchema.fieldDefMap.get(key)));
+    }
     return Metadata.ChunkSchema.newBuilder()
         .setName(chunkSchema.name)
-        .addAllFieldDefs(
-            chunkSchema
-                .fieldDefMap
-                .values()
-                .stream()
-                .map(f -> LuceneFieldDefSerializer.toLuceneFieldDefProto(f))
-                .collect(Collectors.toList()))
+        .putAllFieldDefMap(fieldDefProtoMap)
         .putAllMetadata(chunkSchema.metadata)
         .build();
   }
 
   public static ChunkSchema fromChunkSchemaProto(Metadata.ChunkSchema chunkSchemaProto) {
-    Map<String, LuceneFieldDef> fieldDefMap = new HashMap<>(chunkSchemaProto.getFieldDefsCount());
-    for(field : chunkSchemaProto.getFieldDefsList()) {
-      if(fieldDefMap.containsKey(field.g))
+    final Map<String, LuceneFieldDef> fieldDefMap =
+        new HashMap<>(chunkSchemaProto.getFieldDefMapCount());
+    for (String key : chunkSchemaProto.getMetadataMap().keySet()) {
+      fieldDefMap.put(
+          key,
+          LuceneFieldDefSerializer.fromLuceneFieldDefProto(
+              chunkSchemaProto.getFieldDefMapMap().get(key)));
     }
     return new ChunkSchema(
-        chunkSchemaProto.getName(),
-        Maps.uniqueIndex(chunkSchemaProto.getFieldDefsList(), LuceneFieldDef::getName),
-        chunkSchemaProto.getMetadataMap());
+        chunkSchemaProto.getName(), fieldDefMap, chunkSchemaProto.getMetadataMap());
   }
 
   @Override

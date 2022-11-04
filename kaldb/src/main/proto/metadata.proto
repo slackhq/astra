@@ -168,6 +168,6 @@ message LuceneFieldDef {
 
 message ChunkSchema {
   string name = 1;
-  repeated LuceneFieldDef fieldDefs = 2;
+  map<string, LuceneFieldDef> fieldDefMap = 2;
   map<string, string> metadata = 3;
 }
