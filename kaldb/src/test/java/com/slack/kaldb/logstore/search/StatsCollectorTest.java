@@ -10,11 +10,13 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import brave.Tracing;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.time.Instant;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -24,6 +26,11 @@ public class StatsCollectorTest {
       new TemporaryLogStoreAndSearcherRule(false);
 
   public StatsCollectorTest() throws IOException {}
+
+  @Before
+  public void setUp() throws Exception {
+    Tracing.newBuilder().build();
+  }
 
   @Test
   public void testStatsCollectorWithPerMinuteMessages() {
