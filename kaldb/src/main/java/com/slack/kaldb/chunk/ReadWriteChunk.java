@@ -93,8 +93,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     this.logStore = logStore;
     String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
     this.logSearcher =
-        (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
+        (LogIndexSearcher<T>) new LogIndexSearcherImpl(logStore.getSearcherManager());
 
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();
