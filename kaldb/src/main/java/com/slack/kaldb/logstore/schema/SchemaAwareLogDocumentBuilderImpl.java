@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore.schema;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.slack.kaldb.logstore.DocumentBuilder;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.InvalidFieldDefException;
@@ -13,7 +12,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
@@ -49,13 +47,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
-
-  public static final Set<FieldType> NUMERIC_FIELD_TYPES =
-      Sets.immutableEnumSet(
-          SchemaAwareLogDocumentBuilderImpl.FieldType.DOUBLE,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.FLOAT,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER,
-          SchemaAwareLogDocumentBuilderImpl.FieldType.LONG);
 
   public enum FieldType {
     TEXT("text") {
@@ -157,7 +148,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           try {
             return Integer.valueOf((String) value);
           } catch (NumberFormatException e) {
-            return (int) 0;
+            return 0;
           }
         }
         if (toType == FieldType.LONG) {
@@ -578,11 +569,5 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       addField(doc, key, message.source.get(key), "", 0);
     }
     return doc;
-  }
-
-  // TODO: Rename this method getFieldDefMap instead?
-  @Override
-  public Map<String, FieldDef> getSchema() {
-    return fieldDefMap;
   }
 }
