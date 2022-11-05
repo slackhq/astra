@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import org.junit.Test;
 
 public class LuceneFieldDefSerializerTest {
@@ -23,8 +22,7 @@ public class LuceneFieldDefSerializerTest {
     assertThat(deserializedFieldDef).isEqualTo(fieldDef);
 
     assertThat(deserializedFieldDef.name).isEqualTo(intFieldName);
-    assertThat(deserializedFieldDef.fieldType)
-        .isEqualTo(SchemaAwareLogDocumentBuilderImpl.FieldType.INTEGER);
+    assertThat(deserializedFieldDef.fieldType).isEqualTo(FieldType.INTEGER);
     assertThat(deserializedFieldDef.isStored).isTrue();
     assertThat(deserializedFieldDef.isIndexed).isTrue();
     assertThat(deserializedFieldDef.isAnalyzed).isFalse();

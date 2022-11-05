@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.slack.kaldb.logstore.InvalidFieldDefException;
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldType;
 import org.junit.Test;
 
 public class LuceneFieldDefTest {

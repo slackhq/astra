@@ -2,14 +2,13 @@ package com.slack.kaldb.metadata.schema;
 
 import com.google.common.base.Objects;
 import com.slack.kaldb.logstore.InvalidFieldDefException;
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
 /*
  * LuceneFieldDef describes the configs that can be set on a lucene field. This config defines how a field is indexed.
  */
 public class LuceneFieldDef extends KaldbMetadata {
-  public final SchemaAwareLogDocumentBuilderImpl.FieldType fieldType;
+  public final FieldType fieldType;
   public final boolean isStored;
   public final boolean isIndexed;
   public final boolean isAnalyzed;
@@ -23,19 +22,17 @@ public class LuceneFieldDef extends KaldbMetadata {
       boolean isAnalyzed,
       boolean storeNumericDocValue) {
     super(name);
-    this.fieldType =
-        SchemaAwareLogDocumentBuilderImpl.FieldType.valueOf(fieldType.trim().toUpperCase());
+    this.fieldType = FieldType.valueOf(fieldType.trim().toUpperCase());
     if (isAnalyzed && !isIndexed) {
       throw new InvalidFieldDefException("Cannot set isAnalyzed without setting isIndexed");
     }
 
-    if (isAnalyzed && !(this.fieldType.equals(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT))) {
+    if (isAnalyzed && !(this.fieldType.equals(FieldType.TEXT))) {
       throw new InvalidFieldDefException("Only text and any types can have isAnalyzed set");
     }
 
     if (storeNumericDocValue
-        && (this.fieldType.equals(SchemaAwareLogDocumentBuilderImpl.FieldType.TEXT)
-            || this.fieldType.equals(SchemaAwareLogDocumentBuilderImpl.FieldType.BOOLEAN))) {
+        && (this.fieldType.equals(FieldType.TEXT) || this.fieldType.equals(FieldType.BOOLEAN))) {
       throw new InvalidFieldDefException("Only numeric fields can have stored numeric doc values");
     }
 
