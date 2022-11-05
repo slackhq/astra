@@ -6,7 +6,7 @@ import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 
 /*
- * FieldDef describes the configs that can be set on a field.
+ * LuceneFieldDef describes the configs that can be set on a lucene field. This config defines how a field is indexed.
  */
 public class LuceneFieldDef extends KaldbMetadata {
   public final SchemaAwareLogDocumentBuilderImpl.FieldType fieldType;

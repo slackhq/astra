@@ -1,6 +1,6 @@
 package com.slack.kaldb.logstore;
 
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.IOException;
 import java.util.Map;
 import org.apache.lucene.document.Document;
@@ -8,6 +8,5 @@ import org.apache.lucene.document.Document;
 public interface DocumentBuilder<T> {
   Document fromMessage(T message) throws IOException;
 
-  // TODO: Move field def into it's own class.
-  Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> getSchema();
+  Map<String, LuceneFieldDef> getSchema();
 }

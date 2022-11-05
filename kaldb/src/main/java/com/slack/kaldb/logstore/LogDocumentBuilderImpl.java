@@ -2,7 +2,7 @@ package com.slack.kaldb.logstore;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
 import java.util.Collections;
 import java.util.Map;
@@ -374,7 +374,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   @Override
-  public Map<String, SchemaAwareLogDocumentBuilderImpl.FieldDef> getSchema() {
+  public Map<String, LuceneFieldDef> getSchema() {
     return Collections.emptyMap();
   }
 }
