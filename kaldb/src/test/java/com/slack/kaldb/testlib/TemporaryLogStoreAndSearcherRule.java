@@ -1,12 +1,10 @@
 package com.slack.kaldb.testlib;
 
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
-
 import com.google.common.io.Files;
+import com.slack.kaldb.logstore.LogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
-import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -67,10 +65,9 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
-            SchemaAwareLogDocumentBuilderImpl.build(CONVERT_AND_DUPLICATE_FIELD, metricsRegistry),
+            LogDocumentBuilderImpl.build(ignorePropertyTypeExceptions),
             metricsRegistry);
-    // TODO: Ensure this works well.
-    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
+    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
   }
 
   public static LuceneIndexStoreConfig getIndexStoreConfig(
