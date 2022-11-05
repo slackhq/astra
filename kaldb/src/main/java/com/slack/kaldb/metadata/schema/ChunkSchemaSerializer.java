@@ -25,7 +25,7 @@ public class ChunkSchemaSerializer implements MetadataSerializer<ChunkSchema> {
   public static ChunkSchema fromChunkSchemaProto(Metadata.ChunkSchema chunkSchemaProto) {
     final Map<String, LuceneFieldDef> fieldDefMap =
         new HashMap<>(chunkSchemaProto.getFieldDefMapCount());
-    for (String key : chunkSchemaProto.getMetadataMap().keySet()) {
+    for (String key : chunkSchemaProto.getFieldDefMapMap().keySet()) {
       fieldDefMap.put(
           key,
           LuceneFieldDefSerializer.fromLuceneFieldDefProto(
