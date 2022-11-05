@@ -570,4 +570,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     }
     return doc;
   }
+
+  @Override
+  public Map<String, FieldDef> getSchema() {
+    return fieldDefMap;
+  }
 }

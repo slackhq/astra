@@ -76,7 +76,7 @@ public class LuceneIndexStoreImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, forgivingLogStore.metricsRegistry)).isEqualTo(1);
     }
-    // TODO: Add a search on all field native types.
+
     @Test
     public void testSearchAndQueryDocsWithNestedJson() throws InterruptedException {
       // TODO: Use ImmutableMap from Guava instead of Map.of which is Java 9 only?
@@ -90,20 +90,10 @@ public class LuceneIndexStoreImplTest {
                   MessageUtil.getCurrentLogDate(),
                   ReservedField.MESSAGE.fieldName,
                   "Test message",
-                  "duplicateStrProp",
-                  "duplicateValue",
-                  "intValue",
-                  3,
-                  "duplicateIntProp",
-                  5,
+                  "duplicateproperty",
+                  "duplicate1",
                   "nested",
-                  Map.of(
-                      "key1",
-                      "value1",
-                      "duplicateStrProp",
-                      "duplicateValue",
-                      "duplicateIntProp",
-                      5)));
+                  Map.of("key1", "value1", "duplicateproperty", 2)));
       forgivingLogStore.logStore.addMessage(msg);
       forgivingLogStore.logStore.commit();
       forgivingLogStore.logStore.refresh();
@@ -111,48 +101,18 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result1 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "key1:value1", 0, MAX_TIME, 100, 1);
       assertThat(result1.hits.size()).isEqualTo(1);
 
-      SearchResult<LogMessage> resultDuplicateStrProp =
+      SearchResult<LogMessage> result2 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME,
-              "duplicateStrProp:duplicateValue",
-              0,
-              MAX_TIME,
-              100,
-              1);
-      assertThat(resultDuplicateStrProp.hits.size()).isEqualTo(1);
+              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:duplicate1", 0, MAX_TIME, 100, 1);
+      assertThat(result2.hits.size()).isEqualTo(1);
 
-      SearchResult<LogMessage> resultNestedDuplicateStrProp =
+      SearchResult<LogMessage> result3 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME,
-              "nested.duplicateStrProp:duplicateValue",
-              0,
-              MAX_TIME,
-              100,
-              1);
-      assertThat(resultNestedDuplicateStrProp.hits.size()).isEqualTo(1);
-
-      // TODO: Ensure fieldDefMap has the expected fields.
-      SearchResult<LogMessage> resultIntValue =
-          forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "intValue:[1 TO 4]", 0, MAX_TIME, 100, 1);
-      assertThat(resultIntValue.hits.size()).isEqualTo(1);
-
-      // TODO: Test with only one value in range. Does lucene syntax allow this?
-      // TODO: Test with inclusive and exclusive values.
-      // TODO: Add tests for all numeric field range queries.
-      // TODO: Add a single value in range
-      SearchResult<LogMessage> result4 =
-          forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME,
-              "nested.duplicateIntProp:[5 TO 5]",
-              0,
-              MAX_TIME,
-              100,
-              1);
-      assertThat(result4.hits.size()).isEqualTo(1);
+              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:2", 0, MAX_TIME, 100, 1);
+      assertThat(result3.hits.size()).isEqualTo(1);
     }
 
     @Test
@@ -452,12 +412,10 @@ public class LuceneIndexStoreImplTest {
           copyFromS3(bucket, prefix, s3BlobFs, Paths.get(tempFolder.getRoot().getAbsolutePath()));
       assertThat(s3Files.length).isEqualTo(activeFiles.size());
 
-      // TODO: Use schema here. This test needs schema to be serialized.
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
-              Collections.emptyMap());
+              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
       assertThat(newResults.size()).isEqualTo(1);
@@ -497,11 +455,9 @@ public class LuceneIndexStoreImplTest {
       copyToLocalPath(
           dirPath, activeFiles, Paths.get(tempFolder.getRoot().getAbsolutePath()), blobFs);
 
-      // TODO: Another case, where we need schema serialized to disk.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
-              Collections.emptyMap());
+              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()));
 
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
