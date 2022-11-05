@@ -63,6 +63,6 @@ public class ChunkSchemaSerializerTest {
     Map<String, LuceneFieldDef> fieldDefMap =
         Map.of(field1, fieldDef1, field2 + "error", fieldDef2);
     String schemaName = "schemaName";
-    ChunkSchema chunkSchema = new ChunkSchema(schemaName, fieldDefMap, Collections.emptyMap());
+    new ChunkSchema(schemaName, fieldDefMap, Collections.emptyMap());
   }
 }
