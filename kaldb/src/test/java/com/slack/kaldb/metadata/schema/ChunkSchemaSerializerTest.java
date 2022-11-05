@@ -3,36 +3,51 @@ package com.slack.kaldb.metadata.schema;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Map;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class ChunkSchemaSerializerTest {
   private final ChunkSchemaSerializer serDe = new ChunkSchemaSerializer();
 
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+
   @Test
-  public void testChunkSchemaSerializer() throws InvalidProtocolBufferException {
-    String intFieldName = "IntfieldDef";
-    String intType = "integer";
-    String field1 = intFieldName + "1";
-    LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, false, true);
-    String field2 = intFieldName + "2";
-    LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
+  public void testChunkSchemaSerializer() throws IOException {
+    final String intFieldName = "IntfieldDef";
+    final String intType = "integer";
+    final String field1 = intFieldName + "1";
+    final LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, false, true);
+    final String field2 = intFieldName + "2";
+    final LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
 
-    String schemaName = "schemaName";
-    Map<String, LuceneFieldDef> fieldDefMap = Map.of(field1, fieldDef1, field2, fieldDef2);
-    Map<String, String> metadataMap = Map.of("m1", "k1", "m2", "k2");
-    ChunkSchema chunkSchema = new ChunkSchema(schemaName, fieldDefMap, metadataMap);
+    final String schemaName = "schemaName";
+    final Map<String, LuceneFieldDef> fieldDefMap = Map.of(field1, fieldDef1, field2, fieldDef2);
+    final Map<String, String> metadataMap = Map.of("m1", "k1", "m2", "k2");
+    final ChunkSchema chunkSchema = new ChunkSchema(schemaName, fieldDefMap, metadataMap);
 
-    String serializedSchemaDef = serDe.toJsonStr(chunkSchema);
+    final String serializedSchemaDef = serDe.toJsonStr(chunkSchema);
     assertThat(serializedSchemaDef).isNotEmpty();
 
-    ChunkSchema deserializedSchema = serDe.fromJsonStr(serializedSchemaDef);
+    final ChunkSchema deserializedSchema = serDe.fromJsonStr(serializedSchemaDef);
     assertThat(deserializedSchema).isEqualTo(chunkSchema);
     assertThat(deserializedSchema.name).isEqualTo(schemaName);
     assertThat(deserializedSchema.fieldDefMap).isEqualTo(fieldDefMap);
     assertThat(deserializedSchema.metadata).isEqualTo(metadataMap);
     assertThat(deserializedSchema.fieldDefMap.keySet()).containsExactly(field1, field2);
+
+    // Serialize and deserialize to a file.
+    final File tempFile = tempFolder.newFile("tempSchema.json");
+    assertThat(Files.size(tempFile.toPath())).isZero();
+    ChunkSchema.serializeToFile(chunkSchema, tempFile);
+    assertThat(Files.size(tempFile.toPath())).isNotZero();
+    final ChunkSchema schemaFromFile = ChunkSchema.deserializeFromFile(tempFile);
+    assertThat(schemaFromFile).isEqualTo(chunkSchema);
   }
 
   @Test

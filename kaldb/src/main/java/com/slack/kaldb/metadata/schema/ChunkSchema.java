@@ -2,10 +2,23 @@ package com.slack.kaldb.metadata.schema;
 
 import com.google.common.base.Objects;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 
 /** Schema for a chunk. */
 public class ChunkSchema extends KaldbMetadata {
+  public static ChunkSchemaSerializer serDe = new ChunkSchemaSerializer();
+
+  public static void serializeToFile(ChunkSchema chunkSchema, File file) throws IOException {
+    Files.writeString(file.toPath(), serDe.toJsonStr(chunkSchema));
+  }
+
+  public static ChunkSchema deserializeFromFile(File file) throws IOException {
+    return serDe.fromJsonStr(Files.readString(file.toPath()));
+  }
+
   public final Map<String, LuceneFieldDef> fieldDefMap;
   public final Map<String, String> metadata;
 
