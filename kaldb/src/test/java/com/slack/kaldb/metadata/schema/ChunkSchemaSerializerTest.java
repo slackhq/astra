@@ -52,7 +52,7 @@ public class ChunkSchemaSerializerTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testChunkSchemaException() throws InvalidProtocolBufferException {
+  public void testChunkSchemaException() {
     String intFieldName = "IntfieldDef";
     String intType = "integer";
     String field1 = intFieldName + "1";
@@ -60,9 +60,9 @@ public class ChunkSchemaSerializerTest {
     String field2 = intFieldName + "2";
     LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
 
-    Map<String, LuceneFieldDef> fieldDefMap = Map.of(field1, fieldDef1, field2 + "error", fieldDef2);
+    Map<String, LuceneFieldDef> fieldDefMap =
+        Map.of(field1, fieldDef1, field2 + "error", fieldDef2);
     String schemaName = "schemaName";
-    ChunkSchema chunkSchema =
-            new ChunkSchema(schemaName, fieldDefMap, Collections.emptyMap());
+    ChunkSchema chunkSchema = new ChunkSchema(schemaName, fieldDefMap, Collections.emptyMap());
   }
 }
