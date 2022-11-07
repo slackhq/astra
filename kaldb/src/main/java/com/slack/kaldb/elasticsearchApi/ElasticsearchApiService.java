@@ -94,11 +94,11 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-    HitsMetadata hits = getHits(searchResult);
-    Map<String, AggregationResponse> aggregations =
-        getAggregations(request.getAggregations(), searchResult);
-
     try {
+      HitsMetadata hits = getHits(searchResult);
+      Map<String, AggregationResponse> aggregations =
+          getAggregations(request.getAggregations(), searchResult);
+
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
@@ -108,20 +108,26 @@ public class ElasticsearchApiService {
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .status(200)
           .build();
+    } catch (Exception e) {
+      LOG.error("Error fulfilling request for multisearch query", e);
+      span.error(e);
+      return new EsSearchResponse.Builder()
+          .debugMetadata(
+              Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
+          .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
+          .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .status(500)
+          .build();
     } finally {
       span.finish();
     }
   }
 
-  private HitsMetadata getHits(KaldbSearch.SearchResult searchResult) {
+  private HitsMetadata getHits(KaldbSearch.SearchResult searchResult) throws IOException {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     List<SearchResponseHit> responseHits = new ArrayList<>(hitsByteList.size());
     for (ByteString bytes : hitsByteList) {
-      try {
-        responseHits.add(SearchResponseHit.fromByteString(bytes));
-      } catch (IOException e) {
-        LOG.error("Error processing search hits bytes", e);
-      }
+      responseHits.add(SearchResponseHit.fromByteString(bytes));
     }
 
     return new HitsMetadata.Builder()
