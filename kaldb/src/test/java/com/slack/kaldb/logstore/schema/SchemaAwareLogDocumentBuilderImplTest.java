@@ -7,26 +7,16 @@ import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR;
-<<<<<<< HEAD
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
 import static com.slack.kaldb.metadata.schema.FieldType.convertFieldValue;
-=======
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldType;
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldType.convertFieldValue;
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
->>>>>>> master
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
-<<<<<<< HEAD
 import com.slack.kaldb.metadata.schema.FieldType;
-=======
->>>>>>> master
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
