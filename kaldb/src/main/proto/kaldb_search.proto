@@ -15,6 +15,9 @@ message SearchRequest {
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
   int32 bucket_count = 7;
+
+  // Aggregations
+  optional Aggregations aggs = 8;
 }
 
 message SearchResult {
@@ -33,6 +36,17 @@ message HistogramBucket {
   double low = 1;
   double high = 2;
   double count = 3;
+}
+
+message Aggregations {
+  repeated Aggregation agg = 1;
+}
+
+message Aggregation {
+  string agg_name = 1;
+  string agg_type = 2;
+  string agg_field = 3;
+  repeated double values = 4;
 }
 
 service KaldbService {
