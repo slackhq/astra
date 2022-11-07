@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
-import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -366,9 +365,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
       queryServers.add(
           Futures.transform(
-              searchRequest,
-              searchRequestTransform::apply,
-              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
+              searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
     }
 
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
