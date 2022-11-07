@@ -1,8 +1,12 @@
-package com.slack.kaldb.logstore;
+package com.slack.kaldb.logstore.schema;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.slack.kaldb.logstore.DocumentBuilder;
+import com.slack.kaldb.logstore.FieldDefMismatchException;
+import com.slack.kaldb.logstore.InvalidFieldDefException;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
