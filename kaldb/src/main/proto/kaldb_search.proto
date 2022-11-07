@@ -44,9 +44,18 @@ message Aggregations {
 
 message Aggregation {
   string agg_name = 1;
-  string agg_type = 2;
+  AggregationType agg_type = 2;
   string agg_field = 3;
   repeated double values = 4;
+}
+
+enum AggregationType {
+  SUM = 0;
+  MIN = 1;
+  MAX = 2;
+  AVERAGE = 3;
+  COUNT = 4;
+  PERCENTILE = 5;
 }
 
 service KaldbService {
