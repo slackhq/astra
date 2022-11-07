@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,18 +66,15 @@ public class ElasticsearchApiService {
     LOG.debug("Search request: {}", postBody);
 
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
-    List<EsSearchResponse> responses = new ArrayList<>();
-
-    for (EsSearchRequest request : requests) {
-      responses.add(doSearch(request));
-    }
+    List<EsSearchResponse> responses =
+        requests.parallelStream().map(this::doSearch).collect(Collectors.toList());
 
     SearchResponseMetadata responseMetadata = new SearchResponseMetadata(0, responses);
     return HttpResponse.of(
         HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
   }
 
-  private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
+  private EsSearchResponse doSearch(EsSearchRequest request) {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
     KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
@@ -115,11 +113,15 @@ public class ElasticsearchApiService {
     }
   }
 
-  private HitsMetadata getHits(KaldbSearch.SearchResult searchResult) throws IOException {
+  private HitsMetadata getHits(KaldbSearch.SearchResult searchResult) {
     List<ByteString> hitsByteList = searchResult.getHitsList().asByteStringList();
     List<SearchResponseHit> responseHits = new ArrayList<>(hitsByteList.size());
     for (ByteString bytes : hitsByteList) {
-      responseHits.add(SearchResponseHit.fromByteString(bytes));
+      try {
+        responseHits.add(SearchResponseHit.fromByteString(bytes));
+      } catch (IOException e) {
+        LOG.error("Error processing search hits bytes", e);
+      }
     }
 
     return new HitsMetadata.Builder()

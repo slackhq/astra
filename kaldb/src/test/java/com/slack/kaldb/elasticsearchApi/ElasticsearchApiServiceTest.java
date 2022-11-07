@@ -2,6 +2,9 @@ package com.slack.kaldb.elasticsearchApi;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -23,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
@@ -192,6 +197,42 @@ public class ElasticsearchApiServiceTest {
                 .asText()
                 .endsWith("Message91"))
         .isTrue();
+  }
+
+  @Test
+  public void testLargeSetOfQueries() throws Exception {
+    List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
+    addMessagesToChunkManager(messages);
+    String postBody =
+        Resources.toString(
+            Resources.getResource("elasticsearchApi/multisearch_query_10results.ndjson"),
+            Charset.defaultCharset());
+    KaldbLocalQueryService<LogMessage> slowSearcher =
+        spy(new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3)));
+
+    Set<String> threadNames = ConcurrentHashMap.newKeySet();
+    doAnswer(
+            invocationOnMock -> {
+              threadNames.add(Thread.currentThread().getName());
+              return invocationOnMock.callRealMethod();
+            })
+        .when(slowSearcher)
+        .doSearch(any());
+    ElasticsearchApiService slowElasticsearchApiService = new ElasticsearchApiService(slowSearcher);
+    HttpResponse response = slowElasticsearchApiService.multiSearch(postBody.repeat(100));
+
+    // handle response
+    AggregatedHttpResponse aggregatedRes = response.aggregate().join();
+    String body = aggregatedRes.content(StandardCharsets.UTF_8);
+    JsonNode jsonNode = new ObjectMapper().readTree(body);
+
+    assertThat(aggregatedRes.status().code()).isEqualTo(200);
+
+    // assert that more than one thread executed our code
+    assertThat(threadNames.size()).isGreaterThan(1);
+
+    // ensure we have all 100 results
+    assertThat(jsonNode.get("responses").size()).isEqualTo(100);
   }
 
   @Test
