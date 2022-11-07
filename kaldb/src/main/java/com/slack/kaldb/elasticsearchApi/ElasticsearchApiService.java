@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,18 +66,15 @@ public class ElasticsearchApiService {
     LOG.debug("Search request: {}", postBody);
 
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
-    List<EsSearchResponse> responses = new ArrayList<>();
-
-    for (EsSearchRequest request : requests) {
-      responses.add(doSearch(request));
-    }
+    List<EsSearchResponse> responses =
+        requests.parallelStream().map(this::doSearch).collect(Collectors.toList());
 
     SearchResponseMetadata responseMetadata = new SearchResponseMetadata(0, responses);
     return HttpResponse.of(
         HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
   }
 
-  private EsSearchResponse doSearch(EsSearchRequest request) throws IOException {
+  private EsSearchResponse doSearch(EsSearchRequest request) {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
     KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
     KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
@@ -96,11 +94,11 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-    HitsMetadata hits = getHits(searchResult);
-    Map<String, AggregationResponse> aggregations =
-        getAggregations(request.getAggregations(), searchResult);
-
     try {
+      HitsMetadata hits = getHits(searchResult);
+      Map<String, AggregationResponse> aggregations =
+          getAggregations(request.getAggregations(), searchResult);
+
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
@@ -109,6 +107,16 @@ public class ElasticsearchApiService {
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .status(200)
+          .build();
+    } catch (Exception e) {
+      LOG.error("Error fulfilling request for multisearch query", e);
+      span.error(e);
+      return new EsSearchResponse.Builder()
+          .debugMetadata(
+              Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
+          .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
+          .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .status(500)
           .build();
     } finally {
       span.finish();
