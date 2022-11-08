@@ -73,7 +73,7 @@ public class ElasticsearchApiServiceTest {
 
   // todo - test mapping
   @Test
-  public void testResultsAreReturnedForValidQuery() throws IOException {
+  public void testResultsAreReturnedForValidQuery() throws Exception {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     addMessagesToChunkManager(messages);
 
@@ -111,7 +111,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testSearchStringWithOneResult() throws IOException {
+  public void testSearchStringWithOneResult() throws Exception {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     addMessagesToChunkManager(messages);
 
@@ -140,7 +140,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testSearchStringWithNoResult() throws IOException {
+  public void testSearchStringWithNoResult() throws Exception {
     // add 100 results around now
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     addMessagesToChunkManager(messages);
@@ -162,7 +162,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testResultSizeIsRespected() throws IOException {
+  public void testResultSizeIsRespected() throws Exception {
     List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
     addMessagesToChunkManager(messages);
 
@@ -236,7 +236,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testEmptySearchGrafana7() throws IOException {
+  public void testEmptySearchGrafana7() throws Exception {
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/empty_search_grafana7.ndjson"),
@@ -253,7 +253,7 @@ public class ElasticsearchApiServiceTest {
   }
 
   @Test
-  public void testEmptySearchGrafana8() throws IOException {
+  public void testEmptySearchGrafana8() throws Exception {
     String postBody =
         Resources.toString(
             Resources.getResource("elasticsearchApi/empty_search_grafana8.ndjson"),
