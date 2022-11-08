@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
-import com.linecorp.armeria.common.RequestContext;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -34,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.slf4j.Logger;
@@ -366,9 +366,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
       queryServers.add(
           Futures.transform(
-              searchRequest,
-              searchRequestTransform::apply,
-              RequestContext.current().makeContextAware(MoreExecutors.directExecutor())));
+              searchRequest, searchRequestTransform::apply, MoreExecutors.directExecutor()));
     }
 
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
@@ -382,6 +380,17 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         response.add(searchResult == null ? SearchResult.empty() : searchResult);
       }
       return response;
+    } catch (TimeoutException e) {
+      // We provide a deadline to the stub of "defaultQueryTimeout" - if this is sufficiently lower
+      // than the request timeout, we would expect searchFuture.get(requestTimeout) to never throw
+      // an exception. This however doesn't necessarily hold true if the query node is CPU
+      // saturated, and there is not enough cpu time to fail the pending stub queries that have
+      // exceeded their deadline - causing the searchFuture get to fail with a timeout.
+      LOG.error(
+          "Search failed with timeout exception. This is potentially due to CPU saturation of the query node.",
+          e);
+      span.error(e);
+      return List.of(SearchResult.empty());
     } catch (Exception e) {
       LOG.error("Search failed with ", e);
       span.error(e);
