@@ -53,9 +53,13 @@ import org.slf4j.LoggerFactory;
 public class ElasticsearchApiService {
   private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchApiService.class);
   private final KaldbQueryServiceBase searcher;
-  private final ExecutorService executorService =
+
+  // This uses a separate cached threadpool for multisearch queries so that we can run these in
+  // parallel. A cached threadpool was chosen over something like forkjoin, as it's easier to
+  // propagate the trace instrumentation, and has better visibility using a custom threadfactory.
+  private final ExecutorService multisearchExecutor =
       Executors.newCachedThreadPool(
-          new ThreadFactoryBuilder().setNameFormat("elasticsearch-api-%d").build());
+          new ThreadFactoryBuilder().setNameFormat("elasticsearch-multisearch-api-%d").build());
 
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
@@ -83,7 +87,7 @@ public class ElasticsearchApiService {
                 (request) ->
                     Futures.submit(
                         () -> this.doSearch(request),
-                        Tracing.current().currentTraceContext().executor(executorService)))
+                        Tracing.current().currentTraceContext().executor(multisearchExecutor)))
             .collect(Collectors.toList());
 
     SearchResponseMetadata responseMetadata =
