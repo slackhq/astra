@@ -17,7 +17,7 @@ message SearchRequest {
   int32 bucket_count = 7;
 
   // Aggregations
-  optional Aggregations aggs = 8;
+  repeated AggregationRequest aggs = 8;
 }
 
 message SearchResult {
@@ -30,6 +30,8 @@ message SearchResult {
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
+
+  repeated AggregationResult aggregations = 10;
 }
 
 message HistogramBucket {
@@ -38,15 +40,18 @@ message HistogramBucket {
   double count = 3;
 }
 
-message Aggregations {
-  repeated Aggregation agg = 1;
-}
-
-message Aggregation {
+message AggregationRequest {
   string agg_name = 1;
   AggregationType agg_type = 2;
   string agg_field = 3;
   repeated double values = 4;
+}
+
+message AggregationResult {
+  string agg_name = 1;
+  AggregationType agg_type = 2;
+  string agg_field = 3;
+  double value = 4;
 }
 
 enum AggregationType {
