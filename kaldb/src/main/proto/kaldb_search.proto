@@ -13,7 +13,7 @@ message SearchRequest {
   string query_string = 3;
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
-  int32 how_many = 6;
+  int32 limit = 6;
   int32 bucket_count = 7;
 
   // Aggregations
@@ -30,14 +30,14 @@ message SearchResult {
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
-
-  repeated AggregationResult aggregations = 10;
 }
 
 message HistogramBucket {
   double low = 1;
   double high = 2;
   double count = 3;
+
+  repeated AggregationResult aggregations = 4;
 }
 
 message AggregationRequest {
