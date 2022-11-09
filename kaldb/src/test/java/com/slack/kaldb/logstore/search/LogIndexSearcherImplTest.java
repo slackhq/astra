@@ -740,8 +740,47 @@ public class LogIndexSearcherImplTest {
                     time.plusSeconds(1).toEpochMilli(),
                     100,
                     0);
+    assertThat(result.hits.size()).isEqualTo(0);
+    assertThat(result.totalCount).isEqualTo(0);
+    assertThat(result.buckets.size()).isEqualTo(0);
+
+    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel-be\"";
+    result =
+            strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    queryStr,
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    100,
+                    0);
     assertThat(result.hits.size()).isEqualTo(1);
     assertThat(result.totalCount).isEqualTo(1);
+    assertThat(result.buckets.size()).isEqualTo(0);
+
+    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"FLANNEL-be\"";
+    result =
+            strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    queryStr,
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    100,
+                    0);
+    assertThat(result.hits.size()).isEqualTo(0);
+    assertThat(result.totalCount).isEqualTo(0);
+    assertThat(result.buckets.size()).isEqualTo(0);
+
+    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":flannel";
+    result =
+            strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    queryStr,
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    100,
+                    0);
+    assertThat(result.hits.size()).isEqualTo(0);
+    assertThat(result.totalCount).isEqualTo(0);
     assertThat(result.buckets.size()).isEqualTo(0);
   }
 
