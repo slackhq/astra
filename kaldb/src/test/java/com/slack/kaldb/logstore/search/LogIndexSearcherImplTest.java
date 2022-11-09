@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
@@ -14,12 +15,15 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.BeforeClass;
@@ -718,6 +722,36 @@ public class LogIndexSearcherImplTest {
     assertThat(elephants.totalCount).isEqualTo(0);
     assertThat(elephants.buckets.size()).isEqualTo(1);
     assertThat(elephants.buckets.get(0).getCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testPhraseQuery() {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(makeMessageForPhraseSearch("testIndex", "1", "flannel-be", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    String queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel be\"";
+    SearchResult<LogMessage> result =
+            strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    queryStr,
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    100,
+                    0);
+    assertThat(result.hits.size()).isEqualTo(1);
+    assertThat(result.totalCount).isEqualTo(1);
+    assertThat(result.buckets.size()).isEqualTo(0);
+  }
+
+  private static LogMessage makeMessageForPhraseSearch(
+          String indexName, String id, String service, Instant ts) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
+    fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, service);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    return LogMessage.fromWireMessage(wireMsg);
   }
 
   @Test
