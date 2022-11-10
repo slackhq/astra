@@ -2,7 +2,11 @@ package com.slack.kaldb.elasticsearchApi;
 
 import brave.ScopedSpan;
 import brave.Tracing;
+import brave.propagation.TraceContext;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.ByteString;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -31,6 +35,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +54,13 @@ public class ElasticsearchApiService {
   private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchApiService.class);
   private final KaldbQueryServiceBase searcher;
 
+  // This uses a separate cached threadpool for multisearch queries so that we can run these in
+  // parallel. A cached threadpool was chosen over something like forkjoin, as it's easier to
+  // propagate the trace instrumentation, and has better visibility using a custom threadfactory.
+  private final ExecutorService multisearchExecutor =
+      Executors.newCachedThreadPool(
+          new ThreadFactoryBuilder().setNameFormat("elasticsearch-multisearch-api-%d").build());
+
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
   }
@@ -62,14 +75,24 @@ public class ElasticsearchApiService {
   @Post
   @Blocking
   @Path("/_msearch")
-  public HttpResponse multiSearch(String postBody) throws IOException {
+  public HttpResponse multiSearch(String postBody) throws Exception {
     LOG.debug("Search request: {}", postBody);
 
     List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
-    List<EsSearchResponse> responses =
-        requests.parallelStream().map(this::doSearch).collect(Collectors.toList());
 
-    SearchResponseMetadata responseMetadata = new SearchResponseMetadata(0, responses);
+    List<ListenableFuture<EsSearchResponse>> responseFutures =
+        requests
+            .stream()
+            .map(
+                (request) ->
+                    Futures.submit(
+                        () -> this.doSearch(request),
+                        Tracing.current().currentTraceContext().executor(multisearchExecutor)))
+            .collect(Collectors.toList());
+
+    SearchResponseMetadata responseMetadata =
+        new SearchResponseMetadata(
+            0, Futures.allAsList(responseFutures).get(), Map.of("traceId", getTraceId()));
     return HttpResponse.of(
         HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
   }
@@ -102,8 +125,6 @@ public class ElasticsearchApiService {
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
-          .debugMetadata(
-              Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .status(200)
@@ -112,8 +133,6 @@ public class ElasticsearchApiService {
       LOG.error("Error fulfilling request for multisearch query", e);
       span.error(e);
       return new EsSearchResponse.Builder()
-          .debugMetadata(
-              Map.of("traceId", Tracing.current().currentTraceContext().get().traceIdString()))
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .status(500)
@@ -121,6 +140,14 @@ public class ElasticsearchApiService {
     } finally {
       span.finish();
     }
+  }
+
+  private String getTraceId() {
+    TraceContext traceContext = Tracing.current().currentTraceContext().get();
+    if (traceContext != null) {
+      return traceContext.traceIdString();
+    }
+    return "";
   }
 
   private HitsMetadata getHits(KaldbSearch.SearchResult searchResult) throws IOException {
