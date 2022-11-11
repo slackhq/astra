@@ -1,8 +1,8 @@
 package com.slack.kaldb.server;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
@@ -160,8 +160,8 @@ public class RecoveryTaskCreator {
                 snapshotMetadata -> {
                   if (snapshotMetadata == null || snapshotMetadata.partitionId == null) {
                     LOG.warn(
-                        "snapshot metadata or partition id can't be null: "
-                            + Strings.join(snapshots, ','));
+                        "snapshot metadata or partition id can't be null: {} ",
+                        Strings.join(snapshots, ','));
                   }
                   return snapshotMetadata != null
                       && snapshotMetadata.partitionId != null
