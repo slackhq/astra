@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,11 +148,25 @@ public class RecoveryTaskCreator {
    */
   public long determineStartingOffset(long currentHeadOffsetForPartition) {
     // Filter stale snapshots for partition.
+    if (partitionId == null) {
+      LOG.warn("PartitionId can't be null.");
+    }
+
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots
             .stream()
-            .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
+            .filter(
+                snapshotMetadata -> {
+                  if (snapshotMetadata == null || snapshotMetadata.partitionId == null) {
+                    LOG.warn(
+                        "snapshot metadata or partition id can't be null: "
+                            + Strings.join(snapshots, ','));
+                  }
+                  return snapshotMetadata != null
+                      && snapshotMetadata.partitionId != null
+                      && snapshotMetadata.partitionId.equals(partitionId);
+                })
             .collect(Collectors.toUnmodifiableList());
     List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
