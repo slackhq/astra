@@ -1,9 +1,8 @@
 package com.slack.kaldb.preprocessor;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -183,11 +182,10 @@ public class PreprocessorService extends AbstractService {
       List<String> upstreamTopics,
       String downstreamTopic,
       String dataTransformer) {
-    Preconditions.checkArgument(
-        !datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
-    Preconditions.checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
-    Preconditions.checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
-    Preconditions.checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
+    checkArgument(!datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
+    checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
+    checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
+    checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
 
     StreamsBuilder builder = new StreamsBuilder();
 
@@ -295,13 +293,13 @@ public class PreprocessorService extends AbstractService {
   /** Builds a Properties hashtable using the provided config, and sensible defaults */
   protected static Properties makeKafkaStreamsProps(
       KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig) {
-    Preconditions.checkArgument(
+    checkArgument(
         !kafkaStreamConfig.getApplicationId().isEmpty(),
         "Kafka stream applicationId must be provided");
-    Preconditions.checkArgument(
+    checkArgument(
         !kafkaStreamConfig.getBootstrapServers().isEmpty(),
         "Kafka stream bootstrapServers must be provided");
-    Preconditions.checkArgument(
+    checkArgument(
         kafkaStreamConfig.getNumStreamThreads() > 0,
         "Kafka stream numStreamThreads must be greater than 0");
 
