@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class DatasetMetadata extends KaldbMetadata {
 
   public final String owner;
+  public final String serviceNamePattern;
   public final long throughputBytes;
   public final ImmutableList<DatasetPartitionMetadata> partitionConfigs;
 
@@ -23,7 +24,8 @@ public class DatasetMetadata extends KaldbMetadata {
       String name,
       String owner,
       long throughputBytes,
-      List<DatasetPartitionMetadata> partitionConfigs) {
+      List<DatasetPartitionMetadata> partitionConfigs,
+      String serviceNamePattern) {
     super(name);
     checkArgument(name.length() <= 256, "name must be no longer than 256 chars");
     checkArgument(name.matches("^[a-zA-Z0-9_-]*$"), "name must contain only [a-zA-Z0-9_-]");
@@ -32,9 +34,20 @@ public class DatasetMetadata extends KaldbMetadata {
     checkArgument(throughputBytes >= 0, "throughputBytes must be greater than or equal to 0");
     checkPartitions(partitionConfigs, "partitionConfigs must not overlap start and end times");
 
+    checkArgument(
+        serviceNamePattern.length() <= 256, "serviceNamePattern must be no longer than 256 chars");
+    checkArgument(
+        serviceNamePattern.matches("^[a-zA-Z0-9_-]*$"),
+        "serviceName must contain only [a-zA-Z0-9_-]");
+
     this.owner = owner;
+    this.serviceNamePattern = serviceNamePattern;
     this.throughputBytes = throughputBytes;
     this.partitionConfigs = ImmutableList.copyOf(partitionConfigs);
+  }
+
+  public DatasetMetadata getDataset() {
+    return this;
   }
 
   public String getOwner() {
@@ -49,20 +62,27 @@ public class DatasetMetadata extends KaldbMetadata {
     return partitionConfigs;
   }
 
+  public String getServiceNamePattern() {
+    return serviceNamePattern;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof DatasetMetadata)) return false;
     if (!super.equals(o)) return false;
     DatasetMetadata that = (DatasetMetadata) o;
     return throughputBytes == that.throughputBytes
+        && name.equals(that.name)
         && owner.equals(that.owner)
+        && serviceNamePattern.equals(that.serviceNamePattern)
         && partitionConfigs.equals(that.partitionConfigs);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), owner, throughputBytes, partitionConfigs);
+    return Objects.hash(
+        super.hashCode(), name, owner, serviceNamePattern, throughputBytes, partitionConfigs);
   }
 
   @Override
@@ -73,6 +93,9 @@ public class DatasetMetadata extends KaldbMetadata {
         + '\''
         + ", owner='"
         + owner
+        + '\''
+        + ", serviceNamePattern='"
+        + serviceNamePattern
         + '\''
         + ", throughputBytes="
         + throughputBytes

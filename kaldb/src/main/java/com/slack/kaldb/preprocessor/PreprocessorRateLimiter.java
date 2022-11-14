@@ -2,12 +2,15 @@ package com.slack.kaldb.preprocessor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -100,6 +103,86 @@ public class PreprocessorRateLimiter {
           "Error creating smooth bursty rate limiter, defaulting to non-bursty rate limiter", e);
       return RateLimiter.create(permitsPerSecond);
     }
+  }
+
+  static class RateLimiterPerDatasetHolder {
+    public DatasetMetadata datasetMetadata;
+    public RateLimiter rateLimiter;
+
+    public RateLimiterPerDatasetHolder(DatasetMetadata datasetMetadata, RateLimiter rateLimiter) {
+      this.datasetMetadata = datasetMetadata;
+      this.rateLimiter = rateLimiter;
+    }
+  }
+
+  public Predicate<String, Trace.Span> createRateLimiter(
+      List<DatasetMetadata> datasetMetadataList) {
+
+    List<DatasetMetadata> throughputSortedDatasets =
+        datasetMetadataList
+            .stream()
+            .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes))
+            .collect(Collectors.toList());
+
+    List<RateLimiterPerDatasetHolder> rateLimiterPerDatasetList = new ArrayList<>();
+    for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+      double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;
+      LOG.info(
+          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
+          datasetMetadata.getName(),
+          permitsPerSecond,
+          datasetMetadata.getThroughputBytes(),
+          preprocessorCount);
+      RateLimiter rateLimiter =
+          smoothBurstyRateLimiter(permitsPerSecond, maxBurstSeconds, initializeWarm);
+      rateLimiterPerDatasetList.add(new RateLimiterPerDatasetHolder(datasetMetadata, rateLimiter));
+    }
+
+    return (key, value) -> {
+      if (value == null) {
+        LOG.warn("Message was dropped, was null span");
+        return false;
+      }
+
+      String serviceName = PreprocessorValueMapper.getDatasetName(value);
+      int bytes = value.getSerializedSize();
+      if (serviceName == null || serviceName.isEmpty()) {
+        // service name wasn't provided
+        LOG.debug("Message was dropped due to missing service name - '{}'", value);
+        // todo - we may consider adding a logging BurstFilter so that a bad actor cannot
+        //  inadvertently swamp the system if we want to increase this logging level
+        //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
+        meterRegistry
+            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .increment();
+        meterRegistry
+            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+            .increment(bytes);
+        return false;
+      }
+
+      for (RateLimiterPerDatasetHolder rateLimiterPerDataset : rateLimiterPerDatasetList) {
+        String serviceNamePattern = rateLimiterPerDataset.datasetMetadata.getServiceNamePattern();
+        if (serviceName.equals(serviceNamePattern)) {
+          if (rateLimiterPerDataset.rateLimiter.tryAcquire(bytes)) {
+            return true;
+          }
+          // message should be dropped due to rate limit
+          meterRegistry
+              .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+              .increment();
+          meterRegistry
+              .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+              .increment(bytes);
+          LOG.debug(
+              "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
+              serviceName,
+              rateLimiterPerDataset.rateLimiter.getRate());
+          return false;
+        }
+      }
+      return false;
+    };
   }
 
   public Predicate<String, Trace.Span> createRateLimiter(

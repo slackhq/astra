@@ -134,6 +134,9 @@ message DatasetMetadata {
 
   // List of partitions assigned to this service, and their effective times
   repeated DatasetPartitionMetadata partition_configs = 4;
+
+  // either same as name or a special value _all
+  string service_name_pattern = 5;
 }
 
 // Describes a set of partitions along with their effective start and end times

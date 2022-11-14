@@ -201,12 +201,7 @@ public class PreprocessorService extends AbstractService {
                         KaldbMetadata::getName, PreprocessorService::getActivePartitionList)));
 
     Predicate<String, Trace.Span> rateLimitPredicate =
-        rateLimiter.createRateLimiter(
-            datasetMetadataList
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, DatasetMetadata::getThroughputBytes)));
+        rateLimiter.createRateLimiter(datasetMetadataList);
 
     upstreamTopics.forEach(
         (upstreamTopic ->
