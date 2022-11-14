@@ -10,7 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
-import com.slack.kaldb.histogram.NoOpHistogramImpl;
+import com.slack.kaldb.histogram.SingleBucketHistogram;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
@@ -88,21 +88,33 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       long endTimeMsEpoch,
       int howMany,
       int bucketCount) {
+    return search(
+        dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, howMany, bucketCount, List.of());
+  }
+
+  public SearchResult<LogMessage> search(
+      String dataset,
+      String queryStr,
+      long startTimeMsEpoch,
+      long endTimeMsEpoch,
+      int limit,
+      int bucketCount,
+      List<AggregationDefinition> aggs) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
     ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
     ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
-    ensureTrue(howMany >= 0, "hits requested should not be negative.");
+    ensureTrue(limit >= 0, "hits requested should not be negative.");
     ensureTrue(bucketCount >= 0, "bucket count should not be negative.");
-    ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
+    ensureTrue(limit > 0 || bucketCount > 0, "Hits or histogram should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
     span.tag("queryStr", queryStr);
     span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
     span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
-    span.tag("howMany", String.valueOf(howMany));
+    span.tag("howMany", String.valueOf(limit));
     span.tag("bucketCount", String.valueOf(bucketCount));
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
@@ -114,28 +126,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        Histogram histogram = new NoOpHistogramImpl();
+        Histogram histogram = new SingleBucketHistogram(aggs);
 
-        CollectorManager<StatsCollector, Histogram> statsCollector =
-            buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
-
-        CollectorManager<ArithmeticCollector, ArithmeticResult> arithmeticCollectorManager =
-            buildArithmeticCollector(SystemField.TIME_SINCE_EPOCH.fieldName);
-
-        Object arithmeticResults;
-
-        if (howMany > 0) {
+        if (limit > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
-          MultiCollectorManager collectorManager;
-          if (bucketCount > 0) {
-            collectorManager =
-                new MultiCollectorManager(
-                    topFieldCollector, statsCollector, arithmeticCollectorManager);
-          } else {
-            collectorManager =
-                new MultiCollectorManager(topFieldCollector, arithmeticCollectorManager);
-          }
+              buildTopFieldCollector(limit, bucketCount > 0 ? Integer.MAX_VALUE : limit);
+          CollectorManager<StatsCollector, Histogram> statsCollector =
+              buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch, aggs);
+          MultiCollectorManager collectorManager =
+              new MultiCollectorManager(topFieldCollector, statsCollector);
           Object[] collector = searcher.search(query, collectorManager);
 
           ScoreDoc[] hits = ((TopFieldDocs) collector[0]).scoreDocs;
@@ -143,19 +142,12 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           for (ScoreDoc hit : hits) {
             results.add(buildLogMessage(searcher, hit));
           }
-          if (bucketCount > 0) {
-            histogram = ((Histogram) collector[1]);
-            arithmeticResults = collector[2];
-          } else {
-            arithmeticResults = collector[1];
-          }
+          histogram = ((Histogram) collector[1]);
         } else {
           results = Collections.emptyList();
-          Object[] collector =
-              searcher.search(
-                  query, new MultiCollectorManager(statsCollector, arithmeticCollectorManager));
-          histogram = ((Histogram) collector[0]);
-          arithmeticResults = collector[1];
+          CollectorManager<StatsCollector, Histogram> statsCollector =
+              buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch, aggs);
+          histogram = searcher.search(query, statsCollector);
         }
 
         elapsedTime.stop();
@@ -167,8 +159,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             0,
             0,
             1,
-            1,
-            arithmeticResults);
+            1);
       } finally {
         searcherManager.release(searcher);
       }
@@ -215,11 +206,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   private CollectorManager<StatsCollector, Histogram> buildStatsCollector(
-      int bucketCount, long startTimeMsEpoch, long endTimeMsEpoch) {
+      int bucketCount,
+      long startTimeMsEpoch,
+      long endTimeMsEpoch,
+      List<AggregationDefinition> aggs) {
     Histogram histogram =
         bucketCount > 0
-            ? new FixedIntervalHistogramImpl(startTimeMsEpoch, endTimeMsEpoch, bucketCount)
-            : new NoOpHistogramImpl();
+            ? new FixedIntervalHistogramImpl(startTimeMsEpoch, endTimeMsEpoch, bucketCount, aggs)
+            : new SingleBucketHistogram(aggs);
 
     return new CollectorManager<>() {
       @Override
@@ -238,30 +232,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
         }
         return histogram;
-      }
-    };
-  }
-
-  private CollectorManager<ArithmeticCollector, ArithmeticResult> buildArithmeticCollector(
-      String field) {
-
-    return new CollectorManager<>() {
-      @Override
-      public ArithmeticCollector newCollector() {
-        return new ArithmeticCollector(field);
-      }
-
-      @Override
-      public ArithmeticResult reduce(Collection<ArithmeticCollector> collectors) {
-        ArithmeticResult result = null;
-        for (ArithmeticCollector collector : collectors) {
-          if (result == null) {
-            result = collector.getResult();
-          } else {
-            result.merge(collector.getResult());
-          }
-        }
-        return result;
       }
     };
   }

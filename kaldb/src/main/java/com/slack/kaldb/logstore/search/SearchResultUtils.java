@@ -21,7 +21,7 @@ public class SearchResultUtils {
         searchRequest.getQueryString(),
         searchRequest.getStartTimeEpochMs(),
         searchRequest.getEndTimeEpochMs(),
-        searchRequest.getHowMany(),
+        searchRequest.getLimit(),
         searchRequest.getBucketCount(),
         searchRequest.getChunkIdsList());
   }

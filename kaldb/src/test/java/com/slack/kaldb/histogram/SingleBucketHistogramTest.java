@@ -4,15 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.Test;
 
-public class NoOpHistogramImplTest {
+public class SingleBucketHistogramTest {
 
   @Test
   public void testNoOpHistogram() {
-    NoOpHistogramImpl h = new NoOpHistogramImpl();
+    SingleBucketHistogram h = new SingleBucketHistogram();
     assertThat(h.count()).isEqualTo(0);
-    h.add(100L);
+    h.addTimestamp(100L);
     assertThat(h.count()).isEqualTo(1);
-    h.add(100L);
+    h.addTimestamp(100L);
     assertThat(h.count()).isEqualTo(2);
   }
 }

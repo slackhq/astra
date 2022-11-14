@@ -198,7 +198,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(2)
                 .build());
 
@@ -261,7 +261,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(2)
                 .build());
 

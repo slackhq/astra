@@ -367,7 +367,7 @@ public class IndexingChunkManagerTest {
                 .setQueryString(searchString)
                 .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(Long.MAX_VALUE)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(1000)
                 .addAllChunkIds(chunkIds)
                 .build());

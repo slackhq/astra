@@ -103,7 +103,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message100")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(2)
                 .build());
 
@@ -168,7 +168,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("blah")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(2)
                 .build());
 
@@ -220,7 +220,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
+                .setLimit(0)
                 .setBucketCount(2)
                 .build());
 
@@ -271,7 +271,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(0)
                 .build());
 
@@ -327,7 +327,7 @@ public class KaldbLocalQueryServiceTest {
             .setQueryString("Message1")
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
+            .setLimit(0)
             .setBucketCount(0)
             .build());
   }
@@ -376,7 +376,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(10)
+                .setLimit(10)
                 .setBucketCount(2)
                 .build());
 
@@ -458,7 +458,7 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
+                .setLimit(0)
                 .setBucketCount(0)
                 .build());
   }

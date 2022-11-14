@@ -19,7 +19,7 @@ public class KaldbSearchUtils {
             .setQueryString(queryString)
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
-            .setHowMany(100)
+            .setLimit(100)
             .setBucketCount(2)
             .build());
   }

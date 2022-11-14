@@ -14,7 +14,7 @@ public class FixedIntervalHistogramImplTest {
   public void testSimpleHistogramOperations() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 5, 5);
     for (int i = 0; i < 5; i++) {
-      h.add(i);
+      h.addTimestamp(i);
     }
 
     assertThat(h.count()).isEqualTo(5);
@@ -30,7 +30,7 @@ public class FixedIntervalHistogramImplTest {
     }
 
     for (int i = 0; i < 5; i++) {
-      h.add(i);
+      h.addTimestamp(i);
     }
     assertThat(h.count()).isEqualTo(10);
     assertThat(h.getBuckets().size()).isEqualTo(5);
@@ -49,7 +49,7 @@ public class FixedIntervalHistogramImplTest {
   public void testInsertionInFirstBucket() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 15, 15);
     for (int i = 0; i < 15; i++) {
-      h.add(0);
+      h.addTimestamp(0);
     }
 
     assertThat(h.count()).isEqualTo(15);
@@ -72,7 +72,7 @@ public class FixedIntervalHistogramImplTest {
   public void testSimpleHistogramMerge() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 10, 1);
     for (int i = 0; i < 10; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(10);
     assertThat(h1.getBuckets().size()).isEqualTo(1);
@@ -89,7 +89,7 @@ public class FixedIntervalHistogramImplTest {
   public void testLargeSmallHistogramMerge() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 10, 2);
     for (int i = 0; i < 10; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(10);
     assertThat(h1.getBuckets().size()).isEqualTo(2);
@@ -113,7 +113,7 @@ public class FixedIntervalHistogramImplTest {
   public void testSelfHistogramMerge() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 10, 1);
     for (int i = 0; i < 10; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(10);
     assertThat(h1.getBuckets().size()).isEqualTo(1);
@@ -127,7 +127,7 @@ public class FixedIntervalHistogramImplTest {
   public void testFailedSimpleHistogramMerge() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 10, 1);
     for (int i = 0; i < 10; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(10);
     assertThat(h1.getBuckets().size()).isEqualTo(1);
@@ -142,7 +142,7 @@ public class FixedIntervalHistogramImplTest {
   public void testMergeLargeIntoSmallHistogram() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 10, 1);
     for (int i = 0; i < 10; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(10);
     assertThat(h1.getBuckets().size()).isEqualTo(1);
@@ -159,7 +159,7 @@ public class FixedIntervalHistogramImplTest {
   public void testHistogramMerge() {
     FixedIntervalHistogramImpl h1 = new FixedIntervalHistogramImpl(0, 15, 15);
     for (int i = 0; i < 15; i++) {
-      h1.add(i);
+      h1.addTimestamp(i);
     }
     assertThat(h1.count()).isEqualTo(15);
     assertThat(h1.getBuckets().size()).isEqualTo(15);
@@ -169,7 +169,7 @@ public class FixedIntervalHistogramImplTest {
 
     FixedIntervalHistogramImpl h2 = new FixedIntervalHistogramImpl(0, 15, 15);
     for (int i = 0; i < 15; i++) {
-      h2.add(i);
+      h2.addTimestamp(i);
     }
     assertThat(h2.count()).isEqualTo(15);
     assertThat(h2.getBuckets().size()).isEqualTo(15);
@@ -189,7 +189,7 @@ public class FixedIntervalHistogramImplTest {
   public void testInsertionInLastBucket() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 15, 15);
     for (int i = 0; i < 15; i++) {
-      h.add(14);
+      h.addTimestamp(14);
     }
 
     assertThat(h.count()).isEqualTo(15);
@@ -214,7 +214,7 @@ public class FixedIntervalHistogramImplTest {
     List<Integer> nums = IntStream.range(0, 15).boxed().collect(Collectors.toList());
     Collections.shuffle(nums);
     for (int i : nums) {
-      h.add(i);
+      h.addTimestamp(i);
     }
 
     assertThat(h.count()).isEqualTo(15);
@@ -233,7 +233,7 @@ public class FixedIntervalHistogramImplTest {
     nums = IntStream.range(0, 15).boxed().collect(Collectors.toList());
     Collections.shuffle(nums);
     for (int i : nums) {
-      h.add(i);
+      h.addTimestamp(i);
     }
 
     bucketLow = 0;
@@ -264,27 +264,27 @@ public class FixedIntervalHistogramImplTest {
   public void testAddingElementOutOfRange() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 5, 5);
     for (int i = 0; i < 5; i++) {
-      h.add(i);
+      h.addTimestamp(i);
     }
 
     assertThat(h.count()).isEqualTo(5);
     assertThat(h.getBuckets().size()).isEqualTo(5);
 
     // Throws exception since 6 is out of histogram range.
-    h.add(6);
+    h.addTimestamp(6);
   }
 
   @Test
   public void testAddingHistogramHigh() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 5, 5);
     for (int i = 0; i < 5; i++) {
-      h.add(i);
+      h.addTimestamp(i);
     }
 
     assertThat(h.count()).isEqualTo(5);
     assertThat(h.getBuckets().size()).isEqualTo(5);
 
-    h.add(5);
+    h.addTimestamp(5);
     assertThat(h.count()).isEqualTo(6);
     assertThat(h.getBuckets().size()).isEqualTo(5);
 
@@ -300,21 +300,21 @@ public class FixedIntervalHistogramImplTest {
   @Test
   public void testSmallBucketSizes() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(0, 2, 3);
-    h.add(1);
+    h.addTimestamp(1);
 
     assertThat(h.count()).isEqualTo(1);
     assertThat(h.getBuckets().size()).isEqualTo(3);
     assertThat(h.getBuckets().get(1).getCount()).isEqualTo(1);
 
     FixedIntervalHistogramImpl h2 = new FixedIntervalHistogramImpl(9, 10, 10);
-    h2.add(9);
+    h2.addTimestamp(9);
 
     assertThat(h2.count()).isEqualTo(1);
     assertThat(h2.getBuckets().size()).isEqualTo(10);
     assertThat(h2.getBuckets().get(0).getCount()).isEqualTo(1);
 
     FixedIntervalHistogramImpl h3 = new FixedIntervalHistogramImpl(9, 11, 10);
-    h3.add(10);
+    h3.addTimestamp(10);
 
     assertThat(h3.count()).isEqualTo(1);
     assertThat(h3.getBuckets().size()).isEqualTo(10);
@@ -324,12 +324,12 @@ public class FixedIntervalHistogramImplTest {
   @Test(expected = IndexOutOfBoundsException.class)
   public void testOutOfBoundsHigh() {
     FixedIntervalHistogramImpl h = new FixedIntervalHistogramImpl(9, 10, 10);
-    h.add(15);
+    h.addTimestamp(15);
   }
 
   @Test(expected = IndexOutOfBoundsException.class)
   public void testOutOfBoundsLow() {
     FixedIntervalHistogramImpl h2 = new FixedIntervalHistogramImpl(9, 10, 10);
-    h2.add(1);
+    h2.addTimestamp(1);
   }
 }

@@ -226,7 +226,7 @@ public class ZipkinService {
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
-                .setHowMany(maxSpans.orElse(MAX_SPANS))
+                .setLimit(maxSpans.orElse(MAX_SPANS))
                 .setBucketCount(0)
                 .build());
     // we don't account for any failed nodes in the searchResult today

@@ -14,14 +14,14 @@ import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 
 public class ArithmeticCollectorTest {
   @Rule
@@ -58,7 +58,10 @@ public class ArithmeticCollectorTest {
             time.toEpochMilli(),
             time.plusSeconds(4 * 60).toEpochMilli(),
             0,
-            5);
+            5,
+            List.of(
+                new AggregationDefinition(
+                    "test", AggregationDefinition.AggregationType.SUM, "int_prop")));
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);

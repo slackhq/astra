@@ -9,7 +9,7 @@ import java.util.List;
 
 public class SearchResult<T> {
 
-  private static final SearchResult EMPTY =
+  private static final SearchResult<LogMessage> EMPTY =
       new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0);
 
   public final long totalCount;
@@ -27,8 +27,6 @@ public class SearchResult<T> {
   public final int totalNodes;
   public final int totalSnapshots;
   public final int snapshotsWithReplicas;
-
-  public Object other;
 
   public SearchResult() {
     this.hits = new ArrayList<>();
@@ -59,27 +57,6 @@ public class SearchResult<T> {
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
     this.snapshotsWithReplicas = snapshotsWithReplicas;
-  }
-
-  public SearchResult(
-      List<T> hits,
-      long tookMicros,
-      long totalCount,
-      List<HistogramBucket> buckets,
-      int failedNodes,
-      int totalNodes,
-      int totalSnapshots,
-      int snapshotsWithReplicas,
-      Object other) {
-    this.hits = hits;
-    this.tookMicros = tookMicros;
-    this.totalCount = totalCount;
-    this.buckets = buckets;
-    this.failedNodes = failedNodes;
-    this.totalNodes = totalNodes;
-    this.totalSnapshots = totalSnapshots;
-    this.snapshotsWithReplicas = snapshotsWithReplicas;
-    this.other = other;
   }
 
   @Override

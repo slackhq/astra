@@ -1,11 +1,17 @@
 package com.slack.kaldb.histogram;
 
 import com.google.common.base.Objects;
+import com.slack.kaldb.logstore.search.AggregationDefinition;
+import com.slack.kaldb.logstore.search.ComposableCollector;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 /**
  * A HistogramBucket represents one bucket in the histogram. The range for the bucket is [low,
- * high). The bucket also keeps a count of the objects in histogram.
+ * high). The bucket keeps a count of the objects in histogram as well as any aggregations performed
+ * on the bucket.
  */
 public class HistogramBucket implements Comparable<HistogramBucket> {
   private final double low;
@@ -13,7 +19,13 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
 
   private double count;
 
+  private final List<ComposableCollector> aggregationCollectors;
+
   public HistogramBucket(double low, double high, double count) {
+    this(low, high, count, List.of());
+  }
+
+  public HistogramBucket(double low, double high, double count, List<AggregationDefinition> aggs) {
     if (low >= high) {
       throw new IllegalArgumentException(
           String.format("The low %s should be higher than high %s", low, high));
@@ -21,6 +33,14 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
     this.low = low;
     this.high = high;
     this.count = count;
+    this.aggregationCollectors = new ArrayList<>(aggs.size());
+    try {
+      for (AggregationDefinition agg : aggs) {
+        aggregationCollectors.add((ComposableCollector) agg.getCollectorManager().newCollector());
+      }
+    } catch (IOException e) {
+      // todo: handle exception
+    }
   }
 
   public HistogramBucket(double low, double high) {
@@ -49,6 +69,16 @@ public class HistogramBucket implements Comparable<HistogramBucket> {
 
   public double getCount() {
     return count;
+  }
+
+  public List<ComposableCollector> getaggregationCollectors() {
+    return aggregationCollectors;
+  }
+
+  public void mergeAggregations(HistogramBucket otherBucket) {
+    for (int k = 0; k < aggregationCollectors.size(); k++) {
+      aggregationCollectors.get(k).merge(otherBucket.aggregationCollectors.get(k));
+    }
   }
 
   @Override

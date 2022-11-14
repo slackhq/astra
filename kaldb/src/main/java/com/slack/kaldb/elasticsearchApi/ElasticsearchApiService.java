@@ -106,7 +106,7 @@ public class ElasticsearchApiService {
     span.tag("requestQueryString", searchRequest.getQueryString());
     span.tag("requestQueryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
     span.tag("requestQueryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
-    span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
+    span.tag("requestHowMany", String.valueOf(searchRequest.getLimit()));
     span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
     span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));

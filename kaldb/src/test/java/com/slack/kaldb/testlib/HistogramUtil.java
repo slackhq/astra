@@ -11,7 +11,7 @@ public class HistogramUtil {
     Histogram histogram =
         new FixedIntervalHistogramImpl(histogramStartMs, histogramEndMs, bucketCount);
     for (LogMessage m : messages) {
-      histogram.add(m.timeSinceEpochMilli);
+      histogram.addTimestamp(m.timeSinceEpochMilli);
     }
     return histogram;
   }

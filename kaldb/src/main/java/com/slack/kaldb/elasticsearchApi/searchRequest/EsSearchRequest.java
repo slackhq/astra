@@ -68,7 +68,7 @@ public class EsSearchRequest {
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
-        .setHowMany(getSize())
+        .setLimit(getSize())
         .setBucketCount(bucketCount)
         .build();
   }
