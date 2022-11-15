@@ -292,11 +292,16 @@ public class KaldbKafkaConsumer {
                     recordsFailedCounter.increment();
                   }
                 } catch (IOException e) {
-                  LOG.error("Encountered exception processing batch [{}/{}]: {}", topicPartition.partition(), recordCount, e);
+                  LOG.error(
+                      "Encountered exception processing batch [{}/{}]: {}",
+                      topicPartition.partition(),
+                      recordCount,
+                      e);
                 }
               }
               // TODO: Not all threads are printing this message.
-              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info(
+                  "Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
             });
         LOG.debug("Queued");
       } else {
