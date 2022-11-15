@@ -16,10 +16,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +38,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
 
+  // TODO: Find when add text field was indexed as string.
+  // TODO: Deal with StringField and TextField separately.
+  // TODO: Handle DocValue for String and Text field..
   private static void addTextField(
       ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
       String fieldName,
@@ -53,6 +52,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, isAnalyzed, false));
   }
 
+  // TODO: Move this definition to the config file.
   private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false, false);
@@ -244,25 +244,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static void indexTypedField(
       Document doc, String key, Object value, LuceneFieldDef fieldDef) {
     fieldDef.fieldType.addField(doc, key, value, fieldDef);
-  }
-
-  private static void addTextField(
-      Document doc, String name, String value, LuceneFieldDef description) {
-    if (description.isIndexed) {
-      if (description.isAnalyzed) {
-        doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
-      } else {
-        doc.add(new StringField(name, value, getStoreEnum(description.isStored)));
-      }
-    } else {
-      if (description.isStored) {
-        doc.add(new StoredField(name, value));
-      }
-    }
-  }
-
-  private static Field.Store getStoreEnum(boolean isStored) {
-    return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
   private static FieldType getJsonType(Object value) {
