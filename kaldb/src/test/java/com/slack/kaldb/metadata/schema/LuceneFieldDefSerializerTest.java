@@ -26,7 +26,7 @@ public class LuceneFieldDefSerializerTest {
     assertThat(deserializedFieldDef.isStored).isTrue();
     assertThat(deserializedFieldDef.isIndexed).isTrue();
     assertThat(deserializedFieldDef.isAnalyzed).isFalse();
-    assertThat(deserializedFieldDef.storeNumericDocValue).isTrue();
+    assertThat(deserializedFieldDef.storeDocValue).isTrue();
   }
 
   @Test

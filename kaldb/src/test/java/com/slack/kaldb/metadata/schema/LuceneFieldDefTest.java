@@ -18,7 +18,7 @@ public class LuceneFieldDefTest {
     assertThat(intField.isStored).isTrue();
     assertThat(intField.isIndexed).isFalse();
     assertThat(intField.isAnalyzed).isFalse();
-    assertThat(intField.storeNumericDocValue).isFalse();
+    assertThat(intField.storeDocValue).isFalse();
 
     String StrFieldName = "StrField";
     String strType = "text";
@@ -29,7 +29,7 @@ public class LuceneFieldDefTest {
     assertThat(strField.isStored).isTrue();
     assertThat(strField.isIndexed).isTrue();
     assertThat(strField.isAnalyzed).isTrue();
-    assertThat(strField.storeNumericDocValue).isFalse();
+    assertThat(strField.storeDocValue).isFalse();
 
     LuceneFieldDef boolField =
         new LuceneFieldDef("BooleanField", "boolean", true, true, false, false);
@@ -73,9 +73,6 @@ public class LuceneFieldDefTest {
         .isInstanceOf(InvalidFieldDefException.class);
 
     assertThatThrownBy(() -> new LuceneFieldDef("DoubleField", "double", true, true, true, false))
-        .isInstanceOf(InvalidFieldDefException.class);
-
-    assertThatThrownBy(() -> new LuceneFieldDef("TextField", "text", true, true, true, true))
         .isInstanceOf(InvalidFieldDefException.class);
 
     assertThatThrownBy(() -> new LuceneFieldDef("BooleanField", "boolean", true, true, true, true))

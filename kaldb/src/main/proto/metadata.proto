@@ -162,8 +162,8 @@ message LuceneFieldDef {
   bool isIndexed = 4;
   // Should the field be analyzed
   bool isAnalyzed = 5;
-  // Store numeric doc values for a field.
-  bool storeNumericDocValue = 6;
+  // Store doc values for a field.
+  bool storeDocValue = 6;
 }
 
 message ChunkSchema {

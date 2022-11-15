@@ -12,7 +12,7 @@ public class LuceneFieldDef extends KaldbMetadata {
   public final boolean isStored;
   public final boolean isIndexed;
   public final boolean isAnalyzed;
-  public final boolean storeNumericDocValue;
+  public final boolean storeDocValue;
 
   public LuceneFieldDef(
       String name,
@@ -20,7 +20,7 @@ public class LuceneFieldDef extends KaldbMetadata {
       boolean isStored,
       boolean isIndexed,
       boolean isAnalyzed,
-      boolean storeNumericDocValue) {
+      boolean storeDocValue) {
     super(name);
     this.fieldType = FieldType.valueOf(fieldType.trim().toUpperCase());
     if (isAnalyzed && !isIndexed) {
@@ -31,15 +31,17 @@ public class LuceneFieldDef extends KaldbMetadata {
       throw new InvalidFieldDefException("Only text and any types can have isAnalyzed set");
     }
 
-    if (storeNumericDocValue
-        && (this.fieldType.equals(FieldType.TEXT) || this.fieldType.equals(FieldType.BOOLEAN))) {
-      throw new InvalidFieldDefException("Only numeric fields can have stored numeric doc values");
-    }
+    //    if (storeDocValue
+    //        && (this.fieldType.equals(FieldType.TEXT) ||
+    // this.fieldType.equals(FieldType.BOOLEAN))) {
+    //      throw new InvalidFieldDefException("Only numeric fields can have stored numeric doc
+    // values");
+    //    }
 
     this.isStored = isStored;
     this.isIndexed = isIndexed;
     this.isAnalyzed = isAnalyzed;
-    this.storeNumericDocValue = storeNumericDocValue;
+    this.storeDocValue = storeDocValue;
   }
 
   @Override
@@ -51,14 +53,14 @@ public class LuceneFieldDef extends KaldbMetadata {
     return isStored == that.isStored
         && isIndexed == that.isIndexed
         && isAnalyzed == that.isAnalyzed
-        && storeNumericDocValue == that.storeNumericDocValue
+        && storeDocValue == that.storeDocValue
         && fieldType == that.fieldType;
   }
 
   @Override
   public int hashCode() {
     return Objects.hashCode(
-        super.hashCode(), fieldType, isStored, isIndexed, isAnalyzed, storeNumericDocValue);
+        super.hashCode(), fieldType, isStored, isIndexed, isAnalyzed, storeDocValue);
   }
 
   @Override
@@ -75,8 +77,8 @@ public class LuceneFieldDef extends KaldbMetadata {
         + isIndexed
         + ", isAnalyzed="
         + isAnalyzed
-        + ", storeNumericDocValue="
-        + storeNumericDocValue
+        + ", storeDocValue="
+        + storeDocValue
         + '}';
   }
 }

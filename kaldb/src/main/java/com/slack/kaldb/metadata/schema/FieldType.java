@@ -31,7 +31,7 @@ public enum FieldType {
       if (fieldDef.isStored) {
         doc.add(new StoredField(name, value));
       }
-      if (fieldDef.storeNumericDocValue) {
+      if (fieldDef.storeDocValue) {
         doc.add(new NumericDocValuesField(name, value));
       }
     }
@@ -46,7 +46,7 @@ public enum FieldType {
       if (fieldDef.isStored) {
         doc.add(new StoredField(name, value));
       }
-      if (fieldDef.storeNumericDocValue) {
+      if (fieldDef.storeDocValue) {
         doc.add(new NumericDocValuesField(name, value));
       }
     }
@@ -61,7 +61,7 @@ public enum FieldType {
       if (fieldDef.isStored) {
         doc.add(new StoredField(name, value));
       }
-      if (fieldDef.storeNumericDocValue) {
+      if (fieldDef.storeDocValue) {
         doc.add(new FloatDocValuesField(name, value));
       }
     }
@@ -76,7 +76,7 @@ public enum FieldType {
       if (fieldDef.isStored) {
         doc.add(new StoredField(name, value));
       }
-      if (fieldDef.storeNumericDocValue) {
+      if (fieldDef.storeDocValue) {
         doc.add(new DoubleDocValuesField(name, value));
       }
     }
