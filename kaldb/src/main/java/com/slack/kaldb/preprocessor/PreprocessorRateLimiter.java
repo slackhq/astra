@@ -1,5 +1,8 @@
 package com.slack.kaldb.preprocessor;
 
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -9,15 +12,15 @@ import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
-import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 
 /**
  * The PreprocessorRateLimiter provides a thread-safe Kafka streams predicate for determining if a
@@ -154,7 +157,9 @@ public class PreprocessorRateLimiter {
 
       for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
         String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        if (serviceName.equals(MATCH_ALL_SERVICE) || serviceName.equals(MATCH_STAR_SERVICE) || serviceName.equals(serviceNamePattern)) {
+        if (serviceName.equals(MATCH_ALL_SERVICE)
+            || serviceName.equals(MATCH_STAR_SERVICE)
+            || serviceName.equals(serviceNamePattern)) {
           RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
           if (rateLimiter.tryAcquire(bytes)) {
             return true;
@@ -175,11 +180,11 @@ public class PreprocessorRateLimiter {
       }
       // message should be dropped due to no matching service name being provisioned
       meterRegistry
-              .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-              .increment();
+          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+          .increment();
       meterRegistry
-              .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-              .increment(bytes);
+          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+          .increment(bytes);
       return false;
     };
   }

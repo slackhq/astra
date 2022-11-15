@@ -38,6 +38,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         .setOwner(metadata.owner)
         .setThroughputBytes(metadata.throughputBytes)
         .addAllPartitionConfigs(datasetPartitionMetadata)
+        .setServiceNamePattern(metadata.serviceNamePattern)
         .build();
   }
 
