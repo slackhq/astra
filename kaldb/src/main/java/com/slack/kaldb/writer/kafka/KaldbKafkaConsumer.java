@@ -275,7 +275,7 @@ public class KaldbKafkaConsumer {
         messagesIndexed += recordCount;
         executor.submit(
             () -> {
-              LOG.info("ingesting a batch");
+              LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                   throw new IllegalArgumentException(
@@ -292,13 +292,16 @@ public class KaldbKafkaConsumer {
                     recordsFailedCounter.increment();
                   }
                 } catch (IOException e) {
-                  LOG.error("Encountered exception processing batch", e);
+                  LOG.error("Encountered exception processing batch [{}/{}]: {}", topicPartition.partition(), recordCount, e);
                 }
               }
               // TODO: Not all threads are printing this message.
-              LOG.info("finished ingesting a batch");
+              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
             });
         LOG.debug("Queued");
+      } else {
+        // temporary diagnostic logging
+        LOG.info("Encountered zero-record batch from partition {}", topicPartition.partition());
       }
     }
     executor.shutdown();

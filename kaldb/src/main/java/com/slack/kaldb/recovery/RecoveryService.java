@@ -244,7 +244,7 @@ public class RecoveryService extends AbstractIdleService {
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
       return success;
     } catch (Exception ex) {
-      LOG.error("Encountered exception in recovery task: {}", recoveryTaskMetadata, ex);
+      LOG.error("Exception in recovery task [{}]: {}", recoveryTaskMetadata, ex);
       return false;
     }
   }
