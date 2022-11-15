@@ -16,6 +16,9 @@ import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+
 /**
  * The PreprocessorRateLimiter provides a thread-safe Kafka streams predicate for determining if a
  * Kafka message should be filtered or not. Metrics are provided for visibility when a rate limiter
@@ -132,7 +135,7 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      String serviceName = PreprocessorValueMapper.getDatasetName(value);
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
       int bytes = value.getSerializedSize();
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided
@@ -151,7 +154,7 @@ public class PreprocessorRateLimiter {
 
       for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
         String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        if (serviceName.equals(serviceNamePattern)) {
+        if (serviceName.equals(MATCH_ALL_SERVICE) || serviceName.equals(MATCH_STAR_SERVICE) || serviceName.equals(serviceNamePattern)) {
           RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
           if (rateLimiter.tryAcquire(bytes)) {
             return true;
@@ -170,83 +173,13 @@ public class PreprocessorRateLimiter {
           return false;
         }
       }
-      return false;
-    };
-  }
-
-  public Predicate<String, Trace.Span> createRateLimiter(
-      Map<String, Long> serviceNameToThroughput) {
-    Map<String, RateLimiter> rateLimiterMap =
-        serviceNameToThroughput
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    (Map.Entry::getKey),
-                    (entry -> {
-                      double permitsPerSecond = (double) entry.getValue() / preprocessorCount;
-                      LOG.info(
-                          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
-                          entry.getKey(),
-                          permitsPerSecond,
-                          entry.getValue(),
-                          preprocessorCount);
-                      return smoothBurstyRateLimiter(
-                          permitsPerSecond, maxBurstSeconds, initializeWarm);
-                    })));
-
-    return (key, value) -> {
-      if (value == null) {
-        LOG.warn("Message was dropped, was null span");
-        return false;
-      }
-
-      String serviceName = PreprocessorValueMapper.getDatasetName(value);
-      int bytes = value.getSerializedSize();
-      if (serviceName == null || serviceName.isEmpty()) {
-        // service name wasn't provided
-        LOG.debug("Message was dropped due to missing service name - '{}'", value);
-        // todo - we may consider adding a logging BurstFilter so that a bad actor cannot
-        //  inadvertently swamp the system if we want to increase this logging level
-        //  https://logging.apache.org/log4j/2.x/manual/filters.html#BurstFilter
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-            .increment();
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-            .increment(bytes);
-        return false;
-      }
-
-      if (!rateLimiterMap.containsKey(serviceName)) {
-        // service isn't provisioned in our rate limit map
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-            .increment();
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-            .increment(bytes);
-        LOG.debug(
-            "Message was dropped from service '{}' as it not currently provisioned", serviceName);
-        return false;
-      }
-
-      if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
-        return true;
-      }
-
-      // message should be dropped due to rate limit
+      // message should be dropped due to no matching service name being provisioned
       meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-          .increment();
+              .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+              .increment();
       meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
-          .increment(bytes);
-      LOG.debug(
-          "Message was dropped from service '{}' due to rate limiting ({} bytes per second), wanted {} bytes",
-          serviceName,
-          rateLimiterMap.get(serviceName).getRate(),
-          serviceName);
+              .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
+              .increment(bytes);
       return false;
     };
   }

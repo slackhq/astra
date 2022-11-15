@@ -272,7 +272,7 @@ public class PreprocessorService extends AbstractService {
         "datasetToPartitionList cannot have any empty partition lists");
 
     return (topic, key, value, partitionCount) -> {
-      String datasetName = PreprocessorValueMapper.getDatasetName(value);
+      String datasetName = PreprocessorValueMapper.getServiceName(value);
       if (!datasetToPartitionList.containsKey(datasetName)) {
         // this shouldn't happen, as we should have filtered all the missing datasets in the value
         // mapper stage

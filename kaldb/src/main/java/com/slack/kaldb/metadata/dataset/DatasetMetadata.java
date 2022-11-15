@@ -15,6 +15,9 @@ import java.util.stream.Collectors;
  */
 public class DatasetMetadata extends KaldbMetadata {
 
+  public static final String MATCH_ALL_SERVICE = "_all";
+  public static final String MATCH_STAR_SERVICE = "*";
+
   public final String owner;
   public final String serviceNamePattern;
   public final long throughputBytes;
