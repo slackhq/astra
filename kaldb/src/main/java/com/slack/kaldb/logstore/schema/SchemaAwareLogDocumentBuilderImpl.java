@@ -112,7 +112,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     CONVERT_AND_DUPLICATE_FIELD
   }
 
-  private static String DUMMY_FIELD = "DUMMY_FIELD";
+  private static final String DUMMY_FIELD = "DUMMY_FIELD";
   private static final Map<FieldType, LuceneFieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
           FieldType.LONG,
