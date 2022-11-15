@@ -311,7 +311,7 @@ public class KaldbKafkaConsumer {
         LOG.debug("Queued");
       } else {
         // temporary diagnostic logging
-        LOG.info("Encountered zero-record batch from partition {}", topicPartition.partition());
+        LOG.debug("Encountered zero-record batch from partition {}", topicPartition.partition());
       }
     }
     executor.shutdown();
