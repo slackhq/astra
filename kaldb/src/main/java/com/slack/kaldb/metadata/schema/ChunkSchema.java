@@ -8,7 +8,8 @@ import java.nio.file.Files;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This schema class enforces schema for a chunk.
+ * This schema class enforces schema for a chunk. The schema is only written in indexer and on the
+ * cache node the schema is read only.
  *
  * <p>The fieldMap is a map to the field name and LuceneFieldDef that stores the field definitions.
  * Since this field is written and read my multiple threads it is hardcoded as a ConcurrentHashMap.
