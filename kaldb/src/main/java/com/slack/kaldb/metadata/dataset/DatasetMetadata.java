@@ -36,9 +36,6 @@ public class DatasetMetadata extends KaldbMetadata {
 
     checkArgument(
         serviceNamePattern.length() <= 256, "serviceNamePattern must be no longer than 256 chars");
-    checkArgument(
-        serviceNamePattern.matches("^[a-zA-Z0-9_-]*$"),
-        "serviceName must contain only [a-zA-Z0-9_-]");
 
     this.owner = owner;
     this.serviceNamePattern = serviceNamePattern;
