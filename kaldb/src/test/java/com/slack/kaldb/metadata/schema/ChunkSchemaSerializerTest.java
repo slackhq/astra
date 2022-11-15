@@ -7,7 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collections;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -27,8 +27,12 @@ public class ChunkSchemaSerializerTest {
     final LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
 
     final String schemaName = "schemaName";
-    final Map<String, LuceneFieldDef> fieldDefMap = Map.of(field1, fieldDef1, field2, fieldDef2);
-    final Map<String, String> metadataMap = Map.of("m1", "k1", "m2", "k2");
+    final ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
+    fieldDefMap.put(field1, fieldDef1);
+    fieldDefMap.put(field2, fieldDef2);
+    final ConcurrentHashMap<String, String> metadataMap = new ConcurrentHashMap<>();
+    metadataMap.put("m1", "k1");
+    metadataMap.put("m2", "v2");
     final ChunkSchema chunkSchema = new ChunkSchema(schemaName, fieldDefMap, metadataMap);
 
     final String serializedSchemaDef = serDe.toJsonStr(chunkSchema);
@@ -54,7 +58,7 @@ public class ChunkSchemaSerializerTest {
   public void testChunkSchemaEmptySchemaMetadata() throws InvalidProtocolBufferException {
     String schemaName = "schemaName";
     ChunkSchema chunkSchema =
-        new ChunkSchema(schemaName, Collections.emptyMap(), Collections.emptyMap());
+        new ChunkSchema(schemaName, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 
     String serializedSchemaDef = serDe.toJsonStr(chunkSchema);
     assertThat(serializedSchemaDef).isNotEmpty();
@@ -75,9 +79,10 @@ public class ChunkSchemaSerializerTest {
     String field2 = intFieldName + "2";
     LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
 
-    Map<String, LuceneFieldDef> fieldDefMap =
-        Map.of(field1, fieldDef1, field2 + "error", fieldDef2);
+    ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
+    fieldDefMap.put(field1, fieldDef1);
+    fieldDefMap.put(field2 + "error", fieldDef2);
     String schemaName = "schemaName";
-    new ChunkSchema(schemaName, fieldDefMap, Collections.emptyMap());
+    new ChunkSchema(schemaName, fieldDefMap, new ConcurrentHashMap<>());
   }
 }

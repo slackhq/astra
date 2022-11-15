@@ -5,9 +5,15 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-/** Schema for a chunk. */
+/**
+ * This schema class enforces schema for a chunk.
+ *
+ * <p>The fieldMap is a map to the field name and LuceneFieldDef that stores the field definitions.
+ * Since this field is written and read my multiple threads it is hardcoded as a ConcurrentHashMap.
+ * New fields are added to the fieldMap when it's written and read during query.
+ */
 public class ChunkSchema extends KaldbMetadata {
   public static ChunkSchemaSerializer serDe = new ChunkSchemaSerializer();
 
@@ -19,11 +25,13 @@ public class ChunkSchema extends KaldbMetadata {
     return serDe.fromJsonStr(Files.readString(file.toPath()));
   }
 
-  public final Map<String, LuceneFieldDef> fieldDefMap;
-  public final Map<String, String> metadata;
+  public final ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap;
+  public final ConcurrentHashMap<String, String> metadata;
 
   public ChunkSchema(
-      String name, Map<String, LuceneFieldDef> fieldDefMap, Map<String, String> metadata) {
+      String name,
+      ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap,
+      ConcurrentHashMap<String, String> metadata) {
     super(name);
     for (String key : fieldDefMap.keySet()) {
       String fieldName = fieldDefMap.get(key).name;
