@@ -18,7 +18,26 @@ public enum FieldType {
   TEXT("text") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
-      addTextField(doc, name, (String) value, fieldDef);
+      if (fieldDef.isAnalyzed) {
+        doc.add(new TextField(name, (String) value, getStoreEnum(fieldDef.isStored)));
+      } else {
+        if (fieldDef.isStored) {
+          doc.add(new StoredField(name, (String) value));
+        }
+      }
+    }
+  },
+  // TODO: Add tests for string field
+  STRING("string") {
+    @Override
+    public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
+      if (fieldDef.isAnalyzed) {
+        doc.add(new StringField(name, (String) value, getStoreEnum(fieldDef.isStored)));
+      } else {
+        if (fieldDef.isStored) {
+          doc.add(new StoredField(name, (String) value));
+        }
+      }
     }
   },
   INTEGER("integer") {
@@ -85,10 +104,13 @@ public enum FieldType {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
       // Lucene has no native support for Booleans so store that field as text.
-      if ((boolean) value) {
-        addTextField(doc, name, "true", fieldDef);
+      String valueStr = String.valueOf((boolean) value);
+      if (fieldDef.isAnalyzed) {
+        doc.add(new StringField(name, valueStr, getStoreEnum(fieldDef.isStored)));
       } else {
-        addTextField(doc, name, "false", fieldDef);
+        if (fieldDef.isStored) {
+          doc.add(new StoredField(name, valueStr));
+        }
       }
     }
   };
@@ -109,7 +131,8 @@ public enum FieldType {
   @VisibleForTesting
   public static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
     // String type
-    if (fromType == FieldType.TEXT) {
+    // TODO: Add unit tests for String
+    if (fromType == FieldType.TEXT || fromType == FieldType.STRING) {
       if (toType == FieldType.INTEGER) {
         try {
           return Integer.valueOf((String) value);
@@ -205,21 +228,6 @@ public enum FieldType {
     }
 
     return null;
-  }
-
-  private static void addTextField(
-      Document doc, String name, String value, LuceneFieldDef description) {
-    if (description.isIndexed) {
-      if (description.isAnalyzed) {
-        doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
-      } else {
-        doc.add(new StringField(name, value, getStoreEnum(description.isStored)));
-      }
-    } else {
-      if (description.isStored) {
-        doc.add(new StoredField(name, value));
-      }
-    }
   }
 
   private static Field.Store getStoreEnum(boolean isStored) {
