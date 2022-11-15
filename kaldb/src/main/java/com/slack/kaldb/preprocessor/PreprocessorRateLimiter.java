@@ -9,10 +9,7 @@ import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
@@ -105,16 +102,6 @@ public class PreprocessorRateLimiter {
     }
   }
 
-  static class RateLimiterPerDatasetHolder {
-    public DatasetMetadata datasetMetadata;
-    public RateLimiter rateLimiter;
-
-    public RateLimiterPerDatasetHolder(DatasetMetadata datasetMetadata, RateLimiter rateLimiter) {
-      this.datasetMetadata = datasetMetadata;
-      this.rateLimiter = rateLimiter;
-    }
-  }
-
   public Predicate<String, Trace.Span> createRateLimiter(
       List<DatasetMetadata> datasetMetadataList) {
 
@@ -124,7 +111,8 @@ public class PreprocessorRateLimiter {
             .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes))
             .collect(Collectors.toList());
 
-    List<RateLimiterPerDatasetHolder> rateLimiterPerDatasetList = new ArrayList<>();
+    Map<String, RateLimiter> rateLimiterMap = new HashMap<>(datasetMetadataList.size());
+
     for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
       double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;
       LOG.info(
@@ -135,7 +123,7 @@ public class PreprocessorRateLimiter {
           preprocessorCount);
       RateLimiter rateLimiter =
           smoothBurstyRateLimiter(permitsPerSecond, maxBurstSeconds, initializeWarm);
-      rateLimiterPerDatasetList.add(new RateLimiterPerDatasetHolder(datasetMetadata, rateLimiter));
+      rateLimiterMap.put(datasetMetadata.getName(), rateLimiter);
     }
 
     return (key, value) -> {
@@ -161,10 +149,11 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      for (RateLimiterPerDatasetHolder rateLimiterPerDataset : rateLimiterPerDatasetList) {
-        String serviceNamePattern = rateLimiterPerDataset.datasetMetadata.getServiceNamePattern();
+      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
         if (serviceName.equals(serviceNamePattern)) {
-          if (rateLimiterPerDataset.rateLimiter.tryAcquire(bytes)) {
+          RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
+          if (rateLimiter.tryAcquire(bytes)) {
             return true;
           }
           // message should be dropped due to rate limit
@@ -177,7 +166,7 @@ public class PreprocessorRateLimiter {
           LOG.debug(
               "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
               serviceName,
-              rateLimiterPerDataset.rateLimiter.getRate());
+              rateLimiter.getRate());
           return false;
         }
       }
