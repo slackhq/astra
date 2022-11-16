@@ -262,7 +262,12 @@ public class KaldbKafkaConsumer {
             0L,
             TimeUnit.MILLISECONDS,
             queue,
-            new ThreadFactoryBuilder().setNameFormat("recovery-task-%d").build());
+            new ThreadFactoryBuilder()
+                .setUncaughtExceptionHandler(
+                    (t, e) ->
+                        LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
+                .setNameFormat("recovery-task-%d")
+                .build());
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
@@ -273,7 +278,7 @@ public class KaldbKafkaConsumer {
       LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
       if (recordCount > 0) {
         messagesIndexed += recordCount;
-        executor.submit(
+        executor.execute(
             () -> {
               LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
