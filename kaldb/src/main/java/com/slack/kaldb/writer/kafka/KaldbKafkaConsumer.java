@@ -263,10 +263,11 @@ public class KaldbKafkaConsumer {
             TimeUnit.MILLISECONDS,
             queue,
             new ThreadFactoryBuilder()
-                    .setUncaughtExceptionHandler(
-                            (t, e) -> LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
-                    .setNameFormat("recovery-task-%d")
-                    .build());
+                .setUncaughtExceptionHandler(
+                    (t, e) ->
+                        LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
+                .setNameFormat("recovery-task-%d")
+                .build());
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
