@@ -20,7 +20,6 @@ public class LuceneFieldDefTest {
     String StrFieldName = "StrField";
     String strType = "text";
     LuceneFieldDef strField = new LuceneFieldDef(StrFieldName, strType, true, true, false);
-
     assertThat(strField.name).isEqualTo(StrFieldName);
     assertThat(strField.fieldType).isEqualTo(FieldType.TEXT);
     assertThat(strField.isStored).isTrue();
