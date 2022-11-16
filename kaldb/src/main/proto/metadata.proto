@@ -161,6 +161,7 @@ message LuceneFieldDef {
   // Is the field indexed
   bool isIndexed = 4;
   // Should the field be analyzed
+  // TODO: DROP.
   bool isAnalyzed = 5;
   // Store doc values for a field.
   bool storeDocValue = 6;

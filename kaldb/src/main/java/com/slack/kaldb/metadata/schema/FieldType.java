@@ -10,35 +10,39 @@ import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
+import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.util.BytesRef;
 
 public enum FieldType {
-  // TODO: Handle doc values field.
   TEXT("text") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
-      if (fieldDef.isAnalyzed) {
+      if (fieldDef.isIndexed) {
         doc.add(new TextField(name, (String) value, getStoreEnum(fieldDef.isStored)));
-      } else {
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, (String) value));
-        }
+      }
+      if (fieldDef.isStored) {
+        doc.add(new StoredField(name, (String) value));
+      }
+      if (fieldDef.storeDocValue) {
+        // Since a text field is tokenized, we don't need to add doc values to it.
       }
     }
   },
   // TODO: Add tests for string field
-  // TODO: Handle doc values field.
   STRING("string") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
-      if (fieldDef.isAnalyzed) {
+      if (fieldDef.isIndexed) {
         doc.add(new StringField(name, (String) value, getStoreEnum(fieldDef.isStored)));
-      } else {
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, (String) value));
-        }
+      }
+      if (fieldDef.isStored) {
+        doc.add(new StoredField(name, (String) value));
+      }
+      if (fieldDef.storeDocValue) {
+        doc.add(new SortedDocValuesField(name, new BytesRef((String) value)));
       }
     }
   },
@@ -167,7 +171,7 @@ public enum FieldType {
 
     // Int type
     if (fromType == FieldType.INTEGER) {
-      if (toType == FieldType.TEXT) {
+      if (toType == FieldType.TEXT || toType == FieldType.STRING) {
         return ((Integer) value).toString();
       }
       if (toType == FieldType.LONG) {
@@ -183,7 +187,7 @@ public enum FieldType {
 
     // Long type
     if (fromType == FieldType.LONG) {
-      if (toType == FieldType.TEXT) {
+      if (toType == FieldType.TEXT || toType == FieldType.STRING) {
         return ((Long) value).toString();
       }
       if (toType == FieldType.INTEGER) {
@@ -199,7 +203,7 @@ public enum FieldType {
 
     // Float type
     if (fromType == FieldType.FLOAT) {
-      if (toType == FieldType.TEXT) {
+      if (toType == FieldType.TEXT || toType == FieldType.STRING) {
         return value.toString();
       }
       if (toType == FieldType.INTEGER) {
@@ -215,7 +219,7 @@ public enum FieldType {
 
     // Double type
     if (fromType == FieldType.DOUBLE) {
-      if (toType == FieldType.TEXT) {
+      if (toType == FieldType.TEXT || toType == FieldType.STRING) {
         return value.toString();
       }
       if (toType == FieldType.INTEGER) {

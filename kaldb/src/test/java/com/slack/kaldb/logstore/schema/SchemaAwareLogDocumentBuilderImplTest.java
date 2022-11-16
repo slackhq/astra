@@ -616,6 +616,10 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isEqualTo(1);
   }
 
+  // TODO: Add tests for conversion for string fields.
+  // TODO: Add tests for string fields. String fields in nested docs.
+  // TODO: Add tests for string doc values field. Add test for missing text doc values field.
+  // TODO: Add a test for text to string type and vice versa
   @Test
   public void testValueTypeConversionWorks() {
     assertThat(convertFieldValue("1", FieldType.TEXT, FieldType.INTEGER)).isEqualTo(1);
