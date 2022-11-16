@@ -111,12 +111,14 @@ public enum FieldType {
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
       // Lucene has no native support for Booleans so store that field as text.
       String valueStr = String.valueOf((boolean) value);
-      if (fieldDef.isAnalyzed) {
-        doc.add(new StringField(name, valueStr, getStoreEnum(fieldDef.isStored)));
-      } else {
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, valueStr));
-        }
+      if (fieldDef.isIndexed) {
+        doc.add(new StringField(name, (String) value, getStoreEnum(fieldDef.isStored)));
+      }
+      if (fieldDef.isStored) {
+        doc.add(new StoredField(name, (String) value));
+      }
+      if (fieldDef.storeDocValue) {
+        doc.add(new SortedDocValuesField(name, new BytesRef((String) value)));
       }
     }
   };

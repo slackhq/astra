@@ -13,7 +13,7 @@ public class LuceneFieldDefSerializerTest {
   public void testLuceneFieldDefSerializer() throws InvalidProtocolBufferException {
     String intFieldName = "IntfieldDef";
     String intType = "integer";
-    LuceneFieldDef fieldDef = new LuceneFieldDef(intFieldName, intType, true, true, false, true);
+    LuceneFieldDef fieldDef = new LuceneFieldDef(intFieldName, intType, true, true, true);
 
     String serializedFieldDef = serDe.toJsonStr(fieldDef);
     assertThat(serializedFieldDef).isNotEmpty();
@@ -25,7 +25,6 @@ public class LuceneFieldDefSerializerTest {
     assertThat(deserializedFieldDef.fieldType).isEqualTo(FieldType.INTEGER);
     assertThat(deserializedFieldDef.isStored).isTrue();
     assertThat(deserializedFieldDef.isIndexed).isTrue();
-    assertThat(deserializedFieldDef.isAnalyzed).isFalse();
     assertThat(deserializedFieldDef.storeDocValue).isTrue();
   }
 

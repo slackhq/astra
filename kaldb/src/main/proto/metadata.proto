@@ -160,11 +160,8 @@ message LuceneFieldDef {
   bool isStored = 3;
   // Is the field indexed
   bool isIndexed = 4;
-  // Should the field be analyzed
-  // TODO: DROP.
-  bool isAnalyzed = 5;
   // Store doc values for a field.
-  bool storeDocValue = 6;
+  bool storeDocValue = 5;
 }
 
 message ChunkSchema {

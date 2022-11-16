@@ -13,7 +13,6 @@ public class LuceneFieldDefSerializer implements MetadataSerializer<LuceneFieldD
         .setType(fieldDef.fieldType.toString())
         .setIsStored(fieldDef.isStored)
         .setIsIndexed(fieldDef.isIndexed)
-        .setIsAnalyzed(fieldDef.isAnalyzed)
         .setStoreDocValue(fieldDef.storeDocValue)
         .build();
   }
@@ -25,7 +24,6 @@ public class LuceneFieldDefSerializer implements MetadataSerializer<LuceneFieldD
         luceneFieldDefProto.getType(),
         luceneFieldDefProto.getIsStored(),
         luceneFieldDefProto.isInitialized(),
-        luceneFieldDefProto.getIsAnalyzed(),
         luceneFieldDefProto.getStoreDocValue());
   }
 

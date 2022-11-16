@@ -22,9 +22,9 @@ public class ChunkSchemaSerializerTest {
     final String intFieldName = "IntfieldDef";
     final String intType = "integer";
     final String field1 = intFieldName + "1";
-    final LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, false, true);
+    final LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, true);
     final String field2 = intFieldName + "2";
-    final LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
+    final LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, true);
 
     final String schemaName = "schemaName";
     final ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
@@ -75,9 +75,9 @@ public class ChunkSchemaSerializerTest {
     String intFieldName = "IntfieldDef";
     String intType = "integer";
     String field1 = intFieldName + "1";
-    LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, false, true);
+    LuceneFieldDef fieldDef1 = new LuceneFieldDef(field1, intType, true, true, true);
     String field2 = intFieldName + "2";
-    LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, false, true);
+    LuceneFieldDef fieldDef2 = new LuceneFieldDef(field2, intType, true, true, true);
 
     ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
     fieldDefMap.put(field1, fieldDef1);

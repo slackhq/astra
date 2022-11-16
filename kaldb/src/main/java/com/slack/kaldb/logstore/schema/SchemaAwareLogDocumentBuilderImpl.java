@@ -48,8 +48,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       boolean isIndexed,
       boolean isAnalyzed) {
     fieldDefBuilder.put(
-        fieldName,
-        new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, isAnalyzed, false));
+        fieldName, new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, false));
   }
 
   // TODO: Move this definition to the config file.
@@ -65,7 +64,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             FieldType.LONG.name,
             false,
             true,
-            false,
             true));
     addTextField(fieldDefBuilder, LogMessage.SystemField.TYPE.fieldName, false, true, true);
     addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true, true);
@@ -85,7 +83,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             FieldType.LONG.name,
             false,
             true,
-            false,
             true));
     addTextField(fieldDefBuilder, LogMessage.ReservedField.TRACE_ID.fieldName, false, true, false);
     addTextField(fieldDefBuilder, LogMessage.ReservedField.PARENT_ID.fieldName, false, true, false);
@@ -116,17 +113,17 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static final Map<FieldType, LuceneFieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
           FieldType.LONG,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.LONG.name, false, true, false, true),
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.LONG.name, false, true, true),
           FieldType.FLOAT,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.FLOAT.name, false, true, false, true),
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.FLOAT.name, false, true, true),
           FieldType.INTEGER,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.INTEGER.name, false, true, false, true),
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.INTEGER.name, false, true, true),
           FieldType.DOUBLE,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.DOUBLE.name, false, true, false, true),
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.DOUBLE.name, false, true, true),
           FieldType.TEXT,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.TEXT.name, false, true, true, false),
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.TEXT.name, false, true, false),
           FieldType.BOOLEAN,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.BOOLEAN.name, false, true, false, false));
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.BOOLEAN.name, false, true, false));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
