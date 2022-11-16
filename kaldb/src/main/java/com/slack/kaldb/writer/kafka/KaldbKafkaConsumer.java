@@ -284,11 +284,11 @@ public class KaldbKafkaConsumer {
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                   throw new IllegalArgumentException(
-                      "Record is outside of start offset range: " + startOffsetInclusive);
+                      "Record is before start offset range: " + startOffsetInclusive);
                 }
                 if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
                   throw new IllegalArgumentException(
-                      "Record is outside of start offset range: " + startOffsetInclusive);
+                      "Record is after end offset range: " + endOffsetInclusive);
                 }
                 try {
                   if (logMessageWriterImpl.insertRecord(record)) {
