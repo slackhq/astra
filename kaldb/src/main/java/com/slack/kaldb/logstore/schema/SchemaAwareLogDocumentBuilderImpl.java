@@ -45,8 +45,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
       String fieldName,
       boolean isStored,
-      boolean isIndexed,
-      boolean isAnalyzed) {
+      boolean isIndexed) {
     fieldDefBuilder.put(
         fieldName, new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, false));
   }
@@ -54,9 +53,16 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   // TODO: Move this definition to the config file.
   private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
-    addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false, false);
-    addTextField(fieldDefBuilder, LogMessage.SystemField.ID.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.SystemField.INDEX.fieldName, false, true, true);
+    addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
+    fieldDefBuilder.put(
+        LogMessage.SystemField.ID.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.ID.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.SystemField.INDEX.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.INDEX.fieldName, FieldType.TEXT.name, false, true, false));
+
     fieldDefBuilder.put(
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
         new LuceneFieldDef(
@@ -65,17 +71,27 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             false,
             true,
             true));
-    addTextField(fieldDefBuilder, LogMessage.SystemField.TYPE.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TAG.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.USERNAME.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PAYLOAD.fieldName, false, true, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.NAME.fieldName, false, true, false);
-    addTextField(
-        fieldDefBuilder, LogMessage.ReservedField.SERVICE_NAME.fieldName, false, true, false);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.SystemField.TYPE.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
+
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.TAG.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.USERNAME.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.PAYLOAD.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.NAME.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.SERVICE_NAME.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.SERVICE_NAME.fieldName,
+            FieldType.STRING.name,
+            false,
+            true,
+            true));
     fieldDefBuilder.put(
         LogMessage.ReservedField.DURATION_MS.fieldName,
         new LuceneFieldDef(
@@ -84,8 +100,18 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             false,
             true,
             true));
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TRACE_ID.fieldName, false, true, false);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PARENT_ID.fieldName, false, true, false);
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.TRACE_ID.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.TRACE_ID.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.PARENT_ID.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.PARENT_ID.fieldName,
+            FieldType.STRING.name,
+            false,
+            true,
+            true));
 
     return fieldDefBuilder.build();
   }
@@ -122,6 +148,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           new LuceneFieldDef(DUMMY_FIELD, FieldType.DOUBLE.name, false, true, true),
           FieldType.TEXT,
           new LuceneFieldDef(DUMMY_FIELD, FieldType.TEXT.name, false, true, false),
+          FieldType.STRING,
+          new LuceneFieldDef(DUMMY_FIELD, FieldType.STRING.name, false, true, true),
           FieldType.BOOLEAN,
           new LuceneFieldDef(DUMMY_FIELD, FieldType.BOOLEAN.name, false, true, false));
 
