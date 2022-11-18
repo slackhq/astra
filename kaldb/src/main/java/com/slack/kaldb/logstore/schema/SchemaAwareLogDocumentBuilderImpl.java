@@ -196,8 +196,11 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       indexNewField(doc, fieldName, value, valueType);
     } else {
       LuceneFieldDef registeredField = fieldDefMap.get(fieldName);
-      if (registeredField.fieldType == valueType) {
+      // If the field types are same or the fields are type aliases
+      if (registeredField.fieldType == valueType
+          || FieldType.areTypeAliasedFieldTypes(registeredField.fieldType, valueType)) {
         // No field conflicts index it using previous description.
+        // Pass in registeredField here since the valueType and registeredField may be aliases
         indexTypedField(doc, fieldName, value, registeredField);
       } else {
         // There is a field type conflict, index it using the field conflict policy.

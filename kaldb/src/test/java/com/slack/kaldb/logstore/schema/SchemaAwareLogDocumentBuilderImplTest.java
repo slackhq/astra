@@ -36,6 +36,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     meterRegistry = new SimpleMeterRegistry();
   }
 
+  // TODO: Add a unit test for conflicting type aliased string and text fields.
+
   @Test
   public void testBasicDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
@@ -43,7 +45,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(16);
+    assertThat(testDocument.getFields().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -83,7 +85,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 Map.of("nested1", "value1", "nested2", 2)));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(testDocument.getFields().size()).isEqualTo(15);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -134,7 +136,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                         Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(18);
+    assertThat(testDocument.getFields().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -181,7 +183,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(testDocument.getFields().size()).isEqualTo(15);
     assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -225,7 +227,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(15);
+    assertThat(testDocument.getFields().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -269,7 +271,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 1));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(12);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -401,7 +403,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "1"));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(11);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(13);
     assertThat(
             msg1Doc
                 .getFields()
@@ -434,7 +436,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = docBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(10);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(12);
     // Conflicting field is dropped.
     assertThat(
             msg2Doc
@@ -477,7 +479,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(11);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(13);
     assertThat(
             msg1Doc
                 .getFields()
@@ -510,7 +512,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(11);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(13);
     // Value is converted for conflicting field.
     assertThat(
             msg2Doc
@@ -554,7 +556,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(11);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(13);
     assertThat(
             msg1Doc
                 .getFields()
@@ -587,7 +589,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(13);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
@@ -711,7 +713,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(11);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(13);
     assertThat(
             msg1Doc
                 .getFields()
@@ -745,7 +747,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 conflictingFieldName,
                 conflictingFloatValue));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(13);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
     assertThat(
@@ -804,7 +806,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 16;
+    final int expectedDocFieldsAfterMsg1 = 18;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
@@ -898,7 +900,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 16;
+    final int expectedDocFieldsAfterMsg1 = 18;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
@@ -1004,7 +1006,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    final int expectedFieldsInDocumentAfterMesssage = 16;
+    final int expectedFieldsInDocumentAfterMesssage = 18;
     assertThat(testDocument.getFields().size()).isEqualTo(expectedFieldsInDocumentAfterMesssage);
     final int fieldCountAfterIndexingFirstDocument = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);

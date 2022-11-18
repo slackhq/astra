@@ -1,6 +1,10 @@
 package com.slack.kaldb.metadata.schema;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import java.util.List;
+import java.util.Set;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
 import org.apache.lucene.document.DoublePoint;
@@ -112,13 +116,13 @@ public enum FieldType {
       // Lucene has no native support for Booleans so store that field as text.
       String valueStr = String.valueOf((boolean) value);
       if (fieldDef.isIndexed) {
-        doc.add(new StringField(name, (String) value, getStoreEnum(fieldDef.isStored)));
+        doc.add(new StringField(name, valueStr, getStoreEnum(fieldDef.isStored)));
       }
       if (fieldDef.isStored) {
-        doc.add(new StoredField(name, (String) value));
+        doc.add(new StoredField(name, valueStr));
       }
       if (fieldDef.storeDocValue) {
-        doc.add(new SortedDocValuesField(name, new BytesRef((String) value)));
+        doc.add(new SortedDocValuesField(name, new BytesRef(valueStr)));
       }
     }
   };
@@ -240,5 +244,17 @@ public enum FieldType {
 
   private static Field.Store getStoreEnum(boolean isStored) {
     return isStored ? Field.Store.YES : Field.Store.NO;
+  }
+
+  // Aliased Field Types are FieldTypes that can be considered as same type from a field conflict
+  // detection perspective
+  public static final List<Set<FieldType>> ALIASED_FIELD_TYPES =
+      ImmutableList.of(ImmutableSet.of(FieldType.STRING, FieldType.TEXT));
+
+  public static boolean areTypeAliasedFieldTypes(FieldType type1, FieldType type2) {
+    for (Set<FieldType> s : ALIASED_FIELD_TYPES) {
+      if (s.contains(type1) && s.contains(type2)) return true;
+    }
+    return false;
   }
 }
