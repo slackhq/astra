@@ -94,9 +94,10 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
-                    .setUncaughtExceptionHandler(
-                            (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                    .setNameFormat("readonly-chunk-%d").build());
+                .setUncaughtExceptionHandler(
+                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                .setNameFormat("readonly-chunk-%d")
+                .build());
 
     this.searchContext = searchContext;
     this.slotName = String.format("%s-%s", searchContext.hostname, slotId);

@@ -60,10 +60,10 @@ public class ElasticsearchApiService {
   private final ExecutorService multisearchExecutor =
       Executors.newCachedThreadPool(
           new ThreadFactoryBuilder()
-                  .setUncaughtExceptionHandler(
-                          (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                  .setNameFormat("elasticsearch-multisearch-api-%d")
-                  .build());
+              .setUncaughtExceptionHandler(
+                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+              .setNameFormat("elasticsearch-multisearch-api-%d")
+              .build());
 
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;

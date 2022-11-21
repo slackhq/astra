@@ -49,10 +49,10 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     return Executors.newFixedThreadPool(
         Runtime.getRuntime().availableProcessors(),
         new ThreadFactoryBuilder()
-                .setUncaughtExceptionHandler(
-                        (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                .setNameFormat("chunk-manager-query-%d")
-                .build());
+            .setUncaughtExceptionHandler(
+                (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+            .setNameFormat("chunk-manager-query-%d")
+            .build());
   }
 
   /*

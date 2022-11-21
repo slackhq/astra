@@ -90,10 +90,10 @@ public class RecoveryService extends AbstractIdleService {
     this.executorService =
         Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder()
-                    .setUncaughtExceptionHandler(
-                            (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                    .setNameFormat("recovery-service-%d")
-                    .build());
+                .setUncaughtExceptionHandler(
+                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                .setNameFormat("recovery-service-%d")
+                .build());
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("nodeHostname", searchContext.hostname));
     recoveryNodeAssignmentReceived =
