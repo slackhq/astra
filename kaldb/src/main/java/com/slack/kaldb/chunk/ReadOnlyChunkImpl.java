@@ -1,7 +1,6 @@
 package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
@@ -27,7 +26,6 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
@@ -60,6 +58,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final SearchMetadataStore searchMetadataStore;
   private final MeterRegistry meterRegistry;
+
   private final ExecutorService executorService;
   private final BlobFs blobFs;
 
@@ -81,24 +80,15 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
-      SearchMetadataStore searchMetadataStore)
+      SearchMetadataStore searchMetadataStore,
+      ExecutorService executorService)
       throws Exception {
     String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
-
-    // we use a single thread executor to allow operations for this chunk to queue,
-    // guaranteeing that they are executed in the order they were received
-    this.executorService =
-        Executors.newSingleThreadExecutor(
-            new ThreadFactoryBuilder()
-                .setUncaughtExceptionHandler(
-                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-                .setNameFormat("readonly-chunk-%d")
-                .build());
-
+    this.executorService = executorService;
     this.searchContext = searchContext;
     this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
@@ -324,11 +314,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    // Attempt to forcibly shut down the executor service. This prevents any further downloading of
-    // data from S3 that would be unused. We cannot wait for the result of this as there may be
-    // many ReadOnlyChunks that all need to be shutdown.
-    executorService.shutdownNow();
-
     // Attempt to evict the chunk
     handleChunkEviction();
 
