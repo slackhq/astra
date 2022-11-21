@@ -267,11 +267,22 @@ public class PreprocessorService extends AbstractService {
 
     return (topic, key, value, partitionCount) -> {
       String serviceName = PreprocessorValueMapper.getServiceName(value);
+      if (serviceName == null) {
+        // this also should not happen since we drop messages with empty service names in the rate
+        // limiter
+        throw new IllegalStateException(
+            String.format("Service name not found within the message '%s'", value));
+      }
 
       for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
         String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        if (serviceName.equals(MATCH_ALL_SERVICE)
-            || serviceName.equals(MATCH_STAR_SERVICE)
+        // back-compat since this is a new field
+        if (serviceNamePattern == null) {
+          serviceNamePattern = datasetMetadata.getName();
+        }
+
+        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
+            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
             || serviceName.equals(serviceNamePattern)) {
           List<Integer> partitions = PreprocessorService.getActivePartitionList(datasetMetadata);
           return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));

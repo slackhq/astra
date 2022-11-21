@@ -44,7 +44,7 @@ public class DatasetMetadataSerializerTest {
   }
 
   @Test
-  public void testDatasetMetadataSerializerForRegexServiceNames()
+  public void testDatasetMetadataSerializerWithServiceNames()
       throws InvalidProtocolBufferException {
     final Instant partitionStart = Instant.now();
     final Instant partitionEnd = Instant.now().plus(1, ChronoUnit.DAYS);
