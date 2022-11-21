@@ -146,7 +146,6 @@ public enum FieldType {
       return value;
     }
 
-    // Handle conversion for non-aliased types.
     if (fromType == FieldType.TEXT || fromType == FieldType.STRING) {
       if (toType == FieldType.INTEGER) {
         try {
