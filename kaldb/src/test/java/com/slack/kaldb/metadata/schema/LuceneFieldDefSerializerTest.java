@@ -1,6 +1,7 @@
 package com.slack.kaldb.metadata.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -41,5 +42,9 @@ public class LuceneFieldDefSerializerTest {
 
     Throwable deserializeCorrupt = catchThrowable(() -> serDe.fromJsonStr("test"));
     assertThat(deserializeCorrupt).isInstanceOf(InvalidProtocolBufferException.class);
+
+    // Creating a field with unknown type throws exception
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new LuceneFieldDef("IntfieldDef", "unknownType", true, true, true));
   }
 }
