@@ -20,6 +20,7 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.util.BytesRef;
 
+/** The FieldType enum describes the types of fields in a chunk. */
 public enum FieldType {
   TEXT("text") {
     @Override

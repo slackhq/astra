@@ -156,16 +156,20 @@ message LuceneFieldDef {
   // Type of the field
   string type = 2;
 
-  // Is the field stored.
+  // Store the value as a Lucene StoredField.
   bool isStored = 3;
-  // Is the field indexed
+  // Index the field in Lucene based on it's type for efficient point queries.
   bool isIndexed = 4;
-  // Store doc values for a field.
+  // Store doc values for a field so it's more efficient for aggregations.
   bool storeDocValue = 5;
 }
 
+// This proto documents the schema for a chunk.
 message ChunkSchema {
+  // Name of the chunk.
   string name = 1;
+  // Field map for each field in the lucene index in the chunk.
   map<string, LuceneFieldDef> fieldDefMap = 2;
+  // A generic field to store metadata for a chunk.
   map<string, string> metadata = 3;
 }
