@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -35,8 +37,6 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   public void setup() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
   }
-
-  // TODO: Add a unit test for conflicting type aliased string and text fields.
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
@@ -59,6 +59,26 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+    // Only string fields have doc values not text fields.
+    assertThat(docBuilder.getSchema().get("id").fieldType.name).isEqualTo(FieldType.STRING.name);
+    assertThat(
+            testDocument
+                .getFields()
+                .stream()
+                .filter(
+                    f ->
+                        f.name().equals(LogMessage.SystemField.ID.fieldName)
+                            && f instanceof SortedDocValuesField)
+                .count())
+        .isEqualTo(1);
+    assertThat(docBuilder.getSchema().get("index").fieldType.name).isEqualTo(FieldType.TEXT.name);
+    assertThat(
+            testDocument
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals("index") && f instanceof SortedDocValuesField)
+                .count())
+        .isZero();
   }
 
   @Test
@@ -618,19 +638,18 @@ public class SchemaAwareLogDocumentBuilderImplTest {
         .isEqualTo(1);
   }
 
-  // TODO: Add tests for conversion for string fields.
-  // TODO: Add tests for string fields. String fields in nested docs.
-  // TODO: Add tests for string doc values field. Add test for missing text doc values field.
-  // TODO: Add a test for text to string type and vice versa
   @Test
   public void testValueTypeConversionWorks() {
     assertThat(convertFieldValue("1", FieldType.TEXT, FieldType.INTEGER)).isEqualTo(1);
     assertThat(convertFieldValue("1", FieldType.TEXT, FieldType.LONG)).isEqualTo(1L);
     assertThat(convertFieldValue("2", FieldType.TEXT, FieldType.FLOAT)).isEqualTo(2.0f);
     assertThat(convertFieldValue("3", FieldType.TEXT, FieldType.DOUBLE)).isEqualTo(3.0d);
+    assertThat(convertFieldValue("4", FieldType.TEXT, FieldType.STRING)).isEqualTo("4");
+    assertThat(convertFieldValue("4", FieldType.STRING, FieldType.TEXT)).isEqualTo("4");
 
     int intValue = 1;
     assertThat(convertFieldValue(intValue, FieldType.INTEGER, FieldType.TEXT)).isEqualTo("1");
+    assertThat(convertFieldValue(intValue, FieldType.INTEGER, FieldType.STRING)).isEqualTo("1");
     assertThat(convertFieldValue(intValue + 1, FieldType.INTEGER, FieldType.LONG)).isEqualTo(2L);
     assertThat(convertFieldValue(intValue + 2, FieldType.INTEGER, FieldType.FLOAT)).isEqualTo(3.0f);
     assertThat(convertFieldValue(intValue + 3, FieldType.INTEGER, FieldType.DOUBLE))
@@ -638,12 +657,14 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
     long longValue = 1L;
     assertThat(convertFieldValue(longValue, FieldType.LONG, FieldType.TEXT)).isEqualTo("1");
+    assertThat(convertFieldValue(longValue, FieldType.LONG, FieldType.STRING)).isEqualTo("1");
     assertThat(convertFieldValue(longValue + 1, FieldType.LONG, FieldType.INTEGER)).isEqualTo(2);
     assertThat(convertFieldValue(longValue + 2, FieldType.LONG, FieldType.FLOAT)).isEqualTo(3.0f);
     assertThat(convertFieldValue(longValue + 3, FieldType.LONG, FieldType.DOUBLE)).isEqualTo(4.0);
 
     float floatValue = 1.0f;
     assertThat(convertFieldValue(floatValue, FieldType.FLOAT, FieldType.TEXT)).isEqualTo("1.0");
+    assertThat(convertFieldValue(floatValue, FieldType.FLOAT, FieldType.STRING)).isEqualTo("1.0");
     assertThat(convertFieldValue(floatValue + 1.0f, FieldType.FLOAT, FieldType.INTEGER))
         .isEqualTo(2);
     assertThat(convertFieldValue(floatValue + 2.0f, FieldType.FLOAT, FieldType.LONG)).isEqualTo(3L);
@@ -652,6 +673,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
     double doubleValue = 1.0;
     assertThat(convertFieldValue(doubleValue, FieldType.DOUBLE, FieldType.TEXT)).isEqualTo("1.0");
+    assertThat(convertFieldValue(doubleValue, FieldType.DOUBLE, FieldType.STRING)).isEqualTo("1.0");
     assertThat(convertFieldValue(doubleValue + 1.0f, FieldType.DOUBLE, FieldType.INTEGER))
         .isEqualTo(2);
     assertThat(convertFieldValue(doubleValue + 2.0f, FieldType.DOUBLE, FieldType.LONG))
@@ -669,12 +691,16 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     long longMaxValue = Long.MAX_VALUE;
     assertThat(convertFieldValue(longMaxValue, FieldType.LONG, FieldType.TEXT))
         .isEqualTo(Long.valueOf(longMaxValue).toString());
+    assertThat(convertFieldValue(longMaxValue, FieldType.LONG, FieldType.STRING))
+        .isEqualTo(Long.valueOf(longMaxValue).toString());
     assertThat(convertFieldValue(longMaxValue, FieldType.LONG, FieldType.INTEGER)).isNotNull();
     assertThat(convertFieldValue(longMaxValue, FieldType.LONG, FieldType.FLOAT)).isNotNull();
     assertThat(convertFieldValue(longMaxValue, FieldType.LONG, FieldType.DOUBLE)).isNotNull();
 
     float floatMaxValue = Float.MAX_VALUE;
     assertThat(convertFieldValue(floatMaxValue, FieldType.FLOAT, FieldType.TEXT))
+        .isEqualTo(Float.valueOf(floatMaxValue).toString());
+    assertThat(convertFieldValue(floatMaxValue, FieldType.FLOAT, FieldType.STRING))
         .isEqualTo(Float.valueOf(floatMaxValue).toString());
     assertThat(convertFieldValue(floatMaxValue, FieldType.FLOAT, FieldType.INTEGER)).isNotNull();
     assertThat(convertFieldValue(floatMaxValue, FieldType.FLOAT, FieldType.LONG)).isNotNull();
@@ -683,9 +709,18 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     double doubleMaxValue = Double.MAX_VALUE;
     assertThat(convertFieldValue(doubleMaxValue, FieldType.DOUBLE, FieldType.TEXT))
         .isEqualTo(Double.valueOf(doubleMaxValue).toString());
+    assertThat(convertFieldValue(doubleMaxValue, FieldType.DOUBLE, FieldType.STRING))
+        .isEqualTo(Double.valueOf(doubleMaxValue).toString());
     assertThat(convertFieldValue(doubleMaxValue, FieldType.DOUBLE, FieldType.INTEGER)).isNotNull();
     assertThat(convertFieldValue(doubleMaxValue, FieldType.DOUBLE, FieldType.LONG)).isNotNull();
     assertThat(convertFieldValue(doubleMaxValue, FieldType.DOUBLE, FieldType.FLOAT)).isNotNull();
+
+    // Convert same type
+    assertThat(convertFieldValue("1", FieldType.TEXT, FieldType.TEXT)).isEqualTo("1");
+    assertThat(convertFieldValue("1", FieldType.STRING, FieldType.STRING)).isEqualTo("1");
+    assertThat(convertFieldValue(1L, FieldType.LONG, FieldType.LONG)).isEqualTo(1L);
+    assertThat(convertFieldValue(2.0f, FieldType.FLOAT, FieldType.FLOAT)).isEqualTo(2.0f);
+    assertThat(convertFieldValue(3.0d, FieldType.DOUBLE, FieldType.DOUBLE)).isEqualTo(3.0d);
   }
 
   @Test
@@ -1081,6 +1116,123 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 "nested.nested.leaf21"));
     assertThat(docBuilder.getSchema().containsKey(additionalCreatedFieldName)).isFalse();
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+  }
+
+  @Test
+  public void testStringTextAliasing() throws JsonProcessingException {
+    SchemaAwareLogDocumentBuilderImpl docBuilder =
+        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+
+    // Set stringField is a String
+    final String stringField = "stringField";
+    docBuilder
+        .getSchema()
+        .put(
+            stringField, new LuceneFieldDef(stringField, FieldType.STRING.name, false, true, true));
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                "duplicateproperty",
+                "duplicate1",
+                stringField,
+                "strFieldValue",
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument1 = docBuilder.fromMessage(msg1);
+    final int expectedDocFieldsAfterMsg1 = 18;
+    assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
+    final int expectedFieldsAfterMsg1 = 23;
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
+    assertThat(docBuilder.getSchema().get(stringField).fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(stringField, "nested.leaf1", "nested.nested.leaf2", "nested.nested.leaf21"));
+    // The new field is identified as text, but indexed as String.
+    assertThat(
+            testDocument1
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals(stringField) && f instanceof SortedDocValuesField)
+                .count())
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+
+    // Set stringField in a nested field
+    final String nestedStringField = "nested.nested.stringField";
+    docBuilder
+        .getSchema()
+        .put(
+            nestedStringField,
+            new LuceneFieldDef(nestedStringField, FieldType.STRING.name, false, true, true));
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message2",
+                "duplicateproperty",
+                "duplicate1",
+                stringField,
+                "strFieldValue2",
+                "nested",
+                Map.of(
+                    "leaf1",
+                    "value1",
+                    "nested",
+                    Map.of(
+                        stringField, "nestedStringField", "leaf21", 3, "nestedList", List.of(1)))));
+
+    Document testDocument2 = docBuilder.fromMessage(msg2);
+    // Nested string field adds 1 more sorted doc values field.
+    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 1);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
+    assertThat(docBuilder.getSchema().get(nestedStringField).fieldType).isEqualTo(FieldType.STRING);
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            List.of(
+                "duplicateproperty",
+                "@timestamp",
+                stringField,
+                nestedStringField,
+                "nested.nested.nestedList",
+                "nested.leaf1",
+                "nested.nested.leaf2",
+                "nested.nested.leaf21"));
+    assertThat(
+            testDocument2
+                .getFields()
+                .stream()
+                .filter(
+                    f -> f.name().equals(nestedStringField) && f instanceof SortedDocValuesField)
+                .count())
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
   }

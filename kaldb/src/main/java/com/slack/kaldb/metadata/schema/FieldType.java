@@ -35,7 +35,6 @@ public enum FieldType {
       }
     }
   },
-  // TODO: Add tests for string field
   STRING("string") {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
@@ -127,7 +126,6 @@ public enum FieldType {
     }
   };
 
-  // TODO: Remove the name field since it's not needed.
   public final String name;
 
   FieldType(String name) {
@@ -142,8 +140,13 @@ public enum FieldType {
 
   @VisibleForTesting
   public static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
-    // String type
-    // TODO: Add unit tests for String
+    if ((fromType == toType)
+        || (fromType == FieldType.TEXT && toType == FieldType.STRING)
+        || (fromType == FieldType.STRING && toType == FieldType.TEXT)) {
+      return value;
+    }
+
+    // Handle conversion for non-aliased types.
     if (fromType == FieldType.TEXT || fromType == FieldType.STRING) {
       if (toType == FieldType.INTEGER) {
         try {
