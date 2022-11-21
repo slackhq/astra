@@ -89,7 +89,11 @@ public class RecoveryService extends AbstractIdleService {
     // guaranteeing that they are executed in the order they were received
     this.executorService =
         Executors.newSingleThreadExecutor(
-            new ThreadFactoryBuilder().setNameFormat("recovery-service-%d").build());
+            new ThreadFactoryBuilder()
+                    .setUncaughtExceptionHandler(
+                            (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                    .setNameFormat("recovery-service-%d")
+                    .build());
 
     Collection<Tag> meterTags = ImmutableList.of(Tag.of("nodeHostname", searchContext.hostname));
     recoveryNodeAssignmentReceived =
@@ -155,7 +159,7 @@ public class RecoveryService extends AbstractIdleService {
               recoveryNodeLastKnownState,
               newRecoveryNodeState);
         }
-        executorService.submit(() -> handleRecoveryTaskAssignment(recoveryNodeMetadata));
+        executorService.execute(() -> handleRecoveryTaskAssignment(recoveryNodeMetadata));
       }
       recoveryNodeLastKnownState = newRecoveryNodeState;
     };

@@ -67,7 +67,11 @@ public class SnapshotDeletionService extends AbstractScheduledService {
   private final ExecutorService executorService =
       Executors.newFixedThreadPool(
           THREAD_POOL_SIZE,
-          new ThreadFactoryBuilder().setNameFormat("snapshot-deletion-service-%d").build());
+          new ThreadFactoryBuilder()
+                  .setUncaughtExceptionHandler(
+                          (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                  .setNameFormat("snapshot-deletion-service-%d")
+                  .build());
   private final RateLimiter rateLimiter = RateLimiter.create(MAXIMUM_DELETES_PER_SECOND);
 
   public SnapshotDeletionService(

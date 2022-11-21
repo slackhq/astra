@@ -93,7 +93,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     // guaranteeing that they are executed in the order they were received
     this.executorService =
         Executors.newSingleThreadExecutor(
-            new ThreadFactoryBuilder().setNameFormat("readonly-chunk-%d").build());
+            new ThreadFactoryBuilder()
+                    .setUncaughtExceptionHandler(
+                            (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                    .setNameFormat("readonly-chunk-%d").build());
+
     this.searchContext = searchContext;
     this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
@@ -138,14 +142,14 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           LOG.warn(
               "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
         }
-        executorService.submit(() -> handleChunkAssignment(cacheSlotMetadata));
+        executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
       } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
         LOG.info("Chunk - EVICT received");
         if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
           LOG.warn(
               "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
         }
-        executorService.submit(this::handleChunkEviction);
+        executorService.execute(this::handleChunkEviction);
       }
 
       cacheSlotLastKnownState = newSlotState;
@@ -319,7 +323,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    // Attempt to forcibly shutdown the executor service. This prevents any further downloading of
+    // Attempt to forcibly shut down the executor service. This prevents any further downloading of
     // data from S3 that would be unused. We cannot wait for the result of this as there may be
     // many ReadOnlyChunks that all need to be shutdown.
     executorService.shutdownNow();
