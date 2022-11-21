@@ -2,6 +2,7 @@ package com.slack.kaldb.preprocessor;
 
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
@@ -12,11 +13,9 @@ import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
@@ -111,11 +110,7 @@ public class PreprocessorRateLimiter {
   public Predicate<String, Trace.Span> createRateLimiter(
       List<DatasetMetadata> datasetMetadataList) {
 
-    List<DatasetMetadata> throughputSortedDatasets =
-        datasetMetadataList
-            .stream()
-            .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes))
-            .collect(Collectors.toList());
+    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
 
     Map<String, RateLimiter> rateLimiterMap = new HashMap<>(datasetMetadataList.size());
 

@@ -119,6 +119,39 @@ public class PreprocessorServiceUnitTest {
   }
 
   @Test
+  public void shouldCorrectlyThroughputSortDatasets() {
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(
+            "service1",
+            "service1",
+            1,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            "no_service_matching_docs");
+    DatasetMetadata datasetMetadata2 =
+        new DatasetMetadata(
+            "service2",
+            "service2",
+            3,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    DatasetMetadata datasetMetadata3 =
+        new DatasetMetadata(
+            "service3",
+            "service3",
+            2,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            DatasetMetadata.MATCH_ALL_SERVICE);
+
+    List<DatasetMetadata> throughputSortedDatasets =
+        PreprocessorService.sortDatasetsOnThroughput(
+            List.of(datasetMetadata1, datasetMetadata2, datasetMetadata3));
+    assertThat(throughputSortedDatasets.size()).isEqualTo(3);
+    assertThat(throughputSortedDatasets.get(0).getName()).isEqualTo("service2");
+    assertThat(throughputSortedDatasets.get(1).getName()).isEqualTo("service3");
+    assertThat(throughputSortedDatasets.get(2).getName()).isEqualTo("service1");
+  }
+
+  @Test
   public void shouldReturnRandomPartitionFromStreamPartitioner() {
     String datasetName = "datasetName";
     List<Integer> partitionList = List.of(33, 44, 55);

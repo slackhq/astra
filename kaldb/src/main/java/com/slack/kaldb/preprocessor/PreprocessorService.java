@@ -252,6 +252,14 @@ public class PreprocessorService extends AbstractService {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  public static List<DatasetMetadata> sortDatasetsOnThroughput(
+      List<DatasetMetadata> datasetMetadataList) {
+    return datasetMetadataList
+        .stream()
+        .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
+        .collect(Collectors.toList());
+  }
+
   /**
    * Returns a StreamPartitioner that selects from the provided list of dataset metadata. If no
    * valid dataset metadata are provided throws an exception.
@@ -259,11 +267,7 @@ public class PreprocessorService extends AbstractService {
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
       List<DatasetMetadata> datasetMetadataList) {
 
-    List<DatasetMetadata> throughputSortedDatasets =
-        datasetMetadataList
-            .stream()
-            .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes))
-            .collect(Collectors.toList());
+    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
 
     return (topic, key, value, partitionCount) -> {
       String serviceName = PreprocessorValueMapper.getServiceName(value);

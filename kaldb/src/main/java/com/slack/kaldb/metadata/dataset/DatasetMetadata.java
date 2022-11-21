@@ -37,8 +37,12 @@ public class DatasetMetadata extends KaldbMetadata {
     checkArgument(throughputBytes >= 0, "throughputBytes must be greater than or equal to 0");
     checkPartitions(partitionConfigs, "partitionConfigs must not overlap start and end times");
 
-    checkArgument(
-        serviceNamePattern.length() <= 256, "serviceNamePattern must be no longer than 256 chars");
+    // back compat - make this into a null check in the future?
+    if (serviceNamePattern != null && !serviceNamePattern.isBlank()) {
+      checkArgument(
+          serviceNamePattern.length() <= 256,
+          "serviceNamePattern must be no longer than 256 chars");
+    }
 
     this.owner = owner;
     this.serviceNamePattern = serviceNamePattern;
