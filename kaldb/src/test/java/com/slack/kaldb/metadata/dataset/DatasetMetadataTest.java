@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Test;
 
 public class DatasetMetadataTest {
@@ -37,6 +38,7 @@ public class DatasetMetadataTest {
   public void testInvalidServiceMetadataNames() {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new DatasetMetadata("&", "owner", 0, null, "&"));
+
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new DatasetMetadata("test%", "owner", 0, null, "test%"));
     assertThatIllegalArgumentException()
@@ -51,6 +53,18 @@ public class DatasetMetadataTest {
                     0,
                     null,
                     "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"));
+
+    final DatasetPartitionMetadata partition =
+        new DatasetPartitionMetadata(
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(90).toEpochMilli(),
+            List.of("partition"));
+    final List<DatasetPartitionMetadata> partitionConfigs1 = Collections.singletonList(partition);
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new DatasetMetadata(
+                    "name", "owner", 1, partitionConfigs1, RandomStringUtils.random(257)));
   }
 
   @Test
