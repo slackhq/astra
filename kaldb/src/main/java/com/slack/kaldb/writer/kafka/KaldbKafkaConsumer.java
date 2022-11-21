@@ -262,7 +262,12 @@ public class KaldbKafkaConsumer {
             0L,
             TimeUnit.MILLISECONDS,
             queue,
-            new ThreadFactoryBuilder().setNameFormat("recovery-task-%d").build());
+            new ThreadFactoryBuilder()
+                .setUncaughtExceptionHandler(
+                    (t, e) ->
+                        LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
+                .setNameFormat("recovery-task-%d")
+                .build());
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
@@ -273,17 +278,17 @@ public class KaldbKafkaConsumer {
       LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
       if (recordCount > 0) {
         messagesIndexed += recordCount;
-        executor.submit(
+        executor.execute(
             () -> {
-              LOG.info("ingesting a batch");
+              LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                   throw new IllegalArgumentException(
-                      "Record is outside of start offset range: " + startOffsetInclusive);
+                      "Record is before start offset range: " + startOffsetInclusive);
                 }
                 if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
                   throw new IllegalArgumentException(
-                      "Record is outside of start offset range: " + startOffsetInclusive);
+                      "Record is after end offset range: " + endOffsetInclusive);
                 }
                 try {
                   if (logMessageWriterImpl.insertRecord(record)) {
@@ -292,13 +297,21 @@ public class KaldbKafkaConsumer {
                     recordsFailedCounter.increment();
                   }
                 } catch (IOException e) {
-                  LOG.error("Encountered exception processing batch", e);
+                  LOG.error(
+                      "Encountered exception processing batch [{}/{}]: {}",
+                      topicPartition.partition(),
+                      recordCount,
+                      e);
                 }
               }
               // TODO: Not all threads are printing this message.
-              LOG.info("finished ingesting a batch");
+              LOG.info(
+                  "Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
             });
         LOG.debug("Queued");
+      } else {
+        // temporary diagnostic logging
+        LOG.debug("Encountered zero-record batch from partition {}", topicPartition.partition());
       }
     }
     executor.shutdown();
