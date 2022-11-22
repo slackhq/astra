@@ -4,20 +4,25 @@ import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractIdleService;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
-import com.spotify.futures.CompletableFutures;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -36,7 +41,15 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
   // to the amount of reads, and it must be a threadsafe implementation
   protected final List<Chunk<T>> chunkList = new CopyOnWriteArrayList<>();
 
-  private static final ExecutorService queryExecutorService = queryThreadPool();
+  private static final ListeningExecutorService queryExecutorService = queryThreadPool();
+
+  private static final ScheduledExecutorService queryCancellationService =
+      Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder()
+              .setNameFormat("chunk-manager-query-cancellation-%d")
+              .setUncaughtExceptionHandler(
+                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+              .build());
 
   /*
    * We want to provision the chunk query capacity such that we can almost saturate the CPU. In the event we allow
@@ -45,14 +58,18 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * Revisit the thread pool settings if this becomes a perf issue. Also, we may need
    * different thread pools for indexer and cache nodes in the future.
    */
-  private static ExecutorService queryThreadPool() {
-    return Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors(),
-        new ThreadFactoryBuilder()
-            .setUncaughtExceptionHandler(
-                (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-            .setNameFormat("chunk-manager-query-%d")
-            .build());
+  private static ListeningExecutorService queryThreadPool() {
+    // todo - consider making the thread count a config option; this would allow for more
+    //  fine-grained tuning, but we might not need to expose this to the user if we can set sensible
+    //  defaults
+    return MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(
+            Math.max(1, Runtime.getRuntime().availableProcessors() - 2),
+            new ThreadFactoryBuilder()
+                .setNameFormat("chunk-manager-query-%d")
+                .setUncaughtExceptionHandler(
+                    (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+                .build()));
   }
 
   /*
@@ -83,42 +100,67 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
               .collect(Collectors.toList());
     }
 
-    List<CompletableFuture<SearchResult<T>>> queries =
+    // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
+    // queries that need to search the same N chunks, they would all attempt to search the same
+    // chunk at the same time, and then proceed to search the next chunk at the same time.
+    // Randomizing the list of chunks helps reduce contention when attempting to concurrently search
+    // a single IndexSearcher.
+    Collections.shuffle(chunksMatchingQuery);
+
+    List<ListenableFuture<SearchResult<T>>> queries =
         chunksMatchingQuery
             .stream()
             .map(
                 (chunk) ->
-                    CompletableFuture.supplyAsync(
-                            () -> chunk.query(query),
-                            currentTraceContext.executorService(queryExecutorService))
-                        // TODO: this will not cancel lucene query. Use ExitableDirectoryReader
-                        //  in the future and pass this timeout
-                        .orTimeout(queryTimeout.toMillis(), TimeUnit.MILLISECONDS))
-            .map(
-                chunkFuture ->
-                    chunkFuture.exceptionally(
-                        err -> {
-                          LOG.warn("Chunk Query Exception: ", err);
-                          // We catch IllegalArgumentException ( and any other exception that
-                          // represents a parse failure ) and instead of returning an empty result
-                          // we throw back an error to the user
-                          if (err.getCause() instanceof IllegalArgumentException) {
-                            throw (IllegalArgumentException) err.getCause();
-                          }
-                          return errorResult;
-                        }))
-            .collect(Collectors.<CompletableFuture<SearchResult<T>>>toList());
+                    queryExecutorService.submit(
+                        currentTraceContext.wrap(
+                            () -> {
+                              try {
+                                if (Thread.interrupted()) {
+                                  LOG.warn(
+                                      "Chunk query thread timed out without starting work, returning error result.");
+                                  return errorResult;
+                                }
+                                return chunk.query(query);
+                              } catch (Exception err) {
+                                // Only log the exception message as warn, and not the entire trace
+                                // as this can cause performance issues if significant amounts of
+                                // invalid queries are received
+                                LOG.warn("Chunk Query Exception: {}", err.getMessage());
+                                LOG.debug("Chunk Query Exception", err);
+                                // We catch IllegalArgumentException ( and any other exception that
+                                // represents a parse failure ) and instead of returning an empty
+                                // result we throw back an error to the user
+                                if (err instanceof IllegalArgumentException) {
+                                  throw err;
+                                }
+                                return errorResult;
+                              }
+                            })))
+            .peek(
+                (future) ->
+                    queryCancellationService.schedule(
+                        () -> future.cancel(true), queryTimeout.toMillis(), TimeUnit.MILLISECONDS))
+            .collect(Collectors.toList());
 
-    // TODO: if all fails return error instead of empty and add test
-
-    // Using the spotify library ( this method is much easier to operate then using
-    // CompletableFuture.allOf and converting the CompletableFuture<Void> to
-    // CompletableFuture<List<SearchResult>>
-    CompletableFuture<List<SearchResult<T>>> searchResultFuture =
-        CompletableFutures.allAsList(queries);
+    Future<List<SearchResult<T>>> searchResultFuture = Futures.successfulAsList(queries);
     try {
       List<SearchResult<T>> searchResults =
           searchResultFuture.get(queryTimeout.toMillis(), TimeUnit.MILLISECONDS);
+
+      // check if all results are null, and if so return an error to the user
+      if (searchResults.size() > 0 && searchResults.stream().allMatch(Objects::isNull)) {
+        try {
+          Futures.allAsList(queries).get(0, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          throw new IllegalArgumentException(e);
+        }
+        // not expected to happen - we should be guaranteed that the list has at least one failed
+        // future, which should throw when we try to get on allAsList
+        throw new IllegalArgumentException(
+            "Chunk query error - all results returned null values with no exceptions thrown");
+      }
+
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
