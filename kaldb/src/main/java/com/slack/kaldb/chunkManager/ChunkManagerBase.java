@@ -48,12 +48,16 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
   private static ExecutorService queryThreadPool() {
     return Executors.newFixedThreadPool(
         Runtime.getRuntime().availableProcessors(),
-        new ThreadFactoryBuilder().setNameFormat("chunk-manager-query-%d").build());
+        new ThreadFactoryBuilder()
+            .setUncaughtExceptionHandler(
+                (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+            .setNameFormat("chunk-manager-query-%d")
+            .build());
   }
 
   /*
    * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
-   * We aggregate locally and and then the query aggregator will aggregate again. This is OKAY for the current use-case we support
+   * We aggregate locally and then the query aggregator will aggregate again. This is OKAY for the current use-case we support
    * 1. topK results sorted by timestamp
    * 2. histogram over a fixed time range
    * We will not aggregate locally for future use-cases that have complex group by etc

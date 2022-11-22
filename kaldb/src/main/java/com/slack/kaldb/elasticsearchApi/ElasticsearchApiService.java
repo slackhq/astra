@@ -59,7 +59,11 @@ public class ElasticsearchApiService {
   // propagate the trace instrumentation, and has better visibility using a custom threadfactory.
   private final ExecutorService multisearchExecutor =
       Executors.newCachedThreadPool(
-          new ThreadFactoryBuilder().setNameFormat("elasticsearch-multisearch-api-%d").build());
+          new ThreadFactoryBuilder()
+              .setUncaughtExceptionHandler(
+                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+              .setNameFormat("elasticsearch-multisearch-api-%d")
+              .build());
 
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
