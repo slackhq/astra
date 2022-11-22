@@ -115,11 +115,9 @@ public class ElasticsearchApiService {
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
     span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
-    span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
-    span.tag("resultTotalNodes", String.valueOf(searchResult.getTotalNodes()));
-    span.tag("resultTotalSnapshots", String.valueOf(searchResult.getTotalNodes()));
-    span.tag(
-        "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
+    span.tag("resultFailedSnapshots", String.valueOf(searchResult.getFailedSnapshots()));
+    span.tag("resultTotalSnapshots", String.valueOf(searchResult.getTotalSnapshots()));
+    span.tag("resultSuccessfulSnapshots", String.valueOf(searchResult.getSuccessfulSnapshots()));
 
     try {
       HitsMetadata hits = getHits(searchResult);
@@ -130,7 +128,10 @@ public class ElasticsearchApiService {
           .hits(hits)
           .aggregations(aggregations)
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
-          .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .shardsMetadata(
+              searchResult.getTotalSnapshots(),
+              searchResult.getFailedSnapshots(),
+              searchResult.getSuccessfulSnapshots())
           .status(200)
           .build();
     } catch (Exception e) {
@@ -138,7 +139,10 @@ public class ElasticsearchApiService {
       span.error(e);
       return new EsSearchResponse.Builder()
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
-          .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .shardsMetadata(
+              searchResult.getTotalSnapshots(),
+              searchResult.getFailedSnapshots(),
+              searchResult.getSuccessfulSnapshots())
           .status(500)
           .build();
     } finally {

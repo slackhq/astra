@@ -149,9 +149,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
             bucketCount > 0 ? histogram.count() : results.size(),
             histogram.getBuckets(),
-            0,
-            0,
             1,
+            0,
             1);
       } finally {
         searcherManager.release(searcher);

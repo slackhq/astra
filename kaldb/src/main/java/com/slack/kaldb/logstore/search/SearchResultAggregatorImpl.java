@@ -23,12 +23,10 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   }
 
   @Override
-  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
+  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, int totalSnapshots) {
     long tookMicros = 0;
-    int failedNodes = 0;
-    int totalNodes = 0;
-    int totalSnapshots = 0;
-    int snapshpotReplicas = 0;
+    int failedSnapshots = 0;
+    int successfulSnapshots = 0;
     int totalCount = 0;
     Optional<Histogram> histogram =
         searchQuery.bucketCount > 0
@@ -41,10 +39,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
-      failedNodes += searchResult.failedNodes;
-      totalNodes += searchResult.totalNodes;
-      totalSnapshots += searchResult.totalSnapshots;
-      snapshpotReplicas += searchResult.snapshotsWithReplicas;
+      failedSnapshots += searchResult.failedSnapshots;
+      successfulSnapshots += searchResult.successfulSnapshots;
       totalCount += searchResult.totalCount;
       histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
     }
@@ -63,9 +59,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         tookMicros,
         totalCount,
         histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
-        failedNodes,
-        totalNodes,
         totalSnapshots,
-        snapshpotReplicas);
+        failedSnapshots,
+        successfulSnapshots);
   }
 }

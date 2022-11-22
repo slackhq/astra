@@ -96,6 +96,11 @@ public class EsSearchResponse {
       return this;
     }
 
+    public Builder shardsMetadata(int total, int failed, int successful) {
+      this.shardsMetadata = Map.of("total", total, "failed", failed, "successful", successful);
+      return this;
+    }
+
     public Builder debugMetadata(Map<String, String> debugMetadata) {
       this.debugMetadata = debugMetadata;
       return this;

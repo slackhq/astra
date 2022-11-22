@@ -110,10 +110,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHits(0)).contains("Message100");
@@ -177,10 +177,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isZero();
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
 
     // Test histogram buckets
     assertThat(response.getBucketsList().size()).isEqualTo(2);
@@ -228,10 +228,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsCount()).isEqualTo(0);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
 
     // Test histogram buckets
@@ -278,10 +278,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHitsList().asByteStringList().size()).isEqualTo(1);
@@ -384,10 +384,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(response.getTotalSnapshots()).isEqualTo(1);
 
     // Test hit contents
     assertThat(response.getHits(0)).contains("Message1");

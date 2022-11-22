@@ -10,7 +10,7 @@ import java.util.List;
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0);
+      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 0, 0, 0);
 
   public final long totalCount;
 
@@ -23,20 +23,23 @@ public class SearchResult<T> {
   // TODO: Instead of histogram bucket, return tuple.
   public final List<HistogramBucket> buckets;
 
-  public final int failedNodes;
-  public final int totalNodes;
+  // the total of possible snapshots present - requested or not
   public final int totalSnapshots;
-  public final int snapshotsWithReplicas;
+
+  // the number of snapshots that failed in a request
+  public final int failedSnapshots;
+
+  // the number of snapshots that succeeded a request
+  public final int successfulSnapshots;
 
   public SearchResult() {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
     this.totalCount = 0;
     this.buckets = new ArrayList<>();
-    this.failedNodes = 0;
-    this.totalNodes = 0;
     this.totalSnapshots = 0;
-    this.snapshotsWithReplicas = 0;
+    this.failedSnapshots = 0;
+    this.successfulSnapshots = 0;
   }
 
   // TODO: Move stats into a separate struct.
@@ -45,18 +48,16 @@ public class SearchResult<T> {
       long tookMicros,
       long totalCount,
       List<HistogramBucket> buckets,
-      int failedNodes,
-      int totalNodes,
       int totalSnapshots,
-      int snapshotsWithReplicas) {
+      int failedSnapshots,
+      int successfulSnapshots) {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
     this.buckets = buckets;
-    this.failedNodes = failedNodes;
-    this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
-    this.snapshotsWithReplicas = snapshotsWithReplicas;
+    this.failedSnapshots = failedSnapshots;
+    this.successfulSnapshots = successfulSnapshots;
   }
 
   @Override
@@ -66,10 +67,9 @@ public class SearchResult<T> {
     SearchResult<?> that = (SearchResult<?>) o;
     return totalCount == that.totalCount
         && tookMicros == that.tookMicros
-        && failedNodes == that.failedNodes
-        && totalNodes == that.totalNodes
         && totalSnapshots == that.totalSnapshots
-        && snapshotsWithReplicas == that.snapshotsWithReplicas
+        && failedSnapshots == that.failedSnapshots
+        && successfulSnapshots == that.successfulSnapshots
         && Objects.equal(hits, that.hits)
         && Objects.equal(buckets, that.buckets);
   }
@@ -81,10 +81,9 @@ public class SearchResult<T> {
         hits,
         tookMicros,
         buckets,
-        failedNodes,
-        totalNodes,
         totalSnapshots,
-        snapshotsWithReplicas);
+        failedSnapshots,
+        successfulSnapshots);
   }
 
   public static SearchResult<LogMessage> empty() {
@@ -102,14 +101,12 @@ public class SearchResult<T> {
         + tookMicros
         + ", buckets="
         + buckets
-        + ", failedNodes="
-        + failedNodes
-        + ", totalNodes="
-        + totalNodes
         + ", totalSnapshots="
         + totalSnapshots
-        + ", snapshotsWithReplicas="
-        + snapshotsWithReplicas
+        + ", failedSnapshots="
+        + failedSnapshots
+        + ", successfulSnapshots="
+        + successfulSnapshots
         + '}';
   }
 }

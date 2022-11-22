@@ -255,7 +255,7 @@ public class KaldbTest {
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     // if you look at the produceMessages code the last document for this chunk will be this
     // timestamp
-    final Instant end1Time = startTime.plusNanos(1000 * 1000 * 1000L * 99);
+    final Instant end1Time = startTime.plusSeconds(99);
     PrometheusMeterRegistry indexerMeterRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer =
@@ -272,8 +272,9 @@ public class KaldbTest {
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli());
-    assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(indexerSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexerSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(indexerSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
     Thread.sleep(2000);
@@ -282,8 +283,9 @@ public class KaldbTest {
     KaldbSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
@@ -304,8 +306,9 @@ public class KaldbTest {
     queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, end1Time.toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
@@ -314,16 +317,18 @@ public class KaldbTest {
         searchUsingGrpcApi(
             "*:*", queryServicePort, start2Time.toEpochMilli(), end2Time.toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     queryServiceSearchResponse =
         searchUsingGrpcApi("Message1", queryServicePort, 0, end1Time.toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
 
@@ -331,8 +336,9 @@ public class KaldbTest {
         searchUsingGrpcApi(
             "Message1", queryServicePort, end1Time.toEpochMilli() + 1, end2Time.toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
 
@@ -341,8 +347,9 @@ public class KaldbTest {
         searchUsingGrpcApi(
             "*:*", queryServicePort, startTime.toEpochMilli(), end2Time.toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
@@ -446,15 +453,17 @@ public class KaldbTest {
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L);
-    assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(indexerSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexerSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(indexerSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
     KaldbSearch.SearchResult indexer2SearchResponse =
         searchUsingGrpcApi("*:*", indexerPort2, 1633083000000L, 1633083099000L);
-    assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(indexer2SearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexer2SearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(indexer2SearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexer2SearchResponse.getHitsCount()).isEqualTo(100);
 
@@ -463,16 +472,18 @@ public class KaldbTest {
     KaldbSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
-    // When we query with a limited timeline (0,MAX_VALUE) we will only query index 1 AND indexer 2
+    // When we query with a limited timeline (0,MAX_VALUE) we will query index 1 AND indexer 2
     queryServiceSearchResponse = searchUsingGrpcApi("*:*", queryServicePort, 0, Long.MAX_VALUE);
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
@@ -480,8 +491,9 @@ public class KaldbTest {
     KaldbSearch.SearchResult queryServiceSearchResponse2 =
         searchUsingGrpcApi("Message100", queryServicePort, 0, Long.MAX_VALUE);
 
-    assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
-    assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse2.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse2.getFailedSnapshots()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse2.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getTotalCount()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getHitsCount()).isEqualTo(2);
 

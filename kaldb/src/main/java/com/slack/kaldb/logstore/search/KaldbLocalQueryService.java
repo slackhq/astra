@@ -30,8 +30,9 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     // we'll use that over defaultQueryTimeout
     SearchResult<T> searchResult = chunkManager.query(query, defaultQueryTimeout);
     KaldbSearch.SearchResult result = SearchResultUtils.toSearchResultProto(searchResult);
-    span.tag("totalNodes", String.valueOf(result.getTotalNodes()));
-    span.tag("failedNodes", String.valueOf(result.getFailedNodes()));
+    span.tag("totalSnapshots", String.valueOf(result.getTotalSnapshots()));
+    span.tag("failedSnapshots", String.valueOf(result.getFailedSnapshots()));
+    span.tag("successfulSnapshots", String.valueOf(result.getSuccessfulSnapshots()));
     span.tag("hitCount", String.valueOf(result.getHitsCount()));
     span.finish();
     LOG.info("Finished search request: {}", request);

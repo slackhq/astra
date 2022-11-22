@@ -205,10 +205,10 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(3);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(3);
+    assertThat(response.getSuccessfulSnapshots()).isEqualTo(3);
+    assertThat(response.getTotalSnapshots()).isEqualTo(3);
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -268,10 +268,10 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
-    assertThat(response.getFailedNodes()).isZero();
-    assertThat(response.getTotalNodes()).isEqualTo(1);
+    assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(3);
-    assertThat(response.getSnapshotsWithReplicas()).isEqualTo(3);
+    assertThat(response.getTotalSnapshots()).isEqualTo(3);
+    assertThat(response.getTotalSnapshots()).isEqualTo(3);
   }
 
   @Test

@@ -55,10 +55,9 @@ public class SearchResultUtils {
         protoSearchResult.getTookMicros(),
         protoSearchResult.getTotalCount(),
         histogramBuckets,
-        protoSearchResult.getFailedNodes(),
-        protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
-        protoSearchResult.getSnapshotsWithReplicas());
+        protoSearchResult.getFailedSnapshots(),
+        protoSearchResult.getSuccessfulSnapshots());
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
@@ -66,20 +65,19 @@ public class SearchResultUtils {
         Tracing.currentTracer().startScopedSpan("SearchResultUtils.toSearchResultProto");
     span.tag("totalCount", String.valueOf(searchResult.totalCount));
     span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
-    span.tag("failedNodes", String.valueOf(searchResult.failedNodes));
-    span.tag("totalNodes", String.valueOf(searchResult.totalNodes));
     span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
-    span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
+    span.tag("failedSnapshots", String.valueOf(searchResult.failedSnapshots));
+    span.tag("successfulSnapshots", String.valueOf(searchResult.successfulSnapshots));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
     span.tag("buckets", String.valueOf(searchResult.buckets.size()));
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
-    searchResultBuilder.setFailedNodes(searchResult.failedNodes);
-    searchResultBuilder.setTotalNodes(searchResult.totalNodes);
     searchResultBuilder.setTotalSnapshots(searchResult.totalSnapshots);
-    searchResultBuilder.setSnapshotsWithReplicas(searchResult.snapshotsWithReplicas);
+    searchResultBuilder.setFailedSnapshots(searchResult.failedSnapshots);
+    searchResultBuilder.setSuccessfulSnapshots(searchResult.successfulSnapshots);
+    searchResultBuilder.setTotalSnapshots(searchResult.totalSnapshots);
 
     // Set hits
     ArrayList<String> protoHits = new ArrayList<>(searchResult.hits.size());

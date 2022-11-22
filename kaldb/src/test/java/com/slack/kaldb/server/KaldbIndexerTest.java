@@ -706,9 +706,8 @@ public class KaldbIndexerTest {
     assertThat(searchResult.hits.size()).isEqualTo(1);
     assertThat(searchResult.tookMicros).isNotZero();
     assertThat(searchResult.totalCount).isEqualTo(1);
-    assertThat(searchResult.failedNodes).isZero();
-    assertThat(searchResult.totalNodes).isEqualTo(1);
     assertThat(searchResult.totalSnapshots).isEqualTo(1);
-    assertThat(searchResult.snapshotsWithReplicas).isEqualTo(1);
+    assertThat(searchResult.failedSnapshots).isEqualTo(0);
+    assertThat(searchResult.successfulSnapshots).isEqualTo(1);
   }
 }

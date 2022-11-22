@@ -242,8 +242,9 @@ public class ZipkinServiceTest {
     KaldbSearch.SearchResult queryServiceSearchResponse =
         searchUsingGrpcApi("*:*", queryServicePort, 0, Instant.now().toEpochMilli());
 
-    assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
-    assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
+    assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(indexedMessagesCount);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(indexedMessagesCount);
 

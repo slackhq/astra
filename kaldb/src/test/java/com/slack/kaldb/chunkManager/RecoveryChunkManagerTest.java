@@ -303,8 +303,10 @@ public class RecoveryChunkManagerTest {
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
+
     assertThat(result.totalSnapshots).isEqualTo(1);
-    assertThat(result.snapshotsWithReplicas).isEqualTo(1);
+    assertThat(result.successfulSnapshots).isEqualTo(1);
+    assertThat(result.failedSnapshots).isEqualTo(0);
   }
 
   @Test

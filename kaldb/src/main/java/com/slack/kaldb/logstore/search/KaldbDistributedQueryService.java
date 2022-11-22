@@ -10,6 +10,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
+import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -72,14 +73,20 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
       "distributed_query_total_snapshots";
-  public static final String DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS =
-      "distributed_query_snapshots_with_replicas";
+  public static final String DISTRIBUTED_QUERY_FAILED_SNAPSHOTS =
+      "distributed_query_failed_snapshots";
+  public static final String DISTRIBUTED_QUERY_SUCCESSFUL_SNAPSHOTS =
+      "distributed_query_successful_snapshots";
 
   private final Counter distributedQueryApdexSatisfied;
   private final Counter distributedQueryApdexTolerating;
   private final Counter distributedQueryApdexFrustrated;
+
   private final Counter distributedQueryTotalSnapshots;
-  private final Counter distributedQuerySnapshotsWithReplicas;
+
+  private final Counter distributedQueryFailedSnapshots;
+  private final Counter distributedQuerySuccessfulSnapshots;
+
   // Timeouts are structured such that we always attempt to return a successful response, as we
   // include metadata that should always be present. The Armeria timeout is used at the top request,
   // distributed query is used as a deadline for all nodes to return, and the local query timeout
@@ -114,8 +121,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
         meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
 
     this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
-    this.distributedQuerySnapshotsWithReplicas =
-        meterRegistry.counter(DISTRIBUTED_QUERY_SNAPSHOTS_WITH_REPLICAS);
+    this.distributedQueryFailedSnapshots =
+        meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_SNAPSHOTS);
+    this.distributedQuerySuccessfulSnapshots =
+        meterRegistry.counter(DISTRIBUTED_QUERY_SUCCESSFUL_SNAPSHOTS);
 
     // first time call this function manually so that we initialize stubs
     updateStubs();
@@ -319,29 +328,13 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   }
 
   private List<SearchResult<LogMessage>> distributedSearch(
-      final KaldbSearch.SearchRequest distribSearchReq) {
+      final KaldbSearch.SearchRequest distribSearchReq,
+      Map<String, List<String>> nodesAndSnapshotsToQuery) {
     LOG.info("Starting distributed search for request: {}", distribSearchReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
-
-    Map<String, SnapshotMetadata> snapshotsMatchingQuery =
-        getMatchingSnapshots(
-            snapshotMetadataStore,
-            datasetMetadataStore,
-            distribSearchReq.getStartTimeEpochMs(),
-            distribSearchReq.getEndTimeEpochMs(),
-            distribSearchReq.getDataset());
-
-    // for each matching snapshot, we find the search metadata nodes that we can potentially query
-    Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
-        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
-
-    // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
-    // underlying URL to query
-    Map<String, List<String>> nodesAndSnapshotsToQuery =
-        getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
-
     span.tag("queryServerCount", String.valueOf(nodesAndSnapshotsToQuery.size()));
+
     List<ListenableFuture<SearchResult<LogMessage>>> queryServers = new ArrayList<>(stubs.size());
     for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
@@ -370,6 +363,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     }
 
     Future<List<SearchResult<LogMessage>>> searchFuture = Futures.successfulAsList(queryServers);
+
     try {
       List<SearchResult<LogMessage>> searchResults =
           searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -406,25 +400,52 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
 
   public KaldbSearch.SearchResult doSearch(final KaldbSearch.SearchRequest request) {
     try {
-      List<SearchResult<LogMessage>> searchResults = distributedSearch(request);
+      Map<String, SnapshotMetadata> snapshotsMatchingQuery =
+          getMatchingSnapshots(
+              snapshotMetadataStore,
+              datasetMetadataStore,
+              request.getStartTimeEpochMs(),
+              request.getEndTimeEpochMs(),
+              request.getDataset());
+
+      // for each matching snapshot, we find the search metadata nodes that we can potentially query
+      Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
+          getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
+
+      // from the list of search metadata nodes per snapshot, pick one. Additionally, map it to the
+      // underlying URL to query
+      Map<String, List<String>> nodesAndSnapshotsToQuery =
+          getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
+
+      List<SearchResult<LogMessage>> searchResults =
+          distributedSearch(request, nodesAndSnapshotsToQuery);
+
       SearchResult<LogMessage> aggregatedResult =
           ((SearchResultAggregator<LogMessage>)
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-              .aggregate(searchResults);
+              .aggregate(searchResults, getTotalSnapshotCount(snapshotMetadataStore));
 
       // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
       // response. Anything over 2% is considered an unacceptable.
-      if (aggregatedResult.totalNodes == 0 || aggregatedResult.failedNodes == 0) {
+      if (aggregatedResult.totalSnapshots == 0 || aggregatedResult.failedSnapshots == 0) {
         distributedQueryApdexSatisfied.increment();
-      } else if (((double) aggregatedResult.failedNodes / (double) aggregatedResult.totalNodes)
+      } else if (((double) aggregatedResult.failedSnapshots
+              / (aggregatedResult.failedSnapshots + aggregatedResult.totalSnapshots))
           <= 0.02) {
         distributedQueryApdexTolerating.increment();
       } else {
         distributedQueryApdexFrustrated.increment();
+        LOG.warn(
+            "User query for '{}' was marked as frustrated due to percentage of snapshot failures ({} failed of {} requested, {} total - took {} micros)",
+            request.getQueryString(),
+            aggregatedResult.failedSnapshots,
+            aggregatedResult.failedSnapshots + aggregatedResult.successfulSnapshots,
+            aggregatedResult.totalSnapshots,
+            aggregatedResult.tookMicros);
       }
 
-      distributedQueryTotalSnapshots.increment(aggregatedResult.totalSnapshots);
-      distributedQuerySnapshotsWithReplicas.increment(aggregatedResult.snapshotsWithReplicas);
+      distributedQueryFailedSnapshots.increment(aggregatedResult.failedSnapshots);
+      distributedQuerySuccessfulSnapshots.increment(aggregatedResult.successfulSnapshots);
 
       LOG.debug("aggregatedResult={}", aggregatedResult);
       return SearchResultUtils.toSearchResultProto(aggregatedResult);
@@ -432,5 +453,24 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       LOG.error("Distributed search failed", e);
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Get the total number of unique snapshots in the system. Because we technically have duplicate
+   * snapshots for a time (indexer rolled over + published, and old LIVE) we need to discount the
+   * duplicates.
+   */
+  private int getTotalSnapshotCount(SnapshotMetadataStore snapshotMetadataStore) {
+    return (int)
+        snapshotMetadataStore
+            .getCached()
+            .stream()
+            .filter(
+                snapshot -> {
+                  // remove one of the double-counted LIVE snapshots that will eventually be deleted
+                  return !(SnapshotMetadata.isLive(snapshot)
+                      && snapshot.endTimeEpochMs != ChunkInfo.MAX_FUTURE_TIME);
+                })
+            .count();
   }
 }
