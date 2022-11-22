@@ -252,6 +252,8 @@ public class PreprocessorService extends AbstractService {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  // we sort the datasets to rank from which dataset do we start matching candidate service names
+  // in the future we can change the ordering from sort to something else
   public static List<DatasetMetadata> sortDatasetsOnThroughput(
       List<DatasetMetadata> datasetMetadataList) {
     return datasetMetadataList
