@@ -1,16 +1,21 @@
 package com.slack.kaldb.preprocessor;
 
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
+import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
+
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.RateLimiter;
+import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
@@ -103,25 +108,24 @@ public class PreprocessorRateLimiter {
   }
 
   public Predicate<String, Trace.Span> createRateLimiter(
-      Map<String, Long> serviceNameToThroughput) {
-    Map<String, RateLimiter> rateLimiterMap =
-        serviceNameToThroughput
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    (Map.Entry::getKey),
-                    (entry -> {
-                      double permitsPerSecond = (double) entry.getValue() / preprocessorCount;
-                      LOG.info(
-                          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
-                          entry.getKey(),
-                          permitsPerSecond,
-                          entry.getValue(),
-                          preprocessorCount);
-                      return smoothBurstyRateLimiter(
-                          permitsPerSecond, maxBurstSeconds, initializeWarm);
-                    })));
+      List<DatasetMetadata> datasetMetadataList) {
+
+    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
+
+    Map<String, RateLimiter> rateLimiterMap = new HashMap<>(datasetMetadataList.size());
+
+    for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+      double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;
+      LOG.info(
+          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
+          datasetMetadata.getName(),
+          permitsPerSecond,
+          datasetMetadata.getThroughputBytes(),
+          preprocessorCount);
+      RateLimiter rateLimiter =
+          smoothBurstyRateLimiter(permitsPerSecond, maxBurstSeconds, initializeWarm);
+      rateLimiterMap.put(datasetMetadata.getName(), rateLimiter);
+    }
 
     return (key, value) -> {
       if (value == null) {
@@ -129,7 +133,7 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      String serviceName = PreprocessorValueMapper.getDatasetName(value);
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
       int bytes = value.getSerializedSize();
       if (serviceName == null || serviceName.isEmpty()) {
         // service name wasn't provided
@@ -146,35 +150,40 @@ public class PreprocessorRateLimiter {
         return false;
       }
 
-      if (!rateLimiterMap.containsKey(serviceName)) {
-        // service isn't provisioned in our rate limit map
-        meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-            .increment();
-        meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
-            .increment(bytes);
-        LOG.debug(
-            "Message was dropped from service '{}' as it not currently provisioned", serviceName);
-        return false;
+      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
+        // back-compat since this is a new field
+        if (serviceNamePattern == null) {
+          serviceNamePattern = datasetMetadata.getName();
+        }
+        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
+            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
+            || serviceName.equals(serviceNamePattern)) {
+          RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
+          if (rateLimiter.tryAcquire(bytes)) {
+            return true;
+          }
+          // message should be dropped due to rate limit
+          meterRegistry
+              .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+              .increment();
+          meterRegistry
+              .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+              .increment(bytes);
+          LOG.debug(
+              "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
+              serviceName,
+              rateLimiter.getRate());
+          return false;
+        }
       }
-
-      if (rateLimiterMap.get(serviceName).tryAcquire(bytes)) {
-        return true;
-      }
-
-      // message should be dropped due to rate limit
+      // message should be dropped due to no matching service name being provisioned
       meterRegistry
-          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .counter(MESSAGES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
           .increment();
       meterRegistry
-          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.OVER_LIMIT))
+          .counter(BYTES_DROPPED, getMeterTags(serviceName, MessageDropReason.NOT_PROVISIONED))
           .increment(bytes);
-      LOG.debug(
-          "Message was dropped from service '{}' due to rate limiting ({} bytes per second), wanted {} bytes",
-          serviceName,
-          rateLimiterMap.get(serviceName).getRate(),
-          serviceName);
       return false;
     };
   }

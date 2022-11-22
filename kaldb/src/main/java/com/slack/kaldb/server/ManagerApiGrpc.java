@@ -59,7 +59,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     try {
       datasetMetadataStore.createSync(
-          new DatasetMetadata(request.getName(), request.getOwner(), 0L, Collections.emptyList()));
+          new DatasetMetadata(
+              request.getName(),
+              request.getOwner(),
+              0L,
+              Collections.emptyList(),
+              request.getServiceNamePattern()));
       responseObserver.onNext(
           toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
       responseObserver.onCompleted();
@@ -83,7 +88,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               existingDatasetMetadata.getName(),
               request.getOwner(),
               existingDatasetMetadata.getThroughputBytes(),
-              existingDatasetMetadata.getPartitionConfigs());
+              existingDatasetMetadata.getPartitionConfigs(),
+              request.getServiceNamePattern());
       datasetMetadataStore.updateSync(updatedDatasetMetadata);
       responseObserver.onNext(toDatasetMetadataProto(updatedDatasetMetadata));
       responseObserver.onCompleted();
@@ -167,7 +173,8 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               datasetMetadata.getName(),
               datasetMetadata.getOwner(),
               updatedThroughputBytes,
-              updatedDatasetPartitionMetadata);
+              updatedDatasetPartitionMetadata,
+              datasetMetadata.getServiceNamePattern());
       datasetMetadataStore.updateSync(updatedDatasetMetadata);
 
       responseObserver.onNext(

@@ -120,7 +120,7 @@ public class KaldbDistributedQueryServiceTest {
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 300, List.of("1"));
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -192,7 +192,7 @@ public class KaldbDistributedQueryServiceTest {
     datasetMetadataStore.delete(datasetMetadata.name);
     await().until(() -> datasetMetadataStore.listSync().size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
-    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -217,7 +217,7 @@ public class KaldbDistributedQueryServiceTest {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -373,7 +373,7 @@ public class KaldbDistributedQueryServiceTest {
     String indexName = "testIndex";
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(199, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -471,7 +471,7 @@ public class KaldbDistributedQueryServiceTest {
     datasetMetadataStore.delete(datasetMetadata.name);
     await().until(() -> datasetMetadataStore.listSync().size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
-    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+    datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -507,7 +507,7 @@ public class KaldbDistributedQueryServiceTest {
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition));
+        new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -658,7 +658,7 @@ public class KaldbDistributedQueryServiceTest {
         new DatasetPartitionMetadata(201, 300, List.of("2"));
 
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(name, owner, throughputBytes, List.of(partition11, partition12));
+        new DatasetMetadata(name, owner, throughputBytes, List.of(partition11, partition12), name);
 
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
@@ -687,7 +687,8 @@ public class KaldbDistributedQueryServiceTest {
         new DatasetPartitionMetadata(201, 300, List.of("1"));
 
     DatasetMetadata datasetMetadata1 =
-        new DatasetMetadata(name1, owner1, throughputBytes1, List.of(partition21, partition22));
+        new DatasetMetadata(
+            name1, owner1, throughputBytes1, List.of(partition21, partition22), name1);
     datasetMetadataStore.createSync(datasetMetadata1);
     await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
@@ -744,7 +745,7 @@ public class KaldbDistributedQueryServiceTest {
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 200, List.of("1"));
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(indexName1, "testOwner1", 1, List.of(partition));
+        new DatasetMetadata(indexName1, "testOwner1", 1, List.of(partition), indexName1);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
@@ -765,7 +766,8 @@ public class KaldbDistributedQueryServiceTest {
     await().until(() -> searchMetadataStore.listSync().size() == 2);
 
     partition = new DatasetPartitionMetadata(1, 101, List.of("2"));
-    datasetMetadata = new DatasetMetadata(indexName2, "testOwner2", 1, List.of(partition));
+    datasetMetadata =
+        new DatasetMetadata(indexName2, "testOwner2", 1, List.of(partition), indexName2);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 2);
 
