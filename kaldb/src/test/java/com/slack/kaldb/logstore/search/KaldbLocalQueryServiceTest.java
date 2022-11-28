@@ -111,6 +111,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -179,6 +180,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
     assertThat(response.getFailedSnapshots()).isZero();
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
 
@@ -229,6 +231,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -279,6 +282,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -385,6 +389,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);

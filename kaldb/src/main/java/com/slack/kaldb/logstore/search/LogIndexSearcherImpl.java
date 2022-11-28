@@ -151,6 +151,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             histogram.getBuckets(),
             1,
             0,
+            0,
             1);
       } finally {
         searcherManager.release(searcher);

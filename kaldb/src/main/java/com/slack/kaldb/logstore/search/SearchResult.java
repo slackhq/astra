@@ -10,7 +10,7 @@ import java.util.List;
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 0, 0, 0);
+      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 0, 0, 0, 0);
 
   public final long totalCount;
 
@@ -26,6 +26,9 @@ public class SearchResult<T> {
   // the total of possible snapshots present - requested or not
   public final int totalSnapshots;
 
+  // the number of snapshots we did not try to lookup
+  public final int skippedSnapshots;
+
   // the number of snapshots that failed in a request
   public final int failedSnapshots;
 
@@ -38,6 +41,7 @@ public class SearchResult<T> {
     this.totalCount = 0;
     this.buckets = new ArrayList<>();
     this.totalSnapshots = 0;
+    this.skippedSnapshots = 0;
     this.failedSnapshots = 0;
     this.successfulSnapshots = 0;
   }
@@ -49,6 +53,7 @@ public class SearchResult<T> {
       long totalCount,
       List<HistogramBucket> buckets,
       int totalSnapshots,
+      int skippedSnapshots,
       int failedSnapshots,
       int successfulSnapshots) {
     this.hits = hits;
@@ -56,6 +61,7 @@ public class SearchResult<T> {
     this.totalCount = totalCount;
     this.buckets = buckets;
     this.totalSnapshots = totalSnapshots;
+    this.skippedSnapshots = skippedSnapshots;
     this.failedSnapshots = failedSnapshots;
     this.successfulSnapshots = successfulSnapshots;
   }
@@ -68,6 +74,7 @@ public class SearchResult<T> {
     return totalCount == that.totalCount
         && tookMicros == that.tookMicros
         && totalSnapshots == that.totalSnapshots
+        && skippedSnapshots == that.skippedSnapshots
         && failedSnapshots == that.failedSnapshots
         && successfulSnapshots == that.successfulSnapshots
         && Objects.equal(hits, that.hits)
@@ -82,6 +89,7 @@ public class SearchResult<T> {
         tookMicros,
         buckets,
         totalSnapshots,
+        skippedSnapshots,
         failedSnapshots,
         successfulSnapshots);
   }
@@ -103,6 +111,8 @@ public class SearchResult<T> {
         + buckets
         + ", totalSnapshots="
         + totalSnapshots
+        + ", skippedSnapshots="
+        + skippedSnapshots
         + ", failedSnapshots="
         + failedSnapshots
         + ", successfulSnapshots="

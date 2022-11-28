@@ -24,8 +24,9 @@ message SearchResult {
   int64 took_micros = 5;
 
   int32 total_snapshots = 6;
-  int32 failed_snapshots = 7;
-  int32 successful_snapshots = 8;
+  int32 skipped_snapshots = 7;
+  int32 failed_snapshots = 8;
+  int32 successful_snapshots = 9;
 }
 
 message HistogramBucket {

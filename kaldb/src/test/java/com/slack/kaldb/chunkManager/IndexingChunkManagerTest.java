@@ -355,6 +355,7 @@ public class IndexingChunkManagerTest {
       String searchString,
       int expectedHitCount,
       int totalSnapshots,
+      int expectedSkippedSnapshots,
       int expectedFailedSnapshots,
       int expectedSuccessfulSnapshots) {
 
@@ -375,6 +376,7 @@ public class IndexingChunkManagerTest {
 
     assertThat(response.getHitsList().size()).isEqualTo(expectedHitCount);
     assertThat(response.getTotalSnapshots()).isEqualTo(totalSnapshots);
+    assertThat(response.getSkippedSnapshots()).isEqualTo(expectedSkippedSnapshots);
     assertThat(response.getFailedSnapshots()).isEqualTo(expectedFailedSnapshots);
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(expectedSuccessfulSnapshots);
   }
@@ -384,6 +386,7 @@ public class IndexingChunkManagerTest {
       String searchString,
       int expectedHitCount,
       int totalSnapshots,
+      int expectedSkippedSnapshots,
       int expectedFailedSnapshots,
       int expectedSuccessfulSnapshots) {
 
@@ -393,6 +396,7 @@ public class IndexingChunkManagerTest {
         searchString,
         expectedHitCount,
         totalSnapshots,
+        expectedSkippedSnapshots,
         expectedFailedSnapshots,
         expectedSuccessfulSnapshots);
   }
@@ -436,9 +440,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 0, 0, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
   }
@@ -465,9 +469,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1 OR Message11", 2, 2, 0, 0, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
 
@@ -488,31 +492,32 @@ public class IndexingChunkManagerTest {
     assertThat(firstChunkId).isNotEmpty();
 
     // Test message in a specific chunk
-    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message1", 1, 2, 0, 1);
-    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message11", 1, 2, 0, 1);
+    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message1", 1, 2, 1, 0, 1);
+    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message11", 1, 2, 1, 0, 1);
     testChunkManagerSearch(
-        chunkManager, List.of(activeChunkId), "Message1 OR Message11", 1, 2, 0, 1);
+        chunkManager, List.of(activeChunkId), "Message1 OR Message11", 1, 2, 1, 0, 1);
     testChunkManagerSearch(
-        chunkManager, List.of(firstChunkId), "Message1 OR Message11", 1, 2, 0, 1);
+        chunkManager, List.of(firstChunkId), "Message1 OR Message11", 1, 2, 1, 0, 1);
     testChunkManagerSearch(
-        chunkManager, List.of(firstChunkId, activeChunkId), "Message1 OR Message11", 2, 2, 0, 2);
+        chunkManager, List.of(firstChunkId, activeChunkId), "Message1 OR Message11", 2, 2, 0, 0, 2);
     // Search returns empty results
-    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message1", 0, 2, 0, 1);
-    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message11", 0, 2, 0, 1);
+    testChunkManagerSearch(chunkManager, List.of(activeChunkId), "Message1", 0, 2, 1, 0, 1);
+    testChunkManagerSearch(chunkManager, List.of(firstChunkId), "Message11", 0, 2, 1, 0, 1);
     testChunkManagerSearch(
-        chunkManager, List.of(firstChunkId, activeChunkId), "Message111", 0, 2, 0, 2);
+        chunkManager, List.of(firstChunkId, activeChunkId), "Message111", 0, 2, 0, 0, 2);
     // test invalid chunk id
-    testChunkManagerSearch(chunkManager, List.of("invalidChunkId"), "Message1", 0, 2, 0, 0);
+    testChunkManagerSearch(chunkManager, List.of("invalidChunkId"), "Message1", 0, 2, 2, 0, 0);
     testChunkManagerSearch(
-        chunkManager, List.of("invalidChunkId", firstChunkId), "Message1", 1, 2, 0, 1);
+        chunkManager, List.of("invalidChunkId", firstChunkId), "Message1", 1, 2, 1, 0, 1);
     testChunkManagerSearch(
-        chunkManager, List.of("invalidChunkId", activeChunkId), "Message1", 0, 2, 0, 1);
+        chunkManager, List.of("invalidChunkId", activeChunkId), "Message1", 0, 2, 1, 0, 1);
     testChunkManagerSearch(
         chunkManager,
         List.of("invalidChunkId", firstChunkId, activeChunkId),
         "Message1",
         1,
         2,
+        0,
         0,
         2);
     testChunkManagerSearch(
@@ -522,6 +527,7 @@ public class IndexingChunkManagerTest {
         1,
         2,
         0,
+        0,
         2);
     testChunkManagerSearch(
         chunkManager,
@@ -529,6 +535,7 @@ public class IndexingChunkManagerTest {
         "Message1 OR Message11",
         2,
         2,
+        0,
         0,
         2);
     testChunkManagerSearch(
@@ -538,6 +545,7 @@ public class IndexingChunkManagerTest {
         1,
         2,
         0,
+        0,
         2);
     testChunkManagerSearch(
         chunkManager,
@@ -545,6 +553,7 @@ public class IndexingChunkManagerTest {
         "Message111",
         0,
         2,
+        0,
         0,
         2);
   }
@@ -575,8 +584,8 @@ public class IndexingChunkManagerTest {
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 0, 1);
-    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 0, 1);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 1, 0, 0, 1);
+    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 0, 0, 1);
 
     // Check metadata.
     checkMetadata(1, 1, 0, 1, 1);
@@ -631,7 +640,7 @@ public class IndexingChunkManagerTest {
 
     // Wait for roll over to complete.
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
-    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 0, 1);
+    testChunkManagerSearch(chunkManager, "Message2", 1, 1, 0, 0, 1);
     checkMetadata(2, 1, 1, 1, 0);
 
     LogMessage msg3 = msgs.get(2);
@@ -645,8 +654,8 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1);
     // Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
-    testChunkManagerSearch(chunkManager, "Message3", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message3", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
 
     checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
@@ -680,9 +689,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 0, 2);
     checkMetadata(3, 2, 1, 2, 1);
   }
 
@@ -714,9 +723,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(3, 2, 1, 2, 1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 0, 2);
 
     // Add remaining messages to create a second chunk.
     for (LogMessage m : messages.subList(11, 25)) {
@@ -730,9 +739,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 0, 3);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 0, 3);
-    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 0, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 0, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 0, 0, 3);
     checkMetadata(5, 3, 2, 3, 1);
 
     assertThat(chunkManager.getActiveChunk().info().getChunkSnapshotTimeEpochMs()).isZero();
@@ -748,10 +757,10 @@ public class IndexingChunkManagerTest {
 
     // Search all messages.
     for (int i = 1; i <= 25; i++) {
-      testChunkManagerSearch(chunkManager, "Message" + i, 1, 3, 0, 3);
+      testChunkManagerSearch(chunkManager, "Message" + i, 1, 3, 0, 0, 3);
     }
     // No search results for this query.
-    testChunkManagerSearch(chunkManager, "Message261", 0, 3, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message261", 0, 3, 0, 0, 3);
 
     checkMetadata(6, 3, 3, 3, 0);
     testOneFailedChunk(secondChunk);
@@ -768,16 +777,16 @@ public class IndexingChunkManagerTest {
                 .findFirst()
                 .get();
 
-    testChunkManagerSearch(chunkManager, "Message18", 1, 3, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message18", 1, 3, 0, 0, 3);
     // chunk 2 which has docs 12-21 is corrupted
     // an alternate approach I tried was the statement below
     // chunk.getLogSearcher().close();
     // this worked but was kinda flaky since it messes with shutdown and refresh intervals
     chunk.setLogSearcher(new AlreadyClosedLogIndexSearcherImpl());
 
-    testChunkManagerSearch(chunkManager, "Message18", 0, 3, 1, 2);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 1, 2);
-    testChunkManagerSearch(chunkManager, "Message25", 1, 3, 1, 2);
+    testChunkManagerSearch(chunkManager, "Message18", 0, 3, 0, 1, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 0, 1, 2);
+    testChunkManagerSearch(chunkManager, "Message25", 1, 3, 0, 1, 2);
   }
 
   @Test
@@ -806,9 +815,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(3, 2, 1, 2, 1);
     // TODO: Test commit and refresh count
-    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 2);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 2, 0, 0, 2);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 2, 0, 0, 2);
 
     for (LogMessage m : messages.subList(11, 25)) {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
@@ -822,9 +831,9 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(2);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     checkMetadata(5, 3, 2, 3, 1);
-    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 0, 3);
-    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 0, 3);
-    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message1", 1, 3, 0, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message11", 1, 3, 0, 0, 3);
+    testChunkManagerSearch(chunkManager, "Message21", 1, 3, 0, 0, 3);
 
     // Close the log searcher on chunks.
     chunkManager
@@ -834,9 +843,9 @@ public class IndexingChunkManagerTest {
                 ((ReadWriteChunk<LogMessage>) chunk)
                     .setLogSearcher(new AlreadyClosedLogIndexSearcherImpl()));
 
-    testChunkManagerSearch(chunkManager, "Message1", 0, 3, 3, 0);
-    testChunkManagerSearch(chunkManager, "Message11", 0, 3, 3, 0);
-    testChunkManagerSearch(chunkManager, "Message21", 0, 3, 3, 0);
+    testChunkManagerSearch(chunkManager, "Message1", 0, 3, 0, 3, 0);
+    testChunkManagerSearch(chunkManager, "Message11", 0, 3, 0, 3, 0);
+    testChunkManagerSearch(chunkManager, "Message21", 0, 3, 0, 3, 0);
 
     // Query interface throws search exceptions.
     chunkManager

@@ -25,6 +25,7 @@ public class SearchResultAggregatorImplTest {
       long totalCount,
       List<HistogramBucket> buckets,
       int totalSnapshots,
+      int skippedSnapshots,
       int failedSnapshots,
       int successfulSnapshots) {
     return new SearchResult<>(
@@ -33,6 +34,7 @@ public class SearchResultAggregatorImplTest {
         totalCount,
         buckets,
         totalSnapshots,
+        skippedSnapshots,
         failedSnapshots,
         successfulSnapshots);
   }
@@ -62,9 +64,9 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 0, 1);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 0, 0, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -81,11 +83,12 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(searchResults, searchResults.size());
+            .aggregate(searchResults, searchResults.size(), 0, searchResults.size());
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(2);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(2);
 
@@ -119,9 +122,9 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 0, 1);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 0, 0, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -138,11 +141,12 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(searchResults, searchResults.size());
+            .aggregate(searchResults, searchResults.size(), 0, searchResults.size());
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(2);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(2);
 
@@ -183,13 +187,13 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram4 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages4);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 0, 1);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 1, 0);
+        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 0, 1, 0);
     SearchResult<LogMessage> searchResult3 =
-        makeSearchResult(messages3, tookMs + 2, 10, histogram3.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages3, tookMs + 2, 10, histogram3.getBuckets(), 1, 0, 0, 1);
     SearchResult<LogMessage> searchResult4 =
-        makeSearchResult(messages4, tookMs + 3, 10, histogram4.getBuckets(), 1, 0, 1);
+        makeSearchResult(messages4, tookMs + 3, 10, histogram4.getBuckets(), 1, 0, 0, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -204,11 +208,12 @@ public class SearchResultAggregatorImplTest {
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(searchResults, searchResults.size());
+            .aggregate(searchResults, searchResults.size(), 0, searchResults.size());
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 3);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(4);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(1);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(3);
 
@@ -238,9 +243,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, Collections.emptyList(), 1, 0, 1);
+        makeSearchResult(messages1, tookMs, 10, Collections.emptyList(), 1, 0, 0, 1);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, Collections.emptyList(), 1, 0, 1);
+        makeSearchResult(messages2, tookMs + 1, 10, Collections.emptyList(), 1, 0, 0, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -257,11 +262,12 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(searchResults, searchResults.size());
+            .aggregate(searchResults, searchResults.size(), 0, searchResults.size());
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(2);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(2);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(0);
 
@@ -292,9 +298,10 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(Collections.emptyList(), tookMs, 7, histogram1.getBuckets(), 2, 0, 2);
+        makeSearchResult(Collections.emptyList(), tookMs, 7, histogram1.getBuckets(), 2, 0, 0, 2);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 1, 0, 0);
+        makeSearchResult(
+            Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 1, 0, 0, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -310,11 +317,12 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, 3);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, 3, 1, 2);
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(1);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(2);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
@@ -341,9 +349,9 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 1, 0);
+        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 0, 1, 0);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 11, Collections.emptyList(), 1, 0, 0);
+        makeSearchResult(messages2, tookMs + 1, 11, Collections.emptyList(), 1, 0, 0, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -360,11 +368,12 @@ public class SearchResultAggregatorImplTest {
 
     SearchResult<LogMessage> aggSearchResult =
         new SearchResultAggregatorImpl<>(searchQuery)
-            .aggregate(searchResults, searchResults.size());
+            .aggregate(searchResults, searchResults.size(), 1, 1);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(2);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(1);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(1);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(0);
 
@@ -395,9 +404,10 @@ public class SearchResultAggregatorImplTest {
     Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 7, histogram1.getBuckets(), 2, 0, 1);
+        makeSearchResult(messages1, tookMs, 7, histogram1.getBuckets(), 2, 0, 0, 1);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 1, 0, 1);
+        makeSearchResult(
+            Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 1, 0, 0, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -413,11 +423,12 @@ public class SearchResultAggregatorImplTest {
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, 3);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, 3, 1, 2);
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
+    assertThat(aggSearchResult.skippedSnapshots).isEqualTo(1);
     assertThat(aggSearchResult.failedSnapshots).isEqualTo(0);
     assertThat(aggSearchResult.successfulSnapshots).isEqualTo(2);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);

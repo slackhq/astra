@@ -4,5 +4,9 @@ import java.util.List;
 
 public interface SearchResultAggregator<T> {
 
-  SearchResult<T> aggregate(List<SearchResult<T>> searchResults, int totalSnapshots);
+  SearchResult<T> aggregate(
+      List<SearchResult<T>> searchResults,
+      int totalSnapshots,
+      int skippedSnapshots,
+      int requestedSnapshots);
 }

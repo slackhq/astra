@@ -305,6 +305,7 @@ public class RecoveryChunkManagerTest {
     assertThat(result.hits.size()).isEqualTo(expectedHitCount);
 
     assertThat(result.totalSnapshots).isEqualTo(1);
+    assertThat(result.skippedSnapshots).isEqualTo(0);
     assertThat(result.successfulSnapshots).isEqualTo(1);
     assertThat(result.failedSnapshots).isEqualTo(0);
   }

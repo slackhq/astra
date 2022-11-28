@@ -25,6 +25,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,9 +71,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       "distributed_query_apdex_tolerating";
   public static final String DISTRIBUTED_QUERY_APDEX_FRUSTRATED =
       "distributed_query_apdex_frustrated";
-
-  public static final String DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS =
-      "distributed_query_total_snapshots";
+  public static final String DISTRIBUTED_QUERY_UNAVAILABLE_SNAPSHOTS =
+      "distributed_query_unavailable_snapshots";
   public static final String DISTRIBUTED_QUERY_FAILED_SNAPSHOTS =
       "distributed_query_failed_snapshots";
   public static final String DISTRIBUTED_QUERY_SUCCESSFUL_SNAPSHOTS =
@@ -81,9 +81,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Counter distributedQueryApdexSatisfied;
   private final Counter distributedQueryApdexTolerating;
   private final Counter distributedQueryApdexFrustrated;
-
-  private final Counter distributedQueryTotalSnapshots;
-
+  private final Counter distributedQueryUnavailableSnapshots;
   private final Counter distributedQueryFailedSnapshots;
   private final Counter distributedQuerySuccessfulSnapshots;
 
@@ -120,7 +118,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     this.distributedQueryApdexFrustrated =
         meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_FRUSTRATED);
 
-    this.distributedQueryTotalSnapshots = meterRegistry.counter(DISTRIBUTED_QUERY_TOTAL_SNAPSHOTS);
+    this.distributedQueryUnavailableSnapshots =
+        meterRegistry.counter(DISTRIBUTED_QUERY_UNAVAILABLE_SNAPSHOTS);
     this.distributedQueryFailedSnapshots =
         meterRegistry.counter(DISTRIBUTED_QUERY_FAILED_SNAPSHOTS);
     this.distributedQuerySuccessfulSnapshots =
@@ -420,27 +419,37 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       List<SearchResult<LogMessage>> searchResults =
           distributedSearch(request, nodesAndSnapshotsToQuery);
 
+      int snapshotCount = getUniqueSnapshotsCount(snapshotMetadataStore.getCached());
+      int snapshotCountMatchingQuery = getUniqueSnapshotsCount(snapshotsMatchingQuery.values());
+      int skippedSnapshots = snapshotCount - snapshotCountMatchingQuery;
+      int requestedSnapshots =
+          nodesAndSnapshotsToQuery.values().stream().map(List::size).reduce(0, Integer::sum);
       SearchResult<LogMessage> aggregatedResult =
           ((SearchResultAggregator<LogMessage>)
                   new SearchResultAggregatorImpl<>(SearchResultUtils.fromSearchRequest(request)))
-              .aggregate(searchResults, getTotalSnapshotCount(snapshotMetadataStore));
+              .aggregate(searchResults, snapshotCount, skippedSnapshots, requestedSnapshots);
+      distributedQueryUnavailableSnapshots.increment(
+          snapshotCountMatchingQuery - requestedSnapshots);
 
       // We report a query with more than 0% of requested nodes, but less than 2% as a tolerable
       // response. Anything over 2% is considered an unacceptable.
+      // todo - this only reports the apdex of the requested snapshots, and doesn't consider
+      //  unavailable snapshots
       if (aggregatedResult.totalSnapshots == 0 || aggregatedResult.failedSnapshots == 0) {
         distributedQueryApdexSatisfied.increment();
       } else if (((double) aggregatedResult.failedSnapshots
-              / (aggregatedResult.failedSnapshots + aggregatedResult.totalSnapshots))
+              / (aggregatedResult.failedSnapshots + aggregatedResult.successfulSnapshots))
           <= 0.02) {
         distributedQueryApdexTolerating.increment();
       } else {
         distributedQueryApdexFrustrated.increment();
         LOG.warn(
-            "User query for '{}' was marked as frustrated due to percentage of snapshot failures ({} failed of {} requested, {} total - took {} micros)",
+            "User query for '{}' was marked as frustrated due to percentage of snapshot failures ({} failed of {} requested, {} unavailable, {} total - took {} micros)",
             request.getQueryString(),
             aggregatedResult.failedSnapshots,
             aggregatedResult.failedSnapshots + aggregatedResult.successfulSnapshots,
             aggregatedResult.totalSnapshots,
+            snapshotCountMatchingQuery - requestedSnapshots,
             aggregatedResult.tookMicros);
       }
 
@@ -460,10 +469,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
    * snapshots for a time (indexer rolled over + published, and old LIVE) we need to discount the
    * duplicates.
    */
-  private int getTotalSnapshotCount(SnapshotMetadataStore snapshotMetadataStore) {
+  private int getUniqueSnapshotsCount(Collection<SnapshotMetadata> snapshotMetadata) {
     return (int)
-        snapshotMetadataStore
-            .getCached()
+        snapshotMetadata
             .stream()
             .filter(
                 snapshot -> {

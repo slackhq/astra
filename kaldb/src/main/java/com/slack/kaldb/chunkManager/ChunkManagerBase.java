@@ -81,7 +81,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    */
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
     SearchResult<T> errorResult =
-        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 1, 0);
+        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
@@ -163,7 +163,11 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
 
       //noinspection unchecked
       return ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-          .aggregate(searchResults, chunkList.size());
+          .aggregate(
+              searchResults,
+              chunkList.size(),
+              chunkList.size() - chunksMatchingQuery.size(),
+              chunksMatchingQuery.size());
     } catch (Exception e) {
       LOG.error("Error searching across chunks ", e);
       throw new RuntimeException(e);

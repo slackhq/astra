@@ -31,6 +31,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     SearchResult<T> searchResult = chunkManager.query(query, defaultQueryTimeout);
     KaldbSearch.SearchResult result = SearchResultUtils.toSearchResultProto(searchResult);
     span.tag("totalSnapshots", String.valueOf(result.getTotalSnapshots()));
+    span.tag("skippedSnapshots", String.valueOf(result.getSkippedSnapshots()));
     span.tag("failedSnapshots", String.valueOf(result.getFailedSnapshots()));
     span.tag("successfulSnapshots", String.valueOf(result.getSuccessfulSnapshots()));
     span.tag("hitCount", String.valueOf(result.getHitsCount()));

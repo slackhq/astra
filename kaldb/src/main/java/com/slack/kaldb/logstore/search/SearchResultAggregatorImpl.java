@@ -23,9 +23,12 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   }
 
   @Override
-  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, int totalSnapshots) {
+  public SearchResult<T> aggregate(
+      List<SearchResult<T>> searchResults,
+      int totalSnapshots,
+      int skippedSnapshots,
+      int requestedSnapshots) {
     long tookMicros = 0;
-    int failedSnapshots = 0;
     int successfulSnapshots = 0;
     int totalCount = 0;
     Optional<Histogram> histogram =
@@ -39,11 +42,14 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
-      failedSnapshots += searchResult.failedSnapshots;
       successfulSnapshots += searchResult.successfulSnapshots;
       totalCount += searchResult.totalCount;
       histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
     }
+
+    // We report the failed snapshots when we get a successful response back from a node - however
+    // we still need to account for nodes we tried to query and just completely timed out
+    int failedSnapshots = requestedSnapshots - successfulSnapshots;
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
     List<T> resultHits =
@@ -60,6 +66,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         totalCount,
         histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
         totalSnapshots,
+        skippedSnapshots,
         failedSnapshots,
         successfulSnapshots);
   }

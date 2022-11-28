@@ -205,6 +205,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(3);
     assertThat(response.getSuccessfulSnapshots()).isEqualTo(3);
@@ -268,6 +269,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getTotalCount()).isEqualTo(1);
+    assertThat(response.getSkippedSnapshots()).isZero();
     assertThat(response.getFailedSnapshots()).isZero();
     assertThat(response.getTotalSnapshots()).isEqualTo(3);
     assertThat(response.getTotalSnapshots()).isEqualTo(3);

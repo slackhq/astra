@@ -273,6 +273,7 @@ public class KaldbTest {
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli());
     assertThat(indexerSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexerSearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(indexerSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(indexerSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
@@ -284,6 +285,7 @@ public class KaldbTest {
         searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
@@ -307,6 +309,7 @@ public class KaldbTest {
         searchUsingGrpcApi("*:*", queryServicePort, 0, end1Time.toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
@@ -318,6 +321,7 @@ public class KaldbTest {
             "*:*", queryServicePort, start2Time.toEpochMilli(), end2Time.toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
@@ -327,6 +331,7 @@ public class KaldbTest {
         searchUsingGrpcApi("Message1", queryServicePort, 0, end1Time.toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
@@ -337,6 +342,7 @@ public class KaldbTest {
             "Message1", queryServicePort, end1Time.toEpochMilli() + 1, end2Time.toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
@@ -348,6 +354,7 @@ public class KaldbTest {
             "*:*", queryServicePort, startTime.toEpochMilli(), end2Time.toEpochMilli());
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
@@ -454,6 +461,7 @@ public class KaldbTest {
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L);
     assertThat(indexerSearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexerSearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(indexerSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(indexerSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
@@ -462,6 +470,7 @@ public class KaldbTest {
     KaldbSearch.SearchResult indexer2SearchResponse =
         searchUsingGrpcApi("*:*", indexerPort2, 1633083000000L, 1633083099000L);
     assertThat(indexer2SearchResponse.getTotalSnapshots()).isEqualTo(1);
+    assertThat(indexer2SearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
@@ -473,6 +482,7 @@ public class KaldbTest {
         searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L);
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
@@ -482,6 +492,7 @@ public class KaldbTest {
     queryServiceSearchResponse = searchUsingGrpcApi("*:*", queryServicePort, 0, Long.MAX_VALUE);
 
     assertThat(queryServiceSearchResponse.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse.getSkippedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
@@ -492,6 +503,7 @@ public class KaldbTest {
         searchUsingGrpcApi("Message100", queryServicePort, 0, Long.MAX_VALUE);
 
     assertThat(queryServiceSearchResponse2.getTotalSnapshots()).isEqualTo(2);
+    assertThat(queryServiceSearchResponse2.getSkippedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse2.getFailedSnapshots()).isEqualTo(0);
     assertThat(queryServiceSearchResponse2.getSuccessfulSnapshots()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getTotalCount()).isEqualTo(2);

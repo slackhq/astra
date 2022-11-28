@@ -115,8 +115,9 @@ public class ElasticsearchApiService {
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
     span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
-    span.tag("resultFailedSnapshots", String.valueOf(searchResult.getFailedSnapshots()));
     span.tag("resultTotalSnapshots", String.valueOf(searchResult.getTotalSnapshots()));
+    span.tag("resultSkippedSnapshots", String.valueOf(searchResult.getSkippedSnapshots()));
+    span.tag("resultFailedSnapshots", String.valueOf(searchResult.getFailedSnapshots()));
     span.tag("resultSuccessfulSnapshots", String.valueOf(searchResult.getSuccessfulSnapshots()));
 
     try {
@@ -130,6 +131,7 @@ public class ElasticsearchApiService {
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(
               searchResult.getTotalSnapshots(),
+              searchResult.getSkippedSnapshots(),
               searchResult.getFailedSnapshots(),
               searchResult.getSuccessfulSnapshots())
           .status(200)
@@ -141,6 +143,7 @@ public class ElasticsearchApiService {
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(
               searchResult.getTotalSnapshots(),
+              searchResult.getSkippedSnapshots(),
               searchResult.getFailedSnapshots(),
               searchResult.getSuccessfulSnapshots())
           .status(500)

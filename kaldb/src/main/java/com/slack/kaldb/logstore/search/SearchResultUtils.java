@@ -56,6 +56,7 @@ public class SearchResultUtils {
         protoSearchResult.getTotalCount(),
         histogramBuckets,
         protoSearchResult.getTotalSnapshots(),
+        protoSearchResult.getSkippedSnapshots(),
         protoSearchResult.getFailedSnapshots(),
         protoSearchResult.getSuccessfulSnapshots());
   }
@@ -66,6 +67,7 @@ public class SearchResultUtils {
     span.tag("totalCount", String.valueOf(searchResult.totalCount));
     span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
     span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
+    span.tag("skippedSnapshots", String.valueOf(searchResult.skippedSnapshots));
     span.tag("failedSnapshots", String.valueOf(searchResult.failedSnapshots));
     span.tag("successfulSnapshots", String.valueOf(searchResult.successfulSnapshots));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
@@ -75,6 +77,7 @@ public class SearchResultUtils {
     searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
     searchResultBuilder.setTotalSnapshots(searchResult.totalSnapshots);
+    searchResultBuilder.setSkippedSnapshots(searchResult.skippedSnapshots);
     searchResultBuilder.setFailedSnapshots(searchResult.failedSnapshots);
     searchResultBuilder.setSuccessfulSnapshots(searchResult.successfulSnapshots);
     searchResultBuilder.setTotalSnapshots(searchResult.totalSnapshots);

@@ -35,14 +35,15 @@ public class SearchResultTest {
     buckets.add(new HistogramBucket(1, 2));
 
     SearchResult<LogMessage> searchResult =
-        new SearchResult<>(logMessages, 1, 1000, buckets, 7, 1, 5);
+        new SearchResult<>(logMessages, 1, 1000, buckets, 10, 2, 1, 5);
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 
     assertThat(protoSearchResult.getHitsCount()).isEqualTo(numDocs);
     assertThat(protoSearchResult.getTookMicros()).isEqualTo(1);
     assertThat(protoSearchResult.getTotalCount()).isEqualTo(1000);
-    assertThat(protoSearchResult.getTotalSnapshots()).isEqualTo(7);
+    assertThat(protoSearchResult.getTotalSnapshots()).isEqualTo(10);
+    assertThat(protoSearchResult.getSkippedSnapshots()).isEqualTo(2);
     assertThat(protoSearchResult.getFailedSnapshots()).isEqualTo(1);
     assertThat(protoSearchResult.getSuccessfulSnapshots()).isEqualTo(5);
     assertThat(protoSearchResult.getBucketsCount()).isEqualTo(1);
