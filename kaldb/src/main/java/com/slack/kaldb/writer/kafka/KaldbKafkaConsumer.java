@@ -19,6 +19,7 @@ import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -271,48 +272,53 @@ public class KaldbKafkaConsumer {
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
+    final AtomicLong messagesDropped = new AtomicLong(0);
     while (messagesIndexed <= messagesToIndex) {
       ConsumerRecords<String, byte[]> records =
           kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
       int recordCount = records.count();
-      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition);
       if (recordCount > 0) {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is before start offset range: " + startOffsetInclusive);
-                }
-                if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is after end offset range: " + endOffsetInclusive);
-                }
-                try {
-                  if (logMessageWriterImpl.insertRecord(record)) {
-                    recordsReceivedCounter.increment();
-                  } else {
-                    recordsFailedCounter.increment();
+                  messagesDropped.incrementAndGet();
+                  recordsFailedCounter.increment();
+                } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                  messagesDropped.incrementAndGet();
+                  recordsFailedCounter.increment();
+                } else {
+                  try {
+                    if (logMessageWriterImpl.insertRecord(record)) {
+                      recordsReceivedCounter.increment();
+                    } else {
+                      recordsFailedCounter.increment();
+                    }
+                  } catch (IOException e) {
+                    LOG.error(
+                        "Encountered exception processing batch [{}/{}]: {}",
+                        topicPartition,
+                        recordCount,
+                        e);
                   }
-                } catch (IOException e) {
-                  LOG.error(
-                      "Encountered exception processing batch [{}/{}]: {}",
-                      topicPartition.partition(),
-                      recordCount,
-                      e);
                 }
               }
               // TODO: Not all threads are printing this message.
-              LOG.info(
-                  "Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
       } else {
         // temporary diagnostic logging
-        LOG.debug("Encountered zero-record batch from partition {}", topicPartition.partition());
+        LOG.debug("Encountered zero-record batch from partition {}", topicPartition);
       }
+    }
+    if (messagesDropped.get() > 0) {
+      LOG.warn(
+          "Messages permanently dropped because they were unavailable in Kafka: "
+              + messagesDropped.get());
     }
     executor.shutdown();
     LOG.info("Shut down");
