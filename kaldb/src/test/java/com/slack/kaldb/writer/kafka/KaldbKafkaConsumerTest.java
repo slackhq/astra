@@ -27,15 +27,12 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
-import org.junit.experimental.theories.Theories;
 import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
@@ -241,17 +238,20 @@ public class KaldbKafkaConsumerTest {
 
     @Test
     public void testBlockingQueueDoesNotThrowException() {
-      KaldbKafkaConsumer.BlockingArrayBlockingQueue<Object> q = new KaldbKafkaConsumer.BlockingArrayBlockingQueue<>(1);
+      KaldbKafkaConsumer.BlockingArrayBlockingQueue<Object> q =
+          new KaldbKafkaConsumer.BlockingArrayBlockingQueue<>(1);
       assertThat(q.offer(new Object())).isTrue();
 
-      Thread t = new Thread(() -> {
-        try {
-          Thread.sleep(1000);
-          q.take();
-        } catch (InterruptedException e) {
-          // do nothing
-        }
-      });
+      Thread t =
+          new Thread(
+              () -> {
+                try {
+                  Thread.sleep(1000);
+                  q.take();
+                } catch (InterruptedException e) {
+                  // do nothing
+                }
+              });
       t.start();
 
       assertThat(q.offer(new Object())).isTrue();
