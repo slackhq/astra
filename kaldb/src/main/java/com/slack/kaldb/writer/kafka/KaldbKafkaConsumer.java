@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -216,26 +217,14 @@ public class KaldbKafkaConsumer {
     }
   }
 
-  /**
-   * The default offer method on array blocking queue class fails an insert an element when the
-   * queue is full. So, we override the offer method here to wait when inserting the item until the
-   * queue has enough capacity again. While this blocking behaviour is not ideal in the general
-   * case, in this specific case, the blocking call acts as a back pressure mechanism pausing the
-   * kafka message consumption from the broker.
-   */
-  private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
-    public BlockingArrayBlockingQueue(int capacity) {
-      super(capacity);
-    }
-
-    @Override
-    public boolean offer(E element) {
-      try {
-        return super.offer(element, Long.MAX_VALUE, TimeUnit.MINUTES);
-      } catch (InterruptedException ex) {
-        LOG.error("Exception in blocking array queue", ex);
-        return false;
+  private void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+    try {
+      if (!executor.isShutdown()) {
+        executor.getQueue().put(r);
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RejectedExecutionException("Executor interrupted putting task on queue", e);
     }
   }
 
@@ -255,7 +244,7 @@ public class KaldbKafkaConsumer {
     LOG.info("Pool size for queue is: {}", poolSize);
 
     // TODO: Track and log errors and success better.
-    BlockingArrayBlockingQueue<Runnable> queue = new BlockingArrayBlockingQueue<>(100);
+    ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(100);
     ThreadPoolExecutor executor =
         new ThreadPoolExecutor(
             poolSize,
@@ -269,6 +258,8 @@ public class KaldbKafkaConsumer {
                         LOG.error("Exception in recovery task on thread {}: {}", t.getName(), e))
                 .setNameFormat("recovery-task-%d")
                 .build());
+
+    executor.setRejectedExecutionHandler(this::rejectedExecution);
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
