@@ -216,6 +216,7 @@ public class RecoveryService extends AbstractIdleService {
    */
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+    LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
     try {
       RecoveryChunkManager<LogMessage> chunkManager =
           RecoveryChunkManager.fromConfig(
@@ -246,6 +247,7 @@ public class RecoveryService extends AbstractIdleService {
       kafkaConsumer.close();
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+      LOG.info("Finished handling the recovery task: {}", recoveryTaskMetadata);
       return success;
     } catch (Exception ex) {
       LOG.error("Exception in recovery task [{}]: {}", recoveryTaskMetadata, ex);
