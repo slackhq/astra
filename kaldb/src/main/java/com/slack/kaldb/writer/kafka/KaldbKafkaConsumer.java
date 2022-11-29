@@ -316,7 +316,7 @@ public class KaldbKafkaConsumer {
     }
     if (messagesOutsideOffsetRange.get() > 0) {
       LOG.info(
-          "{} messages permanently dropped because they were outside the expected offset ranges for the recovery task: ",
+          "Messages permanently dropped because they were outside the expected offset ranges for the recovery task: {}",
           messagesOutsideOffsetRange.get());
     }
     executor.shutdown();
