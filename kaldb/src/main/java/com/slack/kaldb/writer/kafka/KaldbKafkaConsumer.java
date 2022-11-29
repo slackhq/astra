@@ -272,7 +272,7 @@ public class KaldbKafkaConsumer {
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
-    final AtomicLong messagesDropped = new AtomicLong(0);
+    final AtomicLong messagesOutsideOffsetRange = new AtomicLong(0);
     while (messagesIndexed <= messagesToIndex) {
       ConsumerRecords<String, byte[]> records =
           kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
@@ -285,10 +285,10 @@ public class KaldbKafkaConsumer {
               LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  messagesDropped.incrementAndGet();
+                  messagesOutsideOffsetRange.incrementAndGet();
                   recordsFailedCounter.increment();
                 } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  messagesDropped.incrementAndGet();
+                  messagesOutsideOffsetRange.incrementAndGet();
                   recordsFailedCounter.increment();
                 } else {
                   try {
@@ -306,7 +306,6 @@ public class KaldbKafkaConsumer {
                   }
                 }
               }
-              // TODO: Not all threads are printing this message.
               LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
@@ -315,10 +314,10 @@ public class KaldbKafkaConsumer {
         LOG.debug("Encountered zero-record batch from partition {}", topicPartition);
       }
     }
-    if (messagesDropped.get() > 0) {
-      LOG.warn(
-          "Messages permanently dropped because they were unavailable in Kafka: "
-              + messagesDropped.get());
+    if (messagesOutsideOffsetRange.get() > 0) {
+      LOG.info(
+          "Messages permanently dropped because they were outside the expected offset ranges for the recovery task: {}",
+          messagesOutsideOffsetRange.get());
     }
     executor.shutdown();
     LOG.info("Shut down");
