@@ -275,43 +275,42 @@ public class KaldbKafkaConsumer {
       ConsumerRecords<String, byte[]> records =
           kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
       int recordCount = records.count();
-      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition);
       if (recordCount > 0) {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is before start offset range: " + startOffsetInclusive);
-                }
-                if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is after end offset range: " + endOffsetInclusive);
-                }
-                try {
-                  if (logMessageWriterImpl.insertRecord(record)) {
-                    recordsReceivedCounter.increment();
-                  } else {
-                    recordsFailedCounter.increment();
+                  LOG.warn("Record is before start offset range: " + startOffsetInclusive);
+                  recordsFailedCounter.increment();
+                } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                  LOG.warn("Record is after end offset range: " + endOffsetInclusive);
+                  recordsFailedCounter.increment();
+                } else {
+                  try {
+                    if (logMessageWriterImpl.insertRecord(record)) {
+                      recordsReceivedCounter.increment();
+                    } else {
+                      recordsFailedCounter.increment();
+                    }
+                  } catch (IOException e) {
+                    LOG.error(
+                        "Encountered exception processing batch [{}/{}]: {}",
+                        topicPartition,
+                        recordCount,
+                        e);
                   }
-                } catch (IOException e) {
-                  LOG.error(
-                      "Encountered exception processing batch [{}/{}]: {}",
-                      topicPartition.partition(),
-                      recordCount,
-                      e);
                 }
               }
               // TODO: Not all threads are printing this message.
-              LOG.info(
-                  "Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
       } else {
         // temporary diagnostic logging
-        LOG.debug("Encountered zero-record batch from partition {}", topicPartition.partition());
+        LOG.debug("Encountered zero-record batch from partition {}", topicPartition);
       }
     }
     executor.shutdown();
