@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -201,9 +202,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       LOG.error(String.format("Indexing message %s failed with error:", message), e);
       messagesFailedCounter.increment();
     } catch (IOException e) {
-      // TODO: For now crash the program on IOException since it is likely a serious issue.
-      // In future may need to handle this case more gracefully.
-      e.printStackTrace();
+      // TODO: In future may need to handle this case more gracefully.
+      LOG.error("failed to add document", e);
+      new RuntimeHalterImpl().handleFatal(e);
     }
   }
 
