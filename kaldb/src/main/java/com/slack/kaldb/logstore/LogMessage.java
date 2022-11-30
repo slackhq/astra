@@ -138,7 +138,8 @@ public class LogMessage extends LogWireMessage {
     if (s != null) {
       return getTime(s);
     }
-    throw raiseException(null);
+    throw raiseException(
+        new Throwable("Parse failure for message id=" + id + " with timestamp=" + s));
   }
 
   public Map<String, Object> getSource() {

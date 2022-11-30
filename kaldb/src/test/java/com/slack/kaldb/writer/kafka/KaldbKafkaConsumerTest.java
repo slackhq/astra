@@ -65,7 +65,7 @@ public class KaldbKafkaConsumerTest {
 
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("trace_span"));
+              chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
       testConsumer =
           new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
