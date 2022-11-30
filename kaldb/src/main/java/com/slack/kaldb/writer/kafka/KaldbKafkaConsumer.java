@@ -223,7 +223,7 @@ public class KaldbKafkaConsumer {
    * case, in this specific case, the blocking call acts as a back pressure mechanism pausing the
    * kafka message consumption from the broker.
    */
-  private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
+  static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
     public BlockingArrayBlockingQueue(int capacity) {
       super(capacity);
     }
