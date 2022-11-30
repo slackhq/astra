@@ -36,7 +36,7 @@ public class KaldbSerdesTest {
     assertThat(deserializedMessage.getMessage()).isEqualTo(ByteString.copyFromUtf8(message));
     assertThat(deserializedMessage.getHost()).isEqualTo(host);
     assertThat(deserializedMessage.getType()).isEqualTo(type);
-    assertThat(timestamp).isEqualTo(timestamp);
+    assertThat(deserializedMessage.getTimestamp()).isEqualTo(timestamp);
   }
 
   @Test

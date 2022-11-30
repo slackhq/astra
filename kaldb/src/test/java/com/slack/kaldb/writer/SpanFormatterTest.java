@@ -2,12 +2,14 @@ package com.slack.kaldb.writer;
 
 import static com.slack.kaldb.testlib.SpanUtil.BINARY_TAG_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.service.murron.trace.Trace;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -176,12 +178,22 @@ public class SpanFormatterTest {
   }
 
   @Test
-  public void testSpanWithoutKeyFieldsToLogMessage() {
+  public void testEmptyTimestamp() {
     final Trace.Span span =
         SpanUtil.makeSpan("", "", "", 0, 0, "", "", SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+    assertThatExceptionOfType(IllegalStateException.class)
+        .isThrownBy(() -> SpanFormatter.toLogMessage(span));
+  }
+
+  @Test
+  public void testSpanWithoutKeyFieldsToLogMessage() {
+    long ts = Instant.now().toEpochMilli();
+    final Trace.Span span =
+        SpanUtil.makeSpan("", "", "", ts, 0, "", "", SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    assertThat(logMsg.timeSinceEpochMilli).isZero();
+    // we convert any time by 1000 in SpanFormatter#toLogMessage
+    assertThat(logMsg.timeSinceEpochMilli).isEqualTo(ts / 1000);
     assertThat(logMsg.id).isEmpty();
     assertThat(logMsg.getType()).isEqualTo("INFO");
     assertThat(logMsg.getIndex()).isEqualTo(SpanFormatter.DEFAULT_INDEX_NAME);
