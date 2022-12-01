@@ -143,9 +143,8 @@ public class KaldbKafkaConsumerTest {
       await().until(() -> testConsumer.getEndOffSetForPartition() == 10000);
 
       final long startOffset = 101;
-      testConsumer.prepConsumerForConsumption(startOffset);
-      testConsumer.consumeMessagesBetweenOffsetsInParallel(
-          KAFKA_POLL_TIMEOUT_MS, startOffset, 1300);
+      testConsumer.prepConsumerForConsumption(startOffset, 1300);
+      testConsumer.consumeMessagesBetweenOffsetsInParallel(KAFKA_POLL_TIMEOUT_MS);
       // Check that messages are received and indexed.
       assertThat(getCount(RECORDS_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1200);
       assertThat(getValue(LIVE_MESSAGES_INDEXED, metricsRegistry)).isEqualTo(1200);

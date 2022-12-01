@@ -241,9 +241,7 @@ public class RecoveryService extends AbstractIdleService {
               recoveryTaskMetadata.startOffset, recoveryTaskMetadata.endOffset);
       if (canHandle) {
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
-            KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
-            recoveryTaskMetadata.startOffset,
-            recoveryTaskMetadata.endOffset);
+            KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS);
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
         // Close the recovery chunk manager and kafka consumer.
