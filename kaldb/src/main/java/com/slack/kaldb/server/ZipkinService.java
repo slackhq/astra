@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata.MATCH_ALL_DATASET;
 
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -9,6 +10,7 @@ import com.google.protobuf.util.JsonFormat;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Default;
 import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
@@ -196,6 +198,7 @@ public class ZipkinService {
     return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8, output);
   }
 
+  @Blocking
   @Get("/api/v2/trace/{traceId}")
   public HttpResponse getTraceByTraceId(
       @Param("traceId") String traceId,
@@ -203,9 +206,7 @@ public class ZipkinService {
       @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs,
       @Param("maxSpans") Optional<Integer> maxSpans)
       throws IOException {
-
     String queryString = "trace_id:" + traceId;
-
     long startTime =
         startTimeEpochMs.orElseGet(
             () -> Instant.now().minus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
@@ -214,6 +215,13 @@ public class ZipkinService {
     long endTime =
         endTimeEpochMs.orElseGet(
             () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+    int howMany = maxSpans.orElse(MAX_SPANS);
+
+    brave.Span span = Tracing.currentTracer().currentSpan();
+    span.tag("queryString", queryString);
+    span.tag("startTimeEpochMs", String.valueOf(startTime));
+    span.tag("endTimeEpochMs", String.valueOf(endTimeEpochMs));
+    span.tag("howMany", String.valueOf(howMany));
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
@@ -226,7 +234,7 @@ public class ZipkinService {
                 .setQueryString(queryString)
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
-                .setHowMany(maxSpans.orElse(MAX_SPANS))
+                .setHowMany(howMany)
                 .setBucketCount(0)
                 .build());
     // we don't account for any failed nodes in the searchResult today
