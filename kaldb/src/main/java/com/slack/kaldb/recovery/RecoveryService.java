@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -232,8 +233,18 @@ public class RecoveryService extends AbstractIdleService {
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
 
-    var validatedRecoveryTask = validateKafkaOffsets(recoveryTaskMetadata);
-    if (validatedRecoveryTask != null) {
+    PartitionOffsets partitionOffsets =
+        validateKafkaOffsets(
+            adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
+    if (partitionOffsets != null) {
+      RecoveryTaskMetadata validatedRecoveryTask =
+          new RecoveryTaskMetadata(
+              recoveryTaskMetadata.name,
+              recoveryTaskMetadata.partitionId,
+              partitionOffsets.startOffset,
+              partitionOffsets.endOffset,
+              recoveryTaskMetadata.createdTimeEpochMs);
+
       try {
         RecoveryChunkManager<LogMessage> chunkManager =
             RecoveryChunkManager.fromConfig(
@@ -302,15 +313,17 @@ public class RecoveryService extends AbstractIdleService {
   }
 
   /**
-   * Adjusts the offsets in the recovery task based on the availability of the offsets in Kafka.
+   * Adjusts the offsets from the recovery task based on the availability of the offsets in Kafka.
    * Returns <code>null</code> if the offsets specified in the recovery task are completely
    * unavailable in Kafka.
    */
-  private RecoveryTaskMetadata validateKafkaOffsets(RecoveryTaskMetadata recoveryTask) {
-    var topicPartition =
-        KaldbKafkaConsumer.getTopicPartition(
-            kaldbConfig.getKafkaConfig().getKafkaTopic(), recoveryTask.partitionId);
-    var earliestKafkaOffset = getPartitionOffset(topicPartition, OffsetSpec.earliest());
+  @VisibleForTesting
+  static PartitionOffsets validateKafkaOffsets(
+      AdminClient adminClient, RecoveryTaskMetadata recoveryTask, String kafkaTopic) {
+    TopicPartition topicPartition =
+        KaldbKafkaConsumer.getTopicPartition(kafkaTopic, recoveryTask.partitionId);
+    long earliestKafkaOffset =
+        getPartitionOffset(adminClient, topicPartition, OffsetSpec.earliest());
     long newStartOffset = recoveryTask.startOffset;
     long newEndOffset = recoveryTask.endOffset;
 
@@ -324,7 +337,7 @@ public class RecoveryService extends AbstractIdleService {
       return null;
     }
 
-    var latestKafkaOffset = getPartitionOffset(topicPartition, OffsetSpec.latest());
+    long latestKafkaOffset = getPartitionOffset(adminClient, topicPartition, OffsetSpec.latest());
     if (latestKafkaOffset < recoveryTask.startOffset) {
       // this should never happen, but if it somehow did, it would result in an infinite
       // loop in the consumeMessagesBetweenOffsetsInParallel method
@@ -354,12 +367,7 @@ public class RecoveryService extends AbstractIdleService {
       newEndOffset = latestKafkaOffset;
     }
 
-    return new RecoveryTaskMetadata(
-        recoveryTask.name,
-        recoveryTask.partitionId,
-        newStartOffset,
-        newEndOffset,
-        recoveryTask.createdTimeEpochMs);
+    return new PartitionOffsets(newStartOffset, newEndOffset);
   }
 
   /**
@@ -368,8 +376,10 @@ public class RecoveryService extends AbstractIdleService {
    *
    * @return current offset or -1 if an error was encountered
    */
-  private long getPartitionOffset(TopicPartition topicPartition, OffsetSpec offsetSpec) {
-    var offsetResults = adminClient.listOffsets(Map.of(topicPartition, offsetSpec));
+  @VisibleForTesting
+  static long getPartitionOffset(
+      AdminClient adminClient, TopicPartition topicPartition, OffsetSpec offsetSpec) {
+    ListOffsetsResult offsetResults = adminClient.listOffsets(Map.of(topicPartition, offsetSpec));
     long offset = -1;
     try {
       offset = offsetResults.partitionResult(topicPartition).get().offset();
@@ -377,6 +387,16 @@ public class RecoveryService extends AbstractIdleService {
     } catch (Exception e) {
       LOG.error("Interrupted getting partition offset", e);
       return -1;
+    }
+  }
+
+  static class PartitionOffsets {
+    long startOffset;
+    long endOffset;
+
+    public PartitionOffsets(long startOffset, long endOffset) {
+      this.startOffset = startOffset;
+      this.endOffset = endOffset;
     }
   }
 }

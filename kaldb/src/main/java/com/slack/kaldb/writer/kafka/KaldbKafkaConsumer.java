@@ -77,6 +77,8 @@ public class KaldbKafkaConsumer {
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
     // TODO: Does the session timeout matter in assign?
     props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+    // we rely on the fail-fast behavior of 'auto.offset.reset = none' to handle scenarios
+    // with recovery tasks where the offsets are no longer available in Kafka
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
     return props;
   }
