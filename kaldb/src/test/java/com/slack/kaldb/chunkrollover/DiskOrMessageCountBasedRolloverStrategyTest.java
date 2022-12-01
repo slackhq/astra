@@ -63,7 +63,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
-  private static long MAX_BYTES_PER_CHUNK = 10000;
+  private static long MAX_BYTES_PER_CHUNK = 12000;
 
   private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
 

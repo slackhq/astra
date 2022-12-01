@@ -64,7 +64,7 @@ public class QueryBenchmark {
             Paths.get("jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            tempDirectory.toFile(), commitInterval, refreshInterval, registry);
+            tempDirectory.toFile(), commitInterval, refreshInterval, true, registry);
 
     String apiLogFile = System.getProperty("jmh.api.log.file", "api_logs.txt");
 

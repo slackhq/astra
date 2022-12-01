@@ -6,6 +6,7 @@ indexerConfig:
   luceneConfig:
     commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
     refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
+    enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-api_log}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}

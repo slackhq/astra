@@ -110,7 +110,7 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -453,7 +453,7 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, registry);
+              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
