@@ -41,7 +41,6 @@ import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,7 +153,6 @@ public class ZipkinServiceTest {
   }
 
   @Test
-  @Ignore // Flakey test, occasionally returns an empty result
   public void testDistributedQueryOneIndexerOneQueryNode() throws Exception {
     assertThat(kafkaServer.getBroker().isRunning()).isTrue();
 
@@ -226,14 +224,12 @@ public class ZipkinServiceTest {
     List<LogMessage> logMessages =
         messages.stream().map(LogMessage::fromWireMessage).collect(Collectors.toList());
 
-    final int indexedMessagesCount =
-        produceMessagesToKafka(kafkaServer.getBroker(), TEST_KAFKA_TOPIC_1, 0, logMessages);
-    assertThat(totalMessagesToIndex).isEqualTo(indexedMessagesCount);
+    produceMessagesToKafka(kafkaServer.getBroker(), TEST_KAFKA_TOPIC_1, 0, logMessages);
 
     await()
         .until(
             () ->
-                getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == indexedMessagesCount);
+                getCount(MESSAGES_RECEIVED_COUNTER, indexerMeterRegistry) == totalMessagesToIndex);
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, indexerMeterRegistry) == 1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, indexerMeterRegistry)).isZero();
@@ -244,8 +240,8 @@ public class ZipkinServiceTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(indexedMessagesCount);
-    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(indexedMessagesCount);
+    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(totalMessagesToIndex);
+    assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(totalMessagesToIndex);
 
     // Query from the zipkin search service
     String endpoint = "http://127.0.0.1:" + queryServicePort;

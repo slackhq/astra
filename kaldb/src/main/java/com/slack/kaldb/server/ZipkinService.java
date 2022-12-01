@@ -155,7 +155,8 @@ public class ZipkinService {
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(ZipkinService.class);
-  private static long LOOKBACK_MINS = 60 * 2;
+  private static long LOOKBACK_MINS = 60 * 24;
+  private static long LOOKAHEAD_MINS = 60 * 2;
 
   private static final int MAX_SPANS = 20_000;
 
@@ -213,7 +214,7 @@ public class ZipkinService {
     // system clock and those spans would be stored but can't be queried
     long endTime =
         endTimeEpochMs.orElseGet(
-            () -> Instant.now().plus(LOOKBACK_MINS, ChronoUnit.MINUTES).toEpochMilli());
+            () -> Instant.now().plus(LOOKAHEAD_MINS, ChronoUnit.MINUTES).toEpochMilli());
 
     // TODO: when MAX_SPANS is hit the results will look weird because the index is sorted in
     // reverse timestamp and the spans returned will be the tail. We should support sort in the
