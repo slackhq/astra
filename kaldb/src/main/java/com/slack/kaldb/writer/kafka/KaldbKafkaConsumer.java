@@ -15,15 +15,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -81,21 +77,16 @@ public class KaldbKafkaConsumer {
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
     // TODO: Does the session timeout matter in assign?
     props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest/latest/none");
     return props;
   }
 
   private KafkaConsumer<String, byte[]> kafkaConsumer;
   private final TopicPartition topicPartition;
-  private final AdminClient adminClient;
 
   public static final String RECORDS_RECEIVED_COUNTER = "records_received";
   public static final String RECORDS_FAILED_COUNTER = "records_failed";
   private final Counter recordsReceivedCounter;
   private final Counter recordsFailedCounter;
-
-  private long startOffsetInclusive = -1;
-  private long endOffsetInclusive = -1;
 
   // TODO: Instead of passing each property as a field, consider defining props in config file.
   public KaldbKafkaConsumer(
@@ -142,12 +133,9 @@ public class KaldbKafkaConsumer {
         kafkaAutoCommitInterval,
         kafkaSessionTimeout);
 
-    int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
-    topicPartition = new TopicPartition(kafkaTopic, kafkaTopicPartition);
-
+    topicPartition = getTopicPartition(kafkaTopic, kafkaTopicPartitionStr);
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
-
     this.logMessageWriterImpl = logMessageWriterImpl;
 
     // Create kafka consumer
@@ -160,108 +148,28 @@ public class KaldbKafkaConsumer {
             kafkaSessionTimeout);
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
     new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
+  }
 
-    adminClient =
-        AdminClient.create(
-            Map.of(
-                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-                kafkaBootStrapServers,
-                AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
-                "5000"));
+  public static TopicPartition getTopicPartition(String kafkaTopic, String kafkaTopicPartitionStr) {
+    int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
+    return new TopicPartition(kafkaTopic, kafkaTopicPartition);
   }
 
   /** Start consuming the partition from an offset. */
   public void prepConsumerForConsumption(long startOffset) {
-    prepConsumerForConsumption(startOffset, -1);
-  }
-
-  /**
-   * Prepare to consume between the specified offsets.
-   *
-   * @param startOffset earliest message offset to consume
-   * @param endOffset latest message offset to consume
-   * @return true if at least some messages in the specified range are available in Kafka
-   */
-  public boolean prepConsumerForConsumption(long startOffset, long endOffset) {
-    this.startOffsetInclusive = startOffset;
-    this.endOffsetInclusive = endOffset;
-    if (endOffsetInclusive > 0) {
-      // verify that offset range is available in Kafka
-      var offsetResults = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
-      long earliestKafkaOffset = -1;
-      try {
-        earliestKafkaOffset = offsetResults.partitionResult(topicPartition).get().offset();
-      } catch (Exception e) {
-        LOG.error("Interrupted getting partition offset", e);
-        return false;
-      }
-      if (earliestKafkaOffset > endOffsetInclusive) {
-        LOG.warn(
-            "Entire task range ({}-{}) on topic {} is unavailable in Kafka (earliest offset: {})",
-            startOffsetInclusive,
-            endOffsetInclusive,
-            topicPartition,
-            earliestKafkaOffset);
-        return false;
-      }
-
-      offsetResults = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.latest()));
-      long latestKafkaOffset = -1;
-      try {
-        latestKafkaOffset = offsetResults.partitionResult(topicPartition).get().offset();
-      } catch (Exception e) {
-        LOG.error("Interrupted getting partition offset", e);
-        return false;
-      }
-      if (latestKafkaOffset < startOffsetInclusive) {
-        // this should never happen, but if it somehow did, it would result in an infinite
-        // loop in the consumeMessagesBetweenOffsetsInParallel method
-        LOG.warn(
-            "Entire task range ({}-{}) on topic {} is unavailable in Kafka (latest offset: {})",
-            startOffsetInclusive,
-            endOffsetInclusive,
-            topicPartition,
-            latestKafkaOffset);
-        return false;
-      }
-
-      if (startOffsetInclusive < earliestKafkaOffset) {
-        LOG.warn(
-            "Partial loss of messages in recovery task. Start offset {}, earliest available offset {}",
-            startOffsetInclusive,
-            earliestKafkaOffset);
-        startOffsetInclusive = earliestKafkaOffset;
-      }
-      if (endOffsetInclusive > latestKafkaOffset) {
-        // this should never happen, but if it somehow did, the requested recovery range should
-        // be adjusted down to the latest available offset in Kafka
-        LOG.warn(
-            "Partial loss of messages in recovery task. End offset {}, latest available offset {}",
-            endOffsetInclusive,
-            latestKafkaOffset);
-        endOffsetInclusive = latestKafkaOffset;
-      }
-    }
-
-    LOG.info(
-        "Starting kafka consumer for topic/partition {}, offsets {} to {}",
-        topicPartition,
-        startOffsetInclusive,
-        endOffsetInclusive);
+    LOG.info("Starting kafka consumer for partition:{}.", topicPartition.partition());
 
     // Consume from a partition.
     kafkaConsumer.assign(Collections.singletonList(topicPartition));
     LOG.info("Assigned to topicPartition: {}", topicPartition);
     // Offset is negative when the partition was not consumed before, so start consumption from
     // beginning of the stream. If the offset is positive, start consuming from there.
-    if (startOffsetInclusive > 0) {
-      kafkaConsumer.seek(topicPartition, startOffsetInclusive);
+    if (startOffset > 0) {
+      kafkaConsumer.seek(topicPartition, startOffset);
     } else {
       kafkaConsumer.seekToBeginning(List.of(topicPartition));
     }
-    LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffsetInclusive);
-
-    return true;
+    LOG.info("Starting consumption for {} at offset: {}", topicPartition, startOffset);
   }
 
   public void close() {
@@ -341,14 +249,9 @@ public class KaldbKafkaConsumer {
    * decouple the consumption from processing using a blocking queue as recommended by the kafka
    * documentation.
    */
-  public boolean consumeMessagesBetweenOffsetsInParallel(final long kafkaPollTimeoutMs)
+  public boolean consumeMessagesBetweenOffsetsInParallel(
+      final long kafkaPollTimeoutMs, final long startOffsetInclusive, final long endOffsetInclusive)
       throws InterruptedException {
-    if (startOffsetInclusive < 0 || endOffsetInclusive < 0) {
-      throw new IllegalStateException(
-          String.format(
-              "Invalid offsets for Kafka consumer %d/%d",
-              startOffsetInclusive, endOffsetInclusive));
-    }
     final int maxPoolSize = 16;
     final int poolSize = Math.min(Runtime.getRuntime().availableProcessors() * 2, maxPoolSize);
     LOG.info("Pool size for queue is: {}", poolSize);

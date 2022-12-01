@@ -30,8 +30,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +60,7 @@ public class RecoveryService extends AbstractIdleService {
   private final MeterRegistry meterRegistry;
   private final BlobFs blobFs;
   private final KaldbConfigs.KaldbConfig kaldbConfig;
+  private final AdminClient adminClient;
 
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeListenerMetadataStore;
@@ -84,6 +90,14 @@ public class RecoveryService extends AbstractIdleService {
     this.meterRegistry = meterRegistry;
     this.blobFs = blobFs;
     this.kaldbConfig = kaldbConfig;
+
+    adminClient =
+        AdminClient.create(
+            Map.of(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
+                kaldbConfig.getKafkaConfig().getKafkaBootStrapServers(),
+                AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                "5000"));
 
     // we use a single thread executor to allow operations for this recovery node to queue,
     // guaranteeing that they are executed in the order they were received
@@ -217,46 +231,49 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
-    try {
-      RecoveryChunkManager<LogMessage> chunkManager =
-          RecoveryChunkManager.fromConfig(
-              meterRegistry,
-              searchMetadataStore,
-              snapshotMetadataStore,
-              kaldbConfig.getIndexerConfig(),
-              blobFs,
-              kaldbConfig.getS3Config());
-      // Ingest data in parallel
-      LogMessageTransformer messageTransformer =
-          INDEXER_DATA_TRANSFORMER_MAP.get(kaldbConfig.getIndexerConfig().getDataTransformer());
-      LogMessageWriterImpl logMessageWriterImpl =
-          new LogMessageWriterImpl(chunkManager, messageTransformer);
-      KaldbKafkaConsumer kafkaConsumer =
-          KaldbKafkaConsumer.fromConfig(
-              makeKafkaConfig(kaldbConfig.getKafkaConfig(), recoveryTaskMetadata.partitionId),
-              logMessageWriterImpl,
-              meterRegistry);
-      boolean canHandle =
-          kafkaConsumer.prepConsumerForConsumption(
-              recoveryTaskMetadata.startOffset, recoveryTaskMetadata.endOffset);
-      if (canHandle) {
+
+    var validatedRecoveryTask = validateKafkaOffsets(recoveryTaskMetadata);
+    if (validatedRecoveryTask != null) {
+      try {
+        RecoveryChunkManager<LogMessage> chunkManager =
+            RecoveryChunkManager.fromConfig(
+                meterRegistry,
+                searchMetadataStore,
+                snapshotMetadataStore,
+                kaldbConfig.getIndexerConfig(),
+                blobFs,
+                kaldbConfig.getS3Config());
+        // Ingest data in parallel
+        LogMessageTransformer messageTransformer =
+            INDEXER_DATA_TRANSFORMER_MAP.get(kaldbConfig.getIndexerConfig().getDataTransformer());
+        LogMessageWriterImpl logMessageWriterImpl =
+            new LogMessageWriterImpl(chunkManager, messageTransformer);
+        KaldbKafkaConsumer kafkaConsumer =
+            KaldbKafkaConsumer.fromConfig(
+                makeKafkaConfig(kaldbConfig.getKafkaConfig(), validatedRecoveryTask.partitionId),
+                logMessageWriterImpl,
+                meterRegistry);
+
+        kafkaConsumer.prepConsumerForConsumption(validatedRecoveryTask.startOffset);
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
-            KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS);
+            KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
+            validatedRecoveryTask.startOffset,
+            validatedRecoveryTask.endOffset);
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
         // Close the recovery chunk manager and kafka consumer.
         kafkaConsumer.close();
         chunkManager.stopAsync();
         chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-        LOG.info("Finished handling the recovery task: {}", recoveryTaskMetadata);
+        LOG.info("Finished handling the recovery task: {}", validatedRecoveryTask);
         return success;
-      } else {
-        LOG.info("Deleting recovery task [{}] that cannot be handled", recoveryTaskMetadata);
-        return true;
+      } catch (Exception ex) {
+        LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
+        return false;
       }
-    } catch (Exception ex) {
-      LOG.error("Exception in recovery task [{}]: {}", recoveryTaskMetadata, ex);
-      return false;
+    } else {
+      LOG.info("Recovery task {} data no longer available in Kafka", recoveryTaskMetadata);
+      return true;
     }
   }
 
@@ -282,5 +299,84 @@ public class RecoveryService extends AbstractIdleService {
                 : recoveryNodeMetadata.recoveryTaskName,
             Instant.now().toEpochMilli());
     recoveryNodeMetadataStore.updateSync(updatedRecoveryNodeMetadata);
+  }
+
+  /**
+   * Adjusts the offsets in the recovery task based on the availability of the offsets in Kafka.
+   * Returns <code>null</code> if the offsets specified in the recovery task are completely
+   * unavailable in Kafka.
+   */
+  private RecoveryTaskMetadata validateKafkaOffsets(RecoveryTaskMetadata recoveryTask) {
+    var topicPartition =
+        KaldbKafkaConsumer.getTopicPartition(
+            kaldbConfig.getKafkaConfig().getKafkaTopic(), recoveryTask.partitionId);
+    var earliestKafkaOffset = getPartitionOffset(topicPartition, OffsetSpec.earliest());
+    long newStartOffset = recoveryTask.startOffset;
+    long newEndOffset = recoveryTask.endOffset;
+
+    if (earliestKafkaOffset > recoveryTask.endOffset) {
+      LOG.warn(
+          "Entire task range ({}-{}) on topic {} is unavailable in Kafka (earliest offset: {})",
+          recoveryTask.startOffset,
+          recoveryTask.endOffset,
+          topicPartition,
+          earliestKafkaOffset);
+      return null;
+    }
+
+    var latestKafkaOffset = getPartitionOffset(topicPartition, OffsetSpec.latest());
+    if (latestKafkaOffset < recoveryTask.startOffset) {
+      // this should never happen, but if it somehow did, it would result in an infinite
+      // loop in the consumeMessagesBetweenOffsetsInParallel method
+      LOG.warn(
+          "Entire task range ({}-{}) on topic {} is unavailable in Kafka (latest offset: {})",
+          recoveryTask.startOffset,
+          recoveryTask.endOffset,
+          topicPartition,
+          latestKafkaOffset);
+      return null;
+    }
+
+    if (recoveryTask.startOffset < earliestKafkaOffset) {
+      LOG.warn(
+          "Partial loss of messages in recovery task. Start offset {}, earliest available offset {}",
+          recoveryTask.startOffset,
+          earliestKafkaOffset);
+      newStartOffset = earliestKafkaOffset;
+    }
+    if (recoveryTask.endOffset > latestKafkaOffset) {
+      // this should never happen, but if it somehow did, the requested recovery range should
+      // be adjusted down to the latest available offset in Kafka
+      LOG.warn(
+          "Partial loss of messages in recovery task. End offset {}, latest available offset {}",
+          recoveryTask.endOffset,
+          latestKafkaOffset);
+      newEndOffset = latestKafkaOffset;
+    }
+
+    return new RecoveryTaskMetadata(
+        recoveryTask.name,
+        recoveryTask.partitionId,
+        newStartOffset,
+        newEndOffset,
+        recoveryTask.createdTimeEpochMs);
+  }
+
+  /**
+   * Returns the specified offset (earliest, latest, timestamp) of the specified Kafka topic and
+   * partition
+   *
+   * @return current offset or -1 if an error was encountered
+   */
+  private long getPartitionOffset(TopicPartition topicPartition, OffsetSpec offsetSpec) {
+    var offsetResults = adminClient.listOffsets(Map.of(topicPartition, offsetSpec));
+    long offset = -1;
+    try {
+      offset = offsetResults.partitionResult(topicPartition).get().offset();
+      return offset;
+    } catch (Exception e) {
+      LOG.error("Interrupted getting partition offset", e);
+      return -1;
+    }
   }
 }
