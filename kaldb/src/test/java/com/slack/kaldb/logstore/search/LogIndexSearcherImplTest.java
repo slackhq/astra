@@ -375,7 +375,6 @@ public class LogIndexSearcherImplTest {
     assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
   }
 
-  // TODO: Add a test without full text search.
   @Test
   public void testFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
