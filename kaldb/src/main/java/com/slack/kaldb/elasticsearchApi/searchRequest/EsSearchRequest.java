@@ -5,13 +5,19 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
+import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EsSearchRequest {
+  private static final Logger LOG = LoggerFactory.getLogger(EsSearchRequest.class);
 
   private final String index;
   private final int size;
@@ -59,17 +65,51 @@ public class EsSearchRequest {
     return aggregations;
   }
 
-  public KaldbSearch.SearchRequest toKaldbSearchRequest() {
-    // eventually this will likely be configurable from the UI
-    int bucketCount = 60;
+  /**
+   * This is a temporary fix for calculating the buckets required in a date histogram. This code
+   * should potentially exist somewhere else, or an entirely different approach should be
+   * considered. This will have unexpected behavior when multiple aggregations are provided. As a
+   * larger point the bucket count is specific to a date histogram, and if other aggregations are
+   * requested this field makes no sense (ie, terms query). A larger refactor of the
+   * KaldbSearch.SearchRequest object is needed to appropriate resolve this.
+   */
+  @Deprecated
+  protected static int getBucketCount(
+      List<SearchRequestAggregation> searchRequestAggregations, SearchRequestTimeRange timeRange) {
+    String intervalString = "";
+    try {
+      DateHistogramAggregation dateHistogramAggregation =
+          (DateHistogramAggregation) searchRequestAggregations.get(0);
+      intervalString = dateHistogramAggregation.getInterval();
 
+      // ISO-8601 duration spec requires different input format for days than hours/mins/seconds
+      String durationFormat = "PT%s";
+      if (intervalString.endsWith("d")) {
+        durationFormat = "P%s";
+      }
+
+      Duration intervalDuration =
+          Duration.parse(String.format(durationFormat, intervalString.toUpperCase()));
+      return Ints.saturatedCast(
+          (timeRange.getLteEpochMillis() - timeRange.getGteEpochMillis())
+              / intervalDuration.toMillis());
+    } catch (Exception e) {
+      // for any issue parsing or calculating the input, just log it and default to 60
+      LOG.warn(
+          "Error converting user input intervalString:'{}', defaulting to 60 buckets",
+          intervalString);
+      return 60;
+    }
+  }
+
+  public KaldbSearch.SearchRequest toKaldbSearchRequest() {
     return KaldbSearch.SearchRequest.newBuilder()
         .setDataset(getIndex())
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
         .setHowMany(getSize())
-        .setBucketCount(bucketCount)
+        .setBucketCount(getBucketCount(getAggregations(), getRange()))
         .build();
   }
 
