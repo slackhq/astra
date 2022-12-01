@@ -236,19 +236,26 @@ public class RecoveryService extends AbstractIdleService {
               makeKafkaConfig(kaldbConfig.getKafkaConfig(), recoveryTaskMetadata.partitionId),
               logMessageWriterImpl,
               meterRegistry);
-      kafkaConsumer.prepConsumerForConsumption(recoveryTaskMetadata.startOffset);
-      kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
-          KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
-          recoveryTaskMetadata.startOffset,
-          recoveryTaskMetadata.endOffset);
-      // Wait for chunks to upload.
-      boolean success = chunkManager.waitForRollOvers();
-      // Close the recovery chunk manager and kafka consumer.
-      kafkaConsumer.close();
-      chunkManager.stopAsync();
-      chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-      LOG.info("Finished handling the recovery task: {}", recoveryTaskMetadata);
-      return success;
+      boolean canHandle =
+          kafkaConsumer.prepConsumerForConsumption(
+              recoveryTaskMetadata.startOffset, recoveryTaskMetadata.endOffset);
+      if (canHandle) {
+        kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
+            KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
+            recoveryTaskMetadata.startOffset,
+            recoveryTaskMetadata.endOffset);
+        // Wait for chunks to upload.
+        boolean success = chunkManager.waitForRollOvers();
+        // Close the recovery chunk manager and kafka consumer.
+        kafkaConsumer.close();
+        chunkManager.stopAsync();
+        chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
+        LOG.info("Finished handling the recovery task: {}", recoveryTaskMetadata);
+        return success;
+      } else {
+        LOG.info("Deleting recovery task [{}] that cannot be handled", recoveryTaskMetadata);
+        return true;
+      }
     } catch (Exception ex) {
       LOG.error("Exception in recovery task [{}]: {}", recoveryTaskMetadata, ex);
       return false;
