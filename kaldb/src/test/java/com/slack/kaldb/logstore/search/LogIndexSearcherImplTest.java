@@ -371,6 +371,35 @@ public class LogIndexSearcherImplTest {
     assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
   }
 
+  @Test
+  public void testFullTextSearch() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    final LogMessage msg1 =
+        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time.plusSeconds(4));
+    msg1.addProperty("field1", "1234");
+    strictLogStore.logStore.addMessage(msg1);
+
+    final LogMessage msg2 =
+        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4));
+    msg2.addProperty("field2", "1234");
+    strictLogStore.logStore.addMessage(msg2);
+
+    final LogMessage msg3 =
+        makeMessageWithIndexAndTimestamp(
+            3, "baby car 1234", TEST_DATASET_NAME, time.plusSeconds(4));
+    strictLogStore.logStore.addMessage(msg3);
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> babyInAll =
+        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1);
+    assertThat(babyInAll.hits.size()).isEqualTo(2);
+
+    SearchResult<LogMessage> numberInAll =
+        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1);
+    assertThat(numberInAll.hits.size()).isEqualTo(3);
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void testNullSearchString() {
     Instant time = Instant.ofEpochSecond(1593365471);
