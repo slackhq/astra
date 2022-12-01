@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.lucene.document.Document;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,7 +27,10 @@ public class LogDocumentBuilderImplTest {
   @Test
   public void testWithValidMessage() throws IOException {
     Document testDocument = testBuilderAllowExceptions.fromMessage(MessageUtil.makeMessage(0));
-    assertThat(testDocument.getFields().size()).isEqualTo(12);
+    assertThat(testDocument.getFields().size()).isEqualTo(13);
+    assertThat(testDocument.getFields().stream().map(f -> f.name()).collect(Collectors.toList()))
+        .containsAll(
+            List.of(LogMessage.SystemField.ALL.fieldName, LogMessage.SystemField.SOURCE.fieldName));
   }
 
   // TODO: Test IOException and JSONSerialization exception.

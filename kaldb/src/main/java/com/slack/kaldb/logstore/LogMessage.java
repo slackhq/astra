@@ -32,7 +32,8 @@ public class LogMessage extends LogWireMessage {
     ID("id"),
     INDEX("index"),
     TIME_SINCE_EPOCH("_timesinceepoch"),
-    TYPE("type");
+    TYPE("type"),
+    ALL("_all");
 
     public final String fieldName;
 
