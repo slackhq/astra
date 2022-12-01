@@ -66,6 +66,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         dataDirectory,
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
+        luceneConfig.getEnableFullTextSearch(),
         metricsRegistry);
   }
 
@@ -73,6 +74,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       File dataDirectory,
       Duration commitInterval,
       Duration refreshInterval,
+      boolean enableFullTextSearch,
       MeterRegistry metricsRegistry)
       throws IOException {
     // TODO: Move all these config values into chunk?
@@ -83,7 +85,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false), metricsRegistry);
+        indexStoreCfg, LogDocumentBuilderImpl.build(false, enableFullTextSearch), metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(

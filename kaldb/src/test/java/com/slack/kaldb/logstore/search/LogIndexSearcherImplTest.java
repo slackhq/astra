@@ -30,7 +30,11 @@ public class LogIndexSearcherImplTest {
 
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(false);
+      new TemporaryLogStoreAndSearcherRule(false, true);
+
+  @Rule
+  public TemporaryLogStoreAndSearcherRule strictLogStoreWithoutFts =
+      new TemporaryLogStoreAndSearcherRule(false, false);
 
   public LogIndexSearcherImplTest() throws IOException {}
 
@@ -371,6 +375,7 @@ public class LogIndexSearcherImplTest {
     assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
   }
 
+  // TODO: Add a test without full text search.
   @Test
   public void testFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
@@ -398,6 +403,37 @@ public class LogIndexSearcherImplTest {
     SearchResult<LogMessage> numberInAll =
         strictLogStore.logSearcher.search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1);
     assertThat(numberInAll.hits.size()).isEqualTo(3);
+  }
+
+  @Test
+  public void testDisabledFullTextSearch() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    final LogMessage msg1 =
+        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time.plusSeconds(4));
+    msg1.addProperty("field1", "1234");
+    strictLogStoreWithoutFts.logStore.addMessage(msg1);
+
+    final LogMessage msg2 =
+        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4));
+    msg2.addProperty("field2", "1234");
+    strictLogStoreWithoutFts.logStore.addMessage(msg2);
+
+    final LogMessage msg3 =
+        makeMessageWithIndexAndTimestamp(
+            3, "baby car 1234", TEST_DATASET_NAME, time.plusSeconds(4));
+    strictLogStoreWithoutFts.logStore.addMessage(msg3);
+    strictLogStoreWithoutFts.logStore.commit();
+    strictLogStoreWithoutFts.logStore.refresh();
+
+    SearchResult<LogMessage> babyInAll =
+        strictLogStoreWithoutFts.logSearcher.search(
+            TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1);
+    assertThat(babyInAll.hits.size()).isEqualTo(0);
+
+    SearchResult<LogMessage> numberInAll =
+        strictLogStoreWithoutFts.logSearcher.search(
+            TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1);
+    assertThat(numberInAll.hits.size()).isEqualTo(0);
   }
 
   @Test(expected = IllegalArgumentException.class)

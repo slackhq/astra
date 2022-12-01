@@ -52,14 +52,14 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 @RunWith(Enclosed.class)
 public class LuceneIndexStoreImplTest {
   @BeforeClass
-  public static void beforeClass() throws Exception {
+  public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
   public static class TestsWithForgivingLogStore {
     @Rule
     public TemporaryLogStoreAndSearcherRule forgivingLogStore =
-        new TemporaryLogStoreAndSearcherRule(true);
+        new TemporaryLogStoreAndSearcherRule(true, true);
 
     public TestsWithForgivingLogStore() throws IOException {}
 
@@ -182,7 +182,7 @@ public class LuceneIndexStoreImplTest {
   public static class TestsWithStrictLogStore {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false);
+        new TemporaryLogStoreAndSearcherRule(false, true);
 
     public TestsWithStrictLogStore() throws IOException {}
 
@@ -321,7 +321,7 @@ public class LuceneIndexStoreImplTest {
   public static class SuppressExceptionsOnClosedWriter {
     @Rule
     public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(true);
+        new TemporaryLogStoreAndSearcherRule(true, true);
 
     public SuppressExceptionsOnClosedWriter() throws IOException {}
 
@@ -344,7 +344,7 @@ public class LuceneIndexStoreImplTest {
   public static class SnapshotTester {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false);
+        new TemporaryLogStoreAndSearcherRule(false, true);
 
     @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -470,7 +470,7 @@ public class LuceneIndexStoreImplTest {
   public static class IndexCleanupTests {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false);
+        new TemporaryLogStoreAndSearcherRule(false, true);
 
     public IndexCleanupTests() throws IOException {}
 
@@ -502,7 +502,7 @@ public class LuceneIndexStoreImplTest {
 
     @Rule
     public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(commitDuration, commitDuration, true);
+        new TemporaryLogStoreAndSearcherRule(commitDuration, commitDuration, true, true);
 
     public AutoCommitTests() throws IOException {}
 

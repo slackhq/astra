@@ -80,7 +80,8 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
-  public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
+  public static DocumentBuilder<LogMessage> build(
+      boolean ignoreExceptions, boolean enableFullTextSearch) {
     ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
         ImmutableMap.builder();
     propertyDescriptionBuilder.put(
@@ -142,20 +143,26 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     PropertyDescription defaultDescription =
         new PropertyDescription(PropertyType.ANY, false, true, true);
     return new LogDocumentBuilderImpl(
-        ignoreExceptions, propertyDescriptionBuilder.build(), defaultDescription);
+        ignoreExceptions,
+        propertyDescriptionBuilder.build(),
+        defaultDescription,
+        enableFullTextSearch);
   }
 
   private final boolean ignorePropertyTypeExceptions;
+  private final boolean enableFullTextSearch;
   private final PropertyDescription defaultDescription;
   private final Map<String, PropertyDescription> propertyDescriptions;
 
   public LogDocumentBuilderImpl(
       boolean ignorePropertyTypeExceptions,
       Map<String, PropertyDescription> propertyDescriptions,
-      PropertyDescription defaultDescription) {
+      PropertyDescription defaultDescription,
+      boolean enableFullTextSearch) {
     this.ignorePropertyTypeExceptions = ignorePropertyTypeExceptions;
     this.propertyDescriptions = propertyDescriptions;
     this.defaultDescription = defaultDescription;
+    this.enableFullTextSearch = enableFullTextSearch;
   }
 
   private PropertyDescription getDescription(String propertyName) {
@@ -181,7 +188,6 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void addProperty(Document doc, String name, Object value) {
     PropertyDescription desc = getDescription(name);
 
@@ -366,7 +372,9 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
     final String msgString = JsonUtil.writeAsString(message.toWireMessage());
     addProperty(doc, LogMessage.SystemField.SOURCE.fieldName, msgString);
-    addProperty(doc, LogMessage.SystemField.ALL.fieldName, msgString);
+    if (enableFullTextSearch) {
+      addProperty(doc, LogMessage.SystemField.ALL.fieldName, msgString);
+    }
     for (String key : message.source.keySet()) {
       addPropertyHandleExceptions(doc, key, message.source.get(key));
     }

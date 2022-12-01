@@ -497,6 +497,7 @@ public class ReadOnlyChunkImplTest {
             Files.newTemporaryFolder(),
             Duration.ofSeconds(60),
             Duration.ofSeconds(60),
+            true,
             meterRegistry);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);
