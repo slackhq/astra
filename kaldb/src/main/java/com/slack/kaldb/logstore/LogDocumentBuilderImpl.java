@@ -163,6 +163,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     this.propertyDescriptions = propertyDescriptions;
     this.defaultDescription = defaultDescription;
     this.enableFullTextSearch = enableFullTextSearch;
+    LOG.info(
+        "Started document builder with config ignoreExceptions: {} and enableFullTextSearch: {}",
+        ignorePropertyTypeExceptions,
+        enableFullTextSearch);
   }
 
   private PropertyDescription getDescription(String propertyName) {
