@@ -13,6 +13,8 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.mock;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -37,11 +39,19 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.curator.test.TestingServer;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
@@ -344,5 +354,124 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(1);
+  }
+
+  @Test
+  public void testValidateOffsetsWhenRecoveryTaskEntirelyAvailableInKafka() {
+    long kafkaStartOffset = 100;
+    long kafkaEndOffset = 900;
+    long recoveryTaskStartOffset = 200;
+    long recoveryTaskEndOffset = 300;
+    String topic = "foo";
+
+    RecoveryService.PartitionOffsets offsets =
+        RecoveryService.validateKafkaOffsets(
+            getAdminClient(kafkaStartOffset, kafkaEndOffset),
+            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            topic);
+
+    assertThat(offsets.startOffset).isEqualTo(recoveryTaskStartOffset);
+    assertThat(offsets.endOffset).isEqualTo(recoveryTaskEndOffset);
+  }
+
+  @Test
+  public void testValidateOffsetsWhenRecoveryTaskOverlapsWithBeginningOfKafkaRange() {
+    long kafkaStartOffset = 100;
+    long kafkaEndOffset = 900;
+    long recoveryTaskStartOffset = 50;
+    long recoveryTaskEndOffset = 300;
+    String topic = "foo";
+
+    RecoveryService.PartitionOffsets offsets =
+        RecoveryService.validateKafkaOffsets(
+            getAdminClient(kafkaStartOffset, kafkaEndOffset),
+            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            topic);
+
+    assertThat(offsets.startOffset).isEqualTo(kafkaStartOffset);
+    assertThat(offsets.endOffset).isEqualTo(recoveryTaskEndOffset);
+  }
+
+  @Test
+  public void testValidateOffsetsWhenRecoveryTaskBeforeKafkaRange() {
+    long kafkaStartOffset = 100;
+    long kafkaEndOffset = 900;
+    long recoveryTaskStartOffset = 1;
+    long recoveryTaskEndOffset = 50;
+    String topic = "foo";
+
+    RecoveryService.PartitionOffsets offsets =
+        RecoveryService.validateKafkaOffsets(
+            getAdminClient(kafkaStartOffset, kafkaEndOffset),
+            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            topic);
+
+    assertThat(offsets).isNull();
+  }
+
+  @Test
+  public void testValidateOffsetsWhenRecoveryTaskAfterKafkaRange() {
+    long kafkaStartOffset = 100;
+    long kafkaEndOffset = 900;
+    long recoveryTaskStartOffset = 1000;
+    long recoveryTaskEndOffset = 5000;
+    String topic = "foo";
+
+    RecoveryService.PartitionOffsets offsets =
+        RecoveryService.validateKafkaOffsets(
+            getAdminClient(kafkaStartOffset, kafkaEndOffset),
+            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            topic);
+
+    assertThat(offsets).isNull();
+  }
+
+  @Test
+  public void testValidateOffsetsWhenRecoveryTaskOverlapsWithEndOfKafkaRange() {
+    long kafkaStartOffset = 100;
+    long kafkaEndOffset = 900;
+    long recoveryTaskStartOffset = 800;
+    long recoveryTaskEndOffset = 1000;
+    String topic = "foo";
+
+    RecoveryService.PartitionOffsets offsets =
+        RecoveryService.validateKafkaOffsets(
+            getAdminClient(kafkaStartOffset, kafkaEndOffset),
+            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            topic);
+
+    assertThat(offsets.startOffset).isEqualTo(recoveryTaskStartOffset);
+    assertThat(offsets.endOffset).isEqualTo(kafkaEndOffset);
+  }
+
+  // returns startOffset or endOffset based on the supplied OffsetSpec
+  private static AdminClient getAdminClient(long startOffset, long endOffset) {
+    AdminClient adminClient = mock(AdminClient.class);
+    org.mockito.Mockito.when(adminClient.listOffsets(anyMap()))
+        .thenAnswer(
+            (Answer<ListOffsetsResult>)
+                invocation -> {
+                  Map<TopicPartition, OffsetSpec> input = invocation.getArgument(0);
+                  if (input.size() == 1) {
+                    long value = -1;
+                    OffsetSpec offsetSpec = input.values().stream().findFirst().get();
+                    if (offsetSpec instanceof OffsetSpec.EarliestSpec) {
+                      value = startOffset;
+                    } else if (offsetSpec instanceof OffsetSpec.LatestSpec) {
+                      value = endOffset;
+                    } else {
+                      throw new IllegalArgumentException("Invalid OffsetSpec supplied");
+                    }
+                    return new ListOffsetsResult(
+                        Map.of(
+                            input.keySet().stream().findFirst().get(),
+                            KafkaFuture.completedFuture(
+                                new ListOffsetsResult.ListOffsetsResultInfo(
+                                    value, 0, Optional.of(0)))));
+                  }
+                  return null;
+                });
+
+    return adminClient;
   }
 }
