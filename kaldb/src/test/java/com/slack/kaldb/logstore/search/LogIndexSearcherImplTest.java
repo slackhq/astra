@@ -10,6 +10,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
@@ -39,7 +40,7 @@ public class LogIndexSearcherImplTest {
   public LogIndexSearcherImplTest() throws IOException {}
 
   @BeforeClass
-  public static void beforeClass() throws Exception {
+  public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
@@ -382,11 +383,75 @@ public class LogIndexSearcherImplTest {
         makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time.plusSeconds(4));
     msg1.addProperty("field1", "1234");
     strictLogStore.logStore.addMessage(msg1);
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+    // Search using _all field.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(1);
+    // Default all field search.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(1);
 
     final LogMessage msg2 =
         makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4));
     msg2.addProperty("field2", "1234");
     strictLogStore.logStore.addMessage(msg2);
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+    // Search using _all field.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(1);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+    // Default all field search.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(1);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
 
     final LogMessage msg3 =
         makeMessageWithIndexAndTimestamp(
@@ -394,14 +459,105 @@ public class LogIndexSearcherImplTest {
     strictLogStore.logStore.addMessage(msg3);
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
+    // Search using _all field.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(3);
+    // Default all field search.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(3);
 
-    SearchResult<LogMessage> babyInAll =
-        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1);
-    assertThat(babyInAll.hits.size()).isEqualTo(2);
+    // empty string
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(3);
 
-    SearchResult<LogMessage> numberInAll =
-        strictLogStore.logSearcher.search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1);
-    assertThat(numberInAll.hits.size()).isEqualTo(3);
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "app*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, ".*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "?", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    // Returns baby or car, 2 messages.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby car", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+
+    // Test numbers
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "apple 1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(3);
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "123", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
   }
 
   @Test
@@ -424,15 +580,107 @@ public class LogIndexSearcherImplTest {
     strictLogStoreWithoutFts.logStore.commit();
     strictLogStoreWithoutFts.logStore.refresh();
 
-    SearchResult<LogMessage> babyInAll =
-        strictLogStoreWithoutFts.logSearcher.search(
-            TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1);
-    assertThat(babyInAll.hits.size()).isEqualTo(0);
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
 
-    SearchResult<LogMessage> numberInAll =
-        strictLogStoreWithoutFts.logSearcher.search(
-            TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1);
-    assertThat(numberInAll.hits.size()).isEqualTo(0);
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    // Without the _all field as default.
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    // empty string
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "app*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, ".*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "?", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    // Returns baby or car, 2 messages.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby car", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    // Test numbers
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "apple 1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "123", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
   }
 
   @Test(expected = IllegalArgumentException.class)
