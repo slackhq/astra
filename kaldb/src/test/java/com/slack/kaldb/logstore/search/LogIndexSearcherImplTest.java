@@ -586,7 +586,7 @@ public class LogIndexSearcherImplTest {
                 .search(TEST_DATASET_NAME, "_all:baby", 0, MAX_TIME, 1000, 1)
                 .hits
                 .size())
-        .isEqualTo(0);
+        .isZero();
 
     assertThat(
             strictLogStoreWithoutFts
@@ -594,7 +594,7 @@ public class LogIndexSearcherImplTest {
                 .search(TEST_DATASET_NAME, "_all:1234", 0, MAX_TIME, 1000, 1)
                 .hits
                 .size())
-        .isEqualTo(0);
+        .isZero();
 
     // Without the _all field as default.
     assertThat(
@@ -603,7 +603,7 @@ public class LogIndexSearcherImplTest {
                 .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
                 .hits
                 .size())
-        .isEqualTo(0);
+        .isZero();
 
     assertThat(
             strictLogStoreWithoutFts
@@ -611,7 +611,76 @@ public class LogIndexSearcherImplTest {
                 .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
                 .hits
                 .size())
+        .isZero();
+
+    // empty string
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "app*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, ".*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
         .isEqualTo(0);
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "?", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    // Returns baby or car, 2 messages.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby car", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    // Test numbers
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "apple 1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
+
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "123", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isZero();
   }
 
   @Test(expected = IllegalArgumentException.class)
