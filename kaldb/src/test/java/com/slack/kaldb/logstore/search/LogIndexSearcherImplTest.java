@@ -488,6 +488,51 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isEqualTo(3);
+
+    // empty string
+    assertThat(
+            strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size())
+            .isEqualTo(3);
+
+    // Currently, returns empty since we don't parse wild card queries.
+    // TODO: One we start parsing wild card queries this should return 3.
+    assertThat(
+            strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, ".*", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size())
+            .isEqualTo(0);
+
+    // Returns baby or car, 2 messages.
+    assertThat(
+            strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "baby car", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size())
+            .isEqualTo(2);
+
+    // Test numbers
+    assertThat(
+            strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "apple 1234", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size())
+            .isEqualTo(3);
+
+    assertThat(
+            strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "123", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size())
+            .isEqualTo(0);
   }
 
   @Test
