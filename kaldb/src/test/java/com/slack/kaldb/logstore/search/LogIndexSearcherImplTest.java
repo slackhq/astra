@@ -10,6 +10,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
@@ -498,8 +499,14 @@ public class LogIndexSearcherImplTest {
                 .size())
         .isEqualTo(3);
 
-    // Currently, returns empty since we don't parse wild card queries.
-    // TODO: One we start parsing wild card queries this should return 3.
+    assertThat(
+            strictLogStore
+                .logSearcher
+                .search(TEST_DATASET_NAME, "app*", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(2);
+
     assertThat(
             strictLogStore
                 .logSearcher
@@ -507,6 +514,24 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isEqualTo(0);
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
+
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                strictLogStore
+                    .logSearcher
+                    .search(TEST_DATASET_NAME, "?", 0, MAX_TIME, 1000, 1)
+                    .hits
+                    .size());
 
     // Returns baby or car, 2 messages.
     assertThat(
