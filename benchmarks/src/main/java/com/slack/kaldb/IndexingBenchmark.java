@@ -49,7 +49,7 @@ public class IndexingBenchmark {
             Paths.get("jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            tempDirectory.toFile(), commitInterval, refreshInterval, registry);
+            tempDirectory.toFile(), commitInterval, refreshInterval, true, registry);
 
     String message =
         "{\"ip_address\":\"127.0.0.1\",\"http_method\":\"POST\",\"method\":\"callbacks.test\",\"enterprise\":\"E1234ABCD56\",\"team\":\"T98765XYZ12\",\"user\":\"U000111222A\",\"status\":\"ok\",\"http_params\":\"param1=value1&param2=value2&param3=false\",\"ua\":\"Hello-World-Web\\/vef2bd:1234\",\"unique_id\":\"YBBccDDuu17CxYza6abcDEFzYzz\",\"request_queue_time\":2262,\"microtime_elapsed\":1418,\"mysql_query_count\":0,\"mysql_query_time\":0,\"mysql_conns_count\":0,\"mysql_conns_time\":0,\"mysql_rows_count\":0,\"mysql_rows_affected\":0,\"my_queries_count\":11,\"my_queries_time\":6782,\"frl_time\":0,\"init_time\":1283,\"api_dispatch_time\":0,\"api_output_time\":0,\"api_output_size\":0,\"api_strict\":false,\"decrypt_reqs_time\":0,\"decrypt_reqs_count\":0,\"encrypt_reqs_time\":0,\"encrypt_reqs_count\":0,\"grpc_req_count\":0,\"grpc_req_time\":0,\"service_req_count\":0,\"service_req_time\":0,\"trace\":\"#route_main() -> lib_controller.php:12#Controller::handlePost() -> Controller.php:58#CallbackApiController::handleRequest() -> api.php:100#local_callbacks_api_main_inner() -> api.php:250#api_dispatch() -> lib_api.php:000#api_callbacks_service_verifyToken() -> api__callbacks_service.php:1500#api_output_fb_thrift() -> lib_api_output.php:390#_api_output_log_call()\",\"client_connection_state\":\"unset\",\"ms_requests_count\":0,\"ms_requests_time\":0,\"token_type\":\"cookie\",\"another_param\":\"\",\"another_value\":\"\",\"auth\":true,\"ab_id\":\"1234abc12d:host-abc-dev-region-1234\",\"external_user\":\"W012XYZAB\",\"timestamp\":\"2021-02-05 10:41:52.340\",\"sha\":\"unknown\",\"php_version\":\"5.11.0\",\"paramX\":\"yet.another.value\",\"php_type\":\"api\",\"bucket_type_something\":0,\"cluster_name\":\"cluster\",\"cluster_param\":\"normal\",\"env\":\"env-value\",\"last_param\":\"lastvalue\",\"level\":\"info\"};";
@@ -80,7 +80,7 @@ public class IndexingBenchmark {
 
     logMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
 
-    DocumentBuilder<LogMessage> documentBuilder = LogDocumentBuilderImpl.build(false);
+    DocumentBuilder<LogMessage> documentBuilder = LogDocumentBuilderImpl.build(false, true);
 
     luceneDocument = documentBuilder.fromMessage(logMessage);
   }

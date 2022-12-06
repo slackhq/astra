@@ -23,12 +23,14 @@ public class DatasetMetadataSerializerTest {
 
     final String name = "testDataset";
     final String owner = "testOwner";
+    final String serviceNamePattern = "service1";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list =
         Collections.singletonList(
             new DatasetPartitionMetadata(
                 partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, serviceNamePattern);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -37,6 +39,37 @@ public class DatasetMetadataSerializerTest {
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceNamePattern).isEqualTo(serviceNamePattern);
+    assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
+  }
+
+  @Test
+  public void testDatasetMetadataSerializerWithServiceNames()
+      throws InvalidProtocolBufferException {
+    final Instant partitionStart = Instant.now();
+    final Instant partitionEnd = Instant.now().plus(1, ChronoUnit.DAYS);
+    final String partitionName = "partitionName";
+    final List<String> partitionList = List.of(partitionName);
+
+    final String name = "testDataset";
+    final String owner = "testOwner";
+    final String serviceNamePattern1 = "abc";
+    final long throughput = 2000;
+    final List<DatasetPartitionMetadata> list =
+        Collections.singletonList(
+            new DatasetPartitionMetadata(
+                partitionStart.toEpochMilli(), partitionEnd.toEpochMilli(), partitionList));
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, serviceNamePattern1);
+
+    String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
+    assertThat(serializedDatasetMetadata).isNotEmpty();
+
+    DatasetMetadata deserializedDatasetMetadata = serDe.fromJsonStr(serializedDatasetMetadata);
+    assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
+
+    assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceNamePattern).isEqualTo(serviceNamePattern1);
     assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 
@@ -52,6 +85,7 @@ public class DatasetMetadataSerializerTest {
 
     final String name = "testDataset";
     final String owner = "testOwner";
+    final String serviceNamePattern = "serviceName";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list =
         List.of(
@@ -59,7 +93,8 @@ public class DatasetMetadataSerializerTest {
                 partitionStart1.toEpochMilli(), partitionEnd1.toEpochMilli(), partitionList),
             new DatasetPartitionMetadata(
                 partitionStart2.toEpochMilli(), partitionEnd2.toEpochMilli(), partitionList));
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, serviceNamePattern);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -68,6 +103,7 @@ public class DatasetMetadataSerializerTest {
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceNamePattern).isEqualTo(serviceNamePattern);
     assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 
@@ -75,9 +111,11 @@ public class DatasetMetadataSerializerTest {
   public void testDatasetMetadataSerializerEmptyList() throws InvalidProtocolBufferException {
     final String name = "testDataset";
     final String owner = "testOwner";
+    final String serviceNamePattern = "serviceName";
     final long throughput = 2000;
     final List<DatasetPartitionMetadata> list = Collections.emptyList();
-    final DatasetMetadata datasetMetadata = new DatasetMetadata(name, owner, throughput, list);
+    final DatasetMetadata datasetMetadata =
+        new DatasetMetadata(name, owner, throughput, list, serviceNamePattern);
 
     String serializedDatasetMetadata = serDe.toJsonStr(datasetMetadata);
     assertThat(serializedDatasetMetadata).isNotEmpty();
@@ -86,6 +124,7 @@ public class DatasetMetadataSerializerTest {
     assertThat(deserializedDatasetMetadata).isEqualTo(datasetMetadata);
 
     assertThat(deserializedDatasetMetadata.name).isEqualTo(name);
+    assertThat(deserializedDatasetMetadata.serviceNamePattern).isEqualTo(serviceNamePattern);
     assertThat(deserializedDatasetMetadata.partitionConfigs).isEqualTo(list);
   }
 

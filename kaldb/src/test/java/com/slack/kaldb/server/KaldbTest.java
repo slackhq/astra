@@ -123,7 +123,12 @@ public class KaldbTest {
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(MessageUtil.TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs);
+        new DatasetMetadata(
+            MessageUtil.TEST_DATASET_NAME,
+            "serviceOwner",
+            1000,
+            partitionConfigs,
+            MessageUtil.TEST_DATASET_NAME);
     datasetMetadataStore.createSync(datasetMetadata);
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
   }

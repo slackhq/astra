@@ -1,10 +1,11 @@
 package com.slack.kaldb.preprocessor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
+import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
 import com.google.common.util.concurrent.AbstractService;
-import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -14,8 +15,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
@@ -193,20 +194,10 @@ public class PreprocessorService extends AbstractService {
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
 
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        streamPartitioner(
-            datasetMetadataList
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, PreprocessorService::getActivePartitionList)));
+        streamPartitioner(datasetMetadataList);
 
     Predicate<String, Trace.Span> rateLimitPredicate =
-        rateLimiter.createRateLimiter(
-            datasetMetadataList
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        KaldbMetadata::getName, DatasetMetadata::getThroughputBytes)));
+        rateLimiter.createRateLimiter(datasetMetadataList);
 
     upstreamTopics.forEach(
         (upstreamTopic ->
@@ -261,32 +252,52 @@ public class PreprocessorService extends AbstractService {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  // we sort the datasets to rank from which dataset do we start matching candidate service names
+  // in the future we can change the ordering from sort to something else
+  public static List<DatasetMetadata> sortDatasetsOnThroughput(
+      List<DatasetMetadata> datasetMetadataList) {
+    return datasetMetadataList
+        .stream()
+        .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
+        .collect(Collectors.toList());
+  }
+
   /**
    * Returns a StreamPartitioner that selects from the provided list of dataset metadata. If no
    * valid dataset metadata are provided throws an exception.
    */
   protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      Map<String, List<Integer>> datasetToPartitionList) {
-    checkArgument(
-        datasetToPartitionList.entrySet().size() > 0, "datasetToPartitionList cannot be empty");
-    checkArgument(
-        datasetToPartitionList.keySet().stream().noneMatch(String::isEmpty),
-        "datasetToPartitionList cannot have any empty keys");
-    checkArgument(
-        datasetToPartitionList.values().stream().noneMatch(List::isEmpty),
-        "datasetToPartitionList cannot have any empty partition lists");
+      List<DatasetMetadata> datasetMetadataList) {
+
+    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
 
     return (topic, key, value, partitionCount) -> {
-      String datasetName = PreprocessorValueMapper.getDatasetName(value);
-      if (!datasetToPartitionList.containsKey(datasetName)) {
-        // this shouldn't happen, as we should have filtered all the missing datasets in the value
-        // mapper stage
+      String serviceName = PreprocessorValueMapper.getServiceName(value);
+      if (serviceName == null) {
+        // this also should not happen since we drop messages with empty service names in the rate
+        // limiter
         throw new IllegalStateException(
-            String.format("Dataset '%s' was not found in dataset metadata", datasetName));
+            String.format("Service name not found within the message '%s'", value));
       }
 
-      List<Integer> partitions = datasetToPartitionList.getOrDefault(datasetName, List.of());
-      return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
+        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
+        // back-compat since this is a new field
+        if (serviceNamePattern == null) {
+          serviceNamePattern = datasetMetadata.getName();
+        }
+
+        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
+            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
+            || serviceName.equals(serviceNamePattern)) {
+          List<Integer> partitions = PreprocessorService.getActivePartitionList(datasetMetadata);
+          return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+        }
+      }
+      // this shouldn't happen, as we should have filtered all the missing datasets in the value
+      // mapper stage
+      throw new IllegalStateException(
+          String.format("Service name  '%s' was not found in dataset metadata", serviceName));
     };
   }
 

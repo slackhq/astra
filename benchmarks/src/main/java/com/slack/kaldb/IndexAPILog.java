@@ -51,7 +51,7 @@ public class IndexAPILog {
             Paths.get("jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            tempDirectory.toFile(), commitInterval, refreshInterval, registry);
+            tempDirectory.toFile(), commitInterval, refreshInterval, true, registry);
 
     apiLogFile = System.getProperty("jmh.api.log.file", "api_logs.txt");
     reader = Files.newBufferedReader(Path.of(apiLogFile));

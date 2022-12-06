@@ -204,14 +204,14 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
             @Override
             public void onSuccess(Boolean success) {
               if (success == null || !success) {
-                LOG.warn("Roll over failed");
+                LOG.error("RollOverChunkTask success=false for chunk={}", currentChunk.info());
                 stopIngestion = true;
               }
             }
 
             @Override
             public void onFailure(Throwable t) {
-              LOG.warn("Roll over failed with an exception", t);
+              LOG.error("Roll over failed with an exception for chunk={}", currentChunk.info(), t);
               stopIngestion = true;
             }
           },

@@ -21,7 +21,8 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         datasetMetadataProto.getName(),
         datasetMetadataProto.getOwner(),
         datasetMetadataProto.getThroughputBytes(),
-        datasetPartitionMetadata);
+        datasetPartitionMetadata,
+        datasetMetadataProto.getServiceNamePattern());
   }
 
   public static Metadata.DatasetMetadata toDatasetMetadataProto(DatasetMetadata metadata) {
@@ -37,6 +38,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
         .setOwner(metadata.owner)
         .setThroughputBytes(metadata.throughputBytes)
         .addAllPartitionConfigs(datasetPartitionMetadata)
+        .setServiceNamePattern(metadata.serviceNamePattern)
         .build();
   }
 

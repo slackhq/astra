@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -65,6 +66,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         dataDirectory,
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
+        luceneConfig.getEnableFullTextSearch(),
         metricsRegistry);
   }
 
@@ -72,6 +74,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       File dataDirectory,
       Duration commitInterval,
       Duration refreshInterval,
+      boolean enableFullTextSearch,
       MeterRegistry metricsRegistry)
       throws IOException {
     // TODO: Move all these config values into chunk?
@@ -82,7 +85,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
     // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false), metricsRegistry);
+        indexStoreCfg, LogDocumentBuilderImpl.build(false, enableFullTextSearch), metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(
@@ -201,9 +204,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       LOG.error(String.format("Indexing message %s failed with error:", message), e);
       messagesFailedCounter.increment();
     } catch (IOException e) {
-      // TODO: For now crash the program on IOException since it is likely a serious issue.
-      // In future may need to handle this case more gracefully.
-      e.printStackTrace();
+      // TODO: In future may need to handle this case more gracefully.
+      LOG.error("failed to add document", e);
+      new RuntimeHalterImpl().handleFatal(e);
     }
   }
 

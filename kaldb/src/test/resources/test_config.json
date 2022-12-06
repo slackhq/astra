@@ -32,7 +32,8 @@
     "maxBytesPerChunk": 100000,
     "luceneConfig" : {
       "commitDurationSecs": 10,
-      "refreshDurationSecs": 11
+      "refreshDurationSecs": 11,
+      "enableFullTextSearch": true
     },
     "staleDurationSecs": 7200,
     "dataTransformer": "api_log",

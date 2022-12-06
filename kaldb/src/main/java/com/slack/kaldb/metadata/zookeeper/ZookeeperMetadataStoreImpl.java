@@ -171,7 +171,11 @@ public class ZookeeperMetadataStoreImpl implements MetadataStore {
 
   private ExecutorService buildRunSafeService() {
     return Executors.newSingleThreadExecutor(
-        new ThreadFactoryBuilder().setNameFormat("zk-metadata-runsafe-%d").build());
+        new ThreadFactoryBuilder()
+            .setUncaughtExceptionHandler(
+                (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+            .setNameFormat("zk-metadata-runsafe-%d")
+            .build());
   }
 
   public void close() {

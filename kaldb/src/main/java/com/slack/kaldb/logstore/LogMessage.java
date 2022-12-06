@@ -32,7 +32,8 @@ public class LogMessage extends LogWireMessage {
     ID("id"),
     INDEX("index"),
     TIME_SINCE_EPOCH("_timesinceepoch"),
-    TYPE("type");
+    TYPE("type"),
+    ALL("_all");
 
     public final String fieldName;
 
@@ -138,7 +139,8 @@ public class LogMessage extends LogWireMessage {
     if (s != null) {
       return getTime(s);
     }
-    throw raiseException(null);
+    throw raiseException(
+        new Throwable("Parse failure for message id=" + id + " with timestamp=" + s));
   }
 
   public Map<String, Object> getSource() {

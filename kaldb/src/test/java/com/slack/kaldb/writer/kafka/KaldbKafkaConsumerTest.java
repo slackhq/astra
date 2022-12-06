@@ -65,7 +65,7 @@ public class KaldbKafkaConsumerTest {
 
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
-              chunkManagerUtil.chunkManager, INDEXER_DATA_TRANSFORMER_MAP.get("trace_span"));
+              chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
       testConsumer =
           new KaldbKafkaConsumer(
               TestKafkaServer.TEST_KAFKA_TOPIC,
@@ -158,6 +158,27 @@ public class KaldbKafkaConsumerTest {
     }
     // TODO: Test batch ingestion with roll over. Not adding a test, since this functionality is
     // not needed by the recovery indexer yet.
+
+    @Test
+    public void testBlockingQueueDoesNotThrowException() {
+      KaldbKafkaConsumer.BlockingArrayBlockingQueue<Object> q =
+          new KaldbKafkaConsumer.BlockingArrayBlockingQueue<>(1);
+      assertThat(q.offer(new Object())).isTrue();
+
+      Thread t =
+          new Thread(
+              () -> {
+                try {
+                  Thread.sleep(1000);
+                  q.take();
+                } catch (InterruptedException e) {
+                  // do nothing
+                }
+              });
+      t.start();
+
+      assertThat(q.offer(new Object())).isTrue();
+    }
   }
 
   public static class TimeoutTests {

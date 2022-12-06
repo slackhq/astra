@@ -48,15 +48,20 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
-  public TemporaryLogStoreAndSearcherRule(boolean ignorePropertyExceptions) throws IOException {
+  public TemporaryLogStoreAndSearcherRule(
+      boolean ignorePropertyExceptions, boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
-        ignorePropertyExceptions);
+        ignorePropertyExceptions,
+        enableFullTextSearch);
   }
 
   public TemporaryLogStoreAndSearcherRule(
-      Duration commitInterval, Duration refreshInterval, boolean ignorePropertyTypeExceptions)
+      Duration commitInterval,
+      Duration refreshInterval,
+      boolean ignorePropertyTypeExceptions,
+      boolean enableFullTextSearch)
       throws IOException {
     this.metricsRegistry = new SimpleMeterRegistry();
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -65,7 +70,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
-            LogDocumentBuilderImpl.build(ignorePropertyTypeExceptions),
+            LogDocumentBuilderImpl.build(ignorePropertyTypeExceptions, enableFullTextSearch),
             metricsRegistry);
     logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
   }

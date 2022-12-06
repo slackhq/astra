@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Test;
 
 public class DatasetMetadataTest {
@@ -25,7 +26,7 @@ public class DatasetMetadataTest {
             List.of("partition"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(name, owner, throughputBytes, partitionConfigs);
+        new DatasetMetadata(name, owner, throughputBytes, partitionConfigs, name);
 
     assertThat(datasetMetadata.name).isEqualTo(name);
     assertThat(datasetMetadata.owner).isEqualTo(owner);
@@ -36,9 +37,10 @@ public class DatasetMetadataTest {
   @Test
   public void testInvalidServiceMetadataNames() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata("&", "owner", 0, null));
+        .isThrownBy(() -> new DatasetMetadata("&", "owner", 0, null, "&"));
+
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata("test%", "owner", 0, null));
+        .isThrownBy(() -> new DatasetMetadata("test%", "owner", 0, null, "test%"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -49,7 +51,20 @@ public class DatasetMetadataTest {
                         + "FY9LMMsA2aPtQ7Q8g4eZzm6Kv51r0x26pFQhxfHCwUZqa",
                     "owner",
                     0,
-                    null));
+                    null,
+                    "jZOGhT2v86abA0h6yX6DUeKOkKE06nR0TlExO0bp7HBv"));
+
+    final DatasetPartitionMetadata partition =
+        new DatasetPartitionMetadata(
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(90).toEpochMilli(),
+            List.of("partition"));
+    final List<DatasetPartitionMetadata> partitionConfigs1 = Collections.singletonList(partition);
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                new DatasetMetadata(
+                    "name", "owner", 1, partitionConfigs1, RandomStringUtils.random(257)));
   }
 
   @Test
@@ -65,7 +80,7 @@ public class DatasetMetadataTest {
             List.of("partition"));
     final List<DatasetPartitionMetadata> partitionConfigs1 = Collections.singletonList(partition);
     DatasetMetadata datasetMetadata =
-        new DatasetMetadata(name, owner, throughputBytes, partitionConfigs1);
+        new DatasetMetadata(name, owner, throughputBytes, partitionConfigs1, name);
 
     assertThat(datasetMetadata.name).isEqualTo(name);
     assertThat(datasetMetadata.owner).isEqualTo(owner);
@@ -95,15 +110,15 @@ public class DatasetMetadataTest {
     final List<DatasetPartitionMetadata> partitionConfig = Collections.singletonList(partition);
 
     DatasetMetadata datasetMetadata1 =
-        new DatasetMetadata(name, owner, throughputBytes, partitionConfig);
+        new DatasetMetadata(name, owner, throughputBytes, partitionConfig, name);
     DatasetMetadata datasetMetadata2 =
-        new DatasetMetadata(name + "2", owner, throughputBytes, partitionConfig);
+        new DatasetMetadata(name + "2", owner, throughputBytes, partitionConfig, name + "2");
     DatasetMetadata datasetMetadata3 =
-        new DatasetMetadata(name, owner + "3", throughputBytes, partitionConfig);
+        new DatasetMetadata(name, owner + "3", throughputBytes, partitionConfig, name);
     DatasetMetadata datasetMetadata4 =
-        new DatasetMetadata(name, owner, throughputBytes + 4, partitionConfig);
+        new DatasetMetadata(name, owner, throughputBytes + 4, partitionConfig, name);
     DatasetMetadata datasetMetadata5 =
-        new DatasetMetadata(name, owner, throughputBytes, Collections.emptyList());
+        new DatasetMetadata(name, owner, throughputBytes, Collections.emptyList(), name);
 
     assertThat(datasetMetadata1).isEqualTo(datasetMetadata1);
     assertThat(datasetMetadata1).isNotEqualTo(datasetMetadata2);
@@ -140,17 +155,17 @@ public class DatasetMetadataTest {
     final List<DatasetPartitionMetadata> partitionConfig = Collections.singletonList(partition);
 
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata("", owner, throughputBytes, partitionConfig));
+        .isThrownBy(() -> new DatasetMetadata("", owner, throughputBytes, partitionConfig, ""));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata(null, owner, throughputBytes, partitionConfig));
+        .isThrownBy(() -> new DatasetMetadata(null, owner, throughputBytes, partitionConfig, null));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata(name, "", throughputBytes, partitionConfig));
+        .isThrownBy(() -> new DatasetMetadata(name, "", throughputBytes, partitionConfig, name));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata(name, null, throughputBytes, partitionConfig));
+        .isThrownBy(() -> new DatasetMetadata(name, null, throughputBytes, partitionConfig, name));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata(name, owner, -1, partitionConfig));
+        .isThrownBy(() -> new DatasetMetadata(name, owner, -1, partitionConfig, name));
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> new DatasetMetadata(name, owner, throughputBytes, null));
+        .isThrownBy(() -> new DatasetMetadata(name, owner, throughputBytes, null, name));
   }
 
   @Test
@@ -170,7 +185,8 @@ public class DatasetMetadataTest {
                     throughputBytes,
                     List.of(
                         new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(0, 3000, partitionlist))));
+                        new DatasetPartitionMetadata(0, 3000, partitionlist)),
+                    name));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
@@ -181,7 +197,8 @@ public class DatasetMetadataTest {
                     throughputBytes,
                     List.of(
                         new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(2000, 3000, partitionlist))));
+                        new DatasetPartitionMetadata(2000, 3000, partitionlist)),
+                    name));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
@@ -192,7 +209,8 @@ public class DatasetMetadataTest {
                     throughputBytes,
                     List.of(
                         new DatasetPartitionMetadata(0, 3000, partitionlist),
-                        new DatasetPartitionMetadata(0, 2000, partitionlist))));
+                        new DatasetPartitionMetadata(0, 2000, partitionlist)),
+                    name));
 
     assertThatIllegalArgumentException()
         .isThrownBy(
@@ -203,6 +221,7 @@ public class DatasetMetadataTest {
                     throughputBytes,
                     List.of(
                         new DatasetPartitionMetadata(0, 2000, partitionlist),
-                        new DatasetPartitionMetadata(1800, 3000, partitionlist))));
+                        new DatasetPartitionMetadata(1800, 3000, partitionlist)),
+                    name));
   }
 }

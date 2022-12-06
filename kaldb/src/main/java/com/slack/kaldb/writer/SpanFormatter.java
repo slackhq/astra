@@ -47,6 +47,10 @@ public class SpanFormatter {
     jsonMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, span.getDuration());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
+    if (span.getTimestamp() <= 0) {
+      throw new IllegalStateException(
+          "span id=" + id + " has incorrect timestamp=" + span.getTimestamp());
+    }
     Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / (1000));
     jsonMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp.toString());
 

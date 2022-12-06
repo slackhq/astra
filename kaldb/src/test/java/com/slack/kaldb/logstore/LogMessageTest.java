@@ -9,14 +9,16 @@ public class LogMessageTest {
 
   @Test
   public void testSystemField() {
-    assertThat(LogMessage.SystemField.values().length).isEqualTo(5);
-    assertThat(SystemField.systemFieldNames.size()).isEqualTo(5);
+    assertThat(LogMessage.SystemField.values().length).isEqualTo(6);
+    assertThat(SystemField.systemFieldNames.size()).isEqualTo(6);
     assertThat(LogMessage.SystemField.isSystemField("_source")).isTrue();
 
     assertThat(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName).isEqualTo("_timesinceepoch");
+    assertThat(SystemField.ALL.fieldName).isEqualTo("_all");
     for (LogMessage.SystemField f : LogMessage.SystemField.values()) {
       if (!(f.equals(LogMessage.SystemField.SOURCE)
-          || f.equals(LogMessage.SystemField.TIME_SINCE_EPOCH))) {
+          || f.equals(LogMessage.SystemField.TIME_SINCE_EPOCH)
+          || f.equals(LogMessage.SystemField.ALL))) {
         assertThat(f.fieldName).isEqualTo(f.name().toLowerCase());
       }
     }

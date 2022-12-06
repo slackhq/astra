@@ -82,12 +82,16 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
-  public static DocumentBuilder<LogMessage> build(boolean ignoreExceptions) {
+  public static DocumentBuilder<LogMessage> build(
+      boolean ignoreExceptions, boolean enableFullTextSearch) {
     ImmutableMap.Builder<String, PropertyDescription> propertyDescriptionBuilder =
         ImmutableMap.builder();
     propertyDescriptionBuilder.put(
         LogMessage.SystemField.SOURCE.fieldName,
         new PropertyDescription(PropertyType.TEXT, true, false, false));
+    propertyDescriptionBuilder.put(
+        LogMessage.SystemField.ALL.fieldName,
+        new PropertyDescription(PropertyType.TEXT, false, true, true));
     propertyDescriptionBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new PropertyDescription(PropertyType.TEXT, false, true, true));
@@ -141,20 +145,30 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     PropertyDescription defaultDescription =
         new PropertyDescription(PropertyType.ANY, false, true, true);
     return new LogDocumentBuilderImpl(
-        ignoreExceptions, propertyDescriptionBuilder.build(), defaultDescription);
+        ignoreExceptions,
+        propertyDescriptionBuilder.build(),
+        defaultDescription,
+        enableFullTextSearch);
   }
 
   private final boolean ignorePropertyTypeExceptions;
+  private final boolean enableFullTextSearch;
   private final PropertyDescription defaultDescription;
   private final Map<String, PropertyDescription> propertyDescriptions;
 
   public LogDocumentBuilderImpl(
       boolean ignorePropertyTypeExceptions,
       Map<String, PropertyDescription> propertyDescriptions,
-      PropertyDescription defaultDescription) {
+      PropertyDescription defaultDescription,
+      boolean enableFullTextSearch) {
     this.ignorePropertyTypeExceptions = ignorePropertyTypeExceptions;
     this.propertyDescriptions = propertyDescriptions;
     this.defaultDescription = defaultDescription;
+    this.enableFullTextSearch = enableFullTextSearch;
+    LOG.info(
+        "Started document builder with config ignoreExceptions: {} and enableFullTextSearch: {}",
+        ignorePropertyTypeExceptions,
+        enableFullTextSearch);
   }
 
   private PropertyDescription getDescription(String propertyName) {
@@ -180,7 +194,6 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void addProperty(Document doc, String name, Object value) {
     PropertyDescription desc = getDescription(name);
 
@@ -363,10 +376,11 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli);
     addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType());
     addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
-    addProperty(
-        doc,
-        LogMessage.SystemField.SOURCE.fieldName,
-        JsonUtil.writeAsString(message.toWireMessage()));
+    final String msgString = JsonUtil.writeAsString(message.toWireMessage());
+    addProperty(doc, LogMessage.SystemField.SOURCE.fieldName, msgString);
+    if (enableFullTextSearch) {
+      addProperty(doc, LogMessage.SystemField.ALL.fieldName, msgString);
+    }
     for (String key : message.source.keySet()) {
       addPropertyHandleExceptions(doc, key, message.source.get(key));
     }

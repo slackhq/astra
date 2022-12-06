@@ -19,7 +19,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -52,7 +51,9 @@ public class PreprocessorServiceUnitTest {
     assertThat(properties.size()).isEqualTo(7);
 
     assertThat(properties.get(StreamsConfig.APPLICATION_ID_CONFIG)).isEqualTo(applicationId);
+
     assertThat(properties.get(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG)).isEqualTo(bootstrapServers);
+
     assertThat(properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG)).isEqualTo(numStreamThreads);
     assertThat(properties.get(StreamsConfig.PROCESSING_GUARANTEE_CONFIG))
         .isEqualTo(processingGuarantee);
@@ -118,12 +119,111 @@ public class PreprocessorServiceUnitTest {
   }
 
   @Test
+  public void shouldCorrectlyThroughputSortDatasets() {
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(
+            "service1",
+            "service1",
+            1,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            "no_service_matching_docs");
+    DatasetMetadata datasetMetadata2 =
+        new DatasetMetadata(
+            "service2",
+            "service2",
+            3,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            DatasetMetadata.MATCH_ALL_SERVICE);
+    DatasetMetadata datasetMetadata3 =
+        new DatasetMetadata(
+            "service3",
+            "service3",
+            2,
+            List.of(new DatasetPartitionMetadata(100, 200, List.of("0"))),
+            DatasetMetadata.MATCH_ALL_SERVICE);
+
+    List<DatasetMetadata> throughputSortedDatasets =
+        PreprocessorService.sortDatasetsOnThroughput(
+            List.of(datasetMetadata1, datasetMetadata2, datasetMetadata3));
+    assertThat(throughputSortedDatasets.size()).isEqualTo(3);
+    assertThat(throughputSortedDatasets.get(0).getName()).isEqualTo("service2");
+    assertThat(throughputSortedDatasets.get(1).getName()).isEqualTo("service3");
+    assertThat(throughputSortedDatasets.get(2).getName()).isEqualTo("service1");
+  }
+
+  @Test
+  public void testValidDatasetMetadataMappingAndStreamPartition() {
+    String datasetName1 = "datasetName1";
+    List<Integer> partitionList1 = List.of(33, 44, 55);
+    DatasetMetadata datasetMetadata1 =
+        new DatasetMetadata(
+            datasetName1,
+            datasetName1,
+            1,
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("33", "44", "55"))),
+            datasetName1);
+
+    String datasetName2 = "datasetName2";
+    List<Integer> partitionList2 = List.of(1, 2, 3);
+    DatasetMetadata datasetMetadata2 =
+        new DatasetMetadata(
+            datasetName2,
+            datasetName2,
+            1,
+            List.of(new DatasetPartitionMetadata(500, Long.MAX_VALUE, List.of("1", "2", "3"))),
+            datasetName2);
+
+    StreamPartitioner<String, Trace.Span> streamPartitioner =
+        PreprocessorService.streamPartitioner(List.of(datasetMetadata1, datasetMetadata2));
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName1).build())
+            .build();
+
+    // all arguments except value are currently unused for determining the partition to assign, as
+    // this comes the internal partition list that is set on stream partitioner initialization
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", null, span, 0)))
+        .isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", null, span, 1)))
+        .isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("topic", "", span, 0))).isTrue();
+    assertThat(partitionList1.contains(streamPartitioner.partition("", null, span, 0))).isTrue();
+
+    StreamPartitioner<String, Trace.Span> streamPartitioner2 =
+        PreprocessorService.streamPartitioner(List.of(datasetMetadata1, datasetMetadata2));
+
+    Trace.Span span2 =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName2).build())
+            .build();
+
+    // all arguments except value are currently unused for determining the partition to assign, as
+    // this comes the internal partition list that is set on stream partitioner initialization
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", null, span2, 0)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", null, span2, 1)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("topic", "", span2, 0)))
+        .isTrue();
+    assertThat(partitionList2.contains(streamPartitioner2.partition("", null, span2, 0))).isTrue();
+  }
+
+  @Test
   public void shouldReturnRandomPartitionFromStreamPartitioner() {
     String datasetName = "datasetName";
     List<Integer> partitionList = List.of(33, 44, 55);
-    Map<String, List<Integer>> datasetNameToPartitions = Map.of(datasetName, partitionList);
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            datasetName,
+            datasetName,
+            1,
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("33", "44", "55"))),
+            datasetName);
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        PreprocessorService.streamPartitioner(datasetNameToPartitions);
+        PreprocessorService.streamPartitioner(List.of(datasetMetadata));
 
     Trace.Span span =
         Trace.Span.newBuilder()
@@ -142,43 +242,42 @@ public class PreprocessorServiceUnitTest {
   }
 
   @Test
-  public void shouldPreventInvalidStreamPartitionConfigurations() {
-    assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of()));
-    assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of("", List.of(1))));
-    assertThatIllegalArgumentException()
-        .isThrownBy(() -> PreprocessorService.streamPartitioner(Map.of("service", List.of())));
-  }
-
-  @Test
   public void shouldFilterInvalidConfigurationsFromServiceMetadata() {
     DatasetMetadata validDatasetMetadata =
         new DatasetMetadata(
             "valid",
             "owner1",
             1000,
-            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1"))));
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1"))),
+            "valid");
 
     List<DatasetMetadata> datasetMetadataList =
         List.of(
-            new DatasetMetadata("invalidServicePartitionList", "owner1", 1000, List.of()),
+            new DatasetMetadata(
+                "invalidServicePartitionList",
+                "owner1",
+                1000,
+                List.of(),
+                "invalidServicePartitionList"),
             new DatasetMetadata(
                 "invalidThroughputBytes",
                 "owner1",
                 0,
-                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1")))),
+                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1"))),
+                "invalidThroughputBytes"),
             new DatasetMetadata(
                 "invalidActivePartitions",
                 "owner1",
                 1000,
-                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of()))),
+                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of())),
+                "invalidActivePartitions"),
             new DatasetMetadata(
                 "invalidNoActivePartitions",
                 "owner1",
                 1000,
                 List.of(
-                    new DatasetPartitionMetadata(1, Instant.now().toEpochMilli(), List.of("1")))),
+                    new DatasetPartitionMetadata(1, Instant.now().toEpochMilli(), List.of("1"))),
+                "invalidNoActivePartitions"),
             validDatasetMetadata);
 
     List<DatasetMetadata> datasetMetadata1 =
@@ -203,21 +302,23 @@ public class PreprocessorServiceUnitTest {
   @Test
   public void shouldGetActivePartitionsFromServiceMetadata() {
     DatasetMetadata datasetMetadataEmptyPartitions =
-        new DatasetMetadata("empty", "owner1", 1000, List.of());
+        new DatasetMetadata("empty", "owner1", 1000, List.of(), "empty");
     DatasetMetadata datasetMetadataNoActivePartitions =
         new DatasetMetadata(
             "empty",
             "owner1",
             1000,
             List.of(
-                new DatasetPartitionMetadata(1, Instant.now().toEpochMilli(), List.of("1", "2"))));
+                new DatasetPartitionMetadata(1, Instant.now().toEpochMilli(), List.of("1", "2"))),
+            "empty");
 
     DatasetMetadata datasetMetadataNoPartitions =
         new DatasetMetadata(
             "empty",
             "owner1",
             1000,
-            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of())));
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of())),
+            "empty");
 
     DatasetMetadata datasetMetadataMultiplePartitions =
         new DatasetMetadata(
@@ -226,7 +327,8 @@ public class PreprocessorServiceUnitTest {
             1000,
             List.of(
                 new DatasetPartitionMetadata(1, 10000, List.of("3", "4")),
-                new DatasetPartitionMetadata(10001, Long.MAX_VALUE, List.of("5", "6"))));
+                new DatasetPartitionMetadata(10001, Long.MAX_VALUE, List.of("5", "6"))),
+            "empty");
 
     assertThat(PreprocessorService.getActivePartitionList(datasetMetadataEmptyPartitions))
         .isEqualTo(List.of());
@@ -246,12 +348,14 @@ public class PreprocessorServiceUnitTest {
                 "dataset1",
                 "owner1",
                 1000,
-                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2")))),
+                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
+                "dataset1"),
             new DatasetMetadata(
                 "dataset2",
                 "owner1",
                 1000,
-                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2")))));
+                List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
+                "dataset2"));
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;
@@ -280,7 +384,8 @@ public class PreprocessorServiceUnitTest {
             "dataset1",
             "owner1",
             1000,
-            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))));
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1", "2"))),
+            "dataset1");
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     int preprocessorCount = 1;

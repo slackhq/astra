@@ -19,6 +19,7 @@ import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -76,6 +77,9 @@ public class KaldbKafkaConsumer {
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
     // TODO: Does the session timeout matter in assign?
     props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+    // we rely on the fail-fast behavior of 'auto.offset.reset = none' to handle scenarios
+    // with recovery tasks where the offsets are no longer available in Kafka
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
     return props;
   }
 
@@ -132,12 +136,9 @@ public class KaldbKafkaConsumer {
         kafkaAutoCommitInterval,
         kafkaSessionTimeout);
 
-    int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
-    topicPartition = new TopicPartition(kafkaTopic, kafkaTopicPartition);
-
+    topicPartition = getTopicPartition(kafkaTopic, kafkaTopicPartitionStr);
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
-
     this.logMessageWriterImpl = logMessageWriterImpl;
 
     // Create kafka consumer
@@ -150,6 +151,11 @@ public class KaldbKafkaConsumer {
             kafkaSessionTimeout);
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
     new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
+  }
+
+  public static TopicPartition getTopicPartition(String kafkaTopic, String kafkaTopicPartitionStr) {
+    int kafkaTopicPartition = parseInt(kafkaTopicPartitionStr);
+    return new TopicPartition(kafkaTopic, kafkaTopicPartition);
   }
 
   /** Start consuming the partition from an offset. */
@@ -222,7 +228,7 @@ public class KaldbKafkaConsumer {
    * case, in this specific case, the blocking call acts as a back pressure mechanism pausing the
    * kafka message consumption from the broker.
    */
-  private static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
+  static class BlockingArrayBlockingQueue<E> extends ArrayBlockingQueue<E> {
     public BlockingArrayBlockingQueue(int capacity) {
       super(capacity);
     }
@@ -271,48 +277,52 @@ public class KaldbKafkaConsumer {
 
     final long messagesToIndex = endOffsetInclusive - startOffsetInclusive;
     long messagesIndexed = 0;
+    final AtomicLong messagesOutsideOffsetRange = new AtomicLong(0);
     while (messagesIndexed <= messagesToIndex) {
       ConsumerRecords<String, byte[]> records =
           kafkaConsumer.poll(Duration.ofMillis(kafkaPollTimeoutMs));
       int recordCount = records.count();
-      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition.partition());
+      LOG.debug("Fetched records={} from partition:{}", recordCount, topicPartition);
       if (recordCount > 0) {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              LOG.info("Ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
               for (ConsumerRecord<String, byte[]> record : records) {
                 if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is before start offset range: " + startOffsetInclusive);
-                }
-                if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  throw new IllegalArgumentException(
-                      "Record is after end offset range: " + endOffsetInclusive);
-                }
-                try {
-                  if (logMessageWriterImpl.insertRecord(record)) {
-                    recordsReceivedCounter.increment();
-                  } else {
-                    recordsFailedCounter.increment();
+                  messagesOutsideOffsetRange.incrementAndGet();
+                  recordsFailedCounter.increment();
+                } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                  messagesOutsideOffsetRange.incrementAndGet();
+                  recordsFailedCounter.increment();
+                } else {
+                  try {
+                    if (logMessageWriterImpl.insertRecord(record)) {
+                      recordsReceivedCounter.increment();
+                    } else {
+                      recordsFailedCounter.increment();
+                    }
+                  } catch (IOException e) {
+                    LOG.error(
+                        "Encountered exception processing batch [{}/{}]: {}",
+                        topicPartition,
+                        recordCount,
+                        e);
                   }
-                } catch (IOException e) {
-                  LOG.error(
-                      "Encountered exception processing batch [{}/{}]: {}",
-                      topicPartition.partition(),
-                      recordCount,
-                      e);
                 }
               }
-              // TODO: Not all threads are printing this message.
-              LOG.info(
-                  "Finished ingesting batch: [{}/{}]", topicPartition.partition(), recordCount);
+              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
       } else {
         // temporary diagnostic logging
-        LOG.debug("Encountered zero-record batch from partition {}", topicPartition.partition());
+        LOG.debug("Encountered zero-record batch from partition {}", topicPartition);
       }
+    }
+    if (messagesOutsideOffsetRange.get() > 0) {
+      LOG.info(
+          "Messages permanently dropped because they were outside the expected offset ranges for the recovery task: {}",
+          messagesOutsideOffsetRange.get());
     }
     executor.shutdown();
     LOG.info("Shut down");
