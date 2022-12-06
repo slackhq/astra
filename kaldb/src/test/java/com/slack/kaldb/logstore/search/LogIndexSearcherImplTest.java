@@ -525,6 +525,23 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isEqualTo(0);
+
+    // Without the _all field as default.
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "baby", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
+
+    assertThat(
+            strictLogStoreWithoutFts
+                .logSearcher
+                .search(TEST_DATASET_NAME, "1234", 0, MAX_TIME, 1000, 1)
+                .hits
+                .size())
+        .isEqualTo(0);
   }
 
   @Test(expected = IllegalArgumentException.class)
