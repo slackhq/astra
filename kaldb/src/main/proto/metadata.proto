@@ -160,11 +160,11 @@ message LuceneFieldDef {
   string type = 2;
 
   // Store the value as a Lucene StoredField.
-  bool isStored = 3;
+  bool is_stored = 3;
   // Index the field in Lucene based on it's type for efficient point queries.
-  bool isIndexed = 4;
+  bool is_indexed = 4;
   // Store doc values for a field so it's more efficient for aggregations.
-  bool storeDocValue = 5;
+  bool store_docvalue = 5;
 }
 
 // This proto documents the schema for a chunk.

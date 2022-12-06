@@ -38,9 +38,6 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
 
-  // TODO: Find when add text field was indexed as string.
-  // TODO: Deal with StringField and TextField separately.
-  // TODO: Handle DocValue for String and Text field..
   private static void addTextField(
       ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
       String fieldName,
@@ -131,27 +128,27 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     DROP_FIELD,
     // Convert the field value to the type of the conflicting field.
     CONVERT_FIELD_VALUE,
-    // Covert the field value to the type of conflicting field and also create a new field of type.
+    // Convert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
   }
 
-  private static final String DUMMY_FIELD = "DUMMY_FIELD";
+  private static final String PLACEHOLDER_FIELD_NAME = "PLACEHOLDER_FIELD_NAME";
   private static final Map<FieldType, LuceneFieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
           FieldType.LONG,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.LONG.name, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.LONG.name, false, true, true),
           FieldType.FLOAT,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.FLOAT.name, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.FLOAT.name, false, true, true),
           FieldType.INTEGER,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.INTEGER.name, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.INTEGER.name, false, true, true),
           FieldType.DOUBLE,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.DOUBLE.name, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.DOUBLE.name, false, true, true),
           FieldType.TEXT,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.TEXT.name, false, true, false),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.TEXT.name, false, true, false),
           FieldType.STRING,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.STRING.name, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.STRING.name, false, true, true),
           FieldType.BOOLEAN,
-          new LuceneFieldDef(DUMMY_FIELD, FieldType.BOOLEAN.name, false, true, false));
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.BOOLEAN.name, false, true, false));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {

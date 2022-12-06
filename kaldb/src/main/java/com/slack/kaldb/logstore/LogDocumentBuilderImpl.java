@@ -389,6 +389,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
 
   @Override
   public Map<String, LuceneFieldDef> getSchema() {
+    // Report empty map since this class doesn't support schemas.
     return Collections.emptyMap();
   }
 }
