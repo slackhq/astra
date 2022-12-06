@@ -40,7 +40,7 @@ public class LogIndexSearcherImplTest {
   public LogIndexSearcherImplTest() throws IOException {}
 
   @BeforeClass
-  public static void beforeClass() throws Exception {
+  public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
