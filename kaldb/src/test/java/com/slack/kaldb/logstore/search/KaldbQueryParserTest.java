@@ -47,8 +47,7 @@ public class KaldbQueryParserTest {
     // indexed=true storeDocValues=true - Not ReservedField
     withLongField("my_duration_ms");
 
-    // TODO: How to structure the test to test out int fields, bool fields? Add reserved fields for
-    // them?
+    // TODO: How to structure the test to test out Int/Double/Float/Bool fields
   }
 
   private void withTextField(String field) {
