@@ -49,7 +49,11 @@ import org.junit.rules.TemporaryFolder;
 public class LogMessageWriterImplTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private SimpleMeterRegistry metricsRegistry;
@@ -61,6 +65,7 @@ public class LogMessageWriterImplTest {
     chunkManagerUtil =
         makeChunkManagerUtil(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             100,
@@ -470,7 +475,12 @@ public class LogMessageWriterImplTest {
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
         makeChunkManagerUtil(
-            S3_MOCK_RULE, localMetricsRegistry, 1000L, 100, KaldbConfigUtil.makeIndexerConfig());
+            S3_MOCK_RULE,
+            S3_TEST_BUCKET,
+            localMetricsRegistry,
+            1000L,
+            100,
+            KaldbConfigUtil.makeIndexerConfig());
     localChunkManagerUtil.chunkManager.startAsync();
     localChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 

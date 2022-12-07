@@ -40,7 +40,11 @@ public class KaldbKafkaConsumerTest {
   private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
   public static class BasicTests {
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+    private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+    @ClassRule
+    public static final S3MockRule S3_MOCK_RULE =
+        S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
     private TestKafkaServer kafkaServer;
     private KaldbKafkaConsumer testConsumer;
@@ -56,6 +60,7 @@ public class KaldbKafkaConsumerTest {
       chunkManagerUtil =
           makeChunkManagerUtil(
               S3_MOCK_RULE,
+              S3_TEST_BUCKET,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
               10000L,
@@ -183,7 +188,11 @@ public class KaldbKafkaConsumerTest {
 
   public static class TimeoutTests {
 
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+    private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+    @ClassRule
+    public static final S3MockRule S3_MOCK_RULE =
+        S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
     private TestKafkaServer kafkaServer;
     private KaldbKafkaConsumer testConsumer;
@@ -199,6 +208,7 @@ public class KaldbKafkaConsumerTest {
       chunkManagerUtil =
           makeChunkManagerUtil(
               S3_MOCK_RULE,
+              S3_TEST_BUCKET,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
               100L,

@@ -82,11 +82,15 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class IndexingChunkManagerTest {
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -95,7 +99,6 @@ public class IndexingChunkManagerTest {
   private SimpleMeterRegistry metricsRegistry;
   private S3Client s3Client;
 
-  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
@@ -109,7 +112,6 @@ public class IndexingChunkManagerTest {
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
     s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
     s3BlobFs = new S3BlobFs(s3Client);
 
