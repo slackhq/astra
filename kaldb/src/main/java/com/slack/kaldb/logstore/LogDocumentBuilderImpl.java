@@ -2,7 +2,9 @@ package com.slack.kaldb.logstore;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
+import java.util.Collections;
 import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
@@ -383,5 +385,11 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
       addPropertyHandleExceptions(doc, key, message.source.get(key));
     }
     return doc;
+  }
+
+  @Override
+  public Map<String, LuceneFieldDef> getSchema() {
+    // Report empty map since this class doesn't support schemas.
+    return Collections.emptyMap();
   }
 }

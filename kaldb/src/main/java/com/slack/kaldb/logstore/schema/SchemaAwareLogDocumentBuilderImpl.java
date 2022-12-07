@@ -5,8 +5,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.logstore.DocumentBuilder;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
-import com.slack.kaldb.logstore.InvalidFieldDefException;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -15,17 +16,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DoubleDocValuesField;
-import org.apache.lucene.document.DoublePoint;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FloatDocValuesField;
-import org.apache.lucene.document.FloatPoint;
-import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,285 +38,79 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
 
-  public enum FieldType {
-    TEXT("text") {
-      @Override
-      public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
-        addTextField(doc, name, (String) value, fieldDef);
-      }
-    },
-    INTEGER("integer") {
-      @Override
-      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
-        int value = (int) v;
-        if (fieldDef.isIndexed) {
-          doc.add(new IntPoint(name, value));
-        }
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, value));
-        }
-        if (fieldDef.storeNumericDocValue) {
-          doc.add(new NumericDocValuesField(name, value));
-        }
-      }
-    },
-    LONG("long") {
-      @Override
-      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
-        long value = (long) v;
-        if (fieldDef.isIndexed) {
-          doc.add(new LongPoint(name, value));
-        }
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, value));
-        }
-        if (fieldDef.storeNumericDocValue) {
-          doc.add(new NumericDocValuesField(name, value));
-        }
-      }
-    },
-    FLOAT("float") {
-      @Override
-      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
-        float value = (float) v;
-        if (fieldDef.isIndexed) {
-          doc.add(new FloatPoint(name, value));
-        }
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, value));
-        }
-        if (fieldDef.storeNumericDocValue) {
-          doc.add(new FloatDocValuesField(name, value));
-        }
-      }
-    },
-    DOUBLE("double") {
-      @Override
-      public void addField(Document doc, String name, Object v, FieldDef fieldDef) {
-        double value = (double) v;
-        if (fieldDef.isIndexed) {
-          doc.add(new DoublePoint(name, value));
-        }
-        if (fieldDef.isStored) {
-          doc.add(new StoredField(name, value));
-        }
-        if (fieldDef.storeNumericDocValue) {
-          doc.add(new DoubleDocValuesField(name, value));
-        }
-      }
-    },
-    BOOLEAN("boolean") {
-      @Override
-      public void addField(Document doc, String name, Object value, FieldDef fieldDef) {
-        // Lucene has no native support for Booleans so store that field as text.
-        if ((boolean) value) {
-          addTextField(doc, name, "true", fieldDef);
-        } else {
-          addTextField(doc, name, "false", fieldDef);
-        }
-      }
-    };
-
-    private final String name;
-
-    FieldType(String name) {
-      this.name = name;
-    }
-
-    public abstract void addField(Document doc, String name, Object value, FieldDef fieldDef);
-
-    public String getName() {
-      return name;
-    }
-
-    @VisibleForTesting
-    static Object convertFieldValue(Object value, FieldType fromType, FieldType toType) {
-      // String type
-      if (fromType == FieldType.TEXT) {
-        if (toType == FieldType.INTEGER) {
-          try {
-            return Integer.valueOf((String) value);
-          } catch (NumberFormatException e) {
-            return (int) 0;
-          }
-        }
-        if (toType == FieldType.LONG) {
-          try {
-            return Long.valueOf((String) value);
-          } catch (NumberFormatException e) {
-            return (long) 0;
-          }
-        }
-        if (toType == FieldType.DOUBLE) {
-          try {
-            return Double.valueOf((String) value);
-          } catch (NumberFormatException e) {
-            return (double) 0;
-          }
-        }
-        if (toType == FieldType.FLOAT) {
-          try {
-            return Float.valueOf((String) value);
-          } catch (NumberFormatException e) {
-            return (float) 0;
-          }
-        }
-      }
-
-      // Int type
-      if (fromType == FieldType.INTEGER) {
-        if (toType == FieldType.TEXT) {
-          return ((Integer) value).toString();
-        }
-        if (toType == FieldType.LONG) {
-          return ((Integer) value).longValue();
-        }
-        if (toType == FieldType.FLOAT) {
-          return ((Integer) value).floatValue();
-        }
-        if (toType == FieldType.DOUBLE) {
-          return ((Integer) value).doubleValue();
-        }
-      }
-
-      // Long type
-      if (fromType == FieldType.LONG) {
-        if (toType == FieldType.TEXT) {
-          return ((Long) value).toString();
-        }
-        if (toType == FieldType.INTEGER) {
-          return ((Long) value).intValue();
-        }
-        if (toType == FieldType.FLOAT) {
-          return ((Long) value).floatValue();
-        }
-        if (toType == FieldType.DOUBLE) {
-          return ((Long) value).doubleValue();
-        }
-      }
-
-      // Float type
-      if (fromType == FieldType.FLOAT) {
-        if (toType == FieldType.TEXT) {
-          return value.toString();
-        }
-        if (toType == FieldType.INTEGER) {
-          return ((Float) value).intValue();
-        }
-        if (toType == FieldType.LONG) {
-          return ((Float) value).longValue();
-        }
-        if (toType == FieldType.DOUBLE) {
-          return ((Float) value).doubleValue();
-        }
-      }
-
-      // Double type
-      if (fromType == FieldType.DOUBLE) {
-        if (toType == FieldType.TEXT) {
-          return value.toString();
-        }
-        if (toType == FieldType.INTEGER) {
-          return ((Double) value).intValue();
-        }
-        if (toType == FieldType.LONG) {
-          return ((Double) value).longValue();
-        }
-        if (toType == FieldType.FLOAT) {
-          return ((Double) value).floatValue();
-        }
-      }
-
-      return null;
-    }
+  private static void addTextField(
+      ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
+      String fieldName,
+      boolean isStored,
+      boolean isIndexed) {
+    fieldDefBuilder.put(
+        fieldName, new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, false));
   }
 
-  /*
-   * FieldDef describes the configs that can be set on a field.
-   */
-  static class FieldDef {
-    public final FieldType fieldType;
-    public final boolean isStored;
-    public final boolean isIndexed;
-    public final boolean isAnalyzed;
-    public final boolean storeNumericDocValue;
+  // TODO: Move this definition to the config file.
+  private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
+    ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+    addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
+    fieldDefBuilder.put(
+        LogMessage.SystemField.ID.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.ID.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.SystemField.INDEX.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.INDEX.fieldName, FieldType.TEXT.name, false, true, false));
 
-    FieldDef(FieldType fieldType, boolean isStored, boolean isIndexed, boolean isAnalyzed) {
-      this(fieldType, isStored, isIndexed, isAnalyzed, false);
-    }
-
-    FieldDef(
-        FieldType fieldType,
-        boolean isStored,
-        boolean isIndexed,
-        boolean isAnalyzed,
-        boolean storeNumericDocValue) {
-      if (isAnalyzed && !isIndexed) {
-        throw new InvalidFieldDefException("Cannot set isAnalyzed without setting isIndexed");
-      }
-
-      if (isAnalyzed && !(fieldType.equals(FieldType.TEXT))) {
-        throw new InvalidFieldDefException("Only text and any types can have isAnalyzed set");
-      }
-
-      this.fieldType = fieldType;
-      this.isStored = isStored;
-      this.isIndexed = isIndexed;
-      this.isAnalyzed = isAnalyzed;
-      this.storeNumericDocValue = storeNumericDocValue;
-    }
-  }
-
-  private static ImmutableMap<String, FieldDef> getDefaultFieldDefinitions() {
-    ImmutableMap.Builder<String, FieldDef> defaultFieldDefMapBuilder = ImmutableMap.builder();
-    defaultFieldDefMapBuilder.put(
-        LogMessage.SystemField.SOURCE.fieldName, new FieldDef(FieldType.TEXT, true, false, false));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.SystemField.ID.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.SystemField.INDEX.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
+    fieldDefBuilder.put(
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        new FieldDef(FieldType.LONG, false, true, false, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.SystemField.TYPE.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
+        new LuceneFieldDef(
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            FieldType.LONG.name,
+            false,
+            true,
+            true));
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.SystemField.TYPE.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
 
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.HOSTNAME.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.PACKAGE.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.MESSAGE.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.TAG.fieldName, new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.TIMESTAMP.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.USERNAME.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, true));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.PAYLOAD.fieldName,
-        new FieldDef(FieldType.TEXT, false, false, false));
-    defaultFieldDefMapBuilder.put(
-        LogMessage.ReservedField.NAME.fieldName, new FieldDef(FieldType.TEXT, false, true, false));
-    defaultFieldDefMapBuilder.put(
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.TAG.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.USERNAME.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.PAYLOAD.fieldName, false, true);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.NAME.fieldName, false, true);
+    fieldDefBuilder.put(
         LogMessage.ReservedField.SERVICE_NAME.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, false));
-    defaultFieldDefMapBuilder.put(
+        new LuceneFieldDef(
+            LogMessage.ReservedField.SERVICE_NAME.fieldName,
+            FieldType.STRING.name,
+            false,
+            true,
+            true));
+    fieldDefBuilder.put(
         LogMessage.ReservedField.DURATION_MS.fieldName,
-        new FieldDef(FieldType.LONG, false, true, false));
-    defaultFieldDefMapBuilder.put(
+        new LuceneFieldDef(
+            LogMessage.ReservedField.DURATION_MS.fieldName,
+            FieldType.LONG.name,
+            false,
+            true,
+            true));
+    fieldDefBuilder.put(
         LogMessage.ReservedField.TRACE_ID.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, false));
-    defaultFieldDefMapBuilder.put(
+        new LuceneFieldDef(
+            LogMessage.ReservedField.TRACE_ID.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
         LogMessage.ReservedField.PARENT_ID.fieldName,
-        new FieldDef(FieldType.TEXT, false, true, false));
+        new LuceneFieldDef(
+            LogMessage.ReservedField.PARENT_ID.fieldName,
+            FieldType.STRING.name,
+            false,
+            true,
+            true));
 
-    return defaultFieldDefMapBuilder.build();
+    return fieldDefBuilder.build();
   }
 
   /**
@@ -344,32 +128,31 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     DROP_FIELD,
     // Convert the field value to the type of the conflicting field.
     CONVERT_FIELD_VALUE,
-    // Covert the field value to the type of conflicting field and also create a new field of type.
+    // Convert the field value to the type of conflicting field and also create a new field of type.
     CONVERT_AND_DUPLICATE_FIELD
   }
 
-  private static final Map<FieldType, FieldDef> defaultPropDescriptionForType =
+  private static final String PLACEHOLDER_FIELD_NAME = "PLACEHOLDER_FIELD_NAME";
+  private static final Map<FieldType, LuceneFieldDef> defaultPropDescriptionForType =
       ImmutableMap.of(
           FieldType.LONG,
-          new FieldDef(FieldType.LONG, true, false, false, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.LONG.name, false, true, true),
           FieldType.FLOAT,
-          new FieldDef(FieldType.FLOAT, true, false, false, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.FLOAT.name, false, true, true),
           FieldType.INTEGER,
-          new FieldDef(FieldType.INTEGER, true, false, false, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.INTEGER.name, false, true, true),
           FieldType.DOUBLE,
-          new FieldDef(FieldType.DOUBLE, true, false, false, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.DOUBLE.name, false, true, true),
           FieldType.TEXT,
-          new FieldDef(FieldType.TEXT, false, true, true),
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.TEXT.name, false, true, false),
+          FieldType.STRING,
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.STRING.name, false, true, true),
           FieldType.BOOLEAN,
-          new FieldDef(FieldType.BOOLEAN, false, true, false));
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.BOOLEAN.name, false, true, false));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {
     return indexFieldConflictPolicy;
-  }
-
-  public Map<String, FieldDef> getFieldDefMap() {
-    return fieldDefMap;
   }
 
   private void addField(
@@ -409,9 +192,12 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     if (!fieldDefMap.containsKey(fieldName)) {
       indexNewField(doc, fieldName, value, valueType);
     } else {
-      FieldDef registeredField = fieldDefMap.get(fieldName);
-      if (registeredField.fieldType == valueType) {
+      LuceneFieldDef registeredField = fieldDefMap.get(fieldName);
+      // If the field types are same or the fields are type aliases
+      if (registeredField.fieldType == valueType
+          || FieldType.areTypeAliasedFieldTypes(registeredField.fieldType, valueType)) {
         // No field conflicts index it using previous description.
+        // Pass in registeredField here since the valueType and registeredField may be aliases
         indexTypedField(doc, fieldName, value, registeredField);
       } else {
         // There is a field type conflict, index it using the field conflict policy.
@@ -460,7 +246,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       throw new RuntimeException("No default prop description");
     }
 
-    FieldDef defaultPropDescription = defaultPropDescriptionForType.get(valueType);
+    LuceneFieldDef defaultPropDescription = defaultPropDescriptionForType.get(valueType);
     // add the document to this field.
     fieldDefMap.put(key, defaultPropDescription);
     indexTypedField(doc, key, value, defaultPropDescription);
@@ -471,7 +257,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   private static void convertValueAndIndexField(
-      Object value, FieldType valueType, FieldDef registeredField, Document doc, String key) {
+      Object value, FieldType valueType, LuceneFieldDef registeredField, Document doc, String key) {
     Object convertedValue =
         FieldType.convertFieldValue(value, valueType, registeredField.fieldType);
     if (convertedValue == null) {
@@ -480,26 +266,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     indexTypedField(doc, key, convertedValue, registeredField);
   }
 
-  private static void indexTypedField(Document doc, String key, Object value, FieldDef fieldDef) {
+  private static void indexTypedField(
+      Document doc, String key, Object value, LuceneFieldDef fieldDef) {
     fieldDef.fieldType.addField(doc, key, value, fieldDef);
-  }
-
-  private static void addTextField(Document doc, String name, String value, FieldDef description) {
-    if (description.isIndexed) {
-      if (description.isAnalyzed) {
-        doc.add(new TextField(name, value, getStoreEnum(description.isStored)));
-      } else {
-        doc.add(new StringField(name, value, getStoreEnum(description.isStored)));
-      }
-    } else {
-      if (description.isStored) {
-        doc.add(new StoredField(name, value));
-      }
-    }
-  }
-
-  private static Field.Store getStoreEnum(boolean isStored) {
-    return isStored ? Field.Store.YES : Field.Store.NO;
   }
 
   private static FieldType getJsonType(Object value) {
@@ -529,7 +298,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       FieldConflictPolicy fieldConflictPolicy, MeterRegistry meterRegistry) {
     // Add basic fields by default
     return new SchemaAwareLogDocumentBuilderImpl(
-        fieldConflictPolicy, getDefaultFieldDefinitions(), meterRegistry);
+        fieldConflictPolicy, getDefaultLuceneFieldDefinitions(), meterRegistry);
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
@@ -537,14 +306,14 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
-  private final Map<String, FieldDef> fieldDefMap = new ConcurrentHashMap<>();
+  private final Map<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
   private final Counter droppedFieldsCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
 
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
-      final Map<String, FieldDef> initialFields,
+      final Map<String, LuceneFieldDef> initialFields,
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
@@ -569,9 +338,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         "",
         0);
     for (String key : message.source.keySet()) {
-      LOG.info("Adding key {}", key);
       addField(doc, key, message.source.get(key), "", 0);
     }
     return doc;
+  }
+
+  @Override
+  public Map<String, LuceneFieldDef> getSchema() {
+    return fieldDefMap;
   }
 }

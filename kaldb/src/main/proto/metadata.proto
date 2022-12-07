@@ -150,3 +150,29 @@ message DatasetPartitionMetadata {
   // List of Kafka partition ids
   repeated string partitions = 3;
 }
+
+// Schema definitions.
+message LuceneFieldDef {
+  // Name of the field
+  string name = 1;
+
+  // Type of the field
+  string type = 2;
+
+  // Store the value as a Lucene StoredField.
+  bool is_stored = 3;
+  // Index the field in Lucene based on it's type for efficient point queries.
+  bool is_indexed = 4;
+  // Store doc values for a field so it's more efficient for aggregations.
+  bool store_docvalue = 5;
+}
+
+// This proto documents the schema for a chunk.
+message ChunkSchema {
+  // Name of the chunk.
+  string name = 1;
+  // Field map for each field in the lucene index in the chunk.
+  map<string, LuceneFieldDef> fieldDefMap = 2;
+  // A generic field to store metadata for a chunk.
+  map<string, string> metadata = 3;
+}
