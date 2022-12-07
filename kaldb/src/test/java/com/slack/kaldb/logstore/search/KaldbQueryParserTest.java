@@ -81,7 +81,7 @@ public class KaldbQueryParserTest {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch(
-            "testIndex", "1", LogMessage.ReservedField.DURATION_MS.fieldName, 100, time));
+            "testIndex", "1", LogMessage.ReservedField.DURATION_MS.fieldName, 100L, time));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
     SearchResult<LogMessage> result =
@@ -135,7 +135,7 @@ public class KaldbQueryParserTest {
 
   // used to create a LogMessage with a IntField on which we will perform exists query
   private static LogMessage makeMessageForExistsSearch(
-      String indexName, String id, String intFieldName, int fieldValue, Instant ts) {
+      String indexName, String id, String intFieldName, Long fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
