@@ -40,6 +40,13 @@ public class KaldbQueryParser extends QueryParser {
       // https://issues.apache.org/jira/browse/LUCENE-10436
       return new FieldExistsQuery(queryText);
     }
+    // TODO: KaldbQueryParser needs access to the schema object
+    // Once it has access to the schema object we need to delegate these methods under the FieldType
+    // enum
+    // Needs to guard against case where value isn't long
+    if (field.equals(LogMessage.ReservedField.DURATION_MS.fieldName)) {
+      return LongPoint.newExactQuery(field, Long.parseLong(queryText));
+    }
     return super.getFieldQuery(field, queryText, quoted);
   }
 }
