@@ -34,18 +34,22 @@ public class KaldbQueryParserTest {
   public void testExistsQuery() {
     // indexed=true analyzed=false - Use ReservedField
     withStringField(LogMessage.ReservedField.SERVICE_NAME.fieldName);
+    // indexed=true storeDocValues=true - Not ReservedField
+    withStringField("my_service_name");
 
     // indexed=true analyzed=true - Use ReservedField
     withTextField(LogMessage.ReservedField.USERNAME.fieldName);
+    // All texty fields that are not reserved will use analyzed=false use case which we tested above
 
     // indexed=true storeDocValues=true - Use ReservedField
     withLongField(LogMessage.ReservedField.DURATION_MS.fieldName);
+    // indexed=true storeDocValues=true - Not ReservedField
+    withLongField("my_duration_ms");
 
-    // TODO: if we don't use reserved fields - Test what happens for both 1> long and 2> texty fields
-    // TODO: How to structure the test to test out int fields, bool fields? Add reserved fields for them?
+    // TODO: How to structure the test to test out int fields, bool fields? Add reserved fields for
+    // them?
   }
 
-  @Ignore
   private void withTextField(String field) {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(

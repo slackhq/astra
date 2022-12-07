@@ -44,7 +44,8 @@ public class KaldbQueryParser extends QueryParser {
     // Once it has access to the schema object we need to delegate these methods under the FieldType
     // enum
     // Needs to guard against case where value isn't long
-    if (field.equals(LogMessage.ReservedField.DURATION_MS.fieldName)) {
+    if (field.equals(LogMessage.ReservedField.DURATION_MS.fieldName)
+        || field.equals("my_duration_ms")) {
       return LongPoint.newExactQuery(field, Long.parseLong(queryText));
     }
     return super.getFieldQuery(field, queryText, quoted);
