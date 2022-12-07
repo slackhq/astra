@@ -39,6 +39,7 @@ public class KaldbQueryParserTest {
 
     // indexed=true analyzed=true - Use ReservedField
     withTextField(LogMessage.ReservedField.USERNAME.fieldName);
+    withTextField(LogMessage.ReservedField.MESSAGE.fieldName);
     // All texty fields that are not reserved will use analyzed=false use case which we tested above
 
     // indexed=true storeDocValues=true - Use ReservedField
