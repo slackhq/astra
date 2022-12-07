@@ -12,7 +12,6 @@ import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
@@ -78,7 +77,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
   private QueryParser buildQueryParser() {
-    return new QueryParser(ReservedField.MESSAGE.fieldName, analyzer);
+    return new QueryParser(SystemField.ALL.fieldName, analyzer);
   }
 
   public SearchResult<LogMessage> search(

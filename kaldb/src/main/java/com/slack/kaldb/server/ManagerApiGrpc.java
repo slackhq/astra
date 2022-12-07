@@ -213,13 +213,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           ManagerApi.RestoreReplicaResponse.newBuilder().setStatus("success").build());
       responseObserver.onCompleted();
     } catch (SizeLimitExceededException e) {
-      LOG.info(
+      LOG.error(
           "Error handling request: number of replicas requested exceeds maxReplicasPerRequest limit",
           e);
       responseObserver.onError(
           Status.RESOURCE_EXHAUSTED.withDescription(e.getMessage()).asException());
     } catch (Exception e) {
-      LOG.info("Error handling request", e);
+      LOG.error("Error handling request", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
@@ -239,13 +239,13 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           ManagerApi.RestoreReplicaIdsResponse.newBuilder().setStatus("success").build());
       responseObserver.onCompleted();
     } catch (SizeLimitExceededException e) {
-      LOG.info(
+      LOG.error(
           "Error handling request: number of replicas requested exceeds maxReplicasPerRequest limit",
           e);
       responseObserver.onError(
           Status.RESOURCE_EXHAUSTED.withDescription(e.getMessage()).asException());
     } catch (Exception e) {
-      LOG.info("Error handling request", e);
+      LOG.error("Error handling request", e);
       responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
     }
   }
