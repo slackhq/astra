@@ -1,5 +1,6 @@
 package com.slack.kaldb.server;
 
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ManagerApiGrpc.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -108,6 +109,11 @@ public class ManagerApiGrpcTest {
 
   @After
   public void tearDown() throws Exception {
+    replicaRestoreService.stopAsync();
+    replicaRestoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);
+
+    replicaMetadataStore.close();
+    snapshotMetadataStore.close();
     datasetMetadataStore.close();
     metadataStore.close();
 
@@ -725,6 +731,7 @@ public class ManagerApiGrpcTest {
     snapshotMetadataStore.createSync(snapshotFoo);
     snapshotMetadataStore.createSync(snapshotBar);
     snapshotMetadataStore.createSync(snapshotBaz);
+    await().until(() -> snapshotMetadataStore.getCached().size() == 3);
 
     replicaRestoreService.startAsync();
     replicaRestoreService.awaitRunning();

@@ -117,7 +117,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
           "Number of replicas requested exceeds maxReplicasPerRequest limit");
     }
     queue.addAll(snapshotsToRestore);
-    LOG.info("Current size of Snapshot restoration queue: " + queue.size());
+    LOG.info("Current size of Snapshot restoration queue: {} ", queue.size());
     runOneIteration();
   }
 
