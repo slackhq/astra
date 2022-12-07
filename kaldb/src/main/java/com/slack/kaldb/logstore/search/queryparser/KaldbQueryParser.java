@@ -28,7 +28,9 @@ public class KaldbQueryParser extends QueryParser {
 
   @Override
   protected Query getWildcardQuery(String field, String termStr) throws ParseException {
-    if ("*".equals(termStr)) {
+    // TODO: guard against *:* queries. Once we have schema access ensure field exists in schema
+    // instead of * check
+    if ("*".equals(termStr) && !field.equals("*")) {
       return new FieldExistsQuery(field);
     }
     return super.getWildcardQuery(field, termStr);
