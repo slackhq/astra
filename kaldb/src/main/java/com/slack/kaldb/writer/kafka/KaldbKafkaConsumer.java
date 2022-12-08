@@ -289,7 +289,10 @@ public class KaldbKafkaConsumer {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbKafkaConsumer.consumeMessagesBetweenOffsetsInParallel");
+              ScopedSpan span =
+                  Tracing.currentTracer()
+                      .startScopedSpan(
+                          "KaldbKafkaConsumer.consumeMessagesBetweenOffsetsInParallel");
               try {
                 LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
                 span.tag("topic", topicPartition.topic());
@@ -313,10 +316,10 @@ public class KaldbKafkaConsumer {
                       }
                     } catch (IOException e) {
                       LOG.error(
-                              "Encountered exception processing batch [{}/{}]: {}",
-                              topicPartition,
-                              recordCount,
-                              e);
+                          "Encountered exception processing batch [{}/{}]: {}",
+                          topicPartition,
+                          recordCount,
+                          e);
                       span.annotate("record error"); // don't set span error for single record
                     }
                   }
