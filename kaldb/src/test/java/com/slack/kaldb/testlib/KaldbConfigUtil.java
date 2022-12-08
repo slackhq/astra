@@ -58,6 +58,7 @@ public class KaldbConfigUtil {
             .setDataTransformer(dataTransformerConfig)
             .setMaxOffsetDelayMessages(maxOffsetDelay)
             .setDefaultQueryTimeoutMs(2500)
+            .setKafkaConfig(kafkaConfig)
             .build();
 
     KaldbConfigs.ZookeeperConfig zkConfig =
@@ -93,7 +94,6 @@ public class KaldbConfigUtil {
             .build();
 
     return KaldbConfigs.KaldbConfig.newBuilder()
-        .setKafkaConfig(kafkaConfig)
         .setS3Config(s3Config)
         .setIndexerConfig(indexerConfig)
         .setRecoveryConfig(recoveryConfig)

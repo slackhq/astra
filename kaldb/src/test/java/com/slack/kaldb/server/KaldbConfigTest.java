@@ -78,7 +78,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(missingRequiredField);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
   }
@@ -139,7 +139,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(configWithExtraField);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
     assertThat(kafkaCfg.getKafkaTopic()).isEmpty();
@@ -171,7 +171,7 @@ public class KaldbConfigTest {
     assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
     assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEqualTo("kafka.us-east-1.consul:9094");
@@ -311,7 +311,7 @@ public class KaldbConfigTest {
     assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
     assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
 
     // todo - for testing env var substitution we could use something like Mockito (or similar) in
     // the future
@@ -475,7 +475,7 @@ public class KaldbConfigTest {
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
     assertThat(kafkaCfg.getKafkaClientGroup()).isEmpty();
@@ -613,7 +613,7 @@ public class KaldbConfigTest {
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
     assertThat(kafkaCfg.getKafkaClientGroup()).isEmpty();
