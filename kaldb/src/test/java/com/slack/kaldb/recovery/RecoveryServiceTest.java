@@ -38,15 +38,22 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.curator.test.TestingServer;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -111,10 +118,16 @@ public class RecoveryServiceTest {
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   private KaldbConfigs.KaldbConfig makeKaldbConfig(String testS3Bucket) {
+    return makeKaldbConfig(kafkaServer, testS3Bucket, RecoveryServiceTest.TEST_KAFKA_TOPIC_1);
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  private KaldbConfigs.KaldbConfig makeKaldbConfig(
+      TestKafkaServer testKafkaServer, String testS3Bucket, String topic) {
     return KaldbConfigUtil.makeKaldbConfig(
-        "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
+        "localhost:" + testKafkaServer.getBroker().getKafkaPort().get(),
         9000,
-        RecoveryServiceTest.TEST_KAFKA_TOPIC_1,
+        topic,
         0,
         RecoveryServiceTest.KALDB_TEST_CLIENT_1,
         testS3Bucket,
@@ -162,6 +175,57 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+  }
+  /*
+    @Test
+    public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
+      KaldbKafkaConsumerTest.TestKafkaComponents components =
+          getTestKafkaServerWithConsumedOffsets(S3_MOCK_RULE, 200, 800);
+      Thread.sleep(30000);
+
+      KaldbConfigs.KaldbConfig kaldbCfg =
+          makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, "test-topic");
+      metadataStore =
+          ZookeeperMetadataStoreImpl.fromConfig(
+              components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+      // Start recovery service
+      recoveryService =
+          new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+      recoveryService.startAsync();
+      recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      // Start recovery
+      long startOffset = 900;
+      long endOffset = 1000;
+      RecoveryTaskMetadata recoveryTask =
+          new RecoveryTaskMetadata(
+              TestKafkaServer.TEST_KAFKA_TOPIC,
+              "0",
+              startOffset,
+              endOffset,
+              Instant.now().toEpochMilli());
+      assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
+      assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
+          .isEqualTo(endOffset - startOffset + 1);
+    }
+
+    @Test
+    public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {}
+  */
+
+  private void setRetentionTime(String topicName, int retentionTime) {
+    ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+
+    Collection<ConfigEntry> entries = new ArrayList<>();
+    entries.add(new ConfigEntry(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retentionTime)));
+
+    Config config = new Config(entries);
+    Map<ConfigResource, Config> configs = new HashMap<>();
+    configs.put(resource, config);
+
+    AdminClient client = kafkaConfig.createAdminClient();
+    client.alterConfigs(configs);
   }
 
   @Test

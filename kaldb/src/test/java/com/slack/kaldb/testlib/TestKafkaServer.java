@@ -112,9 +112,16 @@ public class TestKafkaServer {
   }
 
   public TestKafkaServer(int port) throws Exception {
+    this(port, null);
+  }
+
+  public TestKafkaServer(int port, Properties overrideProps) throws Exception {
     Properties brokerProperties = new Properties();
     // Set the number of default partitions for a kafka topic to 3 instead of 1.
     brokerProperties.put("num.partitions", "3");
+    if (overrideProps != null && !overrideProps.isEmpty()) {
+      brokerProperties.putAll(overrideProps);
+    }
     // Create a kafka broker
     broker = EphemeralKafkaBroker.create(port, ALLOCATE_RANDOM_PORT, brokerProperties);
     brokerStart = broker.start();

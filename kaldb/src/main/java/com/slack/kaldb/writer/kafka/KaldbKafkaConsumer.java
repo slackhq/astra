@@ -59,7 +59,8 @@ public class KaldbKafkaConsumer {
       String kafkaClientGroup,
       String enableKafkaAutoCommit,
       String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout) {
+      String kafkaSessionTimeout,
+      Properties overrideProps) {
 
     Properties props = new Properties();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootStrapServers);
@@ -80,6 +81,11 @@ public class KaldbKafkaConsumer {
     // we rely on the fail-fast behavior of 'auto.offset.reset = none' to handle scenarios
     // with recovery tasks where the offsets are no longer available in Kafka
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
+
+    if (overrideProps != null && !overrideProps.isEmpty()) {
+      props.putAll(overrideProps);
+    }
+
     return props;
   }
 
@@ -91,7 +97,6 @@ public class KaldbKafkaConsumer {
   private final Counter recordsReceivedCounter;
   private final Counter recordsFailedCounter;
 
-  // TODO: Instead of passing each property as a field, consider defining props in config file.
   public KaldbKafkaConsumer(
       String kafkaTopic,
       String kafkaTopicPartitionStr,
@@ -102,6 +107,31 @@ public class KaldbKafkaConsumer {
       String kafkaSessionTimeout,
       LogMessageWriterImpl logMessageWriterImpl,
       MeterRegistry meterRegistry) {
+    this(
+        kafkaTopic,
+        kafkaTopicPartitionStr,
+        kafkaBootStrapServers,
+        kafkaClientGroup,
+        enableKafkaAutoCommit,
+        kafkaAutoCommitInterval,
+        kafkaSessionTimeout,
+        logMessageWriterImpl,
+        meterRegistry,
+        null);
+  }
+
+  // TODO: Instead of passing each property as a field, consider defining props in config file.
+  public KaldbKafkaConsumer(
+      String kafkaTopic,
+      String kafkaTopicPartitionStr,
+      String kafkaBootStrapServers,
+      String kafkaClientGroup,
+      String enableKafkaAutoCommit,
+      String kafkaAutoCommitInterval,
+      String kafkaSessionTimeout,
+      LogMessageWriterImpl logMessageWriterImpl,
+      MeterRegistry meterRegistry,
+      Properties overrideProps) {
 
     checkArgument(
         kafkaTopic != null && !kafkaTopic.isEmpty(), "Kafka topic can't be null or " + "empty");
@@ -148,7 +178,8 @@ public class KaldbKafkaConsumer {
             kafkaClientGroup,
             enableKafkaAutoCommit,
             kafkaAutoCommitInterval,
-            kafkaSessionTimeout);
+            kafkaSessionTimeout,
+            overrideProps);
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
     new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
   }
