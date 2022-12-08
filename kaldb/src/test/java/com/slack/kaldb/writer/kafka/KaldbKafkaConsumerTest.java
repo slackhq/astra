@@ -20,6 +20,7 @@ import static org.mockito.Mockito.spy;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -89,17 +90,18 @@ public class KaldbKafkaConsumerTest {
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
               chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
-      testConsumer =
-          new KaldbKafkaConsumer(
-              TestKafkaServer.TEST_KAFKA_TOPIC,
-              "0",
-              kafkaServer.getBroker().getBrokerList().get(),
-              TEST_KAFKA_CLIENT_GROUP,
-              "true",
-              "5000",
-              "5000",
-              logMessageWriter,
-              metricsRegistry);
+      KaldbConfigs.KafkaConfig kafkaConfig =
+          KaldbConfigs.KafkaConfig.newBuilder()
+              .setKafkaTopic(TestKafkaServer.TEST_KAFKA_TOPIC)
+              .setKafkaTopicPartition("0")
+              .setKafkaBootStrapServers(kafkaServer.getBroker().getBrokerList().get())
+              .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
+              .setEnableKafkaAutoCommit("true")
+              .setKafkaAutoCommitInterval("5000")
+              .setKafkaSessionTimeout("5000")
+              .build();
+
+      testConsumer = new KaldbKafkaConsumer(kafkaConfig, logMessageWriter, metricsRegistry);
     }
 
     @After
@@ -385,17 +387,18 @@ public class KaldbKafkaConsumerTest {
 
       TestKafkaServer.produceMessagesToKafka(broker, startTime);
 
-      testConsumer =
-          new KaldbKafkaConsumer(
-              TestKafkaServer.TEST_KAFKA_TOPIC,
-              "0",
-              kafkaServer.getBroker().getBrokerList().get(),
-              TEST_KAFKA_CLIENT_GROUP,
-              "true",
-              "5000",
-              "5000",
-              logMessageWriter,
-              metricsRegistry);
+      KaldbConfigs.KafkaConfig kafkaConfig =
+          KaldbConfigs.KafkaConfig.newBuilder()
+              .setKafkaTopic(TestKafkaServer.TEST_KAFKA_TOPIC)
+              .setKafkaTopicPartition("0")
+              .setKafkaBootStrapServers(kafkaServer.getBroker().getBrokerList().get())
+              .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
+              .setEnableKafkaAutoCommit("true")
+              .setKafkaAutoCommitInterval("5000")
+              .setKafkaSessionTimeout("5000")
+              .build();
+
+      testConsumer = new KaldbKafkaConsumer(kafkaConfig, logMessageWriter, metricsRegistry);
       KafkaConsumer<String, byte[]> spyConsumer = spy(testConsumer.getKafkaConsumer());
       testConsumer.setKafkaConsumer(spyConsumer);
       await().until(() -> testConsumer.getEndOffSetForPartition() == 100);

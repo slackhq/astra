@@ -43,16 +43,7 @@ public class KaldbKafkaConsumer {
       KaldbConfigs.KafkaConfig kafkaCfg,
       LogMessageWriterImpl logMessageWriter,
       MeterRegistry meterRegistry) {
-    return new KaldbKafkaConsumer(
-        kafkaCfg.getKafkaTopic(),
-        kafkaCfg.getKafkaTopicPartition(),
-        kafkaCfg.getKafkaBootStrapServers(),
-        kafkaCfg.getKafkaClientGroup(),
-        kafkaCfg.getEnableKafkaAutoCommit(),
-        kafkaCfg.getKafkaAutoCommitInterval(),
-        kafkaCfg.getKafkaSessionTimeout(),
-        logMessageWriter,
-        meterRegistry);
+    return new KaldbKafkaConsumer(kafkaCfg, logMessageWriter, meterRegistry);
   }
 
   private static Properties makeKafkaConsumerProps(
@@ -99,13 +90,7 @@ public class KaldbKafkaConsumer {
   private final Counter recordsFailedCounter;
 
   public KaldbKafkaConsumer(
-      String kafkaTopic,
-      String kafkaTopicPartitionStr,
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout,
+      KaldbConfigs.KafkaConfig kafkaConfig,
       LogMessageWriterImpl logMessageWriterImpl,
       MeterRegistry meterRegistry) {
     this(
@@ -133,6 +118,14 @@ public class KaldbKafkaConsumer {
       LogMessageWriterImpl logMessageWriterImpl,
       MeterRegistry meterRegistry,
       Properties overrideProps) {
+
+    String kafkaTopic = kafkaConfig.getKafkaTopic();
+    String kafkaTopicPartitionStr = kafkaConfig.getKafkaTopicPartition();
+    String kafkaBootStrapServers = kafkaConfig.getKafkaBootStrapServers();
+    String kafkaClientGroup = kafkaConfig.getKafkaClientGroup();
+    String enableKafkaAutoCommit = kafkaConfig.getEnableKafkaAutoCommit();
+    String kafkaAutoCommitInterval = kafkaConfig.getKafkaAutoCommitInterval();
+    String kafkaSessionTimeout = kafkaConfig.getKafkaSessionTimeout();
 
     checkArgument(
         kafkaTopic != null && !kafkaTopic.isEmpty(), "Kafka topic can't be null or " + "empty");
