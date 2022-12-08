@@ -18,7 +18,6 @@ enum NodeRole {
 // KaldbConfig is the uber config object for all of Kaldb.
 // This config object controls the role a node plays and it's config.
 message KaldbConfig {
-  KafkaConfig kafka_config = 1;
   S3Config s3_config = 2;
   IndexerConfig indexer_config = 3;
   QueryServiceConfig query_config = 4;
@@ -40,8 +39,6 @@ message ClusterConfig {
   string env = 2;
 }
 
-// todo - move this to a nested IndexerConfig message, and refactor as KafkaConsumerConfig
-// todo - this is only ever used by the indexer and should have reduced visibility
 // Configuration for Kafka consumer.
 message KafkaConfig {
   string kafka_topic = 1;
@@ -108,6 +105,8 @@ message IndexerConfig {
   // before it needs to create a recovery task to catch up.
   int64 max_offset_delay_messages = 8;
   int32 default_query_timeout_ms = 9;
+
+  KafkaConfig kafka_config = 10;
 }
 
 // A config object containing all the lucene configs.

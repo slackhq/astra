@@ -171,7 +171,7 @@ public class Kaldb {
               chunkManager,
               metadataStore,
               kaldbConfig.getIndexerConfig(),
-              kaldbConfig.getKafkaConfig(),
+              kaldbConfig.getIndexerConfig().getKafkaConfig(),
               meterRegistry);
       services.add(indexer);
 
