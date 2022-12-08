@@ -3,6 +3,8 @@ package com.slack.kaldb.recovery;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -232,10 +234,16 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("RecoveryService.handleRecoveryTask");
+    span.tag("topic", recoveryTaskMetadata.name);
+    span.tag("partionId", recoveryTaskMetadata.partitionId);
+    span.tag("startOffset", Long.toString(recoveryTaskMetadata.startOffset));
+    span.tag("endOffset", Long.toString(recoveryTaskMetadata.endOffset));
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
             adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
+    span.annotate("offsets validated");
     if (partitionOffsets != null) {
       RecoveryTaskMetadata validatedRecoveryTask =
           new RecoveryTaskMetadata(
@@ -266,12 +274,15 @@ public class RecoveryService extends AbstractIdleService {
                 meterRegistry);
 
         kafkaConsumer.prepConsumerForConsumption(validatedRecoveryTask.startOffset);
+        span.annotate("consumer prepared");
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
             KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
             validatedRecoveryTask.startOffset,
             validatedRecoveryTask.endOffset);
+        span.annotate("messages consumed");
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
+        span.annotate("rollovers completed");
         // Close the recovery chunk manager and kafka consumer.
         kafkaConsumer.close();
         chunkManager.stopAsync();
@@ -280,10 +291,13 @@ public class RecoveryService extends AbstractIdleService {
         return success;
       } catch (Exception ex) {
         LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
+        span.error(ex);
+        span.finish();
         return false;
       }
     } else {
       LOG.info("Recovery task {} data no longer available in Kafka", recoveryTaskMetadata);
+      span.finish();
       return true;
     }
   }

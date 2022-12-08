@@ -3,6 +3,8 @@ package com.slack.kaldb.writer.kafka;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -287,31 +289,42 @@ public class KaldbKafkaConsumer {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
-              for (ConsumerRecord<String, byte[]> record : records) {
-                if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  messagesOutsideOffsetRange.incrementAndGet();
-                  recordsFailedCounter.increment();
-                } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  messagesOutsideOffsetRange.incrementAndGet();
-                  recordsFailedCounter.increment();
-                } else {
-                  try {
-                    if (logMessageWriterImpl.insertRecord(record)) {
-                      recordsReceivedCounter.increment();
-                    } else {
-                      recordsFailedCounter.increment();
+              ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbKafkaConsumer.consumeMessagesBetweenOffsetsInParallel");
+              try {
+                LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
+                span.tag("topic", topicPartition.topic());
+                span.tag("partition", Integer.toString(topicPartition.partition()));
+                span.tag("recordCount", Integer.toString(recordCount));
+                for (ConsumerRecord<String, byte[]> record : records) {
+                  if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
+                    messagesOutsideOffsetRange.incrementAndGet();
+                    recordsFailedCounter.increment();
+                  } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                    messagesOutsideOffsetRange.incrementAndGet();
+                    recordsFailedCounter.increment();
+                  } else {
+                    try {
+                      if (logMessageWriterImpl.insertRecord(record)) {
+                        recordsReceivedCounter.increment();
+                        span.annotate("insertion successful");
+                      } else {
+                        recordsFailedCounter.increment();
+                        span.annotate("insertion failed");
+                      }
+                    } catch (IOException e) {
+                      LOG.error(
+                              "Encountered exception processing batch [{}/{}]: {}",
+                              topicPartition,
+                              recordCount,
+                              e);
+                      span.annotate("record error"); // don't set span error for single record
                     }
-                  } catch (IOException e) {
-                    LOG.error(
-                        "Encountered exception processing batch [{}/{}]: {}",
-                        topicPartition,
-                        recordCount,
-                        e);
                   }
                 }
+                LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
+              } finally {
+                span.finish();
               }
-              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
       } else {
