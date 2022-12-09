@@ -51,6 +51,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
+    addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -295,10 +296,15 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   public static SchemaAwareLogDocumentBuilderImpl build(
-      FieldConflictPolicy fieldConflictPolicy, MeterRegistry meterRegistry) {
+      FieldConflictPolicy fieldConflictPolicy,
+      boolean enableFullTextSearch,
+      MeterRegistry meterRegistry) {
     // Add basic fields by default
     return new SchemaAwareLogDocumentBuilderImpl(
-        fieldConflictPolicy, getDefaultLuceneFieldDefinitions(), meterRegistry);
+        fieldConflictPolicy,
+        getDefaultLuceneFieldDefinitions(),
+        enableFullTextSearch,
+        meterRegistry);
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
@@ -307,6 +313,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final Map<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
+  private final boolean enableFullTextSearch;
   private final Counter droppedFieldsCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
@@ -314,9 +321,11 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
       final Map<String, LuceneFieldDef> initialFields,
+      boolean enableFullTextSearch,
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
     fieldDefMap.putAll(initialFields);
+    this.enableFullTextSearch = enableFullTextSearch;
     // Note: Consider adding field name as a tag to help debugging, but it's high cardinality.
     droppedFieldsCounter = meterRegistry.counter(DROP_FIELDS_COUNTER);
     convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
@@ -331,12 +340,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "", 0);
     addField(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "", 0);
     addField(doc, LogMessage.SystemField.ID.fieldName, message.id, "", 0);
-    addField(
-        doc,
-        LogMessage.SystemField.SOURCE.fieldName,
-        JsonUtil.writeAsString(message.toWireMessage()),
-        "",
-        0);
+
+    final String msgString = JsonUtil.writeAsString(message.toWireMessage());
+    addField(doc, LogMessage.SystemField.SOURCE.fieldName, msgString, "", 0);
+    if (enableFullTextSearch) {
+      addField(doc, LogMessage.SystemField.ALL.fieldName, msgString, "", 0);
+    }
+
     for (String key : message.source.keySet()) {
       addField(doc, key, message.source.get(key), "", 0);
     }

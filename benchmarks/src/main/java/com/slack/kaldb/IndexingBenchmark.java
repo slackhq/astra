@@ -2,7 +2,6 @@ package com.slack.kaldb;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.DocumentBuilder;
-import com.slack.kaldb.logstore.LogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.writer.LogMessageWriterImpl;

@@ -1,10 +1,10 @@
 package com.slack.kaldb.testlib;
 
 import com.google.common.io.Files;
-import com.slack.kaldb.logstore.LogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -70,7 +70,10 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
-            LogDocumentBuilderImpl.build(ignorePropertyTypeExceptions, enableFullTextSearch),
+            SchemaAwareLogDocumentBuilderImpl.build(
+                SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+                enableFullTextSearch,
+                metricsRegistry),
             metricsRegistry);
     logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
   }

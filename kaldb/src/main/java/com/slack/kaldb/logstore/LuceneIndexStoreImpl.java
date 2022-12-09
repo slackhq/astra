@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
@@ -83,9 +84,14 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new LuceneIndexStoreConfig(
             commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
 
-    // TODO: set ignore property exceptions via CLI flag.
+    // TODO: Set the policy via a config value.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false, enableFullTextSearch), metricsRegistry);
+        indexStoreCfg,
+        SchemaAwareLogDocumentBuilderImpl.build(
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+            enableFullTextSearch,
+            metricsRegistry),
+        metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(
