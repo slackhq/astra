@@ -7,7 +7,10 @@ import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import java.util.List;
 
 /**
  * ClusterMonitor runs as a service in the manager component and monitors the state of the KalDB
@@ -31,6 +34,22 @@ public class ClusterMonitorService extends AbstractIdleService {
         "cached_recovery_tasks_size", recoveryTaskMetadataStore, store -> store.getCached().size());
     meterRegistry.gauge(
         "cached_recovery_nodes_size", recoveryNodeMetadataStore, store -> store.getCached().size());
+
+    for (Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState :
+        Metadata.CacheSlotMetadata.CacheSlotState.values()) {
+      meterRegistry.gauge(
+          "cached_cache_slots_size",
+          List.of(Tag.of("cacheSlotState", cacheSlotState.toString())),
+          cacheSlotMetadataStore,
+          store ->
+              store
+                  .getCached()
+                  .stream()
+                  .filter(
+                      cacheSlotMetadata -> cacheSlotMetadata.cacheSlotState.equals(cacheSlotState))
+                  .count());
+    }
+
     meterRegistry.gauge(
         "cached_cache_slots_size", cacheSlotMetadataStore, store -> store.getCached().size());
     meterRegistry.gauge(
