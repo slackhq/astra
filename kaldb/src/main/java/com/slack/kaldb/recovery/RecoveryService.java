@@ -3,8 +3,6 @@ package com.slack.kaldb.recovery;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
 
-import brave.ScopedSpan;
-import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -35,6 +33,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -234,16 +233,14 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
-    ScopedSpan span = Tracing.currentTracer().startScopedSpan("RecoveryService.handleRecoveryTask");
-    span.tag("topic", recoveryTaskMetadata.name);
-    span.tag("partionId", recoveryTaskMetadata.partitionId);
-    span.tag("startOffset", Long.toString(recoveryTaskMetadata.startOffset));
-    span.tag("endOffset", Long.toString(recoveryTaskMetadata.endOffset));
+    long startTime = System.nanoTime();
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
             adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
-    span.annotate("offsets validated");
+    long offsetsValidatedTime = System.nanoTime();
+    long consumerPreparedTime = 0, messagesConsumedTime = 0, rolloversCompletedTime = 0;
+
     if (partitionOffsets != null) {
       RecoveryTaskMetadata validatedRecoveryTask =
           new RecoveryTaskMetadata(
@@ -274,15 +271,15 @@ public class RecoveryService extends AbstractIdleService {
                 meterRegistry);
 
         kafkaConsumer.prepConsumerForConsumption(validatedRecoveryTask.startOffset);
-        span.annotate("consumer prepared");
+        consumerPreparedTime = System.nanoTime();
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
             KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
             validatedRecoveryTask.startOffset,
             validatedRecoveryTask.endOffset);
-        span.annotate("messages consumed");
+        messagesConsumedTime = System.nanoTime();
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
-        span.annotate("rollovers completed");
+        rolloversCompletedTime = System.nanoTime();
         // Close the recovery chunk manager and kafka consumer.
         kafkaConsumer.close();
         chunkManager.stopAsync();
@@ -291,13 +288,26 @@ public class RecoveryService extends AbstractIdleService {
         return success;
       } catch (Exception ex) {
         LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
-        span.error(ex);
-        span.finish();
         return false;
+      } finally {
+        long endTime = System.nanoTime();
+        LOG.info(
+            "Recovery task {} took {}µs, (subtask times {}, {}, {}, {})",
+            recoveryTaskMetadata,
+            TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                consumerPreparedTime - offsetsValidatedTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                messagesConsumedTime - consumerPreparedTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                rolloversCompletedTime - messagesConsumedTime, TimeUnit.NANOSECONDS));
       }
     } else {
-      LOG.info("Recovery task {} data no longer available in Kafka", recoveryTaskMetadata);
-      span.finish();
+      LOG.info(
+          "Recovery task {} data no longer available in Kafka (validation time {}µs)",
+          recoveryTaskMetadata,
+          TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS));
       return true;
     }
   }
