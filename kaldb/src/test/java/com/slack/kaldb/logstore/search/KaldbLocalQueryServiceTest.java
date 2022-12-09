@@ -40,7 +40,12 @@ import org.junit.Test;
 
 public class KaldbLocalQueryServiceTest {
   private static final String TEST_KAFKA_PARITION_ID = "10";
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+
   @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
@@ -54,6 +59,7 @@ public class KaldbLocalQueryServiceTest {
     chunkManagerUtil =
         makeChunkManagerUtil(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             100,

@@ -9,18 +9,22 @@
     <packaging>jar</packaging>
 
     <properties>
+        <!--
+            When possible, attempt to keep our direct dependencies
+            aligned with the Armeria included versions.
+        -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javac.target>11</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.13</http.client.version>
         <http.core.version>4.4.15</http.core.version>
         <protobuf.version>3.21.7</protobuf.version>
-        <grpc.version>1.47.0</grpc.version>
-        <armeria.version>1.17.0</armeria.version>
-        <micrometer.version>1.9.1</micrometer.version>
-        <kafka.version>3.2.0</kafka.version>
-        <jackson.version>2.13.3</jackson.version>
-        <jackson.databind.version>2.12.7</jackson.databind.version>
+        <grpc.version>1.49.1</grpc.version>
+        <micrometer.version>1.9.4</micrometer.version>
+        <armeria.version>1.20.3</armeria.version>
+        <kafka.version>3.2.3</kafka.version>
+        <jackson.version>2.14.1</jackson.version>
+        <jackson.databind.version>2.14.1</jackson.databind.version>
         <lucene.version>9.3.0</lucene.version>
         <curator.version>5.2.1</curator.version>
         <log4j.version>2.17.2</log4j.version>
@@ -98,12 +102,6 @@
                     <artifactId>grpc-core</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.netty.incubator</groupId>
-            <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-            <version>0.0.14.Final</version>
-            <classifier>linux-x86_64</classifier>
         </dependency>
 
         <!-- Apache curator dependencies -->
@@ -376,7 +374,7 @@
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock-junit4</artifactId>
-            <version>2.4.13</version>
+            <version>2.10.1</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -405,7 +403,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
-            <version>${jackson.databind.version}</version>
+            <version>${jackson.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -426,7 +424,7 @@
         <dependency>
             <groupId>com.github.charithe</groupId>
             <artifactId>kafka-junit</artifactId>
-            <version>4.2.2</version>
+            <version>4.2.3</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -436,6 +434,14 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <!--
+                    We do not currently require the scala module, and it causes issues
+                    when attempting to use newer versions of databind
+                -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.module</groupId>
+                    <artifactId>jackson-module-scala_2.13</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

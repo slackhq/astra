@@ -53,12 +53,15 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class RecoveryServiceTest {
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
 
@@ -78,7 +81,6 @@ public class RecoveryServiceTest {
     zkServer = new TestingServer();
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     blobFs = new S3BlobFs(s3Client);
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
   }
 
   @After

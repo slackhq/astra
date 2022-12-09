@@ -42,7 +42,12 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 public class ChunkCleanerServiceTest {
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
@@ -55,6 +60,7 @@ public class ChunkCleanerServiceTest {
     chunkManagerUtil =
         makeChunkManagerUtil(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             10L,

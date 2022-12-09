@@ -27,17 +27,18 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class CachingChunkManagerTest {
-  private final String TEST_S3_BUCKET =
-      String.format("%sBucket", this.getClass().getSimpleName()).toLowerCase();
+  private static final String TEST_S3_BUCKET = "caching-chunkmanager-test";
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
   private S3BlobFs s3BlobFs;
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+
   private ZookeeperMetadataStoreImpl metadataStore;
   private CachingChunkManager<LogMessage> cachingChunkManager;
 
@@ -47,7 +48,6 @@ public class CachingChunkManagerTest {
     testingServer = new TestingServer();
 
     S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
     s3BlobFs = new S3BlobFs(s3Client);
   }
 
