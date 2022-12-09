@@ -110,14 +110,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 
-    chunkAssignmentTimerSuccess =
-        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "true");
+    chunkAssignmentTimerSuccess = meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "successful", "true");
     chunkAssignmentTimerFailure =
-        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "slotName", slotName, "successful", "false");
-    chunkEvictionTimerSuccess =
-        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "true");
-    chunkEvictionTimerFailure =
-        meterRegistry.timer(CHUNK_EVICTION_TIMER, "slotName", slotName, "successful", "false");
+        meterRegistry.timer(CHUNK_ASSIGNMENT_TIMER, "successful", "false");
+    chunkEvictionTimerSuccess = meterRegistry.timer(CHUNK_EVICTION_TIMER, "successful", "true");
+    chunkEvictionTimerFailure = meterRegistry.timer(CHUNK_EVICTION_TIMER, "successful", "false");
 
     LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
   }
