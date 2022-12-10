@@ -292,7 +292,7 @@ public class RecoveryService extends AbstractIdleService {
       } finally {
         long endTime = System.nanoTime();
         LOG.info(
-            "Recovery task {} took {}µs, (subtask times {}, {}, {}, {})",
+            "Recovery task {} took {}µs, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
             recoveryTaskMetadata,
             TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS),
             TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS),
