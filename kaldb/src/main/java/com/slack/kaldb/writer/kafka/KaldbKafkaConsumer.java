@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -289,13 +288,12 @@ public class KaldbKafkaConsumer {
         executor.execute(
             () -> {
               long startTime = System.nanoTime();
-              UUID batchUuid = UUID.randomUUID();
               try {
                 LOG.info(
-                    "Ingesting batch {} from {} with {} records",
-                    batchUuid,
+                    "Ingesting batch from {} with {} records on thread {}",
                     topicPartition,
-                    recordCount);
+                    recordCount,
+                    Thread.currentThread().getId());
                 for (ConsumerRecord<String, byte[]> record : records) {
                   if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                     messagesOutsideOffsetRange.incrementAndGet();
@@ -311,16 +309,27 @@ public class KaldbKafkaConsumer {
                         recordsFailedCounter.increment();
                       }
                     } catch (IOException e) {
-                      LOG.error("Encountered exception processing batch {}: {}", batchUuid, e);
+                      LOG.error(
+                          "Encountered exception processing batch from {} with {} records on thread {}: {}",
+                          topicPartition,
+                          recordCount,
+                          Thread.currentThread().getId(),
+                          e);
                     }
                   }
                 }
-                LOG.info("Finished ingesting batch {}", batchUuid);
+                LOG.info(
+                    "Finished ingesting batch from {} with {} records on thread {}",
+                    topicPartition,
+                    recordCount,
+                    Thread.currentThread().getId());
               } finally {
                 long endTime = System.nanoTime();
                 LOG.info(
-                    "Batch {} completed in {}µs",
-                    batchUuid,
+                    "Batch from {} with {} records on thread {} completed in {}µs",
+                    topicPartition,
+                    recordCount,
+                    Thread.currentThread().getId(),
                     TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS));
               }
             });
