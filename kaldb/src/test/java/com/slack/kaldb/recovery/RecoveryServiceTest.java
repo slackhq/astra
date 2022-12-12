@@ -333,7 +333,7 @@ public class RecoveryServiceTest {
     assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
     assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
     assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
-            .isGreaterThan(1);
+        .isGreaterThan(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
