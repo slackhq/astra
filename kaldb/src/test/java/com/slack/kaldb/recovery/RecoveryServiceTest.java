@@ -5,14 +5,20 @@ import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.recovery.RecoveryService.RECORDS_NO_LONGER_AVAILABLE;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_FAILED;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_RECEIVED;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_SUCCESS;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getKafkaTestServer;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getStartOffset;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.setRetentionTime;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.TEST_KAFKA_CLIENT_GROUP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 
@@ -32,28 +38,24 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.Config;
-import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.config.ConfigResource;
-import org.apache.kafka.common.config.TopicConfig;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -176,56 +178,146 @@ public class RecoveryServiceTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
-  /*
-    @Test
-    public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
-      KaldbKafkaConsumerTest.TestKafkaComponents components =
-          getTestKafkaServerWithConsumedOffsets(S3_MOCK_RULE, 200, 800);
-      Thread.sleep(30000);
 
-      KaldbConfigs.KaldbConfig kaldbCfg =
-          makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, "test-topic");
-      metadataStore =
-          ZookeeperMetadataStoreImpl.fromConfig(
-              components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+  @Test
+  public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
+    final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+    KaldbKafkaConsumerTest.TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
-      // Start recovery service
-      recoveryService =
-          new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
-      recoveryService.startAsync();
-      recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    final KaldbKafkaConsumer localTestConsumer =
+        new KaldbKafkaConsumer(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            components.testKafkaServer.getBroker().getBrokerList().get(),
+            TEST_KAFKA_CLIENT_GROUP,
+            "true",
+            "500",
+            "500",
+            components.logMessageWriter,
+            components.meterRegistry,
+            components.consumerOverrideProps);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final long msgsToProduce = 100;
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+    with()
+        .atMost(1, TimeUnit.MINUTES)
+        .await()
+        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
 
-      // Start recovery
-      long startOffset = 900;
-      long endOffset = 1000;
-      RecoveryTaskMetadata recoveryTask =
-          new RecoveryTaskMetadata(
-              TestKafkaServer.TEST_KAFKA_TOPIC,
-              "0",
-              startOffset,
-              endOffset,
-              Instant.now().toEpochMilli());
-      assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
-      assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
-          .isEqualTo(endOffset - startOffset + 1);
-    }
+    // produce some more messages that won't be expired
+    setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await()
+        .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    @Test
-    public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {}
-  */
+    // Start recovery service
+    recoveryService =
+        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-  private void setRetentionTime(String topicName, int retentionTime) {
-    ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+    // Start recovery
+    long startOffset = 1;
+    long endOffset = msgsToProduce - 1;
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            startOffset,
+            endOffset,
+            Instant.now().toEpochMilli());
+    assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
+    assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
+        .isEqualTo(endOffset - startOffset + 1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(0);
+  }
 
-    Collection<ConfigEntry> entries = new ArrayList<>();
-    entries.add(new ConfigEntry(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retentionTime)));
+  @Test
+  public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {
+    final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+    KaldbKafkaConsumerTest.TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
-    Config config = new Config(entries);
-    Map<ConfigResource, Config> configs = new HashMap<>();
-    configs.put(resource, config);
+    final KaldbKafkaConsumer localTestConsumer =
+        new KaldbKafkaConsumer(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            components.testKafkaServer.getBroker().getBrokerList().get(),
+            TEST_KAFKA_CLIENT_GROUP,
+            "true",
+            "500",
+            "500",
+            components.logMessageWriter,
+            components.meterRegistry,
+            components.consumerOverrideProps);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final long msgsToProduce = 100;
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+    with()
+        .atMost(1, TimeUnit.MINUTES)
+        .await()
+        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
 
-    AdminClient client = kafkaConfig.createAdminClient();
-    client.alterConfigs(configs);
+    // produce some more messages that won't be expired
+    setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await()
+        .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
+
+    // Start recovery service
+    recoveryService =
+        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Start recovery with an offset range that is partially unavailable
+    long startOffset = 50;
+    long endOffset = 150;
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            startOffset,
+            endOffset,
+            Instant.now().toEpochMilli());
+    assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
+    assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry)).isEqualTo(50);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(51);
   }
 
   @Test

@@ -29,18 +29,24 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -50,7 +56,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
 public class KaldbKafkaConsumerTest {
-  private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
+  public static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
   public static class BasicTests {
     private static final String S3_TEST_BUCKET = "test-kaldb-logs";
@@ -179,16 +185,13 @@ public class KaldbKafkaConsumerTest {
 
     @Test
     public void testConsumptionOfUnavailableOffsetsThrowsException() throws Exception {
-      final long startOffset = 101;
-      TestKafkaComponents components =
-          getTestKafkaServerWithConsumedOffsets(S3_MOCK_RULE, startOffset, 1300);
+      final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+      TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
 
-      Thread.sleep(30000);
-
-      KaldbKafkaConsumer localConsumer2 =
+      final KaldbKafkaConsumer localTestConsumer =
           new KaldbKafkaConsumer(
-              TestKafkaServer.TEST_KAFKA_TOPIC,
-              "0",
+              topicPartition.topic(),
+              Integer.toString(topicPartition.partition()),
               components.testKafkaServer.getBroker().getBrokerList().get(),
               TEST_KAFKA_CLIENT_GROUP,
               "true",
@@ -197,37 +200,79 @@ public class KaldbKafkaConsumerTest {
               components.logMessageWriter,
               components.meterRegistry,
               components.consumerOverrideProps);
+      // Missing consumer throws an IllegalStateException.
+      assertThatIllegalStateException()
+          .isThrownBy(() -> localTestConsumer.getConsumerPositionForPartition());
 
-      localConsumer2.prepConsumerForConsumption(startOffset);
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+      final long msgsToProduce = 100;
+      TestKafkaServer.produceMessagesToKafka(
+          components.testKafkaServer.getBroker(),
+          startTime,
+          topicPartition.topic(),
+          topicPartition.partition(),
+          (int) msgsToProduce);
+      await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+      setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+      with()
+          .atMost(1, TimeUnit.MINUTES)
+          .await()
+          .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+
+      TestKafkaServer.produceMessagesToKafka(
+          components.testKafkaServer.getBroker(),
+          startTime,
+          topicPartition.topic(),
+          topicPartition.partition(),
+          (int) msgsToProduce);
+      await()
+          .until(
+              () -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
+
+      localTestConsumer.prepConsumerForConsumption(1);
       assertThatExceptionOfType(OffsetOutOfRangeException.class)
           .isThrownBy(
               () ->
-                  localConsumer2.consumeMessagesBetweenOffsetsInParallel(
-                      KAFKA_POLL_TIMEOUT_MS, startOffset, 1300));
+                  localTestConsumer.consumeMessagesBetweenOffsetsInParallel(
+                      KAFKA_POLL_TIMEOUT_MS, 0, msgsToProduce));
     }
 
-    public static TestKafkaComponents getTestKafkaServerWithConsumedOffsets(
-        S3MockRule s3MockRule, long startOffset, long endOffset) throws Exception {
+    public static void setRetentionTime(
+        AdminClient adminClient, String topicName, int retentionTimeMs) {
+      ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+
+      Collection<ConfigEntry> entries = new ArrayList<>();
+      entries.add(
+          new ConfigEntry(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retentionTimeMs)));
+
+      Config config = new Config(entries);
+      Map<ConfigResource, Config> configs = new HashMap<>();
+      configs.put(resource, config);
+
+      adminClient.alterConfigs(configs);
+    }
+
+    public static long getStartOffset(AdminClient adminClient, TopicPartition topicPartition)
+        throws Exception {
+      ListOffsetsResult r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
+      return r.partitionResult(topicPartition).get().offset();
+    }
+
+    public static TestKafkaComponents getKafkaTestServer(S3MockRule s3MockRule) throws Exception {
       Properties brokerOverrideProps = new Properties();
-      brokerOverrideProps.put("log.retention.ms", "500");
       brokerOverrideProps.put("log.retention.check.interval.ms", "250");
       brokerOverrideProps.put("log.cleaner.backoff.ms", "250");
       brokerOverrideProps.put("log.segment.delete.delay.ms", "250");
       brokerOverrideProps.put("log.cleaner.enable", "true");
-      // brokerOverrideProps.put("offsets.retention.minutes", "1");
-      // brokerOverrideProps.put("log.retention.ms", "500");
       brokerOverrideProps.put("offsets.retention.check.interval.ms", "250");
 
       TestKafkaServer localKafkaServer = new TestKafkaServer(-1, brokerOverrideProps);
       SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
 
-      AdminClient adminClient =
-          AdminClient.create(
-              Map.of(
-                  AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-                  localKafkaServer.getBroker().getBrokerList().get(),
-                  AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
-                  "5000"));
+      EphemeralKafkaBroker broker = localKafkaServer.getBroker();
+      assertThat(broker.isRunning()).isTrue();
+      assertThat(localKafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 
       Properties consumerOverrideProps = new Properties();
       consumerOverrideProps.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "250");
@@ -245,78 +290,21 @@ public class KaldbKafkaConsumerTest {
       LogMessageWriterImpl logMessageWriter =
           new LogMessageWriterImpl(
               localChunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
-      final KaldbKafkaConsumer localConsumer =
-          new KaldbKafkaConsumer(
-              TestKafkaServer.TEST_KAFKA_TOPIC,
-              "0",
-              localKafkaServer.getBroker().getBrokerList().get(),
-              TEST_KAFKA_CLIENT_GROUP,
-              "true",
-              "500",
-              "500",
-              logMessageWriter,
-              localMetricsRegistry,
-              consumerOverrideProps);
 
-      EphemeralKafkaBroker broker = localKafkaServer.getBroker();
-      assertThat(broker.isRunning()).isTrue();
-      final Instant startTime =
-          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+      AdminClient adminClient =
+          AdminClient.create(
+              Map.of(
+                  AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
+                  localKafkaServer.getBroker().getBrokerList().get(),
+                  AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                  "5000"));
 
-      assertThat(localKafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
-      TestKafkaServer.produceMessagesToKafka(
-          broker, startTime, TestKafkaServer.TEST_KAFKA_TOPIC, 0, 10000);
-      await().until(() -> localConsumer.getEndOffSetForPartition() == 10000);
-
-      TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-      ListOffsetsResult r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.latest()));
-      long endOffset1 = r.partitionResult(topicPartition).get().offset();
-      // assertThat(startOffset1).isEqualTo(3);
-      r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
-      long startOffset1 = r.partitionResult(topicPartition).get().offset();
-
-      TestKafkaServer.produceMessagesToKafka(
-          broker, startTime, TestKafkaServer.TEST_KAFKA_TOPIC, 0, 1);
-
-      adminClient.alterConsumerGroupOffsets(
-          TEST_KAFKA_CLIENT_GROUP, Map.of(topicPartition, new OffsetAndMetadata(5L)));
-
-      r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.latest()));
-      long endOffset2 = r.partitionResult(topicPartition).get().offset();
-      // assertThat(startOffset1).isEqualTo(3);
-      r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
-      long startOffset2 = r.partitionResult(topicPartition).get().offset();
-
-      long time1 = System.currentTimeMillis();
-      with()
-          .atMost(1, TimeUnit.MINUTES)
-          .await()
-          .until(() -> getStartOffset(adminClient, topicPartition) > 0);
-      long time2 = System.currentTimeMillis();
-
-      assertThat(time2 - time1).isLessThan(0);
-      assertThat("1")
-          .isEqualTo(startOffset1 + ", " + endOffset1 + ", " + startOffset2 + ", " + endOffset2);
-
-      // consume specified offsets
-      localConsumer.prepConsumerForConsumption(startOffset);
-      localConsumer.consumeMessagesBetweenOffsetsInParallel(
-          KAFKA_POLL_TIMEOUT_MS, startOffset, endOffset);
-      // Check that messages are received and indexed.
-      assertThat(getCount(RECORDS_RECEIVED_COUNTER, localMetricsRegistry))
-          .isEqualTo(endOffset - startOffset + 1);
-      assertThat(getValue(LIVE_MESSAGES_INDEXED, localMetricsRegistry))
-          .isEqualTo(endOffset - startOffset + 1);
-      assertThat(localKafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
-      localConsumer.close();
       return new TestKafkaComponents(
-          localKafkaServer, logMessageWriter, localMetricsRegistry, consumerOverrideProps);
-    }
-
-    private static long getStartOffset(AdminClient adminClient, TopicPartition topicPartition)
-        throws Exception {
-      ListOffsetsResult r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
-      return r.partitionResult(topicPartition).get().offset();
+          localKafkaServer,
+          adminClient,
+          logMessageWriter,
+          localMetricsRegistry,
+          consumerOverrideProps);
     }
 
     @Test
@@ -343,16 +331,19 @@ public class KaldbKafkaConsumerTest {
 
   public static class TestKafkaComponents {
     public final TestKafkaServer testKafkaServer;
+    public final AdminClient adminClient;
     public final LogMessageWriterImpl logMessageWriter;
     public final MeterRegistry meterRegistry;
     public final Properties consumerOverrideProps;
 
     public TestKafkaComponents(
         TestKafkaServer testKafkaServer,
+        AdminClient adminClient,
         LogMessageWriterImpl logMessageWriter,
         MeterRegistry meterRegistry,
         Properties consumerOverrideProps) {
       this.testKafkaServer = testKafkaServer;
+      this.adminClient = adminClient;
       this.logMessageWriter = logMessageWriter;
       this.meterRegistry = meterRegistry;
       this.consumerOverrideProps = consumerOverrideProps;
