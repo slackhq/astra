@@ -289,11 +289,7 @@ public class KaldbKafkaConsumer {
             () -> {
               long startTime = System.nanoTime();
               try {
-                LOG.info(
-                    "Ingesting batch from {} with {} records on thread {}",
-                    topicPartition,
-                    recordCount,
-                    Thread.currentThread().getId());
+                LOG.info("Ingesting batch from {} with {} records", topicPartition, recordCount);
                 for (ConsumerRecord<String, byte[]> record : records) {
                   if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
                     messagesOutsideOffsetRange.incrementAndGet();
@@ -310,26 +306,23 @@ public class KaldbKafkaConsumer {
                       }
                     } catch (IOException e) {
                       LOG.error(
-                          "Encountered exception processing batch from {} with {} records on thread {}: {}",
+                          "Encountered exception processing batch from {} with {} records: {}",
                           topicPartition,
                           recordCount,
-                          Thread.currentThread().getId(),
                           e);
                     }
                   }
                 }
                 LOG.info(
-                    "Finished ingesting batch from {} with {} records on thread {}",
+                    "Finished ingesting batch from {} with {} records",
                     topicPartition,
-                    recordCount,
-                    Thread.currentThread().getId());
+                    recordCount);
               } finally {
                 long endTime = System.nanoTime();
                 LOG.info(
-                    "Batch from {} with {} records on thread {} completed in {}µs",
+                    "Batch from {} with {} records completed in {}µs",
                     topicPartition,
                     recordCount,
-                    Thread.currentThread().getId(),
                     TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS));
               }
             });
