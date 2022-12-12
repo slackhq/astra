@@ -227,13 +227,14 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
     // Start recovery service
     recoveryService =
         new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    // Start recovery
     long startOffset = 1;
     long endOffset = msgsToProduce - 1;
     RecoveryTaskMetadata recoveryTask =
@@ -247,6 +248,13 @@ public class RecoveryServiceTest {
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
         .isEqualTo(endOffset - startOffset + 1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(0);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(0);
+    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isEmpty();
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 
   @Test
@@ -298,6 +306,9 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
     // Start recovery service
     recoveryService =
         new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
@@ -317,6 +328,16 @@ public class RecoveryServiceTest {
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry)).isEqualTo(50);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(51);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
+    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
+    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
+            .isGreaterThan(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 
   @Test
