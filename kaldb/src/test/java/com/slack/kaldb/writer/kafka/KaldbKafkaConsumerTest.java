@@ -186,7 +186,7 @@ public class KaldbKafkaConsumerTest {
     @Test
     public void testConsumptionOfUnavailableOffsetsThrowsException() throws Exception {
       final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-      TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+      KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
 
       final KaldbKafkaConsumer localTestConsumer =
           new KaldbKafkaConsumer(
@@ -259,7 +259,7 @@ public class KaldbKafkaConsumerTest {
       return r.partitionResult(topicPartition).get().offset();
     }
 
-    public static TestKafkaComponents getKafkaTestServer(S3MockRule s3MockRule) throws Exception {
+    public static KafkaTestComponents getKafkaTestServer(S3MockRule s3MockRule) throws Exception {
       Properties brokerOverrideProps = new Properties();
       brokerOverrideProps.put("log.retention.check.interval.ms", "250");
       brokerOverrideProps.put("log.cleaner.backoff.ms", "250");
@@ -300,7 +300,7 @@ public class KaldbKafkaConsumerTest {
                   AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
                   "5000"));
 
-      return new TestKafkaComponents(
+      return new KafkaTestComponents(
           localKafkaServer,
           adminClient,
           logMessageWriter,
@@ -330,14 +330,14 @@ public class KaldbKafkaConsumerTest {
     }
   }
 
-  public static class TestKafkaComponents {
+  public static class KafkaTestComponents {
     public final TestKafkaServer testKafkaServer;
     public final AdminClient adminClient;
     public final LogMessageWriterImpl logMessageWriter;
     public final MeterRegistry meterRegistry;
     public final Properties consumerOverrideProps;
 
-    public TestKafkaComponents(
+    public KafkaTestComponents(
         TestKafkaServer testKafkaServer,
         AdminClient adminClient,
         LogMessageWriterImpl logMessageWriter,

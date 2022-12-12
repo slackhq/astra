@@ -182,7 +182,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    KaldbKafkaConsumerTest.TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbKafkaConsumerTest.KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =
@@ -253,7 +253,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    KaldbKafkaConsumerTest.TestKafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbKafkaConsumerTest.KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =
