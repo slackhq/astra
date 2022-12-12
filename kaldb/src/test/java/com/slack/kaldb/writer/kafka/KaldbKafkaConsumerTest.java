@@ -24,7 +24,6 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -186,7 +185,7 @@ public class KaldbKafkaConsumerTest {
     @Test
     public void testConsumptionOfUnavailableOffsetsThrowsException() throws Exception {
       final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-      KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
+      TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
 
       final KaldbKafkaConsumer localTestConsumer =
           new KaldbKafkaConsumer(
@@ -259,7 +258,8 @@ public class KaldbKafkaConsumerTest {
       return r.partitionResult(topicPartition).get().offset();
     }
 
-    public static KafkaTestComponents getKafkaTestServer(S3MockRule s3MockRule) throws Exception {
+    public static TestKafkaServer.KafkaComponents getKafkaTestServer(S3MockRule s3MockRule)
+        throws Exception {
       Properties brokerOverrideProps = new Properties();
       brokerOverrideProps.put("log.retention.check.interval.ms", "250");
       brokerOverrideProps.put("log.cleaner.backoff.ms", "250");
@@ -300,7 +300,7 @@ public class KaldbKafkaConsumerTest {
                   AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
                   "5000"));
 
-      return new KafkaTestComponents(
+      return new TestKafkaServer.KafkaComponents(
           localKafkaServer,
           adminClient,
           logMessageWriter,
@@ -327,27 +327,6 @@ public class KaldbKafkaConsumerTest {
       t.start();
 
       assertThat(q.offer(new Object())).isTrue();
-    }
-  }
-
-  public static class KafkaTestComponents {
-    public final TestKafkaServer testKafkaServer;
-    public final AdminClient adminClient;
-    public final LogMessageWriterImpl logMessageWriter;
-    public final MeterRegistry meterRegistry;
-    public final Properties consumerOverrideProps;
-
-    public KafkaTestComponents(
-        TestKafkaServer testKafkaServer,
-        AdminClient adminClient,
-        LogMessageWriterImpl logMessageWriter,
-        MeterRegistry meterRegistry,
-        Properties consumerOverrideProps) {
-      this.testKafkaServer = testKafkaServer;
-      this.adminClient = adminClient;
-      this.logMessageWriter = logMessageWriter;
-      this.meterRegistry = meterRegistry;
-      this.consumerOverrideProps = consumerOverrideProps;
     }
   }
 

@@ -39,7 +39,6 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
-import com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
@@ -182,7 +181,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    KaldbKafkaConsumerTest.KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =
@@ -253,7 +252,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    KaldbKafkaConsumerTest.KafkaTestComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =

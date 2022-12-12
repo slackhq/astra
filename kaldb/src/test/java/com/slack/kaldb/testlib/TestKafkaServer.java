@@ -8,7 +8,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
+import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.service.murron.Murron;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -165,5 +167,26 @@ public class TestKafkaServer {
     assertThat(broker.getBrokerList().isPresent()).isFalse();
     assertThat(broker.getZookeeperConnectString().isPresent()).isFalse();
     assertThat(Files.exists(logDir)).isFalse();
+  }
+
+  public static class KafkaComponents {
+    public final TestKafkaServer testKafkaServer;
+    public final AdminClient adminClient;
+    public final LogMessageWriterImpl logMessageWriter;
+    public final MeterRegistry meterRegistry;
+    public final Properties consumerOverrideProps;
+
+    public KafkaComponents(
+        TestKafkaServer testKafkaServer,
+        AdminClient adminClient,
+        LogMessageWriterImpl logMessageWriter,
+        MeterRegistry meterRegistry,
+        Properties consumerOverrideProps) {
+      this.testKafkaServer = testKafkaServer;
+      this.adminClient = adminClient;
+      this.logMessageWriter = logMessageWriter;
+      this.meterRegistry = meterRegistry;
+      this.consumerOverrideProps = consumerOverrideProps;
+    }
   }
 }
