@@ -280,6 +280,7 @@ public class KaldbKafkaConsumerTest {
       ChunkManagerUtil<LogMessage> localChunkManagerUtil =
           makeChunkManagerUtil(
               s3MockRule,
+              S3_TEST_BUCKET,
               localMetricsRegistry,
               10 * 1024 * 1024 * 1024L,
               10000L,
