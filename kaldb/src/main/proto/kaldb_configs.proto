@@ -48,6 +48,7 @@ message KafkaConfig {
   string enable_kafka_auto_commit = 5;
   string kafka_auto_commit_interval = 6;
   string kafka_session_timeout = 7;
+  map<string, string> additional_props = 8;
 }
 
 message MetadataStoreConfig {

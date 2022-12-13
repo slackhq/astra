@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +43,11 @@ public class KaldbKafkaConsumer {
   private final LogMessageWriterImpl logMessageWriterImpl;
 
   private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
+  private static final Set<String> OVERRIDABLE_CONFIGS =
+      Set.of(
+          ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+          ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+          ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
 
   public static KaldbKafkaConsumer fromConfig(
       KaldbConfigs.KafkaConfig kafkaCfg,
@@ -49,7 +56,8 @@ public class KaldbKafkaConsumer {
     return new KaldbKafkaConsumer(kafkaCfg, logMessageWriter, meterRegistry);
   }
 
-  private static Properties makeKafkaConsumerProps(KaldbConfigs.KafkaConfig kafkaConfig) {
+  @VisibleForTesting
+  public static Properties makeKafkaConsumerProps(KaldbConfigs.KafkaConfig kafkaConfig) {
 
     String kafkaBootStrapServers = kafkaConfig.getKafkaBootStrapServers();
     String kafkaClientGroup = kafkaConfig.getKafkaClientGroup();
@@ -63,20 +71,50 @@ public class KaldbKafkaConsumer {
     // TODO: Consider committing manual consumer offset?
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableKafkaAutoCommit);
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafkaAutoCommitInterval);
+    // TODO: Does the session timeout matter in assign?
+    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+
     props.put(
         ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringDeserializer");
-    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
-    // not.
     props.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    // TODO: Does the session timeout matter in assign?
-    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+
     // we rely on the fail-fast behavior of 'auto.offset.reset = none' to handle scenarios
     // with recovery tasks where the offsets are no longer available in Kafka
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
+
+    // don't override the properties that we have already set explicitly using named properties
+    for (Map.Entry<String, String> additionalProp :
+        kafkaConfig.getAdditionalPropsMap().entrySet()) {
+      maybeOverride(
+          props,
+          additionalProp.getKey(),
+          additionalProp.getValue(),
+          OVERRIDABLE_CONFIGS.contains(additionalProp.getKey()));
+    }
     return props;
+  }
+
+  @VisibleForTesting
+  public static boolean maybeOverride(
+      Properties props, String key, String value, boolean override) {
+    boolean overridden = false;
+    String userValue = props.getProperty(key);
+    if (userValue != null) {
+      if (override) {
+        LOG.warn(
+            String.format(
+                "Property %s is provided but will be overridden from %s to %s",
+                key, userValue, value));
+        props.setProperty(key, value);
+        overridden = true;
+      }
+    } else {
+      props.setProperty(key, value);
+    }
+    return overridden;
   }
 
   private KafkaConsumer<String, byte[]> kafkaConsumer;
