@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -222,7 +223,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
         "Completed replica creation for unassigned snapshots - successfully created {} replicas, failed {} replicas in {} ms",
         createdReplicas,
         failedReplicas,
-        TimeUnit.MILLISECONDS.convert(assignmentDuration, TimeUnit.NANOSECONDS));
+        nanosToMillis(assignmentDuration));
 
     return createdReplicas;
   }

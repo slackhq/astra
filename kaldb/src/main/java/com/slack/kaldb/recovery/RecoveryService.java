@@ -2,6 +2,7 @@ package com.slack.kaldb.recovery;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.util.TimeUtils.nanosToMicros;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +35,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -314,20 +314,17 @@ public class RecoveryService extends AbstractIdleService {
         LOG.info(
             "Recovery task {} took {}µs, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
             recoveryTaskMetadata,
-            TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS),
-            TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS),
-            TimeUnit.MICROSECONDS.convert(
-                consumerPreparedTime - offsetsValidatedTime, TimeUnit.NANOSECONDS),
-            TimeUnit.MICROSECONDS.convert(
-                messagesConsumedTime - consumerPreparedTime, TimeUnit.NANOSECONDS),
-            TimeUnit.MICROSECONDS.convert(
-                rolloversCompletedTime - messagesConsumedTime, TimeUnit.NANOSECONDS));
+            nanosToMicros(endTime - startTime),
+            nanosToMicros(offsetsValidatedTime - startTime),
+            nanosToMicros(consumerPreparedTime - offsetsValidatedTime),
+            nanosToMicros(messagesConsumedTime - consumerPreparedTime),
+            nanosToMicros(rolloversCompletedTime - messagesConsumedTime));
       }
     } else {
       LOG.info(
           "Recovery task {} data no longer available in Kafka (validation time {}µs)",
           recoveryTaskMetadata,
-          TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS));
+          nanosToMicros(offsetsValidatedTime - startTime));
       recoveryRecordsNoLongerAvailable.increment(
           recoveryTaskMetadata.endOffset - recoveryTaskMetadata.startOffset + 1);
       return true;
