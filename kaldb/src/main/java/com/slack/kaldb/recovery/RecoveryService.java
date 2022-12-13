@@ -28,6 +28,7 @@ import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
@@ -77,10 +78,13 @@ public class RecoveryService extends AbstractIdleService {
   public static final String RECOVERY_NODE_ASSIGNMENT_SUCCESS = "recovery_node_assignment_success";
   public static final String RECOVERY_NODE_ASSIGNMENT_FAILED = "recovery_node_assignment_failed";
   public static final String RECORDS_NO_LONGER_AVAILABLE = "records_no_longer_available";
+  public static final String RECOVERY_TASK_TIMER = "recovery_task_timer";
   protected final Counter recoveryNodeAssignmentReceived;
   protected final Counter recoveryNodeAssignmentSuccess;
   protected final Counter recoveryNodeAssignmentFailed;
   protected final Counter recoveryRecordsNoLongerAvailable;
+  private final Timer recoveryTaskTimerSuccess;
+  private final Timer recoveryTaskTimerFailure;
   private SearchMetadataStore searchMetadataStore;
 
   public RecoveryService(
@@ -122,6 +126,8 @@ public class RecoveryService extends AbstractIdleService {
         meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_FAILED, meterTags);
     recoveryRecordsNoLongerAvailable =
         meterRegistry.counter(RECORDS_NO_LONGER_AVAILABLE, meterTags);
+    recoveryTaskTimerSuccess = meterRegistry.timer(RECOVERY_TASK_TIMER, "successful", "true");
+    recoveryTaskTimerFailure = meterRegistry.timer(RECOVERY_TASK_TIMER, "successful", "false");
   }
 
   @Override
@@ -238,6 +244,7 @@ public class RecoveryService extends AbstractIdleService {
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
     long startTime = System.nanoTime();
+    Timer.Sample taskTimer = Timer.start(meterRegistry);
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
@@ -296,9 +303,11 @@ public class RecoveryService extends AbstractIdleService {
         chunkManager.stopAsync();
         chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
         LOG.info("Finished handling the recovery task: {}", validatedRecoveryTask);
+        taskTimer.stop(recoveryTaskTimerSuccess);
         return success;
       } catch (Exception ex) {
         LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
+        taskTimer.stop(recoveryTaskTimerFailure);
         return false;
       } finally {
         long endTime = System.nanoTime();
