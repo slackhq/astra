@@ -103,7 +103,7 @@ public class RecoveryService extends AbstractIdleService {
         AdminClient.create(
             Map.of(
                 AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-                kaldbConfig.getIndexerConfig().getKafkaConfig().getKafkaBootStrapServers(),
+                kaldbConfig.getRecoveryConfig().getKafkaConfig().getKafkaBootStrapServers(),
                 AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
                 "5000"));
 

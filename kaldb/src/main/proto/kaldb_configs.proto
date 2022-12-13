@@ -192,6 +192,7 @@ message ManagerConfig {
 // Config for the recovery node.
 message RecoveryConfig {
   ServerConfig server_config = 1;
+  KafkaConfig kafka_config = 10;
 }
 
 // Config for the preprocessor node.
