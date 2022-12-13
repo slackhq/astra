@@ -76,9 +76,11 @@ public class RecoveryService extends AbstractIdleService {
       "recovery_node_assignment_received";
   public static final String RECOVERY_NODE_ASSIGNMENT_SUCCESS = "recovery_node_assignment_success";
   public static final String RECOVERY_NODE_ASSIGNMENT_FAILED = "recovery_node_assignment_failed";
+  public static final String RECORDS_NO_LONGER_AVAILABLE = "records_no_longer_available";
   protected final Counter recoveryNodeAssignmentReceived;
   protected final Counter recoveryNodeAssignmentSuccess;
   protected final Counter recoveryNodeAssignmentFailed;
+  protected final Counter recoveryRecordsNoLongerAvailable;
   private SearchMetadataStore searchMetadataStore;
 
   public RecoveryService(
@@ -118,6 +120,8 @@ public class RecoveryService extends AbstractIdleService {
         meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterTags);
     recoveryNodeAssignmentFailed =
         meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_FAILED, meterTags);
+    recoveryRecordsNoLongerAvailable =
+        meterRegistry.counter(RECORDS_NO_LONGER_AVAILABLE, meterTags);
   }
 
   @Override
@@ -250,6 +254,13 @@ public class RecoveryService extends AbstractIdleService {
               partitionOffsets.endOffset,
               recoveryTaskMetadata.createdTimeEpochMs);
 
+      if (partitionOffsets.startOffset != recoveryTaskMetadata.startOffset
+          || recoveryTaskMetadata.endOffset != partitionOffsets.endOffset) {
+        recoveryRecordsNoLongerAvailable.increment(
+            (partitionOffsets.startOffset - recoveryTaskMetadata.startOffset)
+                + (partitionOffsets.endOffset - recoveryTaskMetadata.endOffset));
+      }
+
       try {
         RecoveryChunkManager<LogMessage> chunkManager =
             RecoveryChunkManager.fromConfig(
@@ -308,6 +319,8 @@ public class RecoveryService extends AbstractIdleService {
           "Recovery task {} data no longer available in Kafka (validation time {}µs)",
           recoveryTaskMetadata,
           TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS));
+      recoveryRecordsNoLongerAvailable.increment(
+          recoveryTaskMetadata.endOffset - recoveryTaskMetadata.startOffset + 1);
       return true;
     }
   }
