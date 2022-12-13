@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -236,10 +237,14 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
+    long startTime = System.nanoTime();
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
             adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
+    long offsetsValidatedTime = System.nanoTime();
+    long consumerPreparedTime = 0, messagesConsumedTime = 0, rolloversCompletedTime = 0;
+
     if (partitionOffsets != null) {
       RecoveryTaskMetadata validatedRecoveryTask =
           new RecoveryTaskMetadata(
@@ -277,12 +282,15 @@ public class RecoveryService extends AbstractIdleService {
                 meterRegistry);
 
         kafkaConsumer.prepConsumerForConsumption(validatedRecoveryTask.startOffset);
+        consumerPreparedTime = System.nanoTime();
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
             KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
             validatedRecoveryTask.startOffset,
             validatedRecoveryTask.endOffset);
+        messagesConsumedTime = System.nanoTime();
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
+        rolloversCompletedTime = System.nanoTime();
         // Close the recovery chunk manager and kafka consumer.
         kafkaConsumer.close();
         chunkManager.stopAsync();
@@ -292,11 +300,27 @@ public class RecoveryService extends AbstractIdleService {
       } catch (Exception ex) {
         LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
         return false;
+      } finally {
+        long endTime = System.nanoTime();
+        LOG.info(
+            "Recovery task {} took {}µs, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
+            recoveryTaskMetadata,
+            TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                consumerPreparedTime - offsetsValidatedTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                messagesConsumedTime - consumerPreparedTime, TimeUnit.NANOSECONDS),
+            TimeUnit.MICROSECONDS.convert(
+                rolloversCompletedTime - messagesConsumedTime, TimeUnit.NANOSECONDS));
       }
     } else {
+      LOG.info(
+          "Recovery task {} data no longer available in Kafka (validation time {}µs)",
+          recoveryTaskMetadata,
+          TimeUnit.MICROSECONDS.convert(offsetsValidatedTime - startTime, TimeUnit.NANOSECONDS));
       recoveryRecordsNoLongerAvailable.increment(
           recoveryTaskMetadata.endOffset - recoveryTaskMetadata.startOffset + 1);
-      LOG.info("Recovery task {} data no longer available in Kafka", recoveryTaskMetadata);
       return true;
     }
   }

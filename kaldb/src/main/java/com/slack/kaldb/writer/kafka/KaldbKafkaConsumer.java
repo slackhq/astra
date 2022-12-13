@@ -318,31 +318,44 @@ public class KaldbKafkaConsumer {
         messagesIndexed += recordCount;
         executor.execute(
             () -> {
-              LOG.info("Ingesting batch: [{}/{}]", topicPartition, recordCount);
-              for (ConsumerRecord<String, byte[]> record : records) {
-                if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
-                  messagesOutsideOffsetRange.incrementAndGet();
-                  recordsFailedCounter.increment();
-                } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
-                  messagesOutsideOffsetRange.incrementAndGet();
-                  recordsFailedCounter.increment();
-                } else {
-                  try {
-                    if (logMessageWriterImpl.insertRecord(record)) {
-                      recordsReceivedCounter.increment();
-                    } else {
-                      recordsFailedCounter.increment();
+              long startTime = System.nanoTime();
+              try {
+                LOG.info("Ingesting batch from {} with {} records", topicPartition, recordCount);
+                for (ConsumerRecord<String, byte[]> record : records) {
+                  if (startOffsetInclusive >= 0 && record.offset() < startOffsetInclusive) {
+                    messagesOutsideOffsetRange.incrementAndGet();
+                    recordsFailedCounter.increment();
+                  } else if (endOffsetInclusive >= 0 && record.offset() > endOffsetInclusive) {
+                    messagesOutsideOffsetRange.incrementAndGet();
+                    recordsFailedCounter.increment();
+                  } else {
+                    try {
+                      if (logMessageWriterImpl.insertRecord(record)) {
+                        recordsReceivedCounter.increment();
+                      } else {
+                        recordsFailedCounter.increment();
+                      }
+                    } catch (IOException e) {
+                      LOG.error(
+                          "Encountered exception processing batch from {} with {} records: {}",
+                          topicPartition,
+                          recordCount,
+                          e);
                     }
-                  } catch (IOException e) {
-                    LOG.error(
-                        "Encountered exception processing batch [{}/{}]: {}",
-                        topicPartition,
-                        recordCount,
-                        e);
                   }
                 }
+                LOG.info(
+                    "Finished ingesting batch from {} with {} records",
+                    topicPartition,
+                    recordCount);
+              } finally {
+                long endTime = System.nanoTime();
+                LOG.info(
+                    "Batch from {} with {} records completed in {}µs",
+                    topicPartition,
+                    recordCount,
+                    TimeUnit.MICROSECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS));
               }
-              LOG.info("Finished ingesting batch: [{}/{}]", topicPartition, recordCount);
             });
         LOG.debug("Queued");
       } else {
