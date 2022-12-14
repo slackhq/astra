@@ -13,6 +13,7 @@ import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.schema.ChunkSchema;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -20,10 +21,13 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -212,17 +216,29 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
     IndexCommit indexCommit = null;
     try {
       Path dirPath = logStore.getDirectory().toAbsolutePath();
+
+      // Create schema file to upload
+      ChunkSchema chunkSchema =
+          new ChunkSchema(chunkInfo.chunkId, logStore.getSchema(), new ConcurrentHashMap<>());
+      File schemaFile = new File(dirPath + "/schema.json");
+      ChunkSchema.serializeToFile(chunkSchema, schemaFile);
+
+      // Prepare list of files to upload.
+      List<String> filesToUpload = new ArrayList<>();
+      filesToUpload.add(schemaFile.getName());
       indexCommit = logStore.getIndexCommit();
-      Collection<String> activeFiles = indexCommit.getFileNames();
-      logger.info("{} active files in {} in index", activeFiles.size(), dirPath);
-      for (String fileName : activeFiles) {
+      filesToUpload.addAll(indexCommit.getFileNames());
+
+      // Upload files
+      logger.info("{} active files in {} in index", filesToUpload.size(), dirPath);
+      for (String fileName : filesToUpload) {
         logger.debug("File name is {}}", fileName);
       }
-      this.fileUploadAttempts.increment(activeFiles.size());
+      this.fileUploadAttempts.increment(filesToUpload.size());
       Timer.Sample snapshotTimer = Timer.start(meterRegistry);
-      final int success = copyToS3(dirPath, activeFiles, bucket, prefix, blobFs);
+      final int success = copyToS3(dirPath, filesToUpload, bucket, prefix, blobFs);
       snapshotTimer.stop(meterRegistry.timer(SNAPSHOT_TIMER));
-      this.fileUploadFailures.increment(activeFiles.size() - success);
+      this.fileUploadFailures.increment(filesToUpload.size() - success);
       chunkInfo.setSnapshotPath(createURI(bucket, prefix, "").toString());
       logger.info("Finished RW chunk snapshot to S3 {}.", chunkInfo);
       return true;

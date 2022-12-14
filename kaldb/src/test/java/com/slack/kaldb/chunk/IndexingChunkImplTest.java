@@ -590,7 +590,8 @@ public class IndexingChunkImplTest {
       assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
-      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(4);
+      assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(5);
+      // TODO: Assert schema.json exists in s3
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
       assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
 

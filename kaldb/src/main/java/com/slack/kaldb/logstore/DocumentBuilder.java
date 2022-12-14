@@ -2,7 +2,7 @@ package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.IOException;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.document.Document;
 
 /**
@@ -12,5 +12,5 @@ import org.apache.lucene.document.Document;
 public interface DocumentBuilder<T> {
   Document fromMessage(T message) throws IOException;
 
-  Map<String, LuceneFieldDef> getSchema();
+  ConcurrentHashMap<String, LuceneFieldDef> getSchema();
 }
