@@ -548,8 +548,6 @@ public class IndexingChunkImplTest {
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     }
 
-    // TODO: Add a test to check that the data is deleted from the file system on cleanup.
-
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     @Test
     public void testSnapshotToS3UsingChunkApi() throws Exception {
