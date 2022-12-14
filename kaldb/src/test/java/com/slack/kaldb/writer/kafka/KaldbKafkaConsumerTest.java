@@ -19,6 +19,7 @@ import static org.mockito.Mockito.spy;
 
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
+import com.google.common.collect.Maps;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -223,18 +224,23 @@ public class KaldbKafkaConsumerTest {
       final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
       TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
 
+      KaldbConfigs.KafkaConfig kafkaConfig =
+          KaldbConfigs.KafkaConfig.newBuilder()
+              .setKafkaTopic(TestKafkaServer.TEST_KAFKA_TOPIC)
+              .setKafkaTopicPartition("0")
+              .setKafkaBootStrapServers(
+                  components.testKafkaServer.getBroker().getBrokerList().get())
+              .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
+              .setEnableKafkaAutoCommit("true")
+              .setKafkaAutoCommitInterval("500")
+              .setKafkaSessionTimeout("500")
+              .putAllAdditionalProps(Maps.fromProperties(components.consumerOverrideProps))
+              .build();
+
       final KaldbKafkaConsumer localTestConsumer =
           new KaldbKafkaConsumer(
-              topicPartition.topic(),
-              Integer.toString(topicPartition.partition()),
-              components.testKafkaServer.getBroker().getBrokerList().get(),
-              TEST_KAFKA_CLIENT_GROUP,
-              "true",
-              "500",
-              "500",
-              components.logMessageWriter,
-              components.meterRegistry,
-              components.consumerOverrideProps);
+              kafkaConfig, components.logMessageWriter, components.meterRegistry);
+
       // Missing consumer throws an IllegalStateException.
       assertThatIllegalStateException()
           .isThrownBy(() -> localTestConsumer.getConsumerPositionForPartition());
