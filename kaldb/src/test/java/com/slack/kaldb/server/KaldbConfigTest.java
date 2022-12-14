@@ -69,10 +69,11 @@ public class KaldbConfigTest {
             .set("serverConfig", serverConfig);
     ObjectNode kafkaConfig =
         mapper.createObjectNode().put("kafkaTopicPartition", 1).put("kafkaSessionTimeout", 30000);
+    indexerConfig.set("kafkaConfig", kafkaConfig);
+
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
-    node.set("kafkaConfig", kafkaConfig);
     final String missingRequiredField =
         mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
 
@@ -113,6 +114,12 @@ public class KaldbConfigTest {
   public void testIgnoreExtraConfigField() throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     ObjectNode serverConfig = mapper.createObjectNode().put("requestTimeoutMs", 3000);
+    ObjectNode kafkaConfig =
+        mapper
+            .createObjectNode()
+            .put("kafkaTopicPartition", 1)
+            .put("kafkaSessionTimeout", 30000)
+            .put("ignoreExtraField", "ignoredField");
     ObjectNode indexerConfig =
         mapper
             .createObjectNode()
@@ -123,16 +130,11 @@ public class KaldbConfigTest {
             .put("defaultQueryTimeoutMs", "2500")
             .put("dataTransformer", "api_log")
             .set("serverConfig", serverConfig);
-    ObjectNode kafkaConfig =
-        mapper
-            .createObjectNode()
-            .put("kafkaTopicPartition", 1)
-            .put("kafkaSessionTimeout", 30000)
-            .put("ignoreExtraField", "ignoredField");
+    indexerConfig.set("kafkaConfig", kafkaConfig);
+
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
-    node.set("kafkaConfig", kafkaConfig);
 
     final String configWithExtraField =
         mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);

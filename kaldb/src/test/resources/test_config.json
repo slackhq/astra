@@ -5,15 +5,6 @@
     "CACHE",
     "MANAGER"
   ],
-  "kafkaConfig": {
-    "kafkaTopic": "testTopic",
-    "kafkaTopicPartition": "1",
-    "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
-    "kafkaClientGroup": "kaldb-test",
-    "enableKafkaAutoCommit": "true",
-    "kafkaAutoCommitInterval": "5000",
-    "kafkaSessionTimeout": "30000"
-  },
   "s3Config": {
     "s3AccessKey": "access",
     "s3SecretKey": "secret",
@@ -43,6 +34,15 @@
       "serverPort": 8080,
       "serverAddress": "localhost",
       "requestTimeoutMs": 3000
+    },
+    "kafkaConfig": {
+      "kafkaTopic": "testTopic",
+      "kafkaTopicPartition": "1",
+      "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
+      "kafkaClientGroup": "kaldb-test",
+      "enableKafkaAutoCommit": "true",
+      "kafkaAutoCommitInterval": "5000",
+      "kafkaSessionTimeout": "30000"
     },
     "defaultQueryTimeoutMs": 1500
   },
@@ -114,6 +114,15 @@
       "serverPort": 8084,
       "serverAddress": "localhost",
       "requestTimeoutMs": 3000
+    },
+    "kafkaConfig": {
+      "kafkaTopic": "testTopic",
+      "kafkaTopicPartition": "1",
+      "kafkaBootStrapServers": "kafka.us-east-1.consul:9094",
+      "kafkaClientGroup": "kaldb-test",
+      "enableKafkaAutoCommit": "true",
+      "kafkaAutoCommitInterval": "5000",
+      "kafkaSessionTimeout": "30000"
     }
   },
   "preprocessorConfig": {
