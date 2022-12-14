@@ -285,7 +285,7 @@ public class RecoveryService extends AbstractIdleService {
         LogMessageWriterImpl logMessageWriterImpl =
             new LogMessageWriterImpl(chunkManager, messageTransformer);
         KaldbKafkaConsumer kafkaConsumer =
-            KaldbKafkaConsumer.fromConfig(
+            new KaldbKafkaConsumer(
                 makeKafkaConfig(
                     kaldbConfig.getRecoveryConfig().getKafkaConfig(),
                     validatedRecoveryTask.partitionId),

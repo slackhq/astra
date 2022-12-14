@@ -49,13 +49,6 @@ public class KaldbKafkaConsumer {
           ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
           ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
 
-  public static KaldbKafkaConsumer fromConfig(
-      KaldbConfigs.KafkaConfig kafkaCfg,
-      LogMessageWriterImpl logMessageWriter,
-      MeterRegistry meterRegistry) {
-    return new KaldbKafkaConsumer(kafkaCfg, logMessageWriter, meterRegistry);
-  }
-
   @VisibleForTesting
   public static Properties makeKafkaConsumerProps(KaldbConfigs.KafkaConfig kafkaConfig) {
 

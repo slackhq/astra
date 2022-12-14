@@ -71,8 +71,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
         INDEXER_DATA_TRANSFORMER_MAP.get(indexerConfig.getDataTransformer());
     LogMessageWriterImpl logMessageWriterImpl =
         new LogMessageWriterImpl(chunkManager, messageTransformer);
-    this.kafkaConsumer =
-        KaldbKafkaConsumer.fromConfig(kafkaConfig, logMessageWriterImpl, meterRegistry);
+    this.kafkaConsumer = new KaldbKafkaConsumer(kafkaConfig, logMessageWriterImpl, meterRegistry);
   }
 
   @Override
