@@ -727,65 +727,66 @@ public class LogIndexSearcherImplTest {
   @Test
   public void testPhraseQuery() {
     Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(makeMessageForPhraseSearch("testIndex", "1", "flannel-be", time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForPhraseSearch("testIndex", "1", "flannel-be", time));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
     String queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel be\"";
     SearchResult<LogMessage> result =
-            strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    queryStr,
-                    time.toEpochMilli(),
-                    time.plusSeconds(1).toEpochMilli(),
-                    100,
-                    0);
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            queryStr,
+            time.toEpochMilli(),
+            time.plusSeconds(1).toEpochMilli(),
+            100,
+            0);
     assertThat(result.hits.size()).isEqualTo(0);
     assertThat(result.totalCount).isEqualTo(0);
     assertThat(result.buckets.size()).isEqualTo(0);
 
     queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel-be\"";
     result =
-            strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    queryStr,
-                    time.toEpochMilli(),
-                    time.plusSeconds(1).toEpochMilli(),
-                    100,
-                    0);
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            queryStr,
+            time.toEpochMilli(),
+            time.plusSeconds(1).toEpochMilli(),
+            100,
+            0);
     assertThat(result.hits.size()).isEqualTo(1);
     assertThat(result.totalCount).isEqualTo(1);
     assertThat(result.buckets.size()).isEqualTo(0);
 
     queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"FLANNEL-be\"";
     result =
-            strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    queryStr,
-                    time.toEpochMilli(),
-                    time.plusSeconds(1).toEpochMilli(),
-                    100,
-                    0);
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            queryStr,
+            time.toEpochMilli(),
+            time.plusSeconds(1).toEpochMilli(),
+            100,
+            0);
     assertThat(result.hits.size()).isEqualTo(0);
     assertThat(result.totalCount).isEqualTo(0);
     assertThat(result.buckets.size()).isEqualTo(0);
 
     queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":flannel";
     result =
-            strictLogStore.logSearcher.search(
-                    TEST_DATASET_NAME,
-                    queryStr,
-                    time.toEpochMilli(),
-                    time.plusSeconds(1).toEpochMilli(),
-                    100,
-                    0);
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            queryStr,
+            time.toEpochMilli(),
+            time.plusSeconds(1).toEpochMilli(),
+            100,
+            0);
     assertThat(result.hits.size()).isEqualTo(0);
     assertThat(result.totalCount).isEqualTo(0);
     assertThat(result.buckets.size()).isEqualTo(0);
   }
 
   private static LogMessage makeMessageForPhraseSearch(
-          String indexName, String id, String service, Instant ts) {
+      String indexName, String id, String service, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, service);
