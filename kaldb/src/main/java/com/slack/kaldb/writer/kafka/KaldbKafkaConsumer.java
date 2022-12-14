@@ -1,6 +1,6 @@
 package com.slack.kaldb.writer.kafka;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 import static java.lang.Integer.parseInt;
 
@@ -103,6 +103,11 @@ public class KaldbKafkaConsumer {
                 key, userValue, value));
         props.setProperty(key, value);
         overridden = true;
+      } else {
+        LOG.warn(
+            String.format(
+                "Property %s is provided but won't be overridden from %s to %s",
+                key, userValue, value));
       }
     } else {
       props.setProperty(key, value);
