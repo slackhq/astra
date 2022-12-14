@@ -3,6 +3,7 @@ package com.slack.kaldb.clusterManager;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -153,7 +154,7 @@ public class ReplicaEvictionService extends AbstractScheduledService {
         "Completed replica evictions - successfully marked {} slots for eviction, failed to mark {} slots for eviction in {} ms",
         successfulEvictions,
         failedEvictions,
-        TimeUnit.MILLISECONDS.convert(evictionDuration, TimeUnit.NANOSECONDS));
+        nanosToMillis(evictionDuration));
 
     return successfulEvictions;
   }
