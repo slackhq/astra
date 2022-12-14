@@ -248,7 +248,9 @@ public class RecoveryService extends AbstractIdleService {
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
-            adminClient, recoveryTaskMetadata, kaldbConfig.getRecoveryConfig().getKafkaConfig().getKafkaTopic());
+            adminClient,
+            recoveryTaskMetadata,
+            kaldbConfig.getRecoveryConfig().getKafkaConfig().getKafkaTopic());
     long offsetsValidatedTime = System.nanoTime();
     long consumerPreparedTime = 0, messagesConsumedTime = 0, rolloversCompletedTime = 0;
 
