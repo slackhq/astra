@@ -2,7 +2,7 @@ package com.slack.kaldb.recovery;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
-import static com.slack.kaldb.util.TimeUtils.nanosToMicros;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -312,19 +312,19 @@ public class RecoveryService extends AbstractIdleService {
       } finally {
         long endTime = System.nanoTime();
         LOG.info(
-            "Recovery task {} took {}µs, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
+            "Recovery task {} took {}ms, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
             recoveryTaskMetadata,
-            nanosToMicros(endTime - startTime),
-            nanosToMicros(offsetsValidatedTime - startTime),
-            nanosToMicros(consumerPreparedTime - offsetsValidatedTime),
-            nanosToMicros(messagesConsumedTime - consumerPreparedTime),
-            nanosToMicros(rolloversCompletedTime - messagesConsumedTime));
+            nanosToMillis(endTime - startTime),
+            nanosToMillis(offsetsValidatedTime - startTime),
+            nanosToMillis(consumerPreparedTime - offsetsValidatedTime),
+            nanosToMillis(messagesConsumedTime - consumerPreparedTime),
+            nanosToMillis(rolloversCompletedTime - messagesConsumedTime));
       }
     } else {
       LOG.info(
           "Recovery task {} data no longer available in Kafka (validation time {}µs)",
           recoveryTaskMetadata,
-          nanosToMicros(offsetsValidatedTime - startTime));
+              nanosToMillis(offsetsValidatedTime - startTime));
       recoveryRecordsNoLongerAvailable.increment(
           recoveryTaskMetadata.endOffset - recoveryTaskMetadata.startOffset + 1);
       return true;

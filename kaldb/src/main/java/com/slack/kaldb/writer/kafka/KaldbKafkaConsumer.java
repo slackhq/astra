@@ -1,7 +1,7 @@
 package com.slack.kaldb.writer.kafka;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.slack.kaldb.util.TimeUtils.nanosToMicros;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -355,7 +355,7 @@ public class KaldbKafkaConsumer {
                     "Batch from {} with {} records completed in {}µs",
                     topicPartition,
                     recordCount,
-                    nanosToMicros(endTime - startTime));
+                    nanosToMillis(endTime - startTime));
               }
             });
         LOG.debug("Queued");
