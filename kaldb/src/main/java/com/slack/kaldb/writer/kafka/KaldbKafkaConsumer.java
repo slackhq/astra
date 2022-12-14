@@ -148,7 +148,7 @@ public class KaldbKafkaConsumer {
     for (String property : props.stringPropertyNames()) {
       Preconditions.checkArgument(
           props.getProperty(property) != null && !props.getProperty(property).isEmpty(),
-          String.format("Property %s cannot be null", property));
+          String.format("Property %s cannot be null or empty", property));
     }
 
     // Check required configs.

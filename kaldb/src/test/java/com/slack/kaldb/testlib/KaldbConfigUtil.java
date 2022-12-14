@@ -91,6 +91,7 @@ public class KaldbConfigUtil {
                     .setServerAddress("localhost")
                     .setRequestTimeoutMs(5000)
                     .build())
+            .setKafkaConfig(kafkaConfig)
             .build();
 
     return KaldbConfigs.KaldbConfig.newBuilder()
