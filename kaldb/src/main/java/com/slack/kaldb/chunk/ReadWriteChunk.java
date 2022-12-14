@@ -65,6 +65,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
   public static final String INDEX_FILES_UPLOAD_FAILED = "index_files_upload_failed";
   public static final String SNAPSHOT_TIMER = "snapshot.timer";
   public static final String LIVE_SNAPSHOT_PREFIX = SnapshotMetadata.LIVE_SNAPSHOT_PATH + "_";
+  public static final String SCHEMA_FILE_NAME = "schema.json";
 
   private final LogStore<T> logStore;
   private final String kafkaPartitionId;
@@ -220,7 +221,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // Create schema file to upload
       ChunkSchema chunkSchema =
           new ChunkSchema(chunkInfo.chunkId, logStore.getSchema(), new ConcurrentHashMap<>());
-      File schemaFile = new File(dirPath + "/schema.json");
+      File schemaFile = new File(dirPath + "/" + SCHEMA_FILE_NAME);
       ChunkSchema.serializeToFile(chunkSchema, schemaFile);
 
       // Prepare list of files to upload.

@@ -3,6 +3,7 @@ package com.slack.kaldb.chunk;
 import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD;
 import static com.slack.kaldb.chunk.ReadWriteChunk.INDEX_FILES_UPLOAD_FAILED;
 import static com.slack.kaldb.chunk.ReadWriteChunk.LIVE_SNAPSHOT_PREFIX;
+import static com.slack.kaldb.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
 import static com.slack.kaldb.chunk.ReadWriteChunk.SNAPSHOT_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -42,6 +44,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -53,6 +57,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 
 @RunWith(Enclosed.class)
 public class IndexingChunkImplTest {
@@ -591,9 +596,19 @@ public class IndexingChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       assertThat(getCount(INDEX_FILES_UPLOAD, registry)).isEqualTo(5);
-      // TODO: Assert schema.json exists in s3
       assertThat(getCount(INDEX_FILES_UPLOAD_FAILED, registry)).isEqualTo(0);
       assertThat(registry.get(SNAPSHOT_TIMER).timer().totalTime(TimeUnit.SECONDS)).isGreaterThan(0);
+
+      // Check schema file exists in s3
+      ListObjectsV2Response objectsResponse =
+          s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
+      assertThat(
+              objectsResponse
+                  .contents()
+                  .stream()
+                  .filter(o -> o.key().equals(SCHEMA_FILE_NAME))
+                  .count())
+          .isEqualTo(1);
 
       // Post snapshot cleanup.
       chunk.postSnapshot();
@@ -622,6 +637,14 @@ public class IndexingChunkImplTest {
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       chunk.close();
+      // Ensure folder is cleared after chunk chlose. List the number of files in folder
+      // recursively, skip empty folders.
+      assertThat(
+              FileUtils.listFiles(
+                      temporaryFolder.getRoot(), TrueFileFilter.TRUE, TrueFileFilter.TRUE)
+                  .stream()
+                  .count())
+          .isZero();
       closeChunk = false;
     }
   }
