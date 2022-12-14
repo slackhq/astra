@@ -725,71 +725,85 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
-  public void testPhraseQuery() {
+  // field is analyzed=false for SERVICE_NAME
+  public void testPhraseQueryNotAnalyzed() {
+    String field = LogMessage.ReservedField.SERVICE_NAME.fieldName;
+
     Instant time = Instant.now();
+
     strictLogStore.logStore.addMessage(
-        makeMessageForPhraseSearch("testIndex", "1", "flannel-be", time));
+        makeMessageForPhraseSearch("testIndex", "1", field, "flannel-be", time));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
-    String queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel be\"";
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel-be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel be\"", 0, 0, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"FLANNEL-be\"", 0, 0, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "flannel", 0, 0, time);
+  }
+
+  @Test
+  // field is analyzed=true for USERNAME
+  public void testPhraseQueryAnalyzed() {
+    String field = LogMessage.ReservedField.USERNAME.fieldName;
+
+    Instant time = Instant.now();
+
+    strictLogStore.logStore.addMessage(
+        makeMessageForPhraseSearch("testIndex", "1", field, "flannel-be", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel-be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"FLANNEL-be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "flannel", 1, 1, time);
+  }
+
+  @Test
+  // field is analyzed=true for ANY field
+  public void testPhraseQueryAnyField() {
+    String field = "my-service-name";
+
+    Instant time = Instant.now();
+
+    strictLogStore.logStore.addMessage(
+        makeMessageForPhraseSearch("testIndex", "1", field, "flannel-be", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel-be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"flannel be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "\"FLANNEL-be\"", 1, 1, time);
+    canMatchQuery(strictLogStore.logSearcher, field, "flannel", 1, 1, time);
+  }
+
+  private void canMatchQuery(
+      LogIndexSearcherImpl logIndexSearcher,
+      String field,
+      String value,
+      int hits,
+      int count,
+      Instant timeFilter) {
+    String queryStr = field + ":" + value;
     SearchResult<LogMessage> result =
-        strictLogStore.logSearcher.search(
+        logIndexSearcher.search(
             TEST_DATASET_NAME,
             queryStr,
-            time.toEpochMilli(),
-            time.plusSeconds(1).toEpochMilli(),
+            timeFilter.toEpochMilli(),
+            timeFilter.plusSeconds(1).toEpochMilli(),
             100,
             0);
-    assertThat(result.hits.size()).isEqualTo(0);
-    assertThat(result.totalCount).isEqualTo(0);
-    assertThat(result.buckets.size()).isEqualTo(0);
-
-    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"flannel-be\"";
-    result =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            queryStr,
-            time.toEpochMilli(),
-            time.plusSeconds(1).toEpochMilli(),
-            100,
-            0);
-    assertThat(result.hits.size()).isEqualTo(1);
-    assertThat(result.totalCount).isEqualTo(1);
-    assertThat(result.buckets.size()).isEqualTo(0);
-
-    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":\"FLANNEL-be\"";
-    result =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            queryStr,
-            time.toEpochMilli(),
-            time.plusSeconds(1).toEpochMilli(),
-            100,
-            0);
-    assertThat(result.hits.size()).isEqualTo(0);
-    assertThat(result.totalCount).isEqualTo(0);
-    assertThat(result.buckets.size()).isEqualTo(0);
-
-    queryStr = LogMessage.ReservedField.SERVICE_NAME.fieldName + ":flannel";
-    result =
-        strictLogStore.logSearcher.search(
-            TEST_DATASET_NAME,
-            queryStr,
-            time.toEpochMilli(),
-            time.plusSeconds(1).toEpochMilli(),
-            100,
-            0);
-    assertThat(result.hits.size()).isEqualTo(0);
-    assertThat(result.totalCount).isEqualTo(0);
+    assertThat(result.hits.size()).isEqualTo(hits);
+    assertThat(result.totalCount).isEqualTo(count);
     assertThat(result.buckets.size()).isEqualTo(0);
   }
 
   private static LogMessage makeMessageForPhraseSearch(
-      String indexName, String id, String service, Instant ts) {
+      String indexName, String id, String field, String value, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
-    fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, service);
+    fieldMap.put(field, value);
     LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
