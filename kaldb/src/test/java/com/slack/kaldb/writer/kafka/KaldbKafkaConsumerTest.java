@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
@@ -27,7 +28,24 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -37,10 +55,14 @@ import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
 public class KaldbKafkaConsumerTest {
-  private static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
+  public static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
 
   public static class BasicTests {
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+    private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+    @ClassRule
+    public static final S3MockRule S3_MOCK_RULE =
+        S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
     private TestKafkaServer kafkaServer;
     private KaldbKafkaConsumer testConsumer;
@@ -56,6 +78,7 @@ public class KaldbKafkaConsumerTest {
       chunkManagerUtil =
           makeChunkManagerUtil(
               S3_MOCK_RULE,
+              S3_TEST_BUCKET,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
               10000L,
@@ -160,6 +183,132 @@ public class KaldbKafkaConsumerTest {
     // not needed by the recovery indexer yet.
 
     @Test
+    public void testConsumptionOfUnavailableOffsetsThrowsException() throws Exception {
+      final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+      TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+
+      final KaldbKafkaConsumer localTestConsumer =
+          new KaldbKafkaConsumer(
+              topicPartition.topic(),
+              Integer.toString(topicPartition.partition()),
+              components.testKafkaServer.getBroker().getBrokerList().get(),
+              TEST_KAFKA_CLIENT_GROUP,
+              "true",
+              "500",
+              "500",
+              components.logMessageWriter,
+              components.meterRegistry,
+              components.consumerOverrideProps);
+      // Missing consumer throws an IllegalStateException.
+      assertThatIllegalStateException()
+          .isThrownBy(() -> localTestConsumer.getConsumerPositionForPartition());
+
+      final Instant startTime =
+          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+      final long msgsToProduce = 100;
+      TestKafkaServer.produceMessagesToKafka(
+          components.testKafkaServer.getBroker(),
+          startTime,
+          topicPartition.topic(),
+          topicPartition.partition(),
+          (int) msgsToProduce);
+      await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+      setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+      with()
+          .atMost(1, TimeUnit.MINUTES)
+          .await()
+          .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+
+      TestKafkaServer.produceMessagesToKafka(
+          components.testKafkaServer.getBroker(),
+          startTime,
+          topicPartition.topic(),
+          topicPartition.partition(),
+          (int) msgsToProduce);
+      await()
+          .until(
+              () -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
+
+      localTestConsumer.prepConsumerForConsumption(1);
+      assertThatExceptionOfType(OffsetOutOfRangeException.class)
+          .isThrownBy(
+              () ->
+                  localTestConsumer.consumeMessagesBetweenOffsetsInParallel(
+                      KAFKA_POLL_TIMEOUT_MS, 0, msgsToProduce));
+    }
+
+    public static void setRetentionTime(
+        AdminClient adminClient, String topicName, int retentionTimeMs) {
+      ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+
+      Collection<ConfigEntry> entries = new ArrayList<>();
+      entries.add(
+          new ConfigEntry(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retentionTimeMs)));
+
+      Config config = new Config(entries);
+      Map<ConfigResource, Config> configs = new HashMap<>();
+      configs.put(resource, config);
+
+      adminClient.alterConfigs(configs);
+    }
+
+    public static long getStartOffset(AdminClient adminClient, TopicPartition topicPartition)
+        throws Exception {
+      ListOffsetsResult r = adminClient.listOffsets(Map.of(topicPartition, OffsetSpec.earliest()));
+      return r.partitionResult(topicPartition).get().offset();
+    }
+
+    public static TestKafkaServer.KafkaComponents getKafkaTestServer(S3MockRule s3MockRule)
+        throws Exception {
+      Properties brokerOverrideProps = new Properties();
+      brokerOverrideProps.put("log.retention.check.interval.ms", "250");
+      brokerOverrideProps.put("log.cleaner.backoff.ms", "250");
+      brokerOverrideProps.put("log.segment.delete.delay.ms", "250");
+      brokerOverrideProps.put("log.cleaner.enable", "true");
+      brokerOverrideProps.put("offsets.retention.check.interval.ms", "250");
+
+      TestKafkaServer localKafkaServer = new TestKafkaServer(-1, brokerOverrideProps);
+      SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
+
+      EphemeralKafkaBroker broker = localKafkaServer.getBroker();
+      assertThat(broker.isRunning()).isTrue();
+      assertThat(localKafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
+
+      Properties consumerOverrideProps = new Properties();
+      consumerOverrideProps.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "250");
+
+      ChunkManagerUtil<LogMessage> localChunkManagerUtil =
+          makeChunkManagerUtil(
+              s3MockRule,
+              S3_TEST_BUCKET,
+              localMetricsRegistry,
+              10 * 1024 * 1024 * 1024L,
+              10000L,
+              KaldbConfigUtil.makeIndexerConfig());
+      localChunkManagerUtil.chunkManager.startAsync();
+      localChunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+      LogMessageWriterImpl logMessageWriter =
+          new LogMessageWriterImpl(
+              localChunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
+
+      AdminClient adminClient =
+          AdminClient.create(
+              Map.of(
+                  AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
+                  localKafkaServer.getBroker().getBrokerList().get(),
+                  AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                  "5000"));
+
+      return new TestKafkaServer.KafkaComponents(
+          localKafkaServer,
+          adminClient,
+          logMessageWriter,
+          localMetricsRegistry,
+          consumerOverrideProps);
+    }
+
+    @Test
     public void testBlockingQueueDoesNotThrowException() {
       KaldbKafkaConsumer.BlockingArrayBlockingQueue<Object> q =
           new KaldbKafkaConsumer.BlockingArrayBlockingQueue<>(1);
@@ -183,7 +332,11 @@ public class KaldbKafkaConsumerTest {
 
   public static class TimeoutTests {
 
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+    private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+    @ClassRule
+    public static final S3MockRule S3_MOCK_RULE =
+        S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
     private TestKafkaServer kafkaServer;
     private KaldbKafkaConsumer testConsumer;
@@ -199,6 +352,7 @@ public class KaldbKafkaConsumerTest {
       chunkManagerUtil =
           makeChunkManagerUtil(
               S3_MOCK_RULE,
+              S3_TEST_BUCKET,
               metricsRegistry,
               10 * 1024 * 1024 * 1024L,
               100L,

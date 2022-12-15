@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import io.micrometer.core.instrument.Counter;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -326,5 +328,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
 
   public String getId() {
     return id;
+  }
+
+  @Override
+  public ConcurrentHashMap<String, LuceneFieldDef> getSchema() {
+    return documentBuilder.getSchema();
   }
 }

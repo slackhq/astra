@@ -38,7 +38,12 @@ import org.junit.rules.TemporaryFolder;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -54,6 +59,7 @@ public class ElasticsearchApiServiceTest {
     chunkManagerUtil =
         ChunkManagerUtil.makeChunkManagerUtil(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
             1000000L,

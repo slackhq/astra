@@ -5,14 +5,20 @@ import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.recovery.RecoveryService.RECORDS_NO_LONGER_AVAILABLE;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_FAILED;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_RECEIVED;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_SUCCESS;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getKafkaTestServer;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getStartOffset;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.setRetentionTime;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.TEST_KAFKA_CLIENT_GROUP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 
@@ -32,6 +38,7 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
+import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
@@ -41,6 +48,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -53,12 +61,15 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class RecoveryServiceTest {
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
 
@@ -78,7 +89,6 @@ public class RecoveryServiceTest {
     zkServer = new TestingServer();
     s3Client = S3_MOCK_RULE.createS3ClientV2();
     blobFs = new S3BlobFs(s3Client);
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
   }
 
   @After
@@ -109,10 +119,16 @@ public class RecoveryServiceTest {
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")
   private KaldbConfigs.KaldbConfig makeKaldbConfig(String testS3Bucket) {
+    return makeKaldbConfig(kafkaServer, testS3Bucket, RecoveryServiceTest.TEST_KAFKA_TOPIC_1);
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  private KaldbConfigs.KaldbConfig makeKaldbConfig(
+      TestKafkaServer testKafkaServer, String testS3Bucket, String topic) {
     return KaldbConfigUtil.makeKaldbConfig(
-        "localhost:" + kafkaServer.getBroker().getKafkaPort().get(),
+        "localhost:" + testKafkaServer.getBroker().getKafkaPort().get(),
         9000,
-        RecoveryServiceTest.TEST_KAFKA_TOPIC_1,
+        topic,
         0,
         RecoveryServiceTest.KALDB_TEST_CLIENT_1,
         testS3Bucket,
@@ -159,6 +175,168 @@ public class RecoveryServiceTest {
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(1);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+  }
+
+  @Test
+  public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
+    final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+    final KaldbKafkaConsumer localTestConsumer =
+        new KaldbKafkaConsumer(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            components.testKafkaServer.getBroker().getBrokerList().get(),
+            TEST_KAFKA_CLIENT_GROUP,
+            "true",
+            "500",
+            "500",
+            components.logMessageWriter,
+            components.meterRegistry,
+            components.consumerOverrideProps);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final long msgsToProduce = 100;
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+    with()
+        .atMost(1, TimeUnit.MINUTES)
+        .await()
+        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+
+    // produce some more messages that won't be expired
+    setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await()
+        .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
+
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    // Start recovery service
+    recoveryService =
+        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    long startOffset = 1;
+    long endOffset = msgsToProduce - 1;
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            startOffset,
+            endOffset,
+            Instant.now().toEpochMilli());
+    assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
+    assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
+        .isEqualTo(endOffset - startOffset + 1);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(0);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(0);
+    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isEmpty();
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
+  }
+
+  @Test
+  public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {
+    final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    KaldbConfigs.KaldbConfig kaldbCfg =
+        makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
+    metadataStore =
+        ZookeeperMetadataStoreImpl.fromConfig(
+            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+
+    final KaldbKafkaConsumer localTestConsumer =
+        new KaldbKafkaConsumer(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            components.testKafkaServer.getBroker().getBrokerList().get(),
+            TEST_KAFKA_CLIENT_GROUP,
+            "true",
+            "500",
+            "500",
+            components.logMessageWriter,
+            components.meterRegistry,
+            components.consumerOverrideProps);
+    final Instant startTime =
+        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final long msgsToProduce = 100;
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
+    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
+    with()
+        .atMost(1, TimeUnit.MINUTES)
+        .await()
+        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+
+    // produce some more messages that won't be expired
+    setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
+    TestKafkaServer.produceMessagesToKafka(
+        components.testKafkaServer.getBroker(),
+        startTime,
+        topicPartition.topic(),
+        topicPartition.partition(),
+        (int) msgsToProduce);
+    await()
+        .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
+
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+
+    // Start recovery service
+    recoveryService =
+        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+    recoveryService.startAsync();
+    recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // Start recovery with an offset range that is partially unavailable
+    long startOffset = 50;
+    long endOffset = 150;
+    RecoveryTaskMetadata recoveryTask =
+        new RecoveryTaskMetadata(
+            topicPartition.topic(),
+            Integer.toString(topicPartition.partition()),
+            startOffset,
+            endOffset,
+            Instant.now().toEpochMilli());
+    assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
+    assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry)).isEqualTo(50);
+    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(51);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(snapshots.size()).isEqualTo(1);
+    assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
+    assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
+    assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
+        .isGreaterThan(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_INITIATED, meterRegistry)).isEqualTo(0);
+    assertThat(getCount(ROLLOVERS_COMPLETED, meterRegistry)).isEqualTo(0);
     assertThat(getCount(ROLLOVERS_FAILED, meterRegistry)).isEqualTo(0);
   }
 

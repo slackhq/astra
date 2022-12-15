@@ -2,6 +2,7 @@ package com.slack.kaldb.recovery;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.server.ValidateKaldbConfig.INDEXER_DATA_TRANSFORMER_MAP;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
@@ -75,9 +77,14 @@ public class RecoveryService extends AbstractIdleService {
       "recovery_node_assignment_received";
   public static final String RECOVERY_NODE_ASSIGNMENT_SUCCESS = "recovery_node_assignment_success";
   public static final String RECOVERY_NODE_ASSIGNMENT_FAILED = "recovery_node_assignment_failed";
+  public static final String RECORDS_NO_LONGER_AVAILABLE = "records_no_longer_available";
+  public static final String RECOVERY_TASK_TIMER = "recovery_task_timer";
   protected final Counter recoveryNodeAssignmentReceived;
   protected final Counter recoveryNodeAssignmentSuccess;
   protected final Counter recoveryNodeAssignmentFailed;
+  protected final Counter recoveryRecordsNoLongerAvailable;
+  private final Timer recoveryTaskTimerSuccess;
+  private final Timer recoveryTaskTimerFailure;
   private SearchMetadataStore searchMetadataStore;
 
   public RecoveryService(
@@ -117,6 +124,10 @@ public class RecoveryService extends AbstractIdleService {
         meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterTags);
     recoveryNodeAssignmentFailed =
         meterRegistry.counter(RECOVERY_NODE_ASSIGNMENT_FAILED, meterTags);
+    recoveryRecordsNoLongerAvailable =
+        meterRegistry.counter(RECORDS_NO_LONGER_AVAILABLE, meterTags);
+    recoveryTaskTimerSuccess = meterRegistry.timer(RECOVERY_TASK_TIMER, "successful", "true");
+    recoveryTaskTimerFailure = meterRegistry.timer(RECOVERY_TASK_TIMER, "successful", "false");
   }
 
   @Override
@@ -232,10 +243,15 @@ public class RecoveryService extends AbstractIdleService {
   @VisibleForTesting
   boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
+    long startTime = System.nanoTime();
+    Timer.Sample taskTimer = Timer.start(meterRegistry);
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
             adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
+    long offsetsValidatedTime = System.nanoTime();
+    long consumerPreparedTime = 0, messagesConsumedTime = 0, rolloversCompletedTime = 0;
+
     if (partitionOffsets != null) {
       RecoveryTaskMetadata validatedRecoveryTask =
           new RecoveryTaskMetadata(
@@ -244,6 +260,13 @@ public class RecoveryService extends AbstractIdleService {
               partitionOffsets.startOffset,
               partitionOffsets.endOffset,
               recoveryTaskMetadata.createdTimeEpochMs);
+
+      if (partitionOffsets.startOffset != recoveryTaskMetadata.startOffset
+          || recoveryTaskMetadata.endOffset != partitionOffsets.endOffset) {
+        recoveryRecordsNoLongerAvailable.increment(
+            (partitionOffsets.startOffset - recoveryTaskMetadata.startOffset)
+                + (partitionOffsets.endOffset - recoveryTaskMetadata.endOffset));
+      }
 
       try {
         RecoveryChunkManager<LogMessage> chunkManager =
@@ -266,24 +289,44 @@ public class RecoveryService extends AbstractIdleService {
                 meterRegistry);
 
         kafkaConsumer.prepConsumerForConsumption(validatedRecoveryTask.startOffset);
+        consumerPreparedTime = System.nanoTime();
         kafkaConsumer.consumeMessagesBetweenOffsetsInParallel(
             KaldbKafkaConsumer.KAFKA_POLL_TIMEOUT_MS,
             validatedRecoveryTask.startOffset,
             validatedRecoveryTask.endOffset);
+        messagesConsumedTime = System.nanoTime();
         // Wait for chunks to upload.
         boolean success = chunkManager.waitForRollOvers();
+        rolloversCompletedTime = System.nanoTime();
         // Close the recovery chunk manager and kafka consumer.
         kafkaConsumer.close();
         chunkManager.stopAsync();
         chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
         LOG.info("Finished handling the recovery task: {}", validatedRecoveryTask);
+        taskTimer.stop(recoveryTaskTimerSuccess);
         return success;
       } catch (Exception ex) {
         LOG.error("Exception in recovery task [{}]: {}", validatedRecoveryTask, ex);
+        taskTimer.stop(recoveryTaskTimerFailure);
         return false;
+      } finally {
+        long endTime = System.nanoTime();
+        LOG.info(
+            "Recovery task {} took {}ms, (subtask times offset validation {}, consumer prep {}, msg consumption {}, rollover {})",
+            recoveryTaskMetadata,
+            nanosToMillis(endTime - startTime),
+            nanosToMillis(offsetsValidatedTime - startTime),
+            nanosToMillis(consumerPreparedTime - offsetsValidatedTime),
+            nanosToMillis(messagesConsumedTime - consumerPreparedTime),
+            nanosToMillis(rolloversCompletedTime - messagesConsumedTime));
       }
     } else {
-      LOG.info("Recovery task {} data no longer available in Kafka", recoveryTaskMetadata);
+      LOG.info(
+          "Recovery task {} data no longer available in Kafka (validation time {}ms)",
+          recoveryTaskMetadata,
+          nanosToMillis(offsetsValidatedTime - startTime));
+      recoveryRecordsNoLongerAvailable.increment(
+          recoveryTaskMetadata.endOffset - recoveryTaskMetadata.startOffset + 1);
       return true;
     }
   }

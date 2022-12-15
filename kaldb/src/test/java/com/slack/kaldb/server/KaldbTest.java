@@ -50,7 +50,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class KaldbTest {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbTest.class);
@@ -94,7 +93,10 @@ public class KaldbTest {
     return (boolean) map.get("healthy");
   }
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
   private S3Client s3Client;
@@ -104,7 +106,6 @@ public class KaldbTest {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
     s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(TEST_S3_BUCKET).build());
 
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test

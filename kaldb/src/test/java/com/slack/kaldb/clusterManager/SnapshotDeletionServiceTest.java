@@ -45,12 +45,14 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 public class SnapshotDeletionServiceTest {
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
   private static final String S3_TEST_BUCKET = "snapshot-deletion-service-bucket";
+
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -81,7 +83,6 @@ public class SnapshotDeletionServiceTest {
     replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
 
     s3Client = S3_MOCK_RULE.createS3ClientV2();
-    s3Client.createBucket(CreateBucketRequest.builder().bucket(S3_TEST_BUCKET).build());
 
     s3BlobFs = spy(new S3BlobFs(s3Client));
   }

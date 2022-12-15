@@ -65,8 +65,11 @@ public class KaldbIndexerTest {
   private static final String TEST_KAFKA_TOPIC = "test-topic";
   private static final int TEST_KAFKA_PARTITION = 0;
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
+  private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  @ClassRule
+  public static final S3MockRule S3_MOCK_RULE =
+      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -105,6 +108,7 @@ public class KaldbIndexerTest {
     chunkManagerUtil =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             testZKServer,
             10 * 1024 * 1024 * 1024L,
@@ -625,6 +629,7 @@ public class KaldbIndexerTest {
     chunkManagerUtil =
         new ChunkManagerUtil<>(
             S3_MOCK_RULE,
+            S3_TEST_BUCKET,
             metricsRegistry,
             testZKServer,
             10 * 1024 * 1024 * 1024L,

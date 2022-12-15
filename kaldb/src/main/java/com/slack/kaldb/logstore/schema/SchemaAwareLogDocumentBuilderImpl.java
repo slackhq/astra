@@ -312,8 +312,8 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
-  private final Map<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
   private final boolean enableFullTextSearch;
+  private final ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
   private final Counter droppedFieldsCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
@@ -354,7 +354,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   @Override
-  public Map<String, LuceneFieldDef> getSchema() {
+  public ConcurrentHashMap<String, LuceneFieldDef> getSchema() {
     return fieldDefMap;
   }
 }
