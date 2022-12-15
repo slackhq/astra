@@ -322,7 +322,7 @@ public class RecoveryService extends AbstractIdleService {
       }
     } else {
       LOG.info(
-          "Recovery task {} data no longer available in Kafka (validation time {}µs)",
+          "Recovery task {} data no longer available in Kafka (validation time {}ms)",
           recoveryTaskMetadata,
           nanosToMillis(offsetsValidatedTime - startTime));
       recoveryRecordsNoLongerAvailable.increment(
