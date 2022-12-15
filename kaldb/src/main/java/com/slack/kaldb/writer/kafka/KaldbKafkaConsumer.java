@@ -352,7 +352,7 @@ public class KaldbKafkaConsumer {
               } finally {
                 long endTime = System.nanoTime();
                 LOG.info(
-                    "Batch from {} with {} records completed in {}µs",
+                    "Batch from {} with {} records completed in {}ms",
                     topicPartition,
                     recordCount,
                     nanosToMillis(endTime - startTime));
