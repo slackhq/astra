@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
-import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
 import org.apache.lucene.document.DoublePoint;
@@ -388,8 +388,8 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
   }
 
   @Override
-  public Map<String, LuceneFieldDef> getSchema() {
+  public ConcurrentHashMap<String, LuceneFieldDef> getSchema() {
     // Report empty map since this class doesn't support schemas.
-    return Collections.emptyMap();
+    return new ConcurrentHashMap<>();
   }
 }
