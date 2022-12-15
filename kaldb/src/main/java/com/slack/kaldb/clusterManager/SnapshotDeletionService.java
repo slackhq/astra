@@ -3,6 +3,7 @@ package com.slack.kaldb.clusterManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -243,7 +244,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
         "Completed snapshot deletion - successfully deleted {} snapshots, failed to delete {} snapshots in {} ms",
         successfulDeletions,
         failedDeletions,
-        TimeUnit.MILLISECONDS.convert(deletionDuration, TimeUnit.NANOSECONDS));
+        nanosToMillis(deletionDuration));
 
     return successfulDeletions;
   }

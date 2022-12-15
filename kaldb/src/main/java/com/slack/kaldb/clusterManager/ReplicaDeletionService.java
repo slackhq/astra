@@ -2,6 +2,7 @@ package com.slack.kaldb.clusterManager;
 
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -141,7 +142,7 @@ public class ReplicaDeletionService extends AbstractScheduledService {
         "Completed replica deletions - successfully deleted {} replicas, failed to delete {} replicas in {} ms",
         successfulDeletions,
         failedDeletions,
-        TimeUnit.MILLISECONDS.convert(deleteDuration, TimeUnit.NANOSECONDS));
+        nanosToMillis(deleteDuration));
 
     return successfulDeletions;
   }
