@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.slack.kaldb.chunkManager.ChunkManagerBase;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -28,9 +29,12 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SchemaAwareLogDocumentBuilderImplTest {
   private SimpleMeterRegistry meterRegistry;
+  private static final Logger LOG = LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImplTest.class);
 
   @Before
   public void setup() throws Exception {
@@ -39,13 +43,14 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testBasicDocumentCreation() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    LOG.info("schema: {}", docBuilder.getSchema());
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(18);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
+    assertThat(testDocument.getFields().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
@@ -59,7 +64,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     // Only string fields have doc values not text fields.
-    assertThat(docBuilder.getSchema().get("id").fieldType.name).isEqualTo(FieldType.STRING.name);
+    assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.STRING.name);
     assertThat(
             testDocument
                 .getFields()
@@ -70,19 +75,19 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                             && f instanceof SortedDocValuesField)
                 .count())
         .isEqualTo(1);
-    assertThat(docBuilder.getSchema().get("index").fieldType.name).isEqualTo(FieldType.TEXT.name);
+    assertThat(docBuilder.getSchema().get("_index").fieldType.name).isEqualTo(FieldType.TEXT.name);
     assertThat(
             testDocument
                 .getFields()
                 .stream()
-                .filter(f -> f.name().equals("index") && f instanceof SortedDocValuesField)
+                .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
                 .count())
         .isZero();
   }
 
   @Test
   public void testNestedDocumentCreation() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
@@ -123,7 +128,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testMaxRecursionNestedDocumentCreation() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
@@ -182,7 +187,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testMultiLevelNestedDocumentCreation() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
@@ -220,7 +225,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testListTypeInDocument() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
@@ -268,7 +273,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testRaiseErrorOnConflictingField() throws JsonProcessingException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, true, meterRegistry);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -367,7 +372,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testRaiseErrorOnConflictingReservedField() {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, true, meterRegistry);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
@@ -400,7 +405,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testDroppingConflictingField() throws JsonProcessingException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -476,7 +481,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        build(CONVERT_FIELD_VALUE, meterRegistry);
+        build(CONVERT_FIELD_VALUE, true, meterRegistry);
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -553,7 +558,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingAndDuplicatingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     String conflictingFieldName = "conflictingField";
 
@@ -640,8 +645,8 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testValueTypeConversionWorksInDocument() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
+        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     String conflictingFieldName = "conflictingField";
 
     LogMessage msg1 =
@@ -728,9 +733,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConversionInConvertAndDuplicateField() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
 
     final String floatStrConflictField = "floatStrConflictField";
     LogMessage msg1 =
@@ -755,9 +760,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 18;
+    final int expectedDocFieldsAfterMsg1 = 19;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
-    final int expectedFieldsAfterMsg1 = 23;
+    final int expectedFieldsAfterMsg1 = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -822,9 +827,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testConversionUsingConvertField() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(CONVERT_FIELD_VALUE, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(CONVERT_FIELD_VALUE, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_FIELD_VALUE);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
 
     final String floatStrConflictField = "floatStrConflictField";
     LogMessage msg1 =
@@ -849,9 +854,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 18;
+    final int expectedDocFieldsAfterMsg1 = 19;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
-    final int expectedFieldsAfterMsg1 = 23;
+    final int expectedFieldsAfterMsg1 = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -928,9 +933,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
 
   @Test
   public void testConversionUsingDropFieldBuilder() throws IOException {
-    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, meterRegistry);
+    SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
 
     final String floatStrConflictField = "floatStrConflictField";
     LogMessage message =
@@ -955,9 +960,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    final int expectedFieldsInDocumentAfterMesssage = 18;
+    final int expectedFieldsInDocumentAfterMesssage = 19;
     assertThat(testDocument.getFields().size()).isEqualTo(expectedFieldsInDocumentAfterMesssage);
-    final int fieldCountAfterIndexingFirstDocument = 23;
+    final int fieldCountAfterIndexingFirstDocument = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -1037,7 +1042,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testStringTextAliasing() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, meterRegistry);
+        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
