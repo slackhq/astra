@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.junit.Before;
@@ -87,6 +88,10 @@ public class SchemaAwareLogDocumentBuilderImplTest {
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
+    // Ensure lucene field name and the name in schema match.
+    assertThat(docBuilder.getSchema().keySet())
+        .containsAll(
+            docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
   }
 
   @Test
