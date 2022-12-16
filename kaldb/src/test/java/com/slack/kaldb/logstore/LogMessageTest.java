@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import org.junit.Test;
 
@@ -9,28 +10,28 @@ public class LogMessageTest {
 
   @Test
   public void testSystemField() {
-    assertThat(LogMessage.SystemField.values().length).isEqualTo(6);
+    assertThat(SystemField.values().length).isEqualTo(6);
     assertThat(SystemField.systemFieldNames.size()).isEqualTo(6);
-    assertThat(LogMessage.SystemField.isSystemField("_source")).isTrue();
-
-    assertThat(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName).isEqualTo("_timesinceepoch");
+    assertThat(SystemField.isSystemField("_source")).isTrue();
+    assertThat(SystemField.TIME_SINCE_EPOCH.fieldName).isEqualTo("_timesinceepoch");
     assertThat(SystemField.ALL.fieldName).isEqualTo("_all");
-    for (LogMessage.SystemField f : LogMessage.SystemField.values()) {
-      if (!(f.equals(LogMessage.SystemField.SOURCE)
-          || f.equals(LogMessage.SystemField.TIME_SINCE_EPOCH)
-          || f.equals(LogMessage.SystemField.ALL))) {
-        assertThat(f.fieldName).isEqualTo(f.name().toLowerCase());
-      }
+    assertThat(SystemField.ID.fieldName).isEqualTo("_id");
+    assertThat(SystemField.INDEX.fieldName).isEqualTo("_index");
+    assertThat(SystemField.TYPE.fieldName).isEqualTo("_type");
+    for (SystemField f : SystemField.values()) {
+      String lowerCaseName = f.fieldName.toLowerCase();
+      if (!f.equals(SystemField.TIME_SINCE_EPOCH))
+        assertThat(f.fieldName.equals(lowerCaseName) || f.fieldName.equals("_" + lowerCaseName))
+            .isTrue();
     }
-    assertThat(LogMessage.SystemField.isSystemField("test")).isFalse();
   }
 
   @Test
   public void testReservedField() {
-    assertThat(LogMessage.ReservedField.values().length).isEqualTo(12);
-    assertThat(LogMessage.ReservedField.reservedFieldNames.size()).isEqualTo(12);
-    assertThat(LogMessage.ReservedField.isReservedField("hostname")).isTrue();
-    assertThat(LogMessage.ReservedField.TIMESTAMP.fieldName).isEqualTo("@timestamp");
+    assertThat(ReservedField.values().length).isEqualTo(12);
+    assertThat(ReservedField.reservedFieldNames.size()).isEqualTo(12);
+    assertThat(ReservedField.isReservedField("hostname")).isTrue();
+    assertThat(ReservedField.TIMESTAMP.fieldName).isEqualTo("@timestamp");
     for (LogMessage.ReservedField f : LogMessage.ReservedField.values()) {
       if (!f.equals(LogMessage.ReservedField.TIMESTAMP)) {
         assertThat(f.name().toLowerCase()).isEqualTo(f.fieldName);
