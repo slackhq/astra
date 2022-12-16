@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.slack.kaldb.chunkManager.ChunkManagerBase;
 import com.slack.kaldb.logstore.FieldDefMismatchException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -34,7 +33,8 @@ import org.slf4j.LoggerFactory;
 
 public class SchemaAwareLogDocumentBuilderImplTest {
   private SimpleMeterRegistry meterRegistry;
-  private static final Logger LOG = LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImplTest.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(SchemaAwareLogDocumentBuilderImplTest.class);
 
   @Before
   public void setup() throws Exception {
