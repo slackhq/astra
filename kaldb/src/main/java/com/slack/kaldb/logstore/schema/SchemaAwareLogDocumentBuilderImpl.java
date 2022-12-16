@@ -247,10 +247,17 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       throw new RuntimeException("No default prop description");
     }
 
-    LuceneFieldDef defaultPropDescription = defaultPropDescriptionForType.get(valueType);
+    final LuceneFieldDef defaultPropDescription = defaultPropDescriptionForType.get(valueType);
+    final LuceneFieldDef newFieldDef =
+        new LuceneFieldDef(
+            key,
+            defaultPropDescription.fieldType.name,
+            defaultPropDescription.isStored,
+            defaultPropDescription.isIndexed,
+            defaultPropDescription.storeDocValue);
     // add the document to this field.
-    fieldDefMap.put(key, defaultPropDescription);
-    indexTypedField(doc, key, value, defaultPropDescription);
+    fieldDefMap.put(key, newFieldDef);
+    indexTypedField(doc, key, value, newFieldDef);
   }
 
   static String makeNewFieldOfType(String key, FieldType valueType) {
