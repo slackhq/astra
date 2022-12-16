@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,9 +20,6 @@ import org.slf4j.LoggerFactory;
 public class LogMessage extends LogWireMessage {
 
   private static final Logger LOG = LoggerFactory.getLogger(LogMessage.class);
-
-  public static final ZoneOffset DEFAULT_TIME_ZONE = ZoneOffset.UTC;
-
   static final Pattern INDEX_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_./:]*$");
 
   public enum SystemField {
@@ -32,7 +28,6 @@ public class LogMessage extends LogWireMessage {
     ID("_id"),
     INDEX("_index"),
     TIME_SINCE_EPOCH("_timesinceepoch"),
-    TYPE("_type"),
     ALL("_all");
 
     public final String fieldName;
@@ -55,6 +50,7 @@ public class LogMessage extends LogWireMessage {
   }
 
   public enum ReservedField {
+    TYPE("type"),
     HOSTNAME("hostname"),
     PACKAGE("package"),
     MESSAGE("message"),
@@ -117,9 +113,7 @@ public class LogMessage extends LogWireMessage {
 
   private BadMessageFormatException raiseException(Throwable t) {
     throw new BadMessageFormatException(
-        String.format(
-            "Index:%s, Type: %s, Id: %s, Source: %s".format(getIndex(), getType(), id, source)),
-        t);
+        "Index:%s, Type: %s, Id: %s, Source: %s".format(getIndex(), getType(), id, source), t);
   }
 
   // TODO: Use timestamp in micros
@@ -129,7 +123,7 @@ public class LogMessage extends LogWireMessage {
     super(index, type, messageId, source);
     if (!isValid()) {
       throw new BadMessageFormatException(
-          String.format("Index:%s, Type: %s, Id: %s, Source: %s".format(index, type, id, source)));
+          "Index:%s, Type: %s, Id: %s, Source: %s".format(index, type, id, source));
     }
     this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
   }

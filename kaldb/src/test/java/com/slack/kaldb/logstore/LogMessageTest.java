@@ -17,7 +17,6 @@ public class LogMessageTest {
     assertThat(SystemField.ALL.fieldName).isEqualTo("_all");
     assertThat(SystemField.ID.fieldName).isEqualTo("_id");
     assertThat(SystemField.INDEX.fieldName).isEqualTo("_index");
-    assertThat(SystemField.TYPE.fieldName).isEqualTo("_type");
     for (SystemField f : SystemField.values()) {
       String lowerCaseName = f.fieldName.toLowerCase();
       if (!f.equals(SystemField.TIME_SINCE_EPOCH))
