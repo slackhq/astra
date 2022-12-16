@@ -29,10 +29,10 @@ public class LogMessage extends LogWireMessage {
   public enum SystemField {
     // The source field contains the input document.
     SOURCE("_source"),
-    ID("id"),
-    INDEX("index"),
+    ID("_id"),
+    INDEX("_index"),
     TIME_SINCE_EPOCH("_timesinceepoch"),
-    TYPE("type"),
+    TYPE("_type"),
     ALL("_all");
 
     public final String fieldName;
