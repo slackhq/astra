@@ -22,6 +22,7 @@ public class LogMessage extends LogWireMessage {
   private static final Logger LOG = LoggerFactory.getLogger(LogMessage.class);
   static final Pattern INDEX_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_./:]*$");
 
+  // SystemFields are lucene fields created for internal use of KalDB.
   public enum SystemField {
     // The source field contains the input document.
     SOURCE("_source"),
@@ -49,6 +50,7 @@ public class LogMessage extends LogWireMessage {
     }
   }
 
+  // ReservedFields are field with pre-defined definitions created for a consistent experience.
   public enum ReservedField {
     TYPE("type"),
     HOSTNAME("hostname"),
