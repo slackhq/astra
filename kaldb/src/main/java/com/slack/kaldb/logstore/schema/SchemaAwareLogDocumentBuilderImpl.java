@@ -71,9 +71,9 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             true));
     addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true);
     fieldDefBuilder.put(
-        LogMessage.SystemField.TYPE.fieldName,
+        LogMessage.ReservedField.TYPE.fieldName,
         new LuceneFieldDef(
-            LogMessage.SystemField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
+            LogMessage.ReservedField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
 
     addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true);
     addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true);
@@ -345,7 +345,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     addField(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex(), "", 0);
     addField(
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli, "", 0);
-    addField(doc, LogMessage.SystemField.TYPE.fieldName, message.getType(), "", 0);
+    addField(doc, LogMessage.ReservedField.TYPE.fieldName, message.getType(), "", 0);
     addField(doc, LogMessage.SystemField.ID.fieldName, message.id, "", 0);
 
     final String msgString = JsonUtil.writeAsString(message.toWireMessage());

@@ -98,7 +98,7 @@ public class SpanUtil {
 
     tags.add(
         Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.SystemField.TYPE.fieldName)
+            .setKey(LogMessage.ReservedField.TYPE.fieldName)
             .setVTypeValue(Trace.ValueType.STRING.getNumber())
             .setVStr(msgType)
             .build());
