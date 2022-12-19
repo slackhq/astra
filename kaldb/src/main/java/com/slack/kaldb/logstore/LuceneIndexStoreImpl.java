@@ -206,9 +206,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LOG.error("IndexWriter should never be null when adding a message");
         throw new IllegalStateException("IndexWriter should never be null when adding a message");
       }
-    } catch (PropertyTypeMismatchException
-        | UnSupportedPropertyTypeException
-        | IllegalArgumentException e) {
+    } catch (FieldDefMismatchException | IllegalArgumentException e) {
       LOG.error(String.format("Indexing message %s failed with error:", message), e);
       messagesFailedCounter.increment();
     } catch (IOException e) {
