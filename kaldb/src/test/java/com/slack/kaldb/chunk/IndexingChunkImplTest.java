@@ -21,6 +21,7 @@ import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.search.SearchMetadata;
@@ -115,7 +116,12 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,
@@ -193,20 +199,6 @@ public class IndexingChunkImplTest {
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
-    @Test
-    public void testAddInvalidMessagesToChunk() {
-      LogMessage testMessage = MessageUtil.makeMessage(0);
-      testMessage.addProperty("username", 0);
-
-      // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
-      chunk.commit();
-
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
-    }
 
     @Test
     public void testAddAndSearchChunkInTimeRange() {
@@ -421,6 +413,84 @@ public class IndexingChunkImplTest {
     }
   }
 
+  public static class TestChunkWithRaiseErrorPolicy {
+    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+    private boolean closeChunk = true;
+    private MeterRegistry registry;
+    private ReadWriteChunk<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStore metadataStore;
+
+    @Before
+    public void setUp() throws Exception {
+      Tracing.newBuilder().build();
+
+      testingServer = new TestingServer();
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+
+      registry = new SimpleMeterRegistry();
+
+      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+
+      final LuceneIndexStoreImpl logStore =
+          LuceneIndexStoreImpl.makeLogStore(
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
+              registry);
+      chunk =
+          new IndexingChunkImpl<>(
+              logStore,
+              CHUNK_DATA_PREFIX,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
+
+      chunk.postCreate();
+      closeChunk = true;
+      testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
+    }
+
+    @After
+    public void tearDown() throws IOException, TimeoutException {
+      if (closeChunk) chunk.close();
+
+      metadataStore.close();
+      testingServer.close();
+      registry.close();
+    }
+
+    @Test
+    public void testAddInvalidMessagesToChunk() {
+      LogMessage testMessage = MessageUtil.makeMessage(0);
+      testMessage.addProperty("username", 0);
+
+      // An Invalid message is dropped but failure counter is incremented.
+      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.commit();
+
+      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
+    }
+  }
+
   public static class SnapshotTests {
     @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
 
@@ -458,7 +528,12 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+              registry);
       chunk =
           new IndexingChunkImpl<>(
               logStore,

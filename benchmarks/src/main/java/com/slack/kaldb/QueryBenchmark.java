@@ -5,6 +5,7 @@ import brave.Tracing;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
@@ -64,7 +65,7 @@ public class QueryBenchmark {
             Paths.get("jmh-output", String.valueOf(random.nextInt(Integer.MAX_VALUE))));
     logStore =
         LuceneIndexStoreImpl.makeLogStore(
-            tempDirectory.toFile(), commitInterval, refreshInterval, true, registry);
+            tempDirectory.toFile(), commitInterval, refreshInterval, true, SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD, registry);
 
     String apiLogFile = System.getProperty("jmh.api.log.file", "api_logs.txt");
 

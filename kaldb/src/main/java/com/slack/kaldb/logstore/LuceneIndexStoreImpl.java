@@ -62,6 +62,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
 
+  // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
       throws IOException {
@@ -70,6 +71,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         luceneConfig.getEnableFullTextSearch(),
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
         metricsRegistry);
   }
 
@@ -78,6 +80,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
       MeterRegistry metricsRegistry)
       throws IOException {
     // TODO: Move all these config values into chunk?
@@ -86,13 +89,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new LuceneIndexStoreConfig(
             commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
 
-    // TODO: Set the policy via a config value.
     return new LuceneIndexStoreImpl(
         indexStoreCfg,
         SchemaAwareLogDocumentBuilderImpl.build(
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
-            enableFullTextSearch,
-            metricsRegistry),
+            fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
         metricsRegistry);
   }
 

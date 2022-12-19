@@ -21,6 +21,7 @@ import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
@@ -497,6 +498,7 @@ public class ReadOnlyChunkImplTest {
             Duration.ofSeconds(60),
             Duration.ofSeconds(60),
             true,
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
             meterRegistry);
     addMessages(logStore, 1, 10, true);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(10);

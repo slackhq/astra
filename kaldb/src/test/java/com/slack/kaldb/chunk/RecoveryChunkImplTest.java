@@ -18,6 +18,7 @@ import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
@@ -93,7 +94,12 @@ public class RecoveryChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+              registry);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
@@ -445,7 +451,12 @@ public class RecoveryChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(), COMMIT_INTERVAL, REFRESH_INTERVAL, true, registry);
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+              registry);
       chunk =
           new RecoveryChunkImpl<>(
               logStore,
