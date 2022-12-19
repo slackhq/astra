@@ -48,20 +48,19 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
-  public TemporaryLogStoreAndSearcherRule(
-      boolean ignorePropertyExceptions, boolean enableFullTextSearch) throws IOException {
+  public TemporaryLogStoreAndSearcherRule(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
-        ignorePropertyExceptions,
-        enableFullTextSearch);
+        enableFullTextSearch,
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD);
   }
 
   public TemporaryLogStoreAndSearcherRule(
       Duration commitInterval,
       Duration refreshInterval,
-      boolean ignorePropertyTypeExceptions,
-      boolean enableFullTextSearch)
+      boolean enableFullTextSearch,
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy)
       throws IOException {
     this.metricsRegistry = new SimpleMeterRegistry();
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -71,9 +70,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
         new LuceneIndexStoreImpl(
             indexStoreCfg,
             SchemaAwareLogDocumentBuilderImpl.build(
-                SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
-                enableFullTextSearch,
-                metricsRegistry),
+                fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
             metricsRegistry);
     logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
   }

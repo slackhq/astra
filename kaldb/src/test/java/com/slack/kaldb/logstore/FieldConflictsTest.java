@@ -22,7 +22,7 @@ public class FieldConflictsTest {
 
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(false, true);
+      new TemporaryLogStoreAndSearcherRule(true);
 
   public FieldConflictsTest() throws IOException {}
 

@@ -21,6 +21,7 @@ import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage.ReservedField;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -59,7 +60,7 @@ public class LuceneIndexStoreImplTest {
   public static class TestsWithForgivingLogStore {
     @Rule
     public TemporaryLogStoreAndSearcherRule forgivingLogStore =
-        new TemporaryLogStoreAndSearcherRule(true, true);
+        new TemporaryLogStoreAndSearcherRule(true);
 
     public TestsWithForgivingLogStore() throws IOException {}
 
@@ -79,7 +80,6 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void testSearchAndQueryDocsWithNestedJson() throws InterruptedException {
-      // TODO: Use ImmutableMap from Guava instead of Map.of which is Java 9 only?
       LogMessage msg =
           new LogMessage(
               MessageUtil.TEST_DATASET_NAME,
@@ -93,7 +93,7 @@ public class LuceneIndexStoreImplTest {
                   "duplicateproperty",
                   "duplicate1",
                   "nested",
-                  Map.of("key1", "value1", "duplicateproperty", 2)));
+                  Map.of("key1", "value1", "duplicateproperty", "2")));
       forgivingLogStore.logStore.addMessage(msg);
       forgivingLogStore.logStore.commit();
       forgivingLogStore.logStore.refresh();
@@ -101,7 +101,7 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result1 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "key1:value1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
@@ -111,7 +111,7 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result3 =
           forgivingLogStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:2", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:2", 0, MAX_TIME, 100, 1);
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 
@@ -182,7 +182,7 @@ public class LuceneIndexStoreImplTest {
   public static class TestsWithStrictLogStore {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false, true);
+        new TemporaryLogStoreAndSearcherRule(true);
 
     public TestsWithStrictLogStore() throws IOException {}
 
@@ -321,7 +321,7 @@ public class LuceneIndexStoreImplTest {
   public static class SuppressExceptionsOnClosedWriter {
     @Rule
     public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(true, true);
+        new TemporaryLogStoreAndSearcherRule(true);
 
     public SuppressExceptionsOnClosedWriter() throws IOException {}
 
@@ -344,7 +344,7 @@ public class LuceneIndexStoreImplTest {
   public static class SnapshotTester {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false, true);
+        new TemporaryLogStoreAndSearcherRule(true);
 
     @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -470,7 +470,7 @@ public class LuceneIndexStoreImplTest {
   public static class IndexCleanupTests {
     @Rule
     public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(false, true);
+        new TemporaryLogStoreAndSearcherRule(true);
 
     public IndexCleanupTests() throws IOException {}
 
@@ -502,7 +502,11 @@ public class LuceneIndexStoreImplTest {
 
     @Rule
     public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(commitDuration, commitDuration, true, true);
+        new TemporaryLogStoreAndSearcherRule(
+            commitDuration,
+            commitDuration,
+            true,
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD);
 
     public AutoCommitTests() throws IOException {}
 
