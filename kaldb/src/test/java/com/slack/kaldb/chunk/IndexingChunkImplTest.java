@@ -199,7 +199,6 @@ public class IndexingChunkImplTest {
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
-
     @Test
     public void testAddAndSearchChunkInTimeRange() {
       final Instant startTime =

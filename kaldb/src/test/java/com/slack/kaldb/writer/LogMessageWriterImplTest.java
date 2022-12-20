@@ -366,6 +366,8 @@ public class LogMessageWriterImplTest {
         .isEqualTo(2);
   }
 
+  // TODO: Add a unit test where message fails to index. Can't do it now since the policy is hard
+  // coded.
   @Test
   public void testIngestSpanListWithErrorSpan() throws IOException {
     // Data Prep: Span -> ListOfSpans -> MurronMessage -> ConsumerReord
@@ -374,13 +376,11 @@ public class LogMessageWriterImplTest {
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "test_span";
-    final String msgType = "msg_type";
     final Trace.Span span1 =
-        makeSpan(traceId, "1", "0", timestampMicros, durationMicros, name, serviceName, msgType);
+        makeSpan(traceId, "1", "0", timestampMicros, durationMicros, name, serviceName, "");
 
     final Trace.Span.Builder spanBuilder =
-        makeSpanBuilder(
-            traceId, "2", "1", timestampMicros, durationMicros, name, serviceName, msgType);
+        makeSpanBuilder(traceId, "2", "1", timestampMicros, durationMicros, name, serviceName, "");
     // Add a tag that violates property type.
     spanBuilder.addTags(
         Trace.KeyValue.newBuilder()
@@ -407,17 +407,17 @@ public class LogMessageWriterImplTest {
 
     assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isZero();
     chunkManagerUtil.chunkManager.getActiveChunk().commit();
 
-    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(2);
+    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(2);
+    assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(2);
     assertThat(searchChunkManager(serviceName, "_id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isZero();
+    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "parent_id:0").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
-        .isEqualTo(1);
+        .isEqualTo(2);
   }
 
   @Test
