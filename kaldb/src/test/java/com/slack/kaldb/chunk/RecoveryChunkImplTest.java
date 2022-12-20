@@ -187,21 +187,6 @@ public class RecoveryChunkImplTest {
     }
 
     @Test
-    public void testAddInvalidMessagesToChunk() {
-      LogMessage testMessage = MessageUtil.makeMessage(0);
-      testMessage.addProperty("username", 0);
-
-      // An Invalid message is dropped but failure counter is incremented.
-      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
-      chunk.commit();
-
-      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
-    }
-
-    @Test
     public void testAddAndSearchChunkInTimeRange() {
       final Instant startTime =
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -411,6 +396,86 @@ public class RecoveryChunkImplTest {
                   1000,
                   Collections.emptyList()));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
+    }
+  }
+
+  public static class TestsWithoutFieldConflictPolicy {
+    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+    private MeterRegistry registry;
+    private ReadWriteChunk<LogMessage> chunk;
+    private TestingServer testingServer;
+    private MetadataStore metadataStore;
+    private SnapshotMetadataStore snapshotMetadataStore;
+    private SearchMetadataStore searchMetadataStore;
+
+    @Before
+    public void setUp() throws Exception {
+      Tracing.newBuilder().build();
+
+      testingServer = new TestingServer();
+      registry = new SimpleMeterRegistry();
+
+      KaldbConfigs.ZookeeperConfig zkConfig =
+          KaldbConfigs.ZookeeperConfig.newBuilder()
+              .setZkConnectString(testingServer.getConnectString())
+              .setZkPathPrefix("shouldHandleChunkLivecycle")
+              .setZkSessionTimeoutMs(1000)
+              .setZkConnectionTimeoutMs(1000)
+              .setSleepBetweenRetriesMs(1000)
+              .build();
+      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+
+      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+      searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+
+      final LuceneIndexStoreImpl logStore =
+          LuceneIndexStoreImpl.makeLogStore(
+              temporaryFolder.newFolder(),
+              COMMIT_INTERVAL,
+              REFRESH_INTERVAL,
+              true,
+              SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
+              registry);
+      chunk =
+          new RecoveryChunkImpl<>(
+              logStore,
+              CHUNK_DATA_PREFIX,
+              registry,
+              searchMetadataStore,
+              snapshotMetadataStore,
+              new SearchContext(TEST_HOST, TEST_PORT),
+              TEST_KAFKA_PARTITION_ID);
+
+      chunk.postCreate();
+      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSync()).isEmpty();
+    }
+
+    @After
+    public void tearDown() throws IOException, TimeoutException {
+      if (chunk != null) chunk.close();
+
+      searchMetadataStore.close();
+      snapshotMetadataStore.close();
+      metadataStore.close();
+      testingServer.close();
+      registry.close();
+    }
+
+    @Test
+    public void testAddInvalidMessagesToChunk() {
+      LogMessage testMessage = MessageUtil.makeMessage(0);
+      testMessage.addProperty("username", 0);
+
+      // An Invalid message is dropped but failure counter is incremented.
+      chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);
+      chunk.commit();
+
+      assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getCount(MESSAGES_FAILED_COUNTER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
+      assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
     }
   }
 
