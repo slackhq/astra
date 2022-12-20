@@ -241,7 +241,7 @@ public class RecoveryService extends AbstractIdleService {
    * operation succeeded.
    */
   @VisibleForTesting
-  boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
+  public boolean handleRecoveryTask(RecoveryTaskMetadata recoveryTaskMetadata) {
     LOG.info("Started handling the recovery task: {}", recoveryTaskMetadata);
     long startTime = System.nanoTime();
     Timer.Sample taskTimer = Timer.start(meterRegistry);

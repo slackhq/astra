@@ -289,14 +289,25 @@ public class KaldbKafkaConsumer {
       throws InterruptedException {
     final int maxPoolSize = 16;
     final int poolSize = Math.min(Runtime.getRuntime().availableProcessors() * 2, maxPoolSize);
-    LOG.info("Pool size for queue is: {}", poolSize);
+    return consumeMessagesBetweenOffsetsInParallel(
+        kafkaPollTimeoutMs, startOffsetInclusive, endOffsetInclusive, poolSize);
+  }
+
+  @VisibleForTesting
+  public boolean consumeMessagesBetweenOffsetsInParallel(
+      final long kafkaPollTimeoutMs,
+      final long startOffsetInclusive,
+      final long endOffsetInclusive,
+      final int threadPoolSize)
+      throws InterruptedException {
+    LOG.info("Pool size for queue is: {}", threadPoolSize);
 
     // TODO: Track and log errors and success better.
     BlockingArrayBlockingQueue<Runnable> queue = new BlockingArrayBlockingQueue<>(100);
     ThreadPoolExecutor executor =
         new ThreadPoolExecutor(
-            poolSize,
-            poolSize,
+            threadPoolSize,
+            threadPoolSize,
             0L,
             TimeUnit.MILLISECONDS,
             queue,
