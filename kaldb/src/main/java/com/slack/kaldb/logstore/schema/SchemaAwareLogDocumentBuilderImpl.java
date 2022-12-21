@@ -130,7 +130,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     // Convert the field value to the type of the conflicting field.
     CONVERT_FIELD_VALUE,
     // Convert the field value to the type of conflicting field and also create a new field of type.
-    CONVERT_AND_DUPLICATE_FIELD
+    CONVERT_VALUE_AND_DUPLICATE_FIELD
   }
 
   private static final String PLACEHOLDER_FIELD_NAME = "PLACEHOLDER_FIELD_NAME";
@@ -216,7 +216,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
                 registeredField.fieldType);
             convertFieldValueCounter.increment();
             break;
-          case CONVERT_AND_DUPLICATE_FIELD:
+          case CONVERT_VALUE_AND_DUPLICATE_FIELD:
             convertValueAndIndexField(value, valueType, registeredField, doc, fieldName);
             LOG.debug(
                 "Converting field {} value from type {} to {} due to type conflict",

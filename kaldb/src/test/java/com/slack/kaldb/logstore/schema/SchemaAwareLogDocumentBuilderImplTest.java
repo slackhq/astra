@@ -3,8 +3,8 @@ package com.slack.kaldb.logstore.schema;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_AND_DUPLICATE_FIELD_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_FIELD_VALUE_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.DROP_FIELDS_COUNTER;
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_FIELD_VALUE;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.DROP_FIELD;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
@@ -366,8 +366,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testListTypeInDocument() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
@@ -424,8 +425,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testListTypeInDocumentWithoutFullTextSearch() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, false, meterRegistry);
-    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, false, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
@@ -832,7 +834,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConvertingAndDuplicatingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
@@ -937,7 +939,7 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testValueTypeConversionWorksInDocument() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
@@ -1043,8 +1045,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testConversionInConvertAndDuplicateField() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
@@ -1400,8 +1403,9 @@ public class SchemaAwareLogDocumentBuilderImplTest {
   @Test
   public void testStringTextAliasing() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder =
-        build(CONVERT_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_AND_DUPLICATE_FIELD);
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(docBuilder.getIndexFieldConflictPolicy())
+        .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
     assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 

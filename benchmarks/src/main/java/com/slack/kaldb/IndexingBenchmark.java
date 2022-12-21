@@ -53,7 +53,7 @@ public class IndexingBenchmark {
             commitInterval,
             refreshInterval,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
             registry);
 
     String message =

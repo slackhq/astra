@@ -488,7 +488,8 @@ public class LuceneIndexStoreImplTest {
             commitDuration,
             commitDuration,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD);
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
+                .CONVERT_VALUE_AND_DUPLICATE_FIELD);
 
     public AutoCommitTests() throws IOException {}
 

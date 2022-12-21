@@ -53,7 +53,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
         enableFullTextSearch,
-        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD);
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
   }
 
   public TemporaryLogStoreAndSearcherRule(

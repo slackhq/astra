@@ -69,7 +69,7 @@ public class QueryBenchmark {
             commitInterval,
             refreshInterval,
             true,
-            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_AND_DUPLICATE_FIELD,
+            SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
             registry);
 
     String apiLogFile = System.getProperty("jmh.api.log.file", "api_logs.txt");
