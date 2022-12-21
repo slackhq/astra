@@ -532,6 +532,8 @@ public class IndexingChunkManagerTest {
         2);
   }
 
+  // TODO: Add a unit test when message ingestion fails.
+
   @Test
   public void testAddMessageWithPropertyTypeErrors() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
@@ -557,9 +559,9 @@ public class IndexingChunkManagerTest {
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1);
-    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1);
+    testChunkManagerSearch(chunkManager, "Message100", 1, 1, 1);
 
     // Check metadata.
     checkMetadata(1, 1, 0, 1, 1);
