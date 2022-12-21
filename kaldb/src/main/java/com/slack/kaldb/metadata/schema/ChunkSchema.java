@@ -6,8 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.concurrent.ConcurrentHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This schema class enforces schema for a chunk. The schema is only written in indexer and on the
@@ -18,8 +16,6 @@ import org.slf4j.LoggerFactory;
  * New fields are added to the fieldMap when it's written and read during query.
  */
 public class ChunkSchema extends KaldbMetadata {
-  private static final Logger LOG = LoggerFactory.getLogger(ChunkSchema.class);
-
   public static ChunkSchemaSerializer serDe = new ChunkSchemaSerializer();
 
   public static void serializeToFile(ChunkSchema chunkSchema, File file) throws IOException {
@@ -38,7 +34,6 @@ public class ChunkSchema extends KaldbMetadata {
       ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap,
       ConcurrentHashMap<String, String> metadata) {
     super(name);
-    LOG.info("fieldMap: {}", fieldDefMap);
     for (String key : fieldDefMap.keySet()) {
       String fieldName = fieldDefMap.get(key).name;
       if (!key.equals(fieldName)) {

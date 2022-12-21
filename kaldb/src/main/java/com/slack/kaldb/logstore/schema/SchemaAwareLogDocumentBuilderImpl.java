@@ -358,6 +358,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       addField(doc, key, message.source.get(key), "", 0);
     }
     LOG.info("document: {}", doc);
+    LOG.info("message: {}", message);
     return doc;
   }
 
