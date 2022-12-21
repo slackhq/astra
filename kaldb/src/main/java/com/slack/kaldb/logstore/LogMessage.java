@@ -37,7 +37,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> systemFieldNames = new TreeSet<String>();
+    static final Set<String> systemFieldNames = new TreeSet<>();
 
     static {
       for (SystemField f : SystemField.values()) {
@@ -72,7 +72,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> reservedFieldNames = new TreeSet<String>();
+    static final Set<String> reservedFieldNames = new TreeSet<>();
 
     static {
       for (ReservedField f : ReservedField.values()) {
@@ -91,10 +91,7 @@ public class LogMessage extends LogWireMessage {
 
   public static Optional<LogMessage> fromJSON(String jsonStr) {
     Optional<LogWireMessage> optionalWireMsg = LogWireMessage.fromJson(jsonStr);
-    if (optionalWireMsg.isPresent()) {
-      return Optional.of(fromWireMessage(optionalWireMsg.get()));
-    }
-    return Optional.empty();
+    return optionalWireMsg.map(LogMessage::fromWireMessage);
   }
 
   public static LogMessage fromWireMessage(LogWireMessage wireMessage) {
@@ -115,7 +112,8 @@ public class LogMessage extends LogWireMessage {
 
   private BadMessageFormatException raiseException(Throwable t) {
     throw new BadMessageFormatException(
-        "Index:%s, Type: %s, Id: %s, Source: %s".format(getIndex(), getType(), id, source), t);
+        String.format("Index:%s, Type: %s, Id: %s, Source: %s", getIndex(), getType(), id, source),
+        t);
   }
 
   // TODO: Use timestamp in micros
@@ -125,7 +123,7 @@ public class LogMessage extends LogWireMessage {
     super(index, type, messageId, source);
     if (!isValid()) {
       throw new BadMessageFormatException(
-          "Index:%s, Type: %s, Id: %s, Source: %s".format(index, type, id, source));
+          String.format("Index:%s, Type: %s, Id: %s, Source: %s", index, type, id, source));
     }
     this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
   }
