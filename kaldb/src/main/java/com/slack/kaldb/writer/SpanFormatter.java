@@ -107,7 +107,6 @@ public class SpanFormatter {
     //    }
 
     // Drop the type field from LogMessage since with spans it doesn't make sense.
-    LOG.info("jsonMap: {}", jsonMap);
     return LogMessage.fromWireMessage(new LogWireMessage(indexName, msgType, id, jsonMap));
   }
 
