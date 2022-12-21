@@ -96,14 +96,12 @@ public class SpanUtil {
             .setVStr("ignored")
             .build());
 
-    if (!msgType.isEmpty() && msgType != null) {
-      tags.add(
-          Trace.KeyValue.newBuilder()
-              .setKey(LogMessage.ReservedField.TYPE.fieldName)
-              .setVTypeValue(Trace.ValueType.STRING.getNumber())
-              .setVStr(msgType)
-              .build());
-    }
+    tags.add(
+        Trace.KeyValue.newBuilder()
+            .setKey(LogMessage.ReservedField.TYPE.fieldName)
+            .setVTypeValue(Trace.ValueType.STRING.getNumber())
+            .setVStr(msgType)
+            .build());
 
     spanBuilder.addAllTags(tags);
     return spanBuilder;
