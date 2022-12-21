@@ -66,7 +66,7 @@ public class SpanFormatter {
           // Also, add service name to the map so can search by service name also.
           jsonMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName);
         }
-        if (key.equals(LogMessage.SystemField.TYPE.fieldName)) {
+        if (key.equals(LogMessage.ReservedField.TYPE.fieldName)) {
           msgType = tag.getVStr();
         }
       } else if (valueType == 1) {

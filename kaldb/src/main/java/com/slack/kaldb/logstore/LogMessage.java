@@ -3,7 +3,6 @@ package com.slack.kaldb.logstore;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,18 +20,15 @@ import org.slf4j.LoggerFactory;
 public class LogMessage extends LogWireMessage {
 
   private static final Logger LOG = LoggerFactory.getLogger(LogMessage.class);
-
-  public static final ZoneOffset DEFAULT_TIME_ZONE = ZoneOffset.UTC;
-
   static final Pattern INDEX_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_./:]*$");
 
+  // SystemFields are lucene fields created for internal use of KalDB.
   public enum SystemField {
     // The source field contains the input document.
     SOURCE("_source"),
-    ID("id"),
-    INDEX("index"),
+    ID("_id"),
+    INDEX("_index"),
     TIME_SINCE_EPOCH("_timesinceepoch"),
-    TYPE("type"),
     ALL("_all");
 
     public final String fieldName;
@@ -41,7 +37,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> systemFieldNames = new TreeSet<String>();
+    static final Set<String> systemFieldNames = new TreeSet<>();
 
     static {
       for (SystemField f : SystemField.values()) {
@@ -54,7 +50,9 @@ public class LogMessage extends LogWireMessage {
     }
   }
 
+  // ReservedFields are field with pre-defined definitions created for a consistent experience.
   public enum ReservedField {
+    TYPE("type"),
     HOSTNAME("hostname"),
     PACKAGE("package"),
     MESSAGE("message"),
@@ -74,7 +72,7 @@ public class LogMessage extends LogWireMessage {
       this.fieldName = fieldName;
     }
 
-    static final Set<String> reservedFieldNames = new TreeSet<String>();
+    static final Set<String> reservedFieldNames = new TreeSet<>();
 
     static {
       for (ReservedField f : ReservedField.values()) {
@@ -93,10 +91,7 @@ public class LogMessage extends LogWireMessage {
 
   public static Optional<LogMessage> fromJSON(String jsonStr) {
     Optional<LogWireMessage> optionalWireMsg = LogWireMessage.fromJson(jsonStr);
-    if (optionalWireMsg.isPresent()) {
-      return Optional.of(fromWireMessage(optionalWireMsg.get()));
-    }
-    return Optional.empty();
+    return optionalWireMsg.map(LogMessage::fromWireMessage);
   }
 
   public static LogMessage fromWireMessage(LogWireMessage wireMessage) {
@@ -117,8 +112,7 @@ public class LogMessage extends LogWireMessage {
 
   private BadMessageFormatException raiseException(Throwable t) {
     throw new BadMessageFormatException(
-        String.format(
-            "Index:%s, Type: %s, Id: %s, Source: %s".format(getIndex(), getType(), id, source)),
+        String.format("Index:%s, Type: %s, Id: %s, Source: %s", getIndex(), getType(), id, source),
         t);
   }
 
@@ -129,7 +123,7 @@ public class LogMessage extends LogWireMessage {
     super(index, type, messageId, source);
     if (!isValid()) {
       throw new BadMessageFormatException(
-          String.format("Index:%s, Type: %s, Id: %s, Source: %s".format(index, type, id, source)));
+          String.format("Index:%s, Type: %s, Id: %s, Source: %s", index, type, id, source));
     }
     this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
   }

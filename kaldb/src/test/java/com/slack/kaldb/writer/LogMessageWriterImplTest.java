@@ -106,7 +106,7 @@ public class LogMessageWriterImplTest {
     assertThat(searchChunkManager(TEST_DATASET_NAME, "").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "Message1").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "Message2").hits.size()).isEqualTo(0);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "id:Message1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(TEST_DATASET_NAME, "_id:Message1").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
     assertThat(
@@ -344,8 +344,8 @@ public class LogMessageWriterImplTest {
     assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(2);
     assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(2);
     assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "id:2").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "_id:1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "parent_id:1").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "parent_id:0").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "name:test_span").hits.size()).isEqualTo(1);
@@ -413,8 +413,8 @@ public class LogMessageWriterImplTest {
     assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "id:2").hits.size()).isZero();
+    assertThat(searchChunkManager(serviceName, "_id:1").hits.size()).isEqualTo(1);
+    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isZero();
     assertThat(searchChunkManager(serviceName, "parent_id:0").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
         .isEqualTo(1);

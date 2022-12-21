@@ -101,10 +101,10 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     propertyDescriptionBuilder.put(
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
         new PropertyDescription(PropertyType.LONG, false, true, false, true));
-    propertyDescriptionBuilder.put(
-        LogMessage.SystemField.TYPE.fieldName,
-        new PropertyDescription(PropertyType.TEXT, false, true, true));
 
+    propertyDescriptionBuilder.put(
+        LogMessage.ReservedField.TYPE.fieldName,
+        new PropertyDescription(PropertyType.TEXT, false, true, true));
     propertyDescriptionBuilder.put(
         LogMessage.ReservedField.HOSTNAME.fieldName,
         new PropertyDescription(PropertyType.TEXT, false, true, true));
@@ -374,7 +374,7 @@ public class LogDocumentBuilderImpl implements DocumentBuilder<LogMessage> {
     addProperty(doc, LogMessage.SystemField.INDEX.fieldName, message.getIndex());
     addProperty(
         doc, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, message.timeSinceEpochMilli);
-    addProperty(doc, LogMessage.SystemField.TYPE.fieldName, message.getType());
+    addProperty(doc, LogMessage.ReservedField.TYPE.fieldName, message.getType());
     addProperty(doc, LogMessage.SystemField.ID.fieldName, message.id);
     final String msgString = JsonUtil.writeAsString(message.toWireMessage());
     addProperty(doc, LogMessage.SystemField.SOURCE.fieldName, msgString);
