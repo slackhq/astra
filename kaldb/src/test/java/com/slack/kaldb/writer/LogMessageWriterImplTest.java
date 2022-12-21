@@ -5,10 +5,10 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
 import static com.slack.kaldb.testlib.MessageUtil.getCurrentLogDate;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
-import static com.slack.kaldb.testlib.SpanUtil.makeSpanBuilder;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -107,11 +107,12 @@ public class LogMessageWriterImplTest {
     assertThat(searchChunkManager(TEST_DATASET_NAME, "Message1").hits.size()).isEqualTo(1);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "Message2").hits.size()).isEqualTo(0);
     assertThat(searchChunkManager(TEST_DATASET_NAME, "_id:Message1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
-    assertThat(
-            searchChunkManager(TEST_DATASET_NAME, "longproperty:1 AND intproperty:1").hits.size())
-        .isEqualTo(1);
+    // TODO: Uncomment after query parser is updated to query numerics using schema.
+    // assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
+    // assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
+    // assertThat(
+    //        searchChunkManager(TEST_DATASET_NAME, "longproperty:1 AND intproperty:1").hits.size())
+    //    .isEqualTo(1);
   }
 
   @Test
@@ -223,8 +224,8 @@ public class LogMessageWriterImplTest {
     assertThat(messageWriter.insertRecord(apiRecord)).isFalse();
   }
 
-  // TODO: Add a unit test where message fails to index. Can't do it now since the field conflict policy is hard
-  // coded.
+  // TODO: Add a unit test where message fails to index. Can't do it now since the field conflict
+  // policy is hard-coded.
 
   @Test
   public void testAvgMessageSizeCalculationOnSpanIngestion() throws Exception {
@@ -258,36 +259,18 @@ public class LogMessageWriterImplTest {
                         durationMicros,
                         name,
                         serviceName,
-                        ""))
+                        TEST_MESSAGE_TYPE))
             .collect(Collectors.toList());
-
-    Murron.MurronMessage testMurronMsg =
-        Murron.MurronMessage.newBuilder()
-            .setMessage(Trace.ListOfSpans.newBuilder().addAllSpans(spans).build().toByteString())
-            .setType("testIndex")
-            .setHost("testHost")
-            .setTimestamp(1612550512340953000L)
-            .build();
-
-    // TODO: Use a different message transformer.
-    ConsumerRecord<String, byte[]> spanRecord =
-        new ConsumerRecord<>(
-            "testTopic",
-            1,
-            10,
-            0L,
-            TimestampType.CREATE_TIME,
-            0L,
-            10,
-            1500,
-            "testKey",
-            testMurronMsg.toByteString().toByteArray());
 
     IndexingChunkManager<LogMessage> chunkManager = localChunkManagerUtil.chunkManager;
     LogMessageWriterImpl messageWriter =
         new LogMessageWriterImpl(chunkManager, LogMessageWriterImpl.traceSpanTransformer);
 
-    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    for (Trace.Span span : spans) {
+      ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
+      assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
+    }
+
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, localMetricsRegistry)).isEqualTo(15);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, localMetricsRegistry)).isEqualTo(0);
     localChunkManagerUtil.chunkManager.getActiveChunk().commit();
