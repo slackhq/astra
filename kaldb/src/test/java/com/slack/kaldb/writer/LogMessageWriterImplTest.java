@@ -223,245 +223,8 @@ public class LogMessageWriterImplTest {
     assertThat(messageWriter.insertRecord(apiRecord)).isFalse();
   }
 
-  @Test
-  public void testMalformedMurronSpanRecord() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
-
-    ConsumerRecord<String, byte[]> spanRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(ByteString.copyFromUtf8("malformedMurronMessage"))
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isFalse();
-  }
-
-  @Test
-  public void testSpanLogMessageInsertion() throws IOException {
-    // Data Prep: Span -> ListOfSpans -> MurronMessage -> ConsumerReord
-    final String traceId = "t1";
-    final String id = "i1";
-    final String parentId = "p2";
-    final long timestampMicros = 1612550512340953L;
-    final long durationMicros = 500000L;
-    final String serviceName = "test_service";
-    final String name = "testSpanName";
-    final String msgType = "test_message_type";
-    final Trace.Span span =
-        makeSpan(
-            traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
-
-    ConsumerRecord<String, byte[]> spanRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(Trace.ListOfSpans.newBuilder().addSpans(span).build().toByteString())
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-
-    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "type:test_message_type").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "service_name:test_service").hits.size())
-        .isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:GET").hits.size()).isEqualTo(0);
-    assertThat(searchChunkManager(serviceName, "method:callbacks*").hits.size()).isEqualTo(1);
-    assertThat(
-            searchChunkManager(serviceName, "http_method:POST AND method:callbacks*").hits.size())
-        .isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:GET AND method:callbacks*").hits.size())
-        .isEqualTo(0);
-    assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
-        .isEqualTo(1);
-  }
-
-  @Test
-  public void testMultipleSpanLogMessageInsertion() throws IOException {
-    // Data Prep: Span -> ListOfSpans -> MurronMessage -> ConsumerReord
-    final String traceId = "t1";
-    final int id = 1;
-    final long timestampMicros = 1612550512340953L;
-    final long durationMicros = 500000L;
-    final String serviceName = "test_service";
-    final String name = "test_span";
-    final Trace.Span span1 =
-        makeSpan(
-            traceId,
-            String.valueOf(id),
-            "0",
-            timestampMicros,
-            durationMicros,
-            name,
-            serviceName,
-            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
-    final Trace.Span span2 =
-        makeSpan(
-            traceId,
-            String.valueOf(id + 1),
-            String.valueOf(id),
-            timestampMicros,
-            durationMicros,
-            name + "2",
-            serviceName,
-            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
-
-    List<Trace.Span> spans = List.of(span1, span2);
-    ByteString serializedMessage =
-        Trace.ListOfSpans.newBuilder().addAllSpans(spans).build().toByteString();
-    ConsumerRecord<String, byte[]> spanRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(serializedMessage)
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-
-    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "_id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "parent_id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "parent_id:0").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "name:test_span").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:POST AND name:test_span").hits.size())
-        .isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:POST AND name:test_span2").hits.size())
-        .isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:POST AND name:test_span*").hits.size())
-        .isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "http_method:GET").hits.size()).isEqualTo(0);
-    assertThat(searchChunkManager(serviceName, "method:callbacks*").hits.size()).isEqualTo(2);
-    assertThat(
-            searchChunkManager(serviceName, "http_method:POST AND method:callbacks*").hits.size())
-        .isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "http_method:GET AND method:callbacks*").hits.size())
-        .isEqualTo(0);
-    assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
-        .isEqualTo(2);
-  }
-
-  // TODO: Add a unit test where message fails to index. Can't do it now since the policy is hard
+  // TODO: Add a unit test where message fails to index. Can't do it now since the field conflict policy is hard
   // coded.
-  @Test
-  public void testIngestSpanListWithErrorSpan() throws IOException {
-    // Data Prep: Span -> ListOfSpans -> MurronMessage -> ConsumerReord
-    final String traceId = "t1";
-    final long timestampMicros = 1612550512340953L;
-    final long durationMicros = 500000L;
-    final String serviceName = "test_service";
-    final String name = "test_span";
-    final Trace.Span span1 =
-        makeSpan(traceId, "1", "0", timestampMicros, durationMicros, name, serviceName, "");
-
-    final Trace.Span.Builder spanBuilder =
-        makeSpanBuilder(traceId, "2", "1", timestampMicros, durationMicros, name, serviceName, "");
-    // Add a tag that violates property type.
-    spanBuilder.addTags(
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
-            .setVTypeValue(Trace.ValueType.INT64.getNumber())
-            .setVInt64(100)
-            .build());
-    final Trace.Span span2 = spanBuilder.build();
-    List<Trace.Span> spans = List.of(span1, span2);
-    ByteString serializedMessage =
-        Trace.ListOfSpans.newBuilder().addAllSpans(spans).build().toByteString();
-    ConsumerRecord<String, byte[]> spanRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(serializedMessage)
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isZero();
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-
-    assertThat(searchChunkManager(serviceName, "").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "http_method:POST").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "trace_id:t1").hits.size()).isEqualTo(2);
-    assertThat(searchChunkManager(serviceName, "_id:1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "_id:2").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "parent_id:0").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(serviceName, "http_method:GET OR method:callbacks*").hits.size())
-        .isEqualTo(2);
-  }
-
-  @Test
-  public void testInsertSpanWithPropertyTypeViolation() throws Exception {
-    final String traceId = "t1";
-    final String id = "i1";
-    final String parentId = "p2";
-    final String msgType = "test_message_type";
-    final long timestampMicros = 1612550512340953L;
-    final long durationMicros = 500000L;
-    final String serviceName = "testService";
-    final String name = "testSpanName";
-    final Trace.Span.Builder spanBuilder =
-        makeSpanBuilder(
-            traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
-    // Add a tag that violates property type.
-    spanBuilder.addTags(
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
-            .setVTypeValue(Trace.ValueType.INT64.getNumber())
-            .setVInt64(100)
-            .build());
-    final Trace.Span span = spanBuilder.build();
-    ConsumerRecord<String, byte[]> spanRecord =
-        consumerRecordWithMurronMessage(
-            Murron.MurronMessage.newBuilder()
-                .setMessage(Trace.ListOfSpans.newBuilder().addSpans(span).build().toByteString())
-                .setType("testIndex")
-                .setHost("testHost")
-                .setTimestamp(1612550512340953000L)
-                .build());
-
-    List<LogMessage> logMessages = LogMessageWriterImpl.spanTransformer.toLogMessage(spanRecord);
-    assertThat(logMessages.size()).isEqualTo(1);
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.spanTransformer);
-
-    assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-  }
 
   @Test
   public void testAvgMessageSizeCalculationOnSpanIngestion() throws Exception {
@@ -470,7 +233,6 @@ public class LogMessageWriterImplTest {
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
-    final String msgType = "test_message_type";
 
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
@@ -507,6 +269,7 @@ public class LogMessageWriterImplTest {
             .setTimestamp(1612550512340953000L)
             .build();
 
+    // TODO: Use a different message transformer.
     ConsumerRecord<String, byte[]> spanRecord =
         new ConsumerRecord<>(
             "testTopic",
@@ -522,7 +285,7 @@ public class LogMessageWriterImplTest {
 
     IndexingChunkManager<LogMessage> chunkManager = localChunkManagerUtil.chunkManager;
     LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(chunkManager, LogMessageWriterImpl.spanTransformer);
+        new LogMessageWriterImpl(chunkManager, LogMessageWriterImpl.traceSpanTransformer);
 
     assertThat(messageWriter.insertRecord(spanRecord)).isTrue();
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, localMetricsRegistry)).isEqualTo(15);

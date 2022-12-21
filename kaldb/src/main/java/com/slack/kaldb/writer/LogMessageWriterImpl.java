@@ -68,15 +68,6 @@ public class LogMessageWriterImpl implements MessageWriter {
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
       };
 
-  // A single trace record consists of a list of spans wrapped in a murron message.
-  @Deprecated
-  public static final LogMessageTransformer spanTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        Murron.MurronMessage murronMsg = murronMessageDeserializer.deserialize("", record.value());
-        Trace.ListOfSpans spanList = SpanFormatter.fromMurronMessage(murronMsg);
-        return SpanFormatter.toLogMessage(spanList);
-      };
-
   // A json blob with a few fields.
   @Deprecated
   public static final LogMessageTransformer jsonLogMessageTransformer =
