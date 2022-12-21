@@ -55,7 +55,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
-            LogMessage.SystemField.ID.fieldName, FieldType.TEXT.name, false, true, true));
+            LogMessage.SystemField.ID.fieldName, FieldType.STRING.name, false, true, true));
     fieldDefBuilder.put(
         LogMessage.SystemField.INDEX.fieldName,
         new LuceneFieldDef(
