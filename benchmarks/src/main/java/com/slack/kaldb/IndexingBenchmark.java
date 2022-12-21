@@ -1,5 +1,7 @@
 package com.slack.kaldb;
 
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD;
+
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.DocumentBuilder;
 import com.slack.kaldb.logstore.LogMessage;
@@ -24,8 +26,6 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.openjdk.jmh.annotations.*;
-
-import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD;
 
 @State(Scope.Thread)
 public class IndexingBenchmark {
@@ -87,7 +87,8 @@ public class IndexingBenchmark {
 
     logMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
 
-    DocumentBuilder<LogMessage> documentBuilder = SchemaAwareLogDocumentBuilderImpl.build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, registry);
+    DocumentBuilder<LogMessage> documentBuilder =
+        SchemaAwareLogDocumentBuilderImpl.build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, registry);
 
     luceneDocument = documentBuilder.fromMessage(logMessage);
   }
