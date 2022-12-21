@@ -119,9 +119,10 @@ public class SearchResponseHit {
     LogWireMessage hit = JsonUtil.read(byteString.toStringUtf8(), LogWireMessage.class);
     LogMessage message = LogMessage.fromWireMessage(hit);
 
-    return new SearchResponseHit.Builder()
+    return new Builder()
         .index(message.getIndex())
         .type("_doc")
+        .id(message.id)
         .source(message.getSource())
         .sort(ImmutableList.of(message.getMillisecondsSinceEpoch()))
         .build();
