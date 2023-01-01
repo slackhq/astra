@@ -25,7 +25,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 9074,
-  "iteration": 1672545809131,
+  "iteration": 1672546879270,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -5352,8 +5352,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5441,8 +5440,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5530,8 +5528,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5619,8 +5616,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5743,8 +5739,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5831,8 +5826,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5918,8 +5912,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -6015,8 +6008,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -6170,230 +6162,6 @@
       "type": "row"
     },
     {
-      "collapsed": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "000000051"
-      },
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 116
-      },
-      "id": 8,
-      "panels": [],
-      "title": "Kafka Metrics",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "datasource",
-        "uid": "-- Mixed --"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 117
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "8.4.7",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "000000062"
-          },
-          "exemplar": true,
-          "expr": "sum by (kaldb_cluster_name) (irate(records_received_total{kaldb_cluster_name=\"${cluster}\"}[1m]))",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "{{kaldb_cluster_name}}-indexer",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "uid": "000000062"
-          },
-          "exemplar": true,
-          "expr": "sum by (kaldb_cluster_name) (irate(messages_received_total{kaldb_cluster_name=\"${cluster}\"}[1m]))",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "{{kaldb_cluster_name}}-lucene",
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "uid": "000000026"
-          },
-          "exemplar": true,
-          "expr": "sum(irate(kafka_server_brokertopicmetrics_messagesin_total{cluster=\"events2-proxy\", topic=\"kaldb_preprocessor_1\"}[1m]))",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "preprocessor-envoy",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "uid": "000000026"
-          },
-          "exemplar": true,
-          "expr": "sum(irate(kafka_server_brokertopicmetrics_messagesin_total{cluster=\"events2-api-log\", topic=\"kaldb_preprocessor\"}[1m]))",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "preprocessor-api-log",
-          "refId": "C"
-        }
-      ],
-      "title": "Records ( Preprocessor vs Indexer vs lucene  )",
-      "type": "timeseries"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus_Kubernetes",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 117
-      },
-      "hiddenSeries": false,
-      "id": 10,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "8.5.13",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum by(replicaset) (irate(records_failed_total[1m]) * 60)",
-          "interval": "",
-          "legendFormat": "failed_{{replicaset}}",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeRegions": [],
-      "title": "Kafka Records Failed Per Min",
-      "tooltip": {
-        "shared": true,
-        "sort": 2,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "mode": "time",
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:227",
-          "format": "short",
-          "logBase": 1,
-          "min": "0",
-          "show": true
-        },
-        {
-          "$$hashKey": "object:228",
-          "format": "short",
-          "logBase": 1,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false
-      }
-    },
-    {
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
@@ -6403,7 +6171,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 116
       },
       "id": 6,
       "panels": [
@@ -6447,8 +6215,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -6552,6 +6319,6 @@
   "timezone": "",
   "title": "KalDB Service",
   "uid": "g6BSAUt4zz",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
