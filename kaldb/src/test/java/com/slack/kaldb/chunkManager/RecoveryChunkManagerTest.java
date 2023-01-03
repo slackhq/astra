@@ -309,7 +309,8 @@ public class RecoveryChunkManagerTest {
     assertThat(result.snapshotsWithReplicas).isEqualTo(1);
   }
 
-  // TODO: Add a test when message ingestion fails.
+  // TODO: Add a unit test where the chunk manager uses a different field conflict policy like
+  // RAISE_ERROR.
 
   @Test
   public void testAddMessageWithPropertyTypeErrors() throws Exception {

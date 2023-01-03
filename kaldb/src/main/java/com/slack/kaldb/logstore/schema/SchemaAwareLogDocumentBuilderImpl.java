@@ -357,7 +357,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     for (String key : message.source.keySet()) {
       addField(doc, key, message.source.get(key), "", 0);
     }
-    LOG.trace("document {}", doc);
+    LOG.trace("Lucene document {} for message {}", doc, message);
     return doc;
   }
 
