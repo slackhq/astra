@@ -103,7 +103,7 @@ public class RecoveryService extends AbstractIdleService {
         AdminClient.create(
             Map.of(
                 AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-                kaldbConfig.getKafkaConfig().getKafkaBootStrapServers(),
+                kaldbConfig.getRecoveryConfig().getKafkaConfig().getKafkaBootStrapServers(),
                 AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
                 "5000"));
 
@@ -248,7 +248,9 @@ public class RecoveryService extends AbstractIdleService {
 
     PartitionOffsets partitionOffsets =
         validateKafkaOffsets(
-            adminClient, recoveryTaskMetadata, kaldbConfig.getKafkaConfig().getKafkaTopic());
+            adminClient,
+            recoveryTaskMetadata,
+            kaldbConfig.getRecoveryConfig().getKafkaConfig().getKafkaTopic());
     long offsetsValidatedTime = System.nanoTime();
     long consumerPreparedTime = 0, messagesConsumedTime = 0, rolloversCompletedTime = 0;
 
@@ -283,8 +285,10 @@ public class RecoveryService extends AbstractIdleService {
         LogMessageWriterImpl logMessageWriterImpl =
             new LogMessageWriterImpl(chunkManager, messageTransformer);
         KaldbKafkaConsumer kafkaConsumer =
-            KaldbKafkaConsumer.fromConfig(
-                makeKafkaConfig(kaldbConfig.getKafkaConfig(), validatedRecoveryTask.partitionId),
+            new KaldbKafkaConsumer(
+                makeKafkaConfig(
+                    kaldbConfig.getRecoveryConfig().getKafkaConfig(),
+                    validatedRecoveryTask.partitionId),
                 logMessageWriterImpl,
                 meterRegistry);
 

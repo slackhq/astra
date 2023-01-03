@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.google.common.collect.Maps;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.BlobFsUtils;
@@ -188,18 +189,20 @@ public class RecoveryServiceTest {
         ZookeeperMetadataStoreImpl.fromConfig(
             components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
+    KaldbConfigs.KafkaConfig kafkaConfig =
+        KaldbConfigs.KafkaConfig.newBuilder()
+            .setKafkaTopic(topicPartition.topic())
+            .setKafkaTopicPartition(Integer.toString(topicPartition.partition()))
+            .setKafkaBootStrapServers(components.testKafkaServer.getBroker().getBrokerList().get())
+            .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
+            .setEnableKafkaAutoCommit("true")
+            .setKafkaAutoCommitInterval("500")
+            .setKafkaSessionTimeout("500")
+            .putAllAdditionalProps(Maps.fromProperties(components.consumerOverrideProps))
+            .build();
+
     final KaldbKafkaConsumer localTestConsumer =
-        new KaldbKafkaConsumer(
-            topicPartition.topic(),
-            Integer.toString(topicPartition.partition()),
-            components.testKafkaServer.getBroker().getBrokerList().get(),
-            TEST_KAFKA_CLIENT_GROUP,
-            "true",
-            "500",
-            "500",
-            components.logMessageWriter,
-            components.meterRegistry,
-            components.consumerOverrideProps);
+        new KaldbKafkaConsumer(kafkaConfig, components.logMessageWriter, components.meterRegistry);
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final long msgsToProduce = 100;
@@ -267,18 +270,20 @@ public class RecoveryServiceTest {
         ZookeeperMetadataStoreImpl.fromConfig(
             components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
+    KaldbConfigs.KafkaConfig kafkaConfig =
+        KaldbConfigs.KafkaConfig.newBuilder()
+            .setKafkaTopic(topicPartition.topic())
+            .setKafkaTopicPartition(Integer.toString(topicPartition.partition()))
+            .setKafkaBootStrapServers(components.testKafkaServer.getBroker().getBrokerList().get())
+            .setKafkaClientGroup(TEST_KAFKA_CLIENT_GROUP)
+            .setEnableKafkaAutoCommit("true")
+            .setKafkaAutoCommitInterval("500")
+            .setKafkaSessionTimeout("500")
+            .putAllAdditionalProps(Maps.fromProperties(components.consumerOverrideProps))
+            .build();
+
     final KaldbKafkaConsumer localTestConsumer =
-        new KaldbKafkaConsumer(
-            topicPartition.topic(),
-            Integer.toString(topicPartition.partition()),
-            components.testKafkaServer.getBroker().getBrokerList().get(),
-            TEST_KAFKA_CLIENT_GROUP,
-            "true",
-            "500",
-            "500",
-            components.logMessageWriter,
-            components.meterRegistry,
-            components.consumerOverrideProps);
+        new KaldbKafkaConsumer(kafkaConfig, components.logMessageWriter, components.meterRegistry);
     final Instant startTime =
         LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
     final long msgsToProduce = 100;
