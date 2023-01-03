@@ -42,7 +42,10 @@
       "kafkaClientGroup": "kaldb-test",
       "enableKafkaAutoCommit": "true",
       "kafkaAutoCommitInterval": "5000",
-      "kafkaSessionTimeout": "30000"
+      "kafkaSessionTimeout": "30000",
+      "additionalProps": {
+        "fetch.max.bytes": "100"
+      }
     },
     "defaultQueryTimeoutMs": 1500
   },

@@ -24,6 +24,8 @@ indexerConfig:
     enableKafkaAutoCommit: "true"
     kafkaAutoCommitInterval: "5000"
     kafkaSessionTimeout: "30000"
+    additionalProps:
+      fetch.max.bytes: "100"
 
 queryConfig:
   serverConfig:

@@ -182,6 +182,9 @@ public class KaldbConfigTest {
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
 
+    assertThat(kafkaCfg.getAdditionalProps().size()).isGreaterThan(0);
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
+
     final KaldbConfigs.S3Config s3Config = config.getS3Config();
     assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
     assertThat(s3Config.getS3SecretKey()).isEqualTo("secret");
@@ -327,6 +330,9 @@ public class KaldbConfigTest {
     assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEqualTo("true");
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
+
+    assertThat(kafkaCfg.getAdditionalPropsMap().size()).isGreaterThan(0);
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
 
     final KaldbConfigs.S3Config s3Config = config.getS3Config();
     assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
