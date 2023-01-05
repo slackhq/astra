@@ -207,6 +207,12 @@ message PreprocessorConfig {
     // This will allow parallel processing up to the amount of upstream partitions. You cannot have
     // more threads than you have upstreams due to how the work is partitioned. E
     string processing_guarantee = 4;
+    // any additional kafka props that we will add when creating the KafkaStreams object
+    // There are three sets of configs under this
+    // 1. StreamsConfig
+    // 2. ProducerConfig - These properties must be prefixed with "producer."
+    // 2. ConsumerConfig - These properties must be prefixed with "consumer."
+    map<string, string> additional_props = 5;
   }
 
   ServerConfig server_config = 1;
