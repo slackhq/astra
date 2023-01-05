@@ -114,6 +114,9 @@ preprocessorConfig:
     applicationId: ${KAFKA_APPLICATION_ID:-kaldb_preprocessor}
     numStreamThreads: ${KAFKA_STREAM_THREADS:-2}
     processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
+    additionalProps:
+      consumer.fetch.min.bytes: ${KAFKA_STREAM_CONSUMER_FETCH_MIN_BYTES:-1}
+
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
