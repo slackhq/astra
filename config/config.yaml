@@ -24,6 +24,8 @@ indexerConfig:
     enableKafkaAutoCommit: ${KAFKA_AUTO_COMMIT:-true}
     kafkaAutoCommitInterval: ${KAFKA_AUTO_COMMIT_INTERVAL:-5000}
     kafkaSessionTimeout: ${KAFKA_SESSION_TIMEOUT:-30000}
+    additionalProps:
+      fetch.min.bytes: ${KAFKA_INDEXER_CONSUMER_FETCH_MIN_BYTES:-1}
 
 s3Config:
   s3AccessKey: ${S3_ACCESS_KEY:-access}
@@ -107,6 +109,8 @@ recoveryConfig:
     enableKafkaAutoCommit: ${KAFKA_AUTO_COMMIT:-true}
     kafkaAutoCommitInterval: ${KAFKA_AUTO_COMMIT_INTERVAL:-5000}
     kafkaSessionTimeout: ${KAFKA_SESSION_TIMEOUT:-30000}
+    additionalProps:
+      fetch.min.bytes: ${KAFKA_RECOVERY_CONSUMER_FETCH_MIN_BYTES:-1}
 
 preprocessorConfig:
   kafkaStreamConfig:
@@ -116,6 +120,7 @@ preprocessorConfig:
     processingGuarantee: ${KAFKA_STREAM_PROCESSING_GUARANTEE:-at_least_once}
     additionalProps:
       consumer.fetch.min.bytes: ${KAFKA_STREAM_CONSUMER_FETCH_MIN_BYTES:-1}
+      producer.linger.ms: ${KAFKA_STREAM_LINGER_MS:-0}
 
   serverConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
