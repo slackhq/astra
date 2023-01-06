@@ -69,16 +69,17 @@ public class KaldbConfigTest {
             .set("serverConfig", serverConfig);
     ObjectNode kafkaConfig =
         mapper.createObjectNode().put("kafkaTopicPartition", 1).put("kafkaSessionTimeout", 30000);
+    indexerConfig.set("kafkaConfig", kafkaConfig);
+
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
-    node.set("kafkaConfig", kafkaConfig);
     final String missingRequiredField =
         mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(missingRequiredField);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
   }
@@ -113,6 +114,12 @@ public class KaldbConfigTest {
   public void testIgnoreExtraConfigField() throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     ObjectNode serverConfig = mapper.createObjectNode().put("requestTimeoutMs", 3000);
+    ObjectNode kafkaConfig =
+        mapper
+            .createObjectNode()
+            .put("kafkaTopicPartition", 1)
+            .put("kafkaSessionTimeout", 30000)
+            .put("ignoreExtraField", "ignoredField");
     ObjectNode indexerConfig =
         mapper
             .createObjectNode()
@@ -123,23 +130,18 @@ public class KaldbConfigTest {
             .put("defaultQueryTimeoutMs", "2500")
             .put("dataTransformer", "api_log")
             .set("serverConfig", serverConfig);
-    ObjectNode kafkaConfig =
-        mapper
-            .createObjectNode()
-            .put("kafkaTopicPartition", 1)
-            .put("kafkaSessionTimeout", 30000)
-            .put("ignoreExtraField", "ignoredField");
+    indexerConfig.set("kafkaConfig", kafkaConfig);
+
     ObjectNode node = mapper.createObjectNode();
     node.set("nodeRoles", mapper.createArrayNode().add("INDEX"));
     node.set("indexerConfig", indexerConfig);
-    node.set("kafkaConfig", kafkaConfig);
 
     final String configWithExtraField =
         mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
 
     final KaldbConfigs.KaldbConfig kalDbConfig = KaldbConfig.fromJsonConfig(configWithExtraField);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = kalDbConfig.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
     assertThat(kafkaCfg.getKafkaTopic()).isEmpty();
@@ -171,7 +173,7 @@ public class KaldbConfigTest {
     assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
     assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopic()).isEqualTo("testTopic");
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEqualTo("1");
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEqualTo("kafka.us-east-1.consul:9094");
@@ -179,6 +181,9 @@ public class KaldbConfigTest {
     assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEqualTo("true");
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
+
+    assertThat(kafkaCfg.getAdditionalProps().size()).isGreaterThan(0);
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
 
     final KaldbConfigs.S3Config s3Config = config.getS3Config();
     assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
@@ -311,7 +316,7 @@ public class KaldbConfigTest {
     assertThat(config.getNodeRolesList().get(2)).isEqualTo(KaldbConfigs.NodeRole.CACHE);
     assertThat(config.getNodeRolesList().get(3)).isEqualTo(KaldbConfigs.NodeRole.MANAGER);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
 
     // todo - for testing env var substitution we could use something like Mockito (or similar) in
     // the future
@@ -325,6 +330,9 @@ public class KaldbConfigTest {
     assertThat(kafkaCfg.getEnableKafkaAutoCommit()).isEqualTo("true");
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
+
+    assertThat(kafkaCfg.getAdditionalPropsMap().size()).isGreaterThan(0);
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
 
     final KaldbConfigs.S3Config s3Config = config.getS3Config();
     assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
@@ -475,7 +483,7 @@ public class KaldbConfigTest {
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
     assertThat(kafkaCfg.getKafkaClientGroup()).isEmpty();
@@ -613,7 +621,7 @@ public class KaldbConfigTest {
 
     assertThat(config.getNodeRolesList().size()).isEqualTo(1);
 
-    final KaldbConfigs.KafkaConfig kafkaCfg = config.getKafkaConfig();
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
     assertThat(kafkaCfg.getKafkaTopicPartition()).isEmpty();
     assertThat(kafkaCfg.getKafkaBootStrapServers()).isEmpty();
     assertThat(kafkaCfg.getKafkaClientGroup()).isEmpty();

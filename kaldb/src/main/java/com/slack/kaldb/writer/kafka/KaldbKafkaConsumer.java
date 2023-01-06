@@ -1,10 +1,11 @@
 package com.slack.kaldb.writer.kafka;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 import static java.lang.Integer.parseInt;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.server.KaldbConfig;
@@ -16,7 +17,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -39,29 +42,21 @@ public class KaldbKafkaConsumer {
   public static final int KAFKA_POLL_TIMEOUT_MS = 250;
   private final LogMessageWriterImpl logMessageWriterImpl;
 
-  public static KaldbKafkaConsumer fromConfig(
-      KaldbConfigs.KafkaConfig kafkaCfg,
-      LogMessageWriterImpl logMessageWriter,
-      MeterRegistry meterRegistry) {
-    return new KaldbKafkaConsumer(
-        kafkaCfg.getKafkaTopic(),
-        kafkaCfg.getKafkaTopicPartition(),
-        kafkaCfg.getKafkaBootStrapServers(),
-        kafkaCfg.getKafkaClientGroup(),
-        kafkaCfg.getEnableKafkaAutoCommit(),
-        kafkaCfg.getKafkaAutoCommitInterval(),
-        kafkaCfg.getKafkaSessionTimeout(),
-        logMessageWriter,
-        meterRegistry);
-  }
+  private static final String[] REQUIRED_CONFIGS = {ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG};
+  private static final Set<String> OVERRIDABLE_CONFIGS =
+      Set.of(
+          ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+          ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+          ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
 
-  private static Properties makeKafkaConsumerProps(
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout,
-      Properties overrideProps) {
+  @VisibleForTesting
+  public static Properties makeKafkaConsumerProps(KaldbConfigs.KafkaConfig kafkaConfig) {
+
+    String kafkaBootStrapServers = kafkaConfig.getKafkaBootStrapServers();
+    String kafkaClientGroup = kafkaConfig.getKafkaClientGroup();
+    String enableKafkaAutoCommit = kafkaConfig.getEnableKafkaAutoCommit();
+    String kafkaAutoCommitInterval = kafkaConfig.getKafkaAutoCommitInterval();
+    String kafkaSessionTimeout = kafkaConfig.getKafkaSessionTimeout();
 
     Properties props = new Properties();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootStrapServers);
@@ -69,25 +64,55 @@ public class KaldbKafkaConsumer {
     // TODO: Consider committing manual consumer offset?
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableKafkaAutoCommit);
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafkaAutoCommitInterval);
+    // TODO: Does the session timeout matter in assign?
+    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+
     props.put(
         ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringDeserializer");
-    // TODO: Using ByteArrayDeserializer since it's most primitive and performant. Replace it if
-    // not.
     props.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    // TODO: Does the session timeout matter in assign?
-    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafkaSessionTimeout);
+
     // we rely on the fail-fast behavior of 'auto.offset.reset = none' to handle scenarios
     // with recovery tasks where the offsets are no longer available in Kafka
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
 
-    if (overrideProps != null && !overrideProps.isEmpty()) {
-      props.putAll(overrideProps);
+    // don't override the properties that we have already set explicitly using named properties
+    for (Map.Entry<String, String> additionalProp :
+        kafkaConfig.getAdditionalPropsMap().entrySet()) {
+      maybeOverride(
+          props,
+          additionalProp.getKey(),
+          additionalProp.getValue(),
+          OVERRIDABLE_CONFIGS.contains(additionalProp.getKey()));
     }
-
     return props;
+  }
+
+  @VisibleForTesting
+  public static boolean maybeOverride(
+      Properties props, String key, String value, boolean override) {
+    boolean overridden = false;
+    String userValue = props.getProperty(key);
+    if (userValue != null) {
+      if (override) {
+        LOG.warn(
+            String.format(
+                "Property %s is provided but will be overridden from %s to %s",
+                key, userValue, value));
+        props.setProperty(key, value);
+        overridden = true;
+      } else {
+        LOG.warn(
+            String.format(
+                "Property %s is provided but won't be overridden from %s to %s",
+                key, userValue, value));
+      }
+    } else {
+      props.setProperty(key, value);
+    }
+    return overridden;
   }
 
   private KafkaConsumer<String, byte[]> kafkaConsumer;
@@ -99,90 +124,43 @@ public class KaldbKafkaConsumer {
   private final Counter recordsFailedCounter;
 
   public KaldbKafkaConsumer(
-      String kafkaTopic,
-      String kafkaTopicPartitionStr,
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout,
+      KaldbConfigs.KafkaConfig kafkaConfig,
       LogMessageWriterImpl logMessageWriterImpl,
       MeterRegistry meterRegistry) {
-    this(
-        kafkaTopic,
-        kafkaTopicPartitionStr,
-        kafkaBootStrapServers,
-        kafkaClientGroup,
-        enableKafkaAutoCommit,
-        kafkaAutoCommitInterval,
-        kafkaSessionTimeout,
-        logMessageWriterImpl,
-        meterRegistry,
-        null);
-  }
 
-  // TODO: Instead of passing each property as a field, consider defining props in config file.
-  public KaldbKafkaConsumer(
-      String kafkaTopic,
-      String kafkaTopicPartitionStr,
-      String kafkaBootStrapServers,
-      String kafkaClientGroup,
-      String enableKafkaAutoCommit,
-      String kafkaAutoCommitInterval,
-      String kafkaSessionTimeout,
-      LogMessageWriterImpl logMessageWriterImpl,
-      MeterRegistry meterRegistry,
-      Properties overrideProps) {
-
-    checkArgument(
-        kafkaTopic != null && !kafkaTopic.isEmpty(), "Kafka topic can't be null or " + "empty");
-    checkArgument(
-        kafkaBootStrapServers != null && !kafkaBootStrapServers.isEmpty(),
-        "Kafka bootstrap server list can't be null or empty");
-    checkArgument(
-        kafkaClientGroup != null && !kafkaClientGroup.isEmpty(),
-        "Kafka client group can't be null or empty");
-    checkArgument(
-        enableKafkaAutoCommit != null && !enableKafkaAutoCommit.isEmpty(),
-        "Kafka enable auto commit can't be null or empty");
-    checkArgument(
-        kafkaAutoCommitInterval != null && !kafkaAutoCommitInterval.isEmpty(),
-        "Kafka auto commit interval can't be null or empty");
-    checkArgument(
-        kafkaSessionTimeout != null && !kafkaSessionTimeout.isEmpty(),
-        "Kafka session timeout can't be null or empty");
-    checkArgument(
-        kafkaTopicPartitionStr != null && !kafkaTopicPartitionStr.isEmpty(),
-        "Kafka topic partition can't be null or empty");
-
-    LOG.info(
-        "Kafka params are: kafkaTopicName: {}, kafkaTopicPartition: {}, "
-            + "kafkaBootstrapServers:{}, kafkaClientGroup: {}, kafkaAutoCommit:{}, "
-            + "kafkaAutoCommitInterval: {}, kafkaSessionTimeout: {}",
-        kafkaTopic,
-        kafkaTopicPartitionStr,
-        kafkaBootStrapServers,
-        kafkaClientGroup,
-        enableKafkaAutoCommit,
-        kafkaAutoCommitInterval,
-        kafkaSessionTimeout);
-
-    topicPartition = getTopicPartition(kafkaTopic, kafkaTopicPartitionStr);
+    topicPartition =
+        getTopicPartition(kafkaConfig.getKafkaTopic(), kafkaConfig.getKafkaTopicPartition());
     recordsReceivedCounter = meterRegistry.counter(RECORDS_RECEIVED_COUNTER);
     recordsFailedCounter = meterRegistry.counter(RECORDS_FAILED_COUNTER);
     this.logMessageWriterImpl = logMessageWriterImpl;
 
     // Create kafka consumer
-    Properties consumerProps =
-        makeKafkaConsumerProps(
-            kafkaBootStrapServers,
-            kafkaClientGroup,
-            enableKafkaAutoCommit,
-            kafkaAutoCommitInterval,
-            kafkaSessionTimeout,
-            overrideProps);
+    Properties consumerProps = makeKafkaConsumerProps(kafkaConfig);
+    validateKafkaConfig(consumerProps);
+
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
     new KafkaClientMetrics(kafkaConsumer).bindTo(meterRegistry);
+  }
+
+  private void validateKafkaConfig(Properties props) {
+    for (String property : props.stringPropertyNames()) {
+      Preconditions.checkArgument(
+          props.getProperty(property) != null && !props.getProperty(property).isEmpty(),
+          String.format("Property %s cannot be null or empty", property));
+    }
+
+    // Check required configs.
+    for (String requiredConfig : REQUIRED_CONFIGS) {
+      checkNotNull(
+          props.getProperty(requiredConfig),
+          String.format("Property %s is required but not provided", requiredConfig));
+    }
+
+    StringBuilder propertiesBuilder = new StringBuilder("Kafka params are: ");
+    props
+        .stringPropertyNames()
+        .forEach(key -> propertiesBuilder.append(key).append(": ").append(props.getProperty(key)));
+    LOG.info(propertiesBuilder.toString());
   }
 
   public static TopicPartition getTopicPartition(String kafkaTopic, String kafkaTopicPartitionStr) {

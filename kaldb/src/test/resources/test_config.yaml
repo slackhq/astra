@@ -16,6 +16,16 @@ indexerConfig:
     serverPort: 8080
     serverAddress: "localhost"
     requestTimeoutMs: 3000
+  kafkaConfig:
+    kafkaTopic: ${KAFKA_TOPIC:-test-topic}
+    kafkaTopicPartition: ${NOT_PRESENT:-0}
+    kafkaBootStrapServers: "localhost:9092"
+    kafkaClientGroup: "kaldb-test"
+    enableKafkaAutoCommit: "true"
+    kafkaAutoCommitInterval: "5000"
+    kafkaSessionTimeout: "30000"
+    additionalProps:
+      fetch.max.bytes: "100"
 
 queryConfig:
   serverConfig:
@@ -24,15 +34,6 @@ queryConfig:
     requestTimeoutMs: 3000
   defaultQueryTimeoutMs: 2500
   managerConnectString: localhost:8083
-
-kafkaConfig:
-  kafkaTopic: ${KAFKA_TOPIC:-test-topic}
-  kafkaTopicPartition: ${NOT_PRESENT:-0}
-  kafkaBootStrapServers: "localhost:9092"
-  kafkaClientGroup: "kaldb-test"
-  enableKafkaAutoCommit: "true"
-  kafkaAutoCommitInterval: "5000"
-  kafkaSessionTimeout: "30000"
 
 s3Config:
   s3AccessKey: "access"
@@ -93,6 +94,14 @@ recoveryConfig:
   serverConfig:
     serverPort: 8084
     serverAddress: localhost
+  kafkaConfig:
+    kafkaTopic: ${KAFKA_TOPIC:-test-topic}
+    kafkaTopicPartition: ${NOT_PRESENT:-0}
+    kafkaBootStrapServers: "localhost:9092"
+    kafkaClientGroup: "kaldb-test"
+    enableKafkaAutoCommit: "true"
+    kafkaAutoCommitInterval: "5000"
+    kafkaSessionTimeout: "30000"
 
 preprocessorConfig:
   kafkaStreamConfig:

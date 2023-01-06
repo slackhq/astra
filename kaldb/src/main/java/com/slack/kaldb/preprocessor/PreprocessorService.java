@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.maybeOverride;
 
 import com.google.common.util.concurrent.AbstractService;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -17,6 +18,7 @@ import io.micrometer.core.instrument.binder.kafka.KafkaStreamsMetrics;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
@@ -314,8 +316,6 @@ public class PreprocessorService extends AbstractService {
         kafkaStreamConfig.getNumStreamThreads() > 0,
         "Kafka stream numStreamThreads must be greater than 0");
 
-    // todo - consider adding a general purpose map of kafka configs that allow setting any config
-    //  option for streams, as well as our other kafka consumers
     Properties props = new Properties();
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, kafkaStreamConfig.getApplicationId());
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaStreamConfig.getBootstrapServers());
@@ -336,6 +336,12 @@ public class PreprocessorService extends AbstractService {
     // more threads than you have upstreams due to how the work is partitioned
     props.put(
         StreamsConfig.PROCESSING_GUARANTEE_CONFIG, kafkaStreamConfig.getProcessingGuarantee());
+
+    // don't override any property we already set
+    for (Map.Entry<String, String> additionalProp :
+        kafkaStreamConfig.getAdditionalPropsMap().entrySet()) {
+      maybeOverride(props, additionalProp.getKey(), additionalProp.getValue(), false);
+    }
 
     return props;
   }
