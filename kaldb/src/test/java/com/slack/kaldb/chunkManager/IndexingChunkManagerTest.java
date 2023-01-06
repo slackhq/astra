@@ -536,7 +536,7 @@ public class IndexingChunkManagerTest {
   // RAISE_ERROR.
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws Exception {
+  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 

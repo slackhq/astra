@@ -313,7 +313,7 @@ public class RecoveryChunkManagerTest {
   // RAISE_ERROR.
 
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws Exception {
+  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
     initChunkManager(S3_TEST_BUCKET);
 
     // Add a valid message
