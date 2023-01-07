@@ -532,8 +532,11 @@ public class IndexingChunkManagerTest {
         2);
   }
 
+  // TODO: Add a unit test where the chunk manager uses a different field conflict policy like
+  // RAISE_ERROR.
+
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws Exception {
+  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 10L);
 
@@ -557,9 +560,9 @@ public class IndexingChunkManagerTest {
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     testChunkManagerSearch(chunkManager, "Message1", 1, 1, 1);
-    testChunkManagerSearch(chunkManager, "Message100", 0, 1, 1);
+    testChunkManagerSearch(chunkManager, "Message100", 1, 1, 1);
 
     // Check metadata.
     checkMetadata(1, 1, 0, 1, 1);

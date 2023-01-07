@@ -309,8 +309,11 @@ public class RecoveryChunkManagerTest {
     assertThat(result.snapshotsWithReplicas).isEqualTo(1);
   }
 
+  // TODO: Add a unit test where the chunk manager uses a different field conflict policy like
+  // RAISE_ERROR.
+
   @Test
-  public void testAddMessageWithPropertyTypeErrors() throws Exception {
+  public void testAddMessageWithPropertyTypeConflicts() throws Exception {
     initChunkManager(S3_TEST_BUCKET);
 
     // Add a valid message
@@ -331,9 +334,9 @@ public class RecoveryChunkManagerTest {
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(2);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(1);
+    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     testChunkManagerSearch(chunkManager, "Message1", 1);
-    testChunkManagerSearch(chunkManager, "Message100", 0);
+    testChunkManagerSearch(chunkManager, "Message100", 1);
 
     // Check metadata.
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();

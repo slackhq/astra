@@ -60,14 +60,15 @@ public class SpanFormatter {
       String key = tag.getKey();
       int valueType = tag.getVType().getNumber();
       if (valueType == 0) {
+        if (key.equals(LogMessage.ReservedField.TYPE.fieldName)) {
+          msgType = tag.getVStr();
+          continue;
+        }
         jsonMap.put(key, tag.getVStr());
         if (key.equals(LogMessage.ReservedField.SERVICE_NAME.fieldName)) {
           indexName = tag.getVStr();
           // Also, add service name to the map so can search by service name also.
           jsonMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, indexName);
-        }
-        if (key.equals(LogMessage.ReservedField.TYPE.fieldName)) {
-          msgType = tag.getVStr();
         }
       } else if (valueType == 1) {
         jsonMap.put(key, tag.getVBool());

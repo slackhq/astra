@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore;
 
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
@@ -61,6 +62,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
 
+  // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
       throws IOException {
@@ -69,6 +71,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         luceneConfig.getEnableFullTextSearch(),
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
         metricsRegistry);
   }
 
@@ -77,6 +80,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
       MeterRegistry metricsRegistry)
       throws IOException {
     // TODO: Move all these config values into chunk?
@@ -85,9 +89,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new LuceneIndexStoreConfig(
             commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
 
-    // TODO: set ignore property exceptions via CLI flag.
     return new LuceneIndexStoreImpl(
-        indexStoreCfg, LogDocumentBuilderImpl.build(false, enableFullTextSearch), metricsRegistry);
+        indexStoreCfg,
+        SchemaAwareLogDocumentBuilderImpl.build(
+            fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
+        metricsRegistry);
   }
 
   public LuceneIndexStoreImpl(
@@ -200,9 +206,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LOG.error("IndexWriter should never be null when adding a message");
         throw new IllegalStateException("IndexWriter should never be null when adding a message");
       }
-    } catch (PropertyTypeMismatchException
-        | UnSupportedPropertyTypeException
-        | IllegalArgumentException e) {
+    } catch (FieldDefMismatchException | IllegalArgumentException e) {
       LOG.error(String.format("Indexing message %s failed with error:", message), e);
       messagesFailedCounter.increment();
     } catch (IOException e) {

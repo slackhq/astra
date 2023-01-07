@@ -23,7 +23,7 @@ import org.junit.Test;
 public class StatsCollectorTest {
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(false, true);
+      new TemporaryLogStoreAndSearcherRule(true);
 
   public StatsCollectorTest() throws IOException {}
 

@@ -31,11 +31,11 @@ public class LogIndexSearcherImplTest {
 
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(false, true);
+      new TemporaryLogStoreAndSearcherRule(true);
 
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStoreWithoutFts =
-      new TemporaryLogStoreAndSearcherRule(false, false);
+      new TemporaryLogStoreAndSearcherRule(false);
 
   public LogIndexSearcherImplTest() throws IOException {}
 

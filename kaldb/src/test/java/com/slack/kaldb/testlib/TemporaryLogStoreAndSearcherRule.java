@@ -1,10 +1,10 @@
 package com.slack.kaldb.testlib;
 
 import com.google.common.io.Files;
-import com.slack.kaldb.logstore.LogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -48,20 +48,19 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
-  public TemporaryLogStoreAndSearcherRule(
-      boolean ignorePropertyExceptions, boolean enableFullTextSearch) throws IOException {
+  public TemporaryLogStoreAndSearcherRule(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
-        ignorePropertyExceptions,
-        enableFullTextSearch);
+        enableFullTextSearch,
+        SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
   }
 
   public TemporaryLogStoreAndSearcherRule(
       Duration commitInterval,
       Duration refreshInterval,
-      boolean ignorePropertyTypeExceptions,
-      boolean enableFullTextSearch)
+      boolean enableFullTextSearch,
+      SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy)
       throws IOException {
     this.metricsRegistry = new SimpleMeterRegistry();
     this.tempFolder = Files.createTempDir(); // TODO: don't use beta func.
@@ -70,7 +69,8 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
     logStore =
         new LuceneIndexStoreImpl(
             indexStoreCfg,
-            LogDocumentBuilderImpl.build(ignorePropertyTypeExceptions, enableFullTextSearch),
+            SchemaAwareLogDocumentBuilderImpl.build(
+                fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
             metricsRegistry);
     logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
   }
