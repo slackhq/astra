@@ -264,12 +264,17 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     return key + "_" + valueType.getName();
   }
 
-  private static void convertValueAndIndexField(
+  private void convertValueAndIndexField(
       Object value, FieldType valueType, LuceneFieldDef registeredField, Document doc, String key) {
     Object convertedValue =
         FieldType.convertFieldValue(value, valueType, registeredField.fieldType);
     if (convertedValue == null) {
-      throw new RuntimeException("No mapping found to convert value");
+      LOG.warn(
+          String.format(
+              "No mapping found to convert value from %s to %s",
+              registeredField.fieldType.name, registeredField.fieldType.name));
+      convertErrorCounter.increment();
+      ;
     }
     indexTypedField(doc, key, convertedValue, registeredField);
   }
@@ -315,6 +320,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   static final String DROP_FIELDS_COUNTER = "dropped_fields";
+  static final String CONVERT_ERROR_COUNTER = "convert_errors";
   static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
 
@@ -322,6 +328,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private final boolean enableFullTextSearch;
   private final ConcurrentHashMap<String, LuceneFieldDef> fieldDefMap = new ConcurrentHashMap<>();
   private final Counter droppedFieldsCounter;
+  private final Counter convertErrorCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
 
@@ -337,6 +344,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     droppedFieldsCounter = meterRegistry.counter(DROP_FIELDS_COUNTER);
     convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
     convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
+    convertErrorCounter = meterRegistry.counter(CONVERT_ERROR_COUNTER);
   }
 
   @Override
