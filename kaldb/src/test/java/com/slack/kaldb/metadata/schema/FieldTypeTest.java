@@ -14,6 +14,12 @@ public class FieldTypeTest {
     assertThat(convertFieldValue("3", FieldType.TEXT, FieldType.DOUBLE)).isEqualTo(3.0d);
     assertThat(convertFieldValue("4", FieldType.TEXT, FieldType.STRING)).isEqualTo("4");
     assertThat(convertFieldValue("4", FieldType.STRING, FieldType.TEXT)).isEqualTo("4");
+    assertThat(convertFieldValue("1", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue("0", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue("true", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue("false", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue("TRUE", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue("-1", FieldType.STRING, FieldType.BOOLEAN)).isEqualTo(false);
 
     int intValue = 1;
     assertThat(convertFieldValue(intValue, FieldType.INTEGER, FieldType.TEXT)).isEqualTo("1");
@@ -22,6 +28,12 @@ public class FieldTypeTest {
     assertThat(convertFieldValue(intValue + 2, FieldType.INTEGER, FieldType.FLOAT)).isEqualTo(3.0f);
     assertThat(convertFieldValue(intValue + 3, FieldType.INTEGER, FieldType.DOUBLE))
         .isEqualTo(4.0d);
+    assertThat(convertFieldValue(intValue, FieldType.INTEGER, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue(0, FieldType.INTEGER, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue(Integer.MAX_VALUE, FieldType.INTEGER, FieldType.BOOLEAN))
+        .isEqualTo(true);
+    assertThat(convertFieldValue(Integer.MIN_VALUE, FieldType.INTEGER, FieldType.BOOLEAN))
+        .isEqualTo(true);
 
     long longValue = 1L;
     assertThat(convertFieldValue(longValue, FieldType.LONG, FieldType.TEXT)).isEqualTo("1");
@@ -29,6 +41,12 @@ public class FieldTypeTest {
     assertThat(convertFieldValue(longValue + 1, FieldType.LONG, FieldType.INTEGER)).isEqualTo(2);
     assertThat(convertFieldValue(longValue + 2, FieldType.LONG, FieldType.FLOAT)).isEqualTo(3.0f);
     assertThat(convertFieldValue(longValue + 3, FieldType.LONG, FieldType.DOUBLE)).isEqualTo(4.0);
+    assertThat(convertFieldValue(longValue, FieldType.LONG, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue(0L, FieldType.LONG, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue(Long.MAX_VALUE, FieldType.LONG, FieldType.BOOLEAN))
+        .isEqualTo(true);
+    assertThat(convertFieldValue(Long.MIN_VALUE, FieldType.LONG, FieldType.BOOLEAN))
+        .isEqualTo(true);
 
     float floatValue = 1.0f;
     assertThat(convertFieldValue(floatValue, FieldType.FLOAT, FieldType.TEXT)).isEqualTo("1.0");
@@ -38,6 +56,12 @@ public class FieldTypeTest {
     assertThat(convertFieldValue(floatValue + 2.0f, FieldType.FLOAT, FieldType.LONG)).isEqualTo(3L);
     assertThat(convertFieldValue(floatValue + 3.0f, FieldType.FLOAT, FieldType.DOUBLE))
         .isEqualTo(4.0);
+    assertThat(convertFieldValue(floatValue, FieldType.FLOAT, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue(0f, FieldType.FLOAT, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue(Float.MAX_VALUE, FieldType.FLOAT, FieldType.BOOLEAN))
+        .isEqualTo(true);
+    assertThat(convertFieldValue(Float.MIN_VALUE, FieldType.FLOAT, FieldType.BOOLEAN))
+        .isEqualTo(true);
 
     double doubleValue = 1.0;
     assertThat(convertFieldValue(doubleValue, FieldType.DOUBLE, FieldType.TEXT)).isEqualTo("1.0");
@@ -48,6 +72,12 @@ public class FieldTypeTest {
         .isEqualTo(3L);
     assertThat(convertFieldValue(doubleValue + 3.0f, FieldType.DOUBLE, FieldType.FLOAT))
         .isEqualTo(4.0f);
+    assertThat(convertFieldValue(doubleValue, FieldType.DOUBLE, FieldType.BOOLEAN)).isEqualTo(true);
+    assertThat(convertFieldValue(0d, FieldType.DOUBLE, FieldType.BOOLEAN)).isEqualTo(false);
+    assertThat(convertFieldValue(Double.MAX_VALUE, FieldType.DOUBLE, FieldType.BOOLEAN))
+        .isEqualTo(true);
+    assertThat(convertFieldValue(Double.MIN_VALUE, FieldType.DOUBLE, FieldType.BOOLEAN))
+        .isEqualTo(true);
 
     // Test conversion failures
     assertThat(convertFieldValue("testStr1", FieldType.TEXT, FieldType.INTEGER)).isEqualTo(0);

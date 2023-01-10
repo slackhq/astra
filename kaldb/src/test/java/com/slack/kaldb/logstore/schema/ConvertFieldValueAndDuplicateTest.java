@@ -320,7 +320,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "random"));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.TEXT);
     // Value converted and new field is added.
     assertThat(
@@ -332,8 +332,8 @@ public class ConvertFieldValueAndDuplicateTest {
                         f.name().equals(conflictingFieldName)
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
-        .isEqualTo(1);
-    assertThat(msg2Doc.getField(conflictingFieldName)).isNull();
+        .isEqualTo(2);
+    assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("false");
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("random");
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
@@ -345,7 +345,7 @@ public class ConvertFieldValueAndDuplicateTest {
         .isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     // was not able to parse "random" into a boolean field
-    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
