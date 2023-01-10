@@ -257,6 +257,23 @@ public enum FieldType {
       }
     }
 
+    if (fromType == FieldType.BOOLEAN) {
+      if (toType == FieldType.TEXT || toType == FieldType.STRING) {
+        return value.toString();
+      }
+      if (toType == FieldType.INTEGER) {
+        return (Boolean) value ? 1 : 0;
+      }
+      if (toType == FieldType.LONG) {
+        return (Boolean) value ? 1L : 0L;
+      }
+      if (toType == FieldType.FLOAT) {
+        return (Boolean) value ? 1f : 0f;
+      }
+      if (toType == FieldType.DOUBLE) {
+        return (Boolean) value ? 1d : 0d;
+      }
+    }
     return null;
   }
 
