@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore.schema;
 
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_AND_DUPLICATE_FIELD_COUNTER;
+import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_ERROR_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_FIELD_VALUE_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.DROP_FIELDS_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD;
@@ -257,6 +258,160 @@ public class ConvertFieldValueAndDuplicateTest {
         .isEqualTo(1);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
+  }
+
+  @Test
+  public void testConvertingAndDuplicatingConflictingBooleanField() throws JsonProcessingException {
+    SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
+        build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(convertFieldBuilder.getSchema().keySet())
+        .contains(LogMessage.SystemField.ALL.fieldName);
+    String conflictingFieldName = "conflictingField";
+
+    LogMessage msg1 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "1",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                conflictingFieldName,
+                true));
+
+    Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(
+            msg1Doc
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals(conflictingFieldName))
+                .findFirst())
+        .isNotEmpty();
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
+    assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
+
+    LogMessage msg2 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                conflictingFieldName,
+                "random"));
+    Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(14);
+    String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.TEXT);
+    // Value converted and new field is added.
+    assertThat(
+            msg2Doc
+                .getFields()
+                .stream()
+                .filter(
+                    f ->
+                        f.name().equals(conflictingFieldName)
+                            || f.name().equals(additionalCreatedFieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(msg2Doc.getField(conflictingFieldName)).isNull();
+    // Field value is null since we don't store the int field anymore.
+    assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("random");
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
+    assertThat(convertFieldBuilder.getSchema().keySet())
+        .contains(conflictingFieldName, additionalCreatedFieldName);
+    assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
+        .isEqualTo(FieldType.TEXT);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    // was not able to parse "random" into a boolean field
+    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
+        .isEqualTo(1);
+    assertThat(
+            msg1Doc
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(
+            msg2Doc
+                .getFields()
+                .stream()
+                .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
+                .count())
+        .isEqualTo(1);
+    assertThat(convertFieldBuilder.getSchema().keySet())
+        .contains(LogMessage.SystemField.ALL.fieldName);
+
+    // TODO: When we add boolean conversion logic add back this test
+    // should be able to parse "true" as a boolean
+    //    LogMessage msg3 =
+    //            new LogMessage(
+    //                    MessageUtil.TEST_DATASET_NAME,
+    //                    "INFO",
+    //                    "2",
+    //                    Map.of(
+    //                            LogMessage.ReservedField.TIMESTAMP.fieldName,
+    //                            MessageUtil.getCurrentLogDate(),
+    //                            LogMessage.ReservedField.MESSAGE.fieldName,
+    //                            "Test message",
+    //                            LogMessage.ReservedField.TAG.fieldName,
+    //                            "foo-bar",
+    //                            LogMessage.ReservedField.HOSTNAME.fieldName,
+    //                            "host1-dc2.abc.com",
+    //                            conflictingFieldName,
+    //                            "true"));
+    //    Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
+    //    assertThat(msg3Doc.getFields().size()).isEqualTo(15);
+    //    // Value converted and new field is added.
+    //    assertThat(
+    //            msg3Doc
+    //                    .getFields()
+    //                    .stream()
+    //                    .filter(
+    //                            f ->
+    //                                    f.name().equals(conflictingFieldName)
+    //                                            || f.name().equals(additionalCreatedFieldName))
+    //                    .count())
+    //            .isEqualTo(2);
+    //    assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("true");
+    //    assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
+    //    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
+    //    assertThat(convertFieldBuilder.getSchema().keySet())
+    //            .contains(conflictingFieldName, additionalCreatedFieldName);
+    //    assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
+    //            .isEqualTo(FieldType.BOOLEAN);
+    //    assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
+    //            .isEqualTo(FieldType.TEXT);
+    //    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    //    // was not able to parse "random" into a boolean field
+    //    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
+    //    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    //    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
+    //            .isEqualTo(2);
   }
 
   @Test
