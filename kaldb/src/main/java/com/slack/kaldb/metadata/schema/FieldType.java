@@ -176,6 +176,9 @@ public enum FieldType {
           return (float) 0;
         }
       }
+      if (toType == FieldType.BOOLEAN) {
+        return ((String) value).equals("1") || ((String) value).equalsIgnoreCase("true");
+      }
     }
 
     // Int type
@@ -191,6 +194,9 @@ public enum FieldType {
       }
       if (toType == FieldType.DOUBLE) {
         return ((Integer) value).doubleValue();
+      }
+      if (toType == FieldType.BOOLEAN) {
+        return ((Integer) value) != 0;
       }
     }
 
@@ -208,6 +214,9 @@ public enum FieldType {
       if (toType == FieldType.DOUBLE) {
         return ((Long) value).doubleValue();
       }
+      if (toType == FieldType.BOOLEAN) {
+        return ((Long) value) != 0;
+      }
     }
 
     // Float type
@@ -224,6 +233,9 @@ public enum FieldType {
       if (toType == FieldType.DOUBLE) {
         return ((Float) value).doubleValue();
       }
+      if (toType == FieldType.BOOLEAN) {
+        return ((Float) value) != 0;
+      }
     }
 
     // Double type
@@ -239,6 +251,9 @@ public enum FieldType {
       }
       if (toType == FieldType.FLOAT) {
         return ((Double) value).floatValue();
+      }
+      if (toType == FieldType.BOOLEAN) {
+        return ((Double) value) != 0;
       }
     }
 
