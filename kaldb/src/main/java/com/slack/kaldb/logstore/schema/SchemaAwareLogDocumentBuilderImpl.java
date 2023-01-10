@@ -268,15 +268,15 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       Object value, FieldType valueType, LuceneFieldDef registeredField, Document doc, String key) {
     Object convertedValue =
         FieldType.convertFieldValue(value, valueType, registeredField.fieldType);
-    if (convertedValue == null) {
+    if (convertedValue != null) {
+      indexTypedField(doc, key, convertedValue, registeredField);
+    } else {
       LOG.warn(
-          String.format(
-              "No mapping found to convert value from %s to %s",
-              registeredField.fieldType.name, registeredField.fieldType.name));
+          "No mapping found to convert value from {} to {}",
+          registeredField.fieldType.name,
+          registeredField.fieldType.name);
       convertErrorCounter.increment();
-      ;
     }
-    indexTypedField(doc, key, convertedValue, registeredField);
   }
 
   private static void indexTypedField(
