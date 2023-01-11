@@ -10,6 +10,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -301,6 +302,25 @@ public class KaldbConfigTest {
   }
 
   @Test
+  public void testMapSubstitution() throws IOException {
+    final File cfgFile =
+        new File(getClass().getClassLoader().getResource("test_config.yaml").getFile());
+
+    // space is crucial after the key:
+    System.setProperty("KAFKA_ADDITIONAL_PROPS", "{fetch.max.bytes: 100,linger.ms: 123}");
+    KaldbConfig.initFromFile(cfgFile.toPath());
+    final KaldbConfigs.KaldbConfig config =
+        KaldbConfig.fromYamlConfig(Files.readString(cfgFile.toPath()), System::getProperty);
+
+    assertThat(config).isNotNull();
+
+    final KaldbConfigs.KafkaConfig kafkaCfg = config.getIndexerConfig().getKafkaConfig();
+    assertThat(kafkaCfg.getAdditionalPropsMap().size()).isEqualTo(2);
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
+    assertThat(kafkaCfg.getAdditionalPropsMap().get("linger.ms")).isEqualTo("123");
+  }
+
+  @Test
   public void testParseKaldbYamlConfigFile() throws IOException {
     final File cfgFile =
         new File(getClass().getClassLoader().getResource("test_config.yaml").getFile());
@@ -331,8 +351,7 @@ public class KaldbConfigTest {
     assertThat(kafkaCfg.getKafkaAutoCommitInterval()).isEqualTo("5000");
     assertThat(kafkaCfg.getKafkaSessionTimeout()).isEqualTo("30000");
 
-    assertThat(kafkaCfg.getAdditionalPropsMap().size()).isGreaterThan(0);
-    assertThat(kafkaCfg.getAdditionalPropsMap().get("fetch.max.bytes")).isEqualTo("100");
+    assertThat(kafkaCfg.getAdditionalPropsMap().size()).isEqualTo(0);
 
     final KaldbConfigs.S3Config s3Config = config.getS3Config();
     assertThat(s3Config.getS3AccessKey()).isEqualTo("access");
