@@ -344,7 +344,6 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
         .isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
-    // was not able to parse "random" into a boolean field
     assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
@@ -366,52 +365,54 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
 
-    // TODO: When we add boolean conversion logic add back this test
-    // should be able to parse "true" as a boolean
-    //    LogMessage msg3 =
-    //            new LogMessage(
-    //                    MessageUtil.TEST_DATASET_NAME,
-    //                    "INFO",
-    //                    "2",
-    //                    Map.of(
-    //                            LogMessage.ReservedField.TIMESTAMP.fieldName,
-    //                            MessageUtil.getCurrentLogDate(),
-    //                            LogMessage.ReservedField.MESSAGE.fieldName,
-    //                            "Test message",
-    //                            LogMessage.ReservedField.TAG.fieldName,
-    //                            "foo-bar",
-    //                            LogMessage.ReservedField.HOSTNAME.fieldName,
-    //                            "host1-dc2.abc.com",
-    //                            conflictingFieldName,
-    //                            "true"));
-    //    Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
-    //    assertThat(msg3Doc.getFields().size()).isEqualTo(15);
-    //    // Value converted and new field is added.
-    //    assertThat(
-    //            msg3Doc
-    //                    .getFields()
-    //                    .stream()
-    //                    .filter(
-    //                            f ->
-    //                                    f.name().equals(conflictingFieldName)
-    //                                            || f.name().equals(additionalCreatedFieldName))
-    //                    .count())
-    //            .isEqualTo(2);
-    //    assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("true");
-    //    assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
-    //    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
-    //    assertThat(convertFieldBuilder.getSchema().keySet())
-    //            .contains(conflictingFieldName, additionalCreatedFieldName);
-    //    assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-    //            .isEqualTo(FieldType.BOOLEAN);
-    //    assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
-    //            .isEqualTo(FieldType.TEXT);
-    //    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
-    //    // was not able to parse "random" into a boolean field
-    //    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(1);
-    //    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
-    //    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
-    //            .isEqualTo(2);
+    // We now want to test conversion of boolean to a text field
+    String additionalCreatedBoolFieldName =
+        makeNewFieldOfType(additionalCreatedFieldName, FieldType.BOOLEAN);
+    LogMessage msg3 =
+        new LogMessage(
+            MessageUtil.TEST_DATASET_NAME,
+            "INFO",
+            "2",
+            Map.of(
+                LogMessage.ReservedField.TIMESTAMP.fieldName,
+                MessageUtil.getCurrentLogDate(),
+                LogMessage.ReservedField.MESSAGE.fieldName,
+                "Test message",
+                LogMessage.ReservedField.TAG.fieldName,
+                "foo-bar",
+                LogMessage.ReservedField.HOSTNAME.fieldName,
+                "host1-dc2.abc.com",
+                additionalCreatedFieldName,
+                true));
+    Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(15);
+    assertThat(
+            msg3Doc
+                .getFields()
+                .stream()
+                .filter(
+                    f ->
+                        f.name().equals(additionalCreatedBoolFieldName)
+                            || f.name().equals(additionalCreatedFieldName))
+                .count())
+        .isEqualTo(2);
+    assertThat(msg3Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
+    assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).stringValue()).isEqualTo("true");
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(21);
+    assertThat(convertFieldBuilder.getSchema().keySet())
+        .contains(conflictingFieldName, additionalCreatedFieldName, additionalCreatedBoolFieldName);
+    assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
+        .isEqualTo(FieldType.TEXT);
+    assertThat(convertFieldBuilder.getSchema().get(additionalCreatedBoolFieldName).fieldType)
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
+    // was not able to parse "random" into a boolean field
+    assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
+    assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
+    assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
+        .isEqualTo(2);
   }
 
   @Test
