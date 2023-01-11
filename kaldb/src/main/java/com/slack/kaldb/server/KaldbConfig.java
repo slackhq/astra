@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookup;
 
 /**
  * KaldbConfig contains the config params used in the project.
@@ -40,9 +41,16 @@ public class KaldbConfig {
 
   // Parse a yaml string as a KaldbConfig proto struct
   @VisibleForTesting
-  static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
+  public static KaldbConfigs.KaldbConfig fromYamlConfig(String yamlStr)
       throws InvalidProtocolBufferException, JsonProcessingException {
-    StringSubstitutor substitute = new StringSubstitutor(System::getenv);
+    return fromYamlConfig(yamlStr, System::getenv);
+  }
+
+  @VisibleForTesting
+  public static KaldbConfigs.KaldbConfig fromYamlConfig(
+      String yamlStr, StringLookup variableResolver)
+      throws InvalidProtocolBufferException, JsonProcessingException {
+    StringSubstitutor substitute = new StringSubstitutor(variableResolver);
     ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
     ObjectMapper jsonWriter = new ObjectMapper();
 
