@@ -736,6 +736,7 @@ public class LogIndexSearcherImplTest {
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
+    canMatchQuery(strictLogStore.logSearcher, field, "*", 1, 1, time);
     canMatchQuery(strictLogStore.logSearcher, field, "\"flannel-be\"", 1, 1, time);
     canMatchQuery(strictLogStore.logSearcher, field, "\"flannel be\"", 0, 0, time);
     canMatchQuery(strictLogStore.logSearcher, field, "\"FLANNEL-be\"", 0, 0, time);

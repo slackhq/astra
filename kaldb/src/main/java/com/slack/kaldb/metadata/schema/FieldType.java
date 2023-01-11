@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
+
+import com.slack.kaldb.logstore.schema.StringFieldWithPositionsType;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
 import org.apache.lucene.document.DoublePoint;
@@ -40,7 +42,7 @@ public enum FieldType {
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
       if (fieldDef.isIndexed) {
-        doc.add(new StringField(name, (String) value, getStoreEnum(fieldDef.isStored)));
+        doc.add(new StringFieldWithPositionsType(name, (String) value, getStoreEnum(fieldDef.isStored)));
       }
       if (fieldDef.isStored) {
         doc.add(new StoredField(name, (String) value));
