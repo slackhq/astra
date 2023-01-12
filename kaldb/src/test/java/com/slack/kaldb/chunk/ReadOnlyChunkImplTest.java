@@ -2,6 +2,7 @@ package com.slack.kaldb.chunk;
 
 import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_ASSIGNMENT_TIMER;
 import static com.slack.kaldb.chunk.ReadOnlyChunkImpl.CHUNK_EVICTION_TIMER;
+import static com.slack.kaldb.chunk.ReadWriteChunk.SCHEMA_FILE_NAME;
 import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
@@ -28,6 +29,7 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.schema.ChunkSchema;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -39,13 +41,16 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
@@ -507,16 +512,27 @@ public class ReadOnlyChunkImplTest {
     assertThat(getTimerCount(COMMITS_TIMER, meterRegistry)).isEqualTo(1);
 
     Path dirPath = logStore.getDirectory().toAbsolutePath();
+
+    // Create schema file to upload
+    ChunkSchema chunkSchema =
+        new ChunkSchema(snapshotId, logStore.getSchema(), new ConcurrentHashMap<>());
+    File schemaFile = new File(dirPath + "/" + SCHEMA_FILE_NAME);
+    ChunkSchema.serializeToFile(chunkSchema, schemaFile);
+
+    // Prepare list of files to upload.
+    List<String> filesToUpload = new ArrayList<>();
+    filesToUpload.add(schemaFile.getName());
     IndexCommit indexCommit = logStore.getIndexCommit();
-    Collection<String> activeFiles = indexCommit.getFileNames();
+    filesToUpload.addAll(indexCommit.getFileNames());
+
     LocalBlobFs localBlobFs = new LocalBlobFs();
 
     logStore.close();
     assertThat(localBlobFs.listFiles(dirPath.toUri(), false).length)
-        .isGreaterThanOrEqualTo(activeFiles.size());
+        .isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    copyToS3(dirPath, activeFiles, TEST_S3_BUCKET, snapshotId, s3BlobFs);
+    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3BlobFs);
   }
 
   private KaldbConfigs.KaldbConfig makeCacheConfig() {

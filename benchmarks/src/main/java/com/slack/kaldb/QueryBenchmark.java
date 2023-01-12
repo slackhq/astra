@@ -107,7 +107,8 @@ public class QueryBenchmark {
 
     logStore.commit();
     logStore.refresh();
-    logIndexSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager());
+    logIndexSearcher =
+        new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
   }
 
   @TearDown(Level.Trial)
