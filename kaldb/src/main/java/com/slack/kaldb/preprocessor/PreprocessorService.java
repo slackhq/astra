@@ -1,8 +1,6 @@
 package com.slack.kaldb.preprocessor;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
-import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.maybeOverride;
 
@@ -21,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serdes;
@@ -158,7 +155,8 @@ public class PreprocessorService extends AbstractService {
                 rateLimiter,
                 upstreamTopics,
                 downstreamTopic,
-                dataTransformer);
+                dataTransformer,
+                kafkaProperties);
         kafkaStreams = new KafkaStreams(topology, kafkaProperties);
         kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
         kafkaStreamsMetrics.bindTo(meterRegistry);
@@ -184,7 +182,8 @@ public class PreprocessorService extends AbstractService {
       PreprocessorRateLimiter rateLimiter,
       List<String> upstreamTopics,
       String downstreamTopic,
-      String dataTransformer) {
+      String dataTransformer,
+      Properties kafkaProperties) {
     checkArgument(!datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
     checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
@@ -195,8 +194,9 @@ public class PreprocessorService extends AbstractService {
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
 
+    int lingerMs = Integer.parseInt(kafkaProperties.getProperty("producer.linger.ms", "100"));
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        streamPartitioner(datasetMetadataList);
+        new PreprocessorPartitioner<>(datasetMetadataList, lingerMs);
 
     Predicate<String, Trace.Span> rateLimitPredicate =
         rateLimiter.createRateLimiter(datasetMetadataList);
@@ -262,45 +262,6 @@ public class PreprocessorService extends AbstractService {
         .stream()
         .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
         .collect(Collectors.toList());
-  }
-
-  /**
-   * Returns a StreamPartitioner that selects from the provided list of dataset metadata. If no
-   * valid dataset metadata are provided throws an exception.
-   */
-  protected static StreamPartitioner<String, Trace.Span> streamPartitioner(
-      List<DatasetMetadata> datasetMetadataList) {
-
-    List<DatasetMetadata> throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
-
-    return (topic, key, value, partitionCount) -> {
-      String serviceName = PreprocessorValueMapper.getServiceName(value);
-      if (serviceName == null) {
-        // this also should not happen since we drop messages with empty service names in the rate
-        // limiter
-        throw new IllegalStateException(
-            String.format("Service name not found within the message '%s'", value));
-      }
-
-      for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
-        String serviceNamePattern = datasetMetadata.getServiceNamePattern();
-        // back-compat since this is a new field
-        if (serviceNamePattern == null) {
-          serviceNamePattern = datasetMetadata.getName();
-        }
-
-        if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
-            || serviceNamePattern.equals(MATCH_STAR_SERVICE)
-            || serviceName.equals(serviceNamePattern)) {
-          List<Integer> partitions = PreprocessorService.getActivePartitionList(datasetMetadata);
-          return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
-        }
-      }
-      // this shouldn't happen, as we should have filtered all the missing datasets in the value
-      // mapper stage
-      throw new IllegalStateException(
-          String.format("Service name  '%s' was not found in dataset metadata", serviceName));
-    };
   }
 
   /** Builds a Properties hashtable using the provided config, and sensible defaults */

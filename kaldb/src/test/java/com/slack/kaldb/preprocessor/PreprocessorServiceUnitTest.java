@@ -5,6 +5,7 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +22,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
@@ -174,7 +177,7 @@ public class PreprocessorServiceUnitTest {
             datasetName2);
 
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        PreprocessorService.streamPartitioner(List.of(datasetMetadata1, datasetMetadata2));
+        new PreprocessorPartitioner<>(List.of(datasetMetadata1, datasetMetadata2), 100);
 
     Trace.Span span =
         Trace.Span.newBuilder()
@@ -192,7 +195,7 @@ public class PreprocessorServiceUnitTest {
     assertThat(partitionList1.contains(streamPartitioner.partition("", null, span, 0))).isTrue();
 
     StreamPartitioner<String, Trace.Span> streamPartitioner2 =
-        PreprocessorService.streamPartitioner(List.of(datasetMetadata1, datasetMetadata2));
+        new PreprocessorPartitioner<>(List.of(datasetMetadata1, datasetMetadata2), 100);
 
     Trace.Span span2 =
         Trace.Span.newBuilder()
@@ -223,7 +226,7 @@ public class PreprocessorServiceUnitTest {
             List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, List.of("33", "44", "55"))),
             datasetName);
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        PreprocessorService.streamPartitioner(List.of(datasetMetadata));
+        new PreprocessorPartitioner<>(List.of(datasetMetadata), 100);
 
     Trace.Span span =
         Trace.Span.newBuilder()
@@ -239,6 +242,44 @@ public class PreprocessorServiceUnitTest {
         .isTrue();
     assertThat(partitionList.contains(streamPartitioner.partition("topic", "", span, 0))).isTrue();
     assertThat(partitionList.contains(streamPartitioner.partition("", null, span, 0))).isTrue();
+  }
+
+  @Test
+  public void shouldNotCachePartitionBeyondStickyTimeout() throws InterruptedException {
+    int stickyTimeoutMs = 1;
+    List<String> partitions =
+        IntStream.range(0, 100).mapToObj((String::valueOf)).collect(Collectors.toList());
+
+    String datasetName = "datasetName";
+    DatasetMetadata datasetMetadata =
+        new DatasetMetadata(
+            datasetName,
+            datasetName,
+            1,
+            List.of(new DatasetPartitionMetadata(100, Long.MAX_VALUE, partitions)),
+            datasetName);
+    StreamPartitioner<String, Trace.Span> streamPartitioner =
+        new PreprocessorPartitioner<>(List.of(datasetMetadata), stickyTimeoutMs);
+
+    Trace.Span span =
+        Trace.Span.newBuilder()
+            .addTags(
+                Trace.KeyValue.newBuilder().setKey(SERVICE_NAME_KEY).setVStr(datasetName).build())
+            .build();
+
+    int partition = streamPartitioner.partition("topic", null, span, Integer.MAX_VALUE);
+    int count = 0;
+    int nextPartition = -1;
+    while (count++ < 5) {
+      Thread.sleep(stickyTimeoutMs);
+      nextPartition = streamPartitioner.partition("topic", null, span, Integer.MAX_VALUE);
+      if (nextPartition != partition) {
+        break;
+      }
+    }
+    if (count == 5 && partition == nextPartition) {
+      fail("Should not have gotten the same partition number");
+    }
   }
 
   @Test
@@ -370,7 +411,12 @@ public class PreprocessorServiceUnitTest {
     String dataTransformer = "api_log";
     Topology topology =
         PreprocessorService.buildTopology(
-            datasetMetadata, rateLimiter, upstreamTopics, downstreamTopic, dataTransformer);
+            datasetMetadata,
+            rateLimiter,
+            upstreamTopics,
+            downstreamTopic,
+            dataTransformer,
+            new Properties());
 
     // we have limited visibility into the topology, so we just verify we have the correct number of
     // stream processors as we expect
@@ -402,7 +448,12 @@ public class PreprocessorServiceUnitTest {
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(), rateLimiter, upstreamTopics, downstreamTopic, dataTransformer));
+                    List.of(),
+                    rateLimiter,
+                    upstreamTopics,
+                    downstreamTopic,
+                    dataTransformer,
+                    new Properties()));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -411,7 +462,8 @@ public class PreprocessorServiceUnitTest {
                     rateLimiter,
                     List.of(),
                     downstreamTopic,
-                    dataTransformer));
+                    dataTransformer,
+                    new Properties()));
     assertThatNullPointerException()
         .isThrownBy(
             () ->
@@ -420,17 +472,18 @@ public class PreprocessorServiceUnitTest {
                     null,
                     upstreamTopics,
                     downstreamTopic,
-                    dataTransformer));
+                    dataTransformer,
+                    new Properties()));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(datasetMetadata), rateLimiter, upstreamTopics, "", dataTransformer));
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                PreprocessorService.buildTopology(
-                    List.of(datasetMetadata), rateLimiter, upstreamTopics, downstreamTopic, ""));
+                    List.of(datasetMetadata),
+                    rateLimiter,
+                    upstreamTopics,
+                    "",
+                    dataTransformer,
+                    new Properties()));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -439,7 +492,18 @@ public class PreprocessorServiceUnitTest {
                     rateLimiter,
                     upstreamTopics,
                     downstreamTopic,
-                    "invalid"));
+                    "",
+                    new Properties()));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                PreprocessorService.buildTopology(
+                    List.of(datasetMetadata),
+                    rateLimiter,
+                    upstreamTopics,
+                    downstreamTopic,
+                    "invalid",
+                    new Properties()));
   }
 
   @Test
