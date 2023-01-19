@@ -14,13 +14,51 @@ message SearchRequest {
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
-  int32 bucket_count = 7;
+  SearchAggregation aggs = 7;
+}
+
+message SearchAggregation {
+  string name = 1;
+  string type = 2;
+  Struct metadata = 3;
+  repeated SearchAggregation sub_aggregators = 4;
+
+  // todo - potentially add context & parent information
+  // https://github.com/opensearch-project/OpenSearch/blob/60db7b5dee6035754d9e4ee49b31f895f176282e/server/src/main/java/org/opensearch/search/aggregations/AggregatorBase.java#L64-L65
+}
+
+message Value {
+  // The kind of value.
+  oneof kind {
+    // Represents an int value.
+    int64 int_value = 1;
+    // Represents a double value.
+    double double_value = 2;
+    // Represents a string value.
+    string string_value = 3;
+    // Represents a boolean value.
+    bool bool_value = 4;
+    // Represents a structured value.
+    Struct struct_value = 5;
+    // Represents a repeated `Value`.
+    ListValue list_value = 6;
+  }
+}
+
+message Struct {
+  // Unordered map of dynamically typed values.
+  map<string, Value> fields = 1;
+}
+
+message ListValue {
+  repeated Value values = 1;
 }
 
 message SearchResult {
   int64 total_count = 2;
   repeated string hits = 3;
-  repeated HistogramBucket buckets = 4;
+  repeated ResponseAggregation aggregations = 4;
+
   int64 took_micros = 5;
 
   int32 failed_nodes = 6;
@@ -29,10 +67,29 @@ message SearchResult {
   int32 snapshots_with_replicas = 9;
 }
 
-message HistogramBucket {
-  double low = 1;
-  double high = 2;
-  double count = 3;
+message ResponseAggregation {
+  string name = 1;
+
+  int64 doc_count_error_upper_bound = 2;
+  int64 sum_other_doc_count = 3;
+  repeated ResponseBuckets buckets = 4;
+}
+
+message ResponseBuckets {
+  repeated string key = 1;
+  int64 doc_count = 2;
+  map<string, ResponseBucketResult> values = 3;
+}
+
+message ResponseBucketValue {
+  int64 value = 1;
+}
+
+message ResponseBucketResult {
+  oneof kind {
+    ResponseAggregation aggregation = 1;
+    ResponseBucketValue value = 2;
+  }
 }
 
 service KaldbService {

@@ -199,7 +199,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -262,7 +262,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);

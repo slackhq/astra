@@ -8,8 +8,10 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.primitives.Ints;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
+import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
@@ -17,10 +19,12 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
@@ -80,6 +84,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return new QueryParser(SystemField.ALL.fieldName, analyzer);
   }
 
+  @Deprecated
   public SearchResult<LogMessage> search(
       String dataset,
       String queryStr,
@@ -87,6 +92,68 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       long endTimeMsEpoch,
       int howMany,
       int bucketCount) {
+
+    SearchAggregation searchAggregation = new SearchAggregation();
+    if (bucketCount > 0) {
+      searchAggregation =
+          new SearchAggregation(
+              "1",
+              "date_histogram",
+              Map.of(
+                  "interval",
+                  ((endTimeMsEpoch - startTimeMsEpoch) / bucketCount) + "s",
+                  "extended_bounds",
+                  Map.of(
+                      "min", startTimeMsEpoch,
+                      "max", endTimeMsEpoch)),
+              List.of());
+    }
+
+    return search(dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, howMany, searchAggregation);
+  }
+
+  @Deprecated
+  private int getBucketCount(SearchAggregation searchAggregation) {
+    // todo - this is VERY temporary
+
+    if (searchAggregation.getType().equals("date_histogram")) {
+      String intervalString = (String) searchAggregation.getMetadata().get("interval");
+
+      try {
+        // ISO-8601 duration spec requires different input format for days than hours/mins/seconds
+        String durationFormat = "PT%s";
+        if (intervalString.endsWith("d")) {
+          durationFormat = "P%s";
+        }
+
+        Duration intervalDuration =
+            Duration.parse(String.format(durationFormat, intervalString.toUpperCase()));
+
+        Map<String, Long> extendedBounds =
+            (Map<String, Long>) searchAggregation.getMetadata().get("extended_bounds");
+
+        return Ints.saturatedCast(
+            (extendedBounds.get("max") - extendedBounds.get("min")) / intervalDuration.toMillis());
+      } catch (Exception e) {
+        // for any issue parsing or calculating the input, just log it and default to 60
+        LOG.warn(
+            "Error converting user input intervalString:'{}', defaulting to 60 buckets",
+            intervalString);
+        return 60;
+      }
+    }
+    return 0;
+  }
+
+  public SearchResult<LogMessage> search(
+      String dataset,
+      String queryStr,
+      long startTimeMsEpoch,
+      long endTimeMsEpoch,
+      int howMany,
+      SearchAggregation searchAggregation) {
+
+    int bucketCount = getBucketCount(searchAggregation);
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
@@ -143,11 +210,27 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         }
 
         elapsedTime.stop();
+
+        List<ResponseBucket> responseBuckets = new ArrayList<>();
+        for (HistogramBucket bucket : histogram.getBuckets()) {
+          // our response from kaldb has the start and end of the bucket, but we only need the
+          // midpoint for the response object
+          long getKey =
+              new Double(bucket.getLow() + ((bucket.getHigh() - bucket.getLow()) / 2)).longValue();
+          // todo - this long double thing is weird
+          responseBuckets.add(
+              new ResponseBucket(
+                  List.of(getKey), new Double(bucket.getCount()).longValue(), Map.of()));
+        }
+
+        List<ResponseAggregation> histogramResponse =
+            List.of(new ResponseAggregation(searchAggregation.getName(), 0, 0, responseBuckets));
+
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
             bucketCount > 0 ? histogram.count() : results.size(),
-            histogram.getBuckets(),
+            histogramResponse,
             0,
             0,
             1,

@@ -1,7 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
 import com.google.common.base.Objects;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,9 +18,7 @@ public class SearchResult<T> {
   public final List<T> hits;
   public final long tookMicros;
 
-  // TODO: Make this list immutable?
-  // TODO: Instead of histogram bucket, return tuple.
-  public final List<HistogramBucket> buckets;
+  public final List<ResponseAggregation> aggregations;
 
   public final int failedNodes;
   public final int totalNodes;
@@ -32,7 +29,7 @@ public class SearchResult<T> {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
     this.totalCount = 0;
-    this.buckets = new ArrayList<>();
+    this.aggregations = new ArrayList<>();
     this.failedNodes = 0;
     this.totalNodes = 0;
     this.totalSnapshots = 0;
@@ -44,7 +41,7 @@ public class SearchResult<T> {
       List<T> hits,
       long tookMicros,
       long totalCount,
-      List<HistogramBucket> buckets,
+      List<ResponseAggregation> aggregations,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
@@ -52,7 +49,7 @@ public class SearchResult<T> {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
-    this.buckets = buckets;
+    this.aggregations = aggregations;
     this.failedNodes = failedNodes;
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
@@ -71,7 +68,7 @@ public class SearchResult<T> {
         && totalSnapshots == that.totalSnapshots
         && snapshotsWithReplicas == that.snapshotsWithReplicas
         && Objects.equal(hits, that.hits)
-        && Objects.equal(buckets, that.buckets);
+        && Objects.equal(aggregations, that.aggregations);
   }
 
   @Override
@@ -80,7 +77,7 @@ public class SearchResult<T> {
         totalCount,
         hits,
         tookMicros,
-        buckets,
+        aggregations,
         failedNodes,
         totalNodes,
         totalSnapshots,
@@ -100,8 +97,8 @@ public class SearchResult<T> {
         + hits
         + ", tookMicros="
         + tookMicros
-        + ", buckets="
-        + buckets
+        + ", aggregations="
+        + aggregations
         + ", failedNodes="
         + failedNodes
         + ", totalNodes="

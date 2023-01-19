@@ -4,6 +4,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -17,7 +18,6 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,7 +112,6 @@ public class ElasticsearchApiService {
     span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
     span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
-    span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
     span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
     span.tag("resultTotalNodes", String.valueOf(searchResult.getTotalNodes()));
@@ -123,8 +121,25 @@ public class ElasticsearchApiService {
 
     try {
       HitsMetadata hits = getHits(searchResult);
-      Map<String, AggregationResponse> aggregations =
-          getAggregations(request.getAggregations(), searchResult);
+      Map<String, AggregationResponse> aggregations = Maps.newHashMap();
+
+      searchResult
+          .getAggregationsList()
+          .forEach(
+              responseAggregation -> {
+                aggregations.put(
+                    responseAggregation.getName(),
+                    new AggregationResponse(
+                        responseAggregation
+                            .getBucketsList()
+                            .stream()
+                            .map(
+                                responseBucket ->
+                                    new AggregationBucketResponse(
+                                        Long.parseLong(responseBucket.getKey(0)),
+                                        responseBucket.getDocCount()))
+                            .collect(Collectors.toList())));
+              });
 
       return new EsSearchResponse.Builder()
           .hits(hits)
@@ -165,35 +180,6 @@ public class ElasticsearchApiService {
         .hitsTotal(ImmutableMap.of("value", responseHits.size(), "relation", "eq"))
         .hits(responseHits)
         .build();
-  }
-
-  private Map<String, AggregationResponse> getAggregations(
-      List<SearchRequestAggregation> aggregations, KaldbSearch.SearchResult searchResult) {
-    // todo - we currently are only supporting a single aggregation of type `date_histogram` and
-    //  assume it is the always the first aggregation requested
-    //  this will need to be refactored when we support more aggregation types
-    Optional<SearchRequestAggregation> aggregationRequest = aggregations.stream().findFirst();
-
-    Map<String, AggregationResponse> aggregationResponseMap = new HashMap<>();
-    if (aggregationRequest.isPresent()) {
-      List<AggregationBucketResponse> buckets =
-          new ArrayList<>(searchResult.getBucketsList().size());
-      searchResult
-          .getBucketsList()
-          .forEach(
-              histogramBucket -> {
-                // our response from kaldb has the start and end of the bucket, but we only need the
-                // midpoint for the response object
-                double getKey =
-                    histogramBucket.getLow()
-                        + ((histogramBucket.getHigh() - histogramBucket.getLow()) / 2);
-                buckets.add(new AggregationBucketResponse(getKey, histogramBucket.getCount()));
-              });
-      aggregationResponseMap.put(
-          aggregationRequest.get().getAggregationKey(), new AggregationResponse(buckets));
-    }
-
-    return aggregationResponseMap;
   }
 
   /**

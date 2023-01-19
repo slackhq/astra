@@ -11,7 +11,7 @@ public class SearchQuery {
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
   public final int howMany;
-  public final int bucketCount;
+  public final SearchAggregation searchAggregations;
   public final List<String> chunkIds;
 
   public SearchQuery(
@@ -20,14 +20,32 @@ public class SearchQuery {
       long startTimeEpochMs,
       long endTimeEpochMs,
       int howMany,
-      int bucketCount,
+      SearchAggregation searchAggregations,
       List<String> chunkIds) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
     this.howMany = howMany;
-    this.bucketCount = bucketCount;
+    this.searchAggregations = searchAggregations;
+    this.chunkIds = chunkIds;
+  }
+
+  @Deprecated
+  public SearchQuery(
+      String dataset,
+      String queryStr,
+      long startTimeEpochMs,
+      long endTimeEpochMs,
+      int howMany,
+      int buckeCount,
+      List<String> chunkIds) {
+    this.dataset = dataset;
+    this.queryStr = queryStr;
+    this.startTimeEpochMs = startTimeEpochMs;
+    this.endTimeEpochMs = endTimeEpochMs;
+    this.howMany = howMany;
+    this.searchAggregations = null;
     this.chunkIds = chunkIds;
   }
 
@@ -46,10 +64,10 @@ public class SearchQuery {
         + endTimeEpochMs
         + ", howMany="
         + howMany
-        + ", bucketCount="
-        + bucketCount
+        + ", searchAggregations="
+        + searchAggregations
         + ", chunkIds="
-        + String.join(",", chunkIds)
+        + chunkIds
         + '}';
   }
 }

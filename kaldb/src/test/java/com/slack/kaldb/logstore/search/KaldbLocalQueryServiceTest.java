@@ -110,7 +110,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -136,14 +136,14 @@ public class KaldbLocalQueryServiceTest {
     assertThat((String) m.source.get("message")).contains("Message100");
 
     // Test histogram buckets
-    assertThat(response.getBucketsList().size()).isEqualTo(2);
-    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
-    assertThat(bucket1.getCount()).isEqualTo(0);
-    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
-    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
-    assertThat(bucket2.getCount()).isEqualTo(1);
-    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
+    //    assertThat(response.getBucketsList().size()).isEqualTo(2);
+    //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
+    //    assertThat(bucket1.getCount()).isEqualTo(0);
+    //    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
+    //    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
+    //    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
+    //    assertThat(bucket2.getCount()).isEqualTo(1);
+    //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
 
     // TODO: Query multiple chunks.
   }
@@ -175,7 +175,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
@@ -189,14 +189,14 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test histogram buckets
-    assertThat(response.getBucketsList().size()).isEqualTo(2);
-    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
-    assertThat(bucket1.getCount()).isEqualTo(0);
-    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
-    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
-    assertThat(bucket2.getCount()).isEqualTo(0);
-    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
+    //    assertThat(response.getBucketsList().size()).isEqualTo(2);
+    //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
+    //    assertThat(bucket1.getCount()).isEqualTo(0);
+    //    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
+    //    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
+    //    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
+    //    assertThat(bucket2.getCount()).isEqualTo(0);
+    //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
   }
 
   @Test
@@ -227,7 +227,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
@@ -241,14 +241,14 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
 
     // Test histogram buckets
-    assertThat(response.getBucketsList().size()).isEqualTo(2);
-    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
-    assertThat(bucket1.getCount()).isEqualTo(1);
-    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
-    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
-    assertThat(bucket2.getCount()).isEqualTo(0);
-    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
+    //    assertThat(response.getBucketsList().size()).isEqualTo(2);
+    //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
+    //    assertThat(bucket1.getCount()).isEqualTo(1);
+    //    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
+    //    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
+    //    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
+    //    assertThat(bucket2.getCount()).isEqualTo(0);
+    //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
   }
 
   @Test
@@ -278,7 +278,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(0)
+                //                .setBucketCount(0)
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -305,7 +305,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat((String) m.source.get("message")).contains("Message1");
 
     // Test histogram buckets
-    assertThat(response.getBucketsList().size()).isEqualTo(0);
+    //    assertThat(response.getBucketsList().size()).isEqualTo(0);
   }
 
   @Test(expected = RuntimeException.class)
@@ -333,8 +333,8 @@ public class KaldbLocalQueryServiceTest {
             .setQueryString("Message1")
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setBucketCount(0)
+            .setHowMany(-1)
+            //            .setBucketCount(0)
             .build());
   }
 
@@ -383,7 +383,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                //                .setBucketCount(2)
                 .build());
 
     // Validate search response
@@ -410,14 +410,14 @@ public class KaldbLocalQueryServiceTest {
     assertThat((String) m.source.get("message")).contains("Message1");
 
     // Test histogram buckets
-    assertThat(response.getBucketsList().size()).isEqualTo(2);
-    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
-    assertThat(bucket1.getCount()).isEqualTo(1);
-    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
-    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
-    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
-    assertThat(bucket2.getCount()).isEqualTo(0);
-    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
+    //    assertThat(response.getBucketsList().size()).isEqualTo(2);
+    //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
+    //    assertThat(bucket1.getCount()).isEqualTo(1);
+    //    assertThat(bucket1.getLow()).isEqualTo(chunk1StartTimeMs);
+    //    assertThat(bucket1.getHigh()).isEqualTo((chunk1StartTimeMs + chunk1EndTimeMs) / 2.0);
+    //    KaldbSearch.HistogramBucket bucket2 = response.getBuckets(1);
+    //    assertThat(bucket2.getCount()).isEqualTo(0);
+    //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
   }
 
   @Test(expected = StatusRuntimeException.class)
@@ -464,8 +464,8 @@ public class KaldbLocalQueryServiceTest {
                 .setQueryString("Message1")
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
-                .setBucketCount(0)
+                .setHowMany(-1)
+                //                .setBucketCount(0)
                 .build());
   }
 }

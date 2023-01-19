@@ -20,7 +20,7 @@ public class KaldbSearchUtils {
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
             .setHowMany(100)
-            .setBucketCount(2)
+            //            .setBucketCount(2)
             .build());
   }
 

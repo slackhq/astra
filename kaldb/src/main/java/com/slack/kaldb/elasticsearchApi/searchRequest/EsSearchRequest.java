@@ -5,14 +5,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.proto.service.KaldbSearch;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,52 +62,69 @@ public class EsSearchRequest {
     return aggregations;
   }
 
-  /**
-   * This is a temporary fix for calculating the buckets required in a date histogram. This code
-   * should potentially exist somewhere else, or an entirely different approach should be
-   * considered. This will have unexpected behavior when multiple aggregations are provided. As a
-   * larger point the bucket count is specific to a date histogram, and if other aggregations are
-   * requested this field makes no sense (ie, terms query). A larger refactor of the
-   * KaldbSearch.SearchRequest object is needed to appropriate resolve this.
-   */
-  @Deprecated
-  protected static int getBucketCount(
-      List<SearchRequestAggregation> searchRequestAggregations, SearchRequestTimeRange timeRange) {
-    String intervalString = "";
-    try {
-      DateHistogramAggregation dateHistogramAggregation =
-          (DateHistogramAggregation) searchRequestAggregations.get(0);
-      intervalString = dateHistogramAggregation.getInterval();
-
-      // ISO-8601 duration spec requires different input format for days than hours/mins/seconds
-      String durationFormat = "PT%s";
-      if (intervalString.endsWith("d")) {
-        durationFormat = "P%s";
-      }
-
-      Duration intervalDuration =
-          Duration.parse(String.format(durationFormat, intervalString.toUpperCase()));
-      return Ints.saturatedCast(
-          (timeRange.getLteEpochMillis() - timeRange.getGteEpochMillis())
-              / intervalDuration.toMillis());
-    } catch (Exception e) {
-      // for any issue parsing or calculating the input, just log it and default to 60
-      LOG.warn(
-          "Error converting user input intervalString:'{}', defaulting to 60 buckets",
-          intervalString);
-      return 60;
-    }
-  }
-
   public KaldbSearch.SearchRequest toKaldbSearchRequest() {
+    KaldbSearch.SearchAggregation aggregation = searchAggregation(aggregations).get(0);
     return KaldbSearch.SearchRequest.newBuilder()
         .setDataset(getIndex())
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
         .setHowMany(getSize())
-        .setBucketCount(getBucketCount(getAggregations(), getRange()))
+        .setAggs(aggregation)
         .build();
+  }
+
+  private List<KaldbSearch.SearchAggregation> searchAggregation(
+      List<SearchRequestAggregation> searchRequestAggregations) {
+    List<KaldbSearch.SearchAggregation> returnList = new ArrayList<>();
+    searchRequestAggregations.forEach(
+        searchRequestAggregation -> {
+          returnList.add(
+              KaldbSearch.SearchAggregation.newBuilder()
+                  .setName(searchRequestAggregation.getName())
+                  .setType(searchRequestAggregation.getType())
+                  .setMetadata(mapToProtoStruct(searchRequestAggregation.getMetadata()))
+                  .addAllSubAggregators(
+                      searchAggregation(searchRequestAggregation.getSubAggregators()))
+                  .build());
+        });
+    return returnList;
+  }
+
+  private KaldbSearch.Value objectToProtoValue(Object value) {
+    KaldbSearch.Value.Builder valueBuilder = KaldbSearch.Value.newBuilder();
+    if (value instanceof Boolean) {
+      valueBuilder.setBoolValue((Boolean) value);
+    } else if (value instanceof Double) {
+      valueBuilder.setDoubleValue((Double) value);
+    } else if (value instanceof Long) {
+      valueBuilder.setIntValue((Long) value);
+    } else if (value instanceof Integer) {
+      valueBuilder.setIntValue((Integer) value);
+    } else if (value instanceof String) {
+      valueBuilder.setStringValue((String) value);
+    } else if (value instanceof Map) {
+      valueBuilder.setStructValue(mapToProtoStruct((Map<String, Object>) value));
+    } else if (value instanceof List) {
+      valueBuilder.setListValue(listToListValueStruct((List<Object>) value));
+    } else {
+      throw new IllegalArgumentException();
+    }
+
+    return valueBuilder.build();
+  }
+
+  private KaldbSearch.ListValue listToListValueStruct(List<Object> list) {
+    KaldbSearch.ListValue.Builder builder = KaldbSearch.ListValue.newBuilder();
+    list.forEach(listElement -> builder.addValues(objectToProtoValue(listElement)));
+    return builder.build();
+  }
+
+  private KaldbSearch.Struct mapToProtoStruct(Map<String, Object> searchRequestMetadata) {
+    KaldbSearch.Struct.Builder builder = KaldbSearch.Struct.newBuilder();
+    searchRequestMetadata.forEach(
+        (key, value) -> builder.putFields(key, objectToProtoValue(value)));
+    return builder.build();
   }
 
   public static List<EsSearchRequest> parse(String postBody) throws JsonProcessingException {
@@ -143,8 +157,40 @@ public class EsSearchRequest {
               queryString,
               SearchRequestTimeRange.parse(body.get("query")),
               SearchRequestSort.parse(body.get("sort")),
-              SearchRequestAggregation.parse(body.get("aggs"))));
+              getSearchRequestAggs(body.get("aggs"))));
     }
     return requests;
+  }
+
+  private static List<SearchRequestAggregation> getSearchRequestAggs(JsonNode aggsNode) {
+    ObjectMapper om = new ObjectMapper();
+
+    List<SearchRequestAggregation> returnAggregators = new ArrayList<>();
+    aggsNode
+        .fields()
+        .forEachRemaining(
+            field -> {
+              List<SearchRequestAggregation> nestedAggregators = new ArrayList<>();
+              List<SearchRequestAggregation> aggregator = new ArrayList<>();
+              field
+                  .getValue()
+                  .fields()
+                  .forEachRemaining(
+                      nestedField -> {
+                        if (nestedField.getKey().equals("aggs")) {
+                          nestedAggregators.addAll(getSearchRequestAggs(nestedField.getValue()));
+                        } else {
+                          // ie, max, min
+                          aggregator.add(
+                              new SearchRequestAggregation(
+                                  field.getKey(),
+                                  nestedField.getKey(),
+                                  om.convertValue(nestedField.getValue(), Map.class),
+                                  nestedAggregators));
+                        }
+                      });
+              returnAggregators.addAll(aggregator);
+            });
+    return returnAggregators;
   }
 }

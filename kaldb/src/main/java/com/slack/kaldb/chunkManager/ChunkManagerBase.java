@@ -182,7 +182,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         searchResult.hits,
         searchResult.tookMicros,
         searchResult.totalCount,
-        searchResult.buckets,
+        searchResult.aggregations,
         searchResult.failedNodes,
         searchResult.totalNodes + 1,
         searchResult.totalSnapshots,

@@ -15,10 +15,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
 public class SearchResultAggregatorImplTest {
+
+  @Deprecated
   private SearchResult<LogMessage> makeSearchResult(
       List<LogMessage> messages,
       long tookMs,
@@ -28,11 +32,29 @@ public class SearchResultAggregatorImplTest {
       int totalNodes,
       int totalSnapshots,
       int snapshotsWithReplicas) {
+
+    ResponseAggregation responseAggregationList =
+        new ResponseAggregation(
+            "2",
+            0,
+            0,
+            buckets
+                .stream()
+                .map(
+                    bucket -> {
+                      long getKey =
+                          new Double(bucket.getLow() + ((bucket.getHigh() - bucket.getLow()) / 2))
+                              .longValue();
+                      return new ResponseBucket(
+                          List.of(getKey), new Double(bucket.getCount()).longValue(), Map.of());
+                    })
+                .collect(Collectors.toList()));
+
     return new SearchResult<>(
         messages,
         tookMs,
         totalCount,
-        buckets,
+        List.of(responseAggregationList),
         failedNodes,
         totalNodes,
         totalSnapshots,
@@ -96,8 +118,8 @@ public class SearchResultAggregatorImplTest {
         .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    for (ResponseBucket responseBucket : aggSearchResult.aggregations.get(0).getResponseBuckets()) {
+      assertThat(responseBucket.getDocCount() == 10 || responseBucket.getDocCount() == 0).isTrue();
     }
   }
 
@@ -151,8 +173,8 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    for (ResponseBucket responseBucket : aggSearchResult.aggregations.get(0).getResponseBuckets()) {
+      assertThat(responseBucket.getDocCount() == 10 || responseBucket.getDocCount() == 0).isTrue();
     }
   }
 
@@ -216,8 +238,8 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(40);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    for (ResponseBucket responseBucket : aggSearchResult.aggregations.get(0).getResponseBuckets()) {
+      assertThat(responseBucket.getDocCount() == 10 || responseBucket.getDocCount() == 0).isTrue();
     }
   }
 
@@ -268,7 +290,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    assertThat(aggSearchResult.buckets.size()).isZero();
+    assertThat(aggSearchResult.aggregations.get(0).getResponseBuckets().size()).isZero();
   }
 
   @Test
@@ -317,8 +339,8 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    for (ResponseBucket responseBucket : aggSearchResult.aggregations.get(0).getResponseBuckets()) {
+      assertThat(responseBucket.getDocCount() == 10 || responseBucket.getDocCount() == 0).isTrue();
     }
   }
 
@@ -371,7 +393,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(21);
-    assertThat(aggSearchResult.buckets.size()).isZero();
+    assertThat(aggSearchResult.aggregations.get(0).getResponseBuckets().size()).isZero();
   }
 
   @Test
@@ -420,8 +442,8 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    for (ResponseBucket responseBucket : aggSearchResult.aggregations.get(0).getResponseBuckets()) {
+      assertThat(responseBucket.getDocCount() == 10 || responseBucket.getDocCount() == 0).isTrue();
     }
   }
 }

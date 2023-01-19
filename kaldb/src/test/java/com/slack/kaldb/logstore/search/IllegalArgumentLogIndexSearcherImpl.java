@@ -5,7 +5,12 @@ import com.slack.kaldb.logstore.LogMessage;
 public class IllegalArgumentLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(
-      String dataset, String query, long minTime, long maxTime, int howMany, int bucketCount) {
+      String dataset,
+      String query,
+      long minTime,
+      long maxTime,
+      int howMany,
+      SearchAggregation searchAggregation) {
     throw new IllegalArgumentException("Failed to acquire an index searcher");
   }
 
