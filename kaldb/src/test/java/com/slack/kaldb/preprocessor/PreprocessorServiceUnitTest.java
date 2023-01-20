@@ -411,12 +411,7 @@ public class PreprocessorServiceUnitTest {
     String dataTransformer = "api_log";
     Topology topology =
         PreprocessorService.buildTopology(
-            datasetMetadata,
-            rateLimiter,
-            upstreamTopics,
-            downstreamTopic,
-            dataTransformer,
-            new Properties());
+            datasetMetadata, rateLimiter, upstreamTopics, downstreamTopic, dataTransformer, 100);
 
     // we have limited visibility into the topology, so we just verify we have the correct number of
     // stream processors as we expect
@@ -448,12 +443,7 @@ public class PreprocessorServiceUnitTest {
         .isThrownBy(
             () ->
                 PreprocessorService.buildTopology(
-                    List.of(),
-                    rateLimiter,
-                    upstreamTopics,
-                    downstreamTopic,
-                    dataTransformer,
-                    new Properties()));
+                    List.of(), rateLimiter, upstreamTopics, downstreamTopic, dataTransformer, 100));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -463,7 +453,7 @@ public class PreprocessorServiceUnitTest {
                     List.of(),
                     downstreamTopic,
                     dataTransformer,
-                    new Properties()));
+                    100));
     assertThatNullPointerException()
         .isThrownBy(
             () ->
@@ -473,7 +463,7 @@ public class PreprocessorServiceUnitTest {
                     upstreamTopics,
                     downstreamTopic,
                     dataTransformer,
-                    new Properties()));
+                    100));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -483,7 +473,7 @@ public class PreprocessorServiceUnitTest {
                     upstreamTopics,
                     "",
                     dataTransformer,
-                    new Properties()));
+                    100));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -493,7 +483,7 @@ public class PreprocessorServiceUnitTest {
                     upstreamTopics,
                     downstreamTopic,
                     "",
-                    new Properties()));
+                    100));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -503,7 +493,7 @@ public class PreprocessorServiceUnitTest {
                     upstreamTopics,
                     downstreamTopic,
                     "invalid",
-                    new Properties()));
+                    100));
   }
 
   @Test

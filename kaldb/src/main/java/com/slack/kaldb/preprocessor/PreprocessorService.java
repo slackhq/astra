@@ -60,6 +60,7 @@ public class PreprocessorService extends AbstractService {
   private final String downstreamTopic;
   private final String dataTransformer;
   private final MeterRegistry meterRegistry;
+  private final int kafkaPartitionStickyTimeoutMs;
 
   private KafkaStreams kafkaStreams;
   private KafkaStreamsMetrics kafkaStreamsMetrics;
@@ -85,6 +86,7 @@ public class PreprocessorService extends AbstractService {
             preprocessorConfig.getPreprocessorInstanceCount(),
             preprocessorConfig.getRateLimiterMaxBurstSeconds(),
             INITIALIZE_RATE_LIMIT_WARM);
+    this.kafkaPartitionStickyTimeoutMs = preprocessorConfig.getKafkaPartitionStickyTimeoutMs();
   }
 
   @Override
@@ -156,7 +158,7 @@ public class PreprocessorService extends AbstractService {
                 upstreamTopics,
                 downstreamTopic,
                 dataTransformer,
-                kafkaProperties);
+                kafkaPartitionStickyTimeoutMs);
         kafkaStreams = new KafkaStreams(topology, kafkaProperties);
         kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
         kafkaStreamsMetrics.bindTo(meterRegistry);
@@ -183,20 +185,20 @@ public class PreprocessorService extends AbstractService {
       List<String> upstreamTopics,
       String downstreamTopic,
       String dataTransformer,
-      Properties kafkaProperties) {
+      int kafkaPartitionStickyTimeoutMs) {
     checkArgument(!datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
     checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
+    checkArgument(kafkaPartitionStickyTimeoutMs > 0, "kafkaPartitionStickyTimeoutMs must not be 0");
 
     StreamsBuilder builder = new StreamsBuilder();
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
         PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
 
-    int lingerMs = Integer.parseInt(kafkaProperties.getProperty("producer.linger.ms", "100"));
     StreamPartitioner<String, Trace.Span> streamPartitioner =
-        new PreprocessorPartitioner<>(datasetMetadataList, lingerMs);
+        new PreprocessorPartitioner<>(datasetMetadataList, kafkaPartitionStickyTimeoutMs);
 
     Predicate<String, Trace.Span> rateLimitPredicate =
         rateLimiter.createRateLimiter(datasetMetadataList);

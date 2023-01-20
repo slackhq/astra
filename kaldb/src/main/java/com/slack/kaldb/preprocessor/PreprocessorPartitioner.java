@@ -8,9 +8,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.service.murron.trace.Trace;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -19,14 +17,29 @@ import org.apache.kafka.streams.processor.StreamPartitioner;
 public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, Trace.Span> {
 
   final List<DatasetMetadata> throughputSortedDatasets;
-  final int stickyTimeoutMs;
-  ConcurrentHashMap<String, Supplier<Integer>> topicPartitionSuppliers = new ConcurrentHashMap<>();
+  ConcurrentHashMap<String, Supplier<Integer>> datasetPartitionSuppliers;
 
-  public PreprocessorPartitioner(List<DatasetMetadata> datasetMetadataList, int stickyTimeoutMs) {
+  public PreprocessorPartitioner(
+      List<DatasetMetadata> datasetMetadataList, int kafkaPartitionStickyTimeoutMs) {
     this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
-    this.stickyTimeoutMs = stickyTimeoutMs;
+    this.datasetPartitionSuppliers =
+        getDatasetPartitionSuppliers(datasetMetadataList, kafkaPartitionStickyTimeoutMs);
+  }
+
+  /**
+   * When kafka streams produces data to write to the preprocessor, instead of choosing partitions
+   * at random for each dataset we want to route all documents to a single partition for a set
+   * time(stickyTimeoutMs). We pick the partition at random and doesn't have smart routing like
+   * picking partitions which have lesser load etc. The motivation here is we create better batches
+   * while producing data into kafka and thereby improving the efficiency We use Guava's
+   * Suppliers.memoizeWithExpiration library which gives us a nice construct to achieve this
+   */
+  private ConcurrentHashMap<String, Supplier<Integer>> getDatasetPartitionSuppliers(
+      List<DatasetMetadata> datasetMetadataList, int kafkaPartitionStickyTimeoutMs) {
+    ConcurrentHashMap<String, Supplier<Integer>> datasetPartitionSuppliers =
+        new ConcurrentHashMap<>();
     for (DatasetMetadata datasetMetadata : datasetMetadataList) {
-      topicPartitionSuppliers.put(
+      datasetPartitionSuppliers.put(
           datasetMetadata.name,
           Suppliers.memoizeWithExpiration(
               () -> {
@@ -34,9 +47,10 @@ public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, 
                     PreprocessorService.getActivePartitionList(datasetMetadata);
                 return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
               },
-              stickyTimeoutMs,
+              kafkaPartitionStickyTimeoutMs,
               TimeUnit.MILLISECONDS));
     }
+    return datasetPartitionSuppliers;
   }
 
   /**
@@ -64,7 +78,7 @@ public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, 
       if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
           || serviceNamePattern.equals(MATCH_STAR_SERVICE)
           || serviceName.equals(serviceNamePattern)) {
-        return topicPartitionSuppliers.get(datasetMetadata.name).get();
+        return datasetPartitionSuppliers.get(datasetMetadata.name).get();
       }
     }
     // this shouldn't happen, as we should have filtered all the missing datasets in the value
