@@ -394,7 +394,7 @@ public class IndexingChunkManagerTest {
                                                 .putFields(
                                                     "max",
                                                     KaldbSearch.Value.newBuilder()
-                                                        .setIntValue(Long.MAX_VALUE)
+                                                        .setLongValue(Long.MAX_VALUE)
                                                         .build())
                                                 .build())
                                         .build())

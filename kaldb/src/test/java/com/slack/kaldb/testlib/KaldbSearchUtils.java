@@ -20,11 +20,41 @@ public class KaldbSearchUtils {
             .setStartTimeEpochMs(startTime)
             .setEndTimeEpochMs(endTime)
             .setHowMany(100)
-            //            .setBucketCount(2)
+            .setAggs(setBucketCount(2, startTime, endTime))
             .build());
   }
 
   private static String uri(int port) {
     return "gproto+http://127.0.0.1:" + port + '/';
+  }
+
+  public static KaldbSearch.SearchAggregation setBucketCount(
+      int bucketCount, long startTimeEpochMs, long endTimeEpochMs) {
+    return KaldbSearch.SearchAggregation.newBuilder()
+        .setName("1")
+        .setType("date_histogram")
+        .setMetadata(
+            KaldbSearch.Struct.newBuilder()
+                .putFields(
+                    "interval",
+                    KaldbSearch.Value.newBuilder()
+                        .setStringValue(Long.MAX_VALUE / 1000 + "S")
+                        .build())
+                .putFields(
+                    "extended_bounds",
+                    KaldbSearch.Value.newBuilder()
+                        .setStructValue(
+                            KaldbSearch.Struct.newBuilder()
+                                .putFields(
+                                    "min", KaldbSearch.Value.newBuilder().setIntValue(0).build())
+                                .putFields(
+                                    "max",
+                                    KaldbSearch.Value.newBuilder()
+                                        .setLongValue(Long.MAX_VALUE)
+                                        .build())
+                                .build())
+                        .build())
+                .build())
+        .build();
   }
 }

@@ -136,7 +136,7 @@ public class ElasticsearchApiService {
                             .map(
                                 responseBucket ->
                                     new AggregationBucketResponse(
-                                        Long.parseLong(responseBucket.getKey(0)),
+                                        responseBucket.getKey(0).getDoubleValue(),
                                         responseBucket.getDocCount()))
                             .collect(Collectors.toList())));
               });

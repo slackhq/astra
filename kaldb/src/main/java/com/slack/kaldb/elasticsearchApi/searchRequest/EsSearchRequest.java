@@ -1,5 +1,7 @@
 package com.slack.kaldb.elasticsearchApi.searchRequest;
 
+import static com.slack.kaldb.logstore.search.SearchResultUtils.searchAggregation;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -72,59 +74,6 @@ public class EsSearchRequest {
         .setHowMany(getSize())
         .setAggs(aggregation)
         .build();
-  }
-
-  private List<KaldbSearch.SearchAggregation> searchAggregation(
-      List<SearchRequestAggregation> searchRequestAggregations) {
-    List<KaldbSearch.SearchAggregation> returnList = new ArrayList<>();
-    searchRequestAggregations.forEach(
-        searchRequestAggregation -> {
-          returnList.add(
-              KaldbSearch.SearchAggregation.newBuilder()
-                  .setName(searchRequestAggregation.getName())
-                  .setType(searchRequestAggregation.getType())
-                  .setMetadata(mapToProtoStruct(searchRequestAggregation.getMetadata()))
-                  .addAllSubAggregators(
-                      searchAggregation(searchRequestAggregation.getSubAggregators()))
-                  .build());
-        });
-    return returnList;
-  }
-
-  private KaldbSearch.Value objectToProtoValue(Object value) {
-    KaldbSearch.Value.Builder valueBuilder = KaldbSearch.Value.newBuilder();
-    if (value instanceof Boolean) {
-      valueBuilder.setBoolValue((Boolean) value);
-    } else if (value instanceof Double) {
-      valueBuilder.setDoubleValue((Double) value);
-    } else if (value instanceof Long) {
-      valueBuilder.setIntValue((Long) value);
-    } else if (value instanceof Integer) {
-      valueBuilder.setIntValue((Integer) value);
-    } else if (value instanceof String) {
-      valueBuilder.setStringValue((String) value);
-    } else if (value instanceof Map) {
-      valueBuilder.setStructValue(mapToProtoStruct((Map<String, Object>) value));
-    } else if (value instanceof List) {
-      valueBuilder.setListValue(listToListValueStruct((List<Object>) value));
-    } else {
-      throw new IllegalArgumentException();
-    }
-
-    return valueBuilder.build();
-  }
-
-  private KaldbSearch.ListValue listToListValueStruct(List<Object> list) {
-    KaldbSearch.ListValue.Builder builder = KaldbSearch.ListValue.newBuilder();
-    list.forEach(listElement -> builder.addValues(objectToProtoValue(listElement)));
-    return builder.build();
-  }
-
-  private KaldbSearch.Struct mapToProtoStruct(Map<String, Object> searchRequestMetadata) {
-    KaldbSearch.Struct.Builder builder = KaldbSearch.Struct.newBuilder();
-    searchRequestMetadata.forEach(
-        (key, value) -> builder.putFields(key, objectToProtoValue(value)));
-    return builder.build();
   }
 
   public static List<EsSearchRequest> parse(String postBody) throws JsonProcessingException {

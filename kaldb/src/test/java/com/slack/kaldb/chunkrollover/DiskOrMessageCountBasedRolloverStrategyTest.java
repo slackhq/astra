@@ -25,6 +25,7 @@ import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
+import com.slack.kaldb.testlib.KaldbSearchUtils;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -199,7 +200,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(2)
+                .setAggs(KaldbSearchUtils.setBucketCount(2, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -262,7 +263,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(2)
+                .setAggs(KaldbSearchUtils.setBucketCount(2, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);

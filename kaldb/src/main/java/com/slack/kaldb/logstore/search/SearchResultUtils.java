@@ -4,6 +4,7 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
+import com.slack.kaldb.elasticsearchApi.searchRequest.SearchRequestAggregation;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -62,6 +63,8 @@ public class SearchResultUtils {
   public static Object fromValue(KaldbSearch.Value value) {
     if (value.hasIntValue()) {
       return value.getIntValue();
+    } else if (value.hasLongValue()) {
+      return value.getLongValue();
     } else if (value.hasDoubleValue()) {
       return value.getDoubleValue();
     } else if (value.hasStringValue()) {
@@ -75,6 +78,59 @@ public class SearchResultUtils {
     } else {
       throw new IllegalArgumentException();
     }
+  }
+
+  public static List<KaldbSearch.SearchAggregation> searchAggregation(
+      List<SearchRequestAggregation> searchRequestAggregations) {
+    List<KaldbSearch.SearchAggregation> returnList = new ArrayList<>();
+    searchRequestAggregations.forEach(
+        searchRequestAggregation -> {
+          returnList.add(
+              KaldbSearch.SearchAggregation.newBuilder()
+                  .setName(searchRequestAggregation.getName())
+                  .setType(searchRequestAggregation.getType())
+                  .setMetadata(mapToProtoStruct(searchRequestAggregation.getMetadata()))
+                  .addAllSubAggregators(
+                      searchAggregation(searchRequestAggregation.getSubAggregators()))
+                  .build());
+        });
+    return returnList;
+  }
+
+  public static KaldbSearch.Value objectToProtoValue(Object value) {
+    KaldbSearch.Value.Builder valueBuilder = KaldbSearch.Value.newBuilder();
+    if (value instanceof Boolean) {
+      valueBuilder.setBoolValue((Boolean) value);
+    } else if (value instanceof Double) {
+      valueBuilder.setDoubleValue((Double) value);
+    } else if (value instanceof Long) {
+      valueBuilder.setLongValue((Long) value);
+    } else if (value instanceof Integer) {
+      valueBuilder.setIntValue((Integer) value);
+    } else if (value instanceof String) {
+      valueBuilder.setStringValue((String) value);
+    } else if (value instanceof Map) {
+      valueBuilder.setStructValue(mapToProtoStruct((Map<String, Object>) value));
+    } else if (value instanceof List) {
+      valueBuilder.setListValue(listToListValueStruct((List<Object>) value));
+    } else {
+      throw new IllegalArgumentException();
+    }
+
+    return valueBuilder.build();
+  }
+
+  public static KaldbSearch.ListValue listToListValueStruct(List<Object> list) {
+    KaldbSearch.ListValue.Builder builder = KaldbSearch.ListValue.newBuilder();
+    list.forEach(listElement -> builder.addValues(objectToProtoValue(listElement)));
+    return builder.build();
+  }
+
+  public static KaldbSearch.Struct mapToProtoStruct(Map<String, Object> searchRequestMetadata) {
+    KaldbSearch.Struct.Builder builder = KaldbSearch.Struct.newBuilder();
+    searchRequestMetadata.forEach(
+        (key, value) -> builder.putFields(key, objectToProtoValue(value)));
+    return builder.build();
   }
 
   public static SearchResult<LogMessage> fromSearchResultProtoOrEmpty(
@@ -141,7 +197,11 @@ public class SearchResultUtils {
     for (KaldbSearch.ResponseBuckets protoResponseBucket : protoResponseBuckets) {
       responseBuckets.add(
           new ResponseBucket(
-              List.of(protoResponseBucket.getKey(0)), // todo
+              protoResponseBucket
+                  .getKeyList()
+                  .stream()
+                  .map(SearchResultUtils::fromValue)
+                  .collect(Collectors.toList()),
               protoResponseBucket.getDocCount(),
               fromProtoResponseBucketResultMap(protoResponseBucket.getValuesMap())));
     }
@@ -198,7 +258,7 @@ public class SearchResultUtils {
                   responseBucket
                       .getKey()
                       .stream()
-                      .map(keyObj -> String.valueOf(keyObj))
+                      .map(SearchResultUtils::objectToProtoValue)
                       .collect(Collectors.toList()))
               .setDocCount(responseBucket.getDocCount())
               .putAllValues(toResponseBucketResultMap(responseBucket.getValues()))

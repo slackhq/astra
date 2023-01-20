@@ -18,6 +18,7 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
+import com.slack.kaldb.testlib.KaldbSearchUtils;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.util.JsonUtil;
 import io.grpc.StatusRuntimeException;
@@ -110,7 +111,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(2)
+                .setAggs(KaldbSearchUtils.setBucketCount(2, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -175,7 +176,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(2)
+                .setAggs(KaldbSearchUtils.setBucketCount(2, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
@@ -244,12 +245,12 @@ public class KaldbLocalQueryServiceTest {
                                                 .putFields(
                                                     "min",
                                                     KaldbSearch.Value.newBuilder()
-                                                        .setIntValue(chunk1StartTimeMs)
+                                                        .setLongValue(chunk1StartTimeMs)
                                                         .build())
                                                 .putFields(
                                                     "max",
                                                     KaldbSearch.Value.newBuilder()
-                                                        .setIntValue(chunk1EndTimeMs)
+                                                        .setLongValue(chunk1EndTimeMs)
                                                         .build())
                                                 .build())
                                         .build())
@@ -305,7 +306,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(0)
+                .setAggs(KaldbSearchUtils.setBucketCount(0, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -361,7 +362,7 @@ public class KaldbLocalQueryServiceTest {
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
             .setHowMany(-1)
-            //            .setBucketCount(0)
+            .setAggs(KaldbSearchUtils.setBucketCount(0, chunk1StartTimeMs, chunk1EndTimeMs))
             .build());
   }
 
@@ -410,7 +411,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                //                .setBucketCount(2)
+                .setAggs(KaldbSearchUtils.setBucketCount(2, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
 
     // Validate search response
@@ -492,7 +493,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(-1)
-                //                .setBucketCount(0)
+                .setAggs(KaldbSearchUtils.setBucketCount(0, chunk1StartTimeMs, chunk1EndTimeMs))
                 .build());
   }
 }
