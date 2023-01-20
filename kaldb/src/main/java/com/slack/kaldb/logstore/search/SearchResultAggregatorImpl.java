@@ -69,6 +69,14 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   // very soon
   private List<ResponseAggregation> mergeAggregations(
       List<ResponseAggregation> a, List<ResponseAggregation> b) {
+    if (a.isEmpty()) {
+      return b;
+    }
+
+    if (b.isEmpty()) {
+      return a;
+    }
+
     if (a.size() != 1 || b.size() != 1) {
       throw new IllegalArgumentException();
     }
@@ -78,11 +86,11 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     }
 
     if (a.get(0).getResponseBuckets().size() == 0) {
-      return b;
+      return a;
     }
 
     if (b.get(0).getResponseBuckets().size() == 0) {
-      return a;
+      return b;
     }
 
     if ((a.get(0).getResponseBuckets().size() != b.get(0).getResponseBuckets().size())) {
@@ -109,14 +117,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
               aBucket.getDocCount() + bBucket.getDocCount(),
               aBucket.getValues()));
     }
-
-    a.get(0)
-        .getResponseBuckets()
-        .forEach(
-            aBucket -> {
-              mergedResponseBuckets.add(
-                  new ResponseBucket(aBucket.getKey(), aBucket.getDocCount(), aBucket.getValues()));
-            });
 
     return List.of(
         new ResponseAggregation(
