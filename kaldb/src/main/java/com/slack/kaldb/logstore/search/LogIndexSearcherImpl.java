@@ -117,7 +117,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   @Deprecated
-  private int getBucketCount(SearchAggregation searchAggregation) {
+  protected static int getBucketCount(SearchAggregation searchAggregation) {
     // todo - this is VERY temporary
 
     if (searchAggregation.getType().equals("date_histogram")) {
