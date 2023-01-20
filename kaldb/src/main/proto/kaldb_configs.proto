@@ -234,7 +234,6 @@ message PreprocessorConfig {
   // Amount of time in seconds the rate limiter can burst
   int32 rate_limiter_max_burst_seconds = 7;
 
-
   // used to route all preprocessor data produced to the same kafka partition for the duration of time provided
   // value must be more than 0
   // more docs on PreprocessorPartitioner#getDatasetPartitionSuppliers
