@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.ResponseAggregation;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -35,7 +36,7 @@ public class SearchResultTest {
     buckets.add(new HistogramBucket(1, 2));
 
     SearchResult<LogMessage> searchResult =
-        new SearchResult<>(logMessages, 1, 1000, null, 1, 5, 7, 7);
+        new SearchResult<>(logMessages, 1, 1000, List.of(new ResponseAggregation()), 1, 5, 7, 7);
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 

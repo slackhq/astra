@@ -213,13 +213,15 @@ public class SearchResultUtils {
     List<KaldbSearch.ResponseAggregation> responseList = new ArrayList<>();
 
     for (ResponseAggregation responseAggregation : responseAggregations) {
-
       responseList.add(
           KaldbSearch.ResponseAggregation.newBuilder()
               .setName(responseAggregation.getName())
               .setDocCountErrorUpperBound(responseAggregation.getDocCountErrorUpperBound())
               .setSumOtherDocCount(responseAggregation.getSumOtherDocCount())
-              .addAllBuckets(toResponseBucketsProto(responseAggregation.getResponseBuckets()))
+              .addAllBuckets(
+                  (responseAggregation.getResponseBuckets() != null
+                      ? toResponseBucketsProto(responseAggregation.getResponseBuckets())
+                      : List.of()))
               .build());
     }
 
