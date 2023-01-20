@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore.search;
 
 import java.util.List;
+import java.util.Map;
 
 /** A class that represents a search query internally to LogStore. */
 public class SearchQuery {
@@ -38,14 +39,30 @@ public class SearchQuery {
       long startTimeEpochMs,
       long endTimeEpochMs,
       int howMany,
-      int buckeCount,
+      int bucketCount,
       List<String> chunkIds) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
     this.howMany = howMany;
-    this.searchAggregations = null;
+
+    if (bucketCount > 0) {
+      this.searchAggregations =
+          new SearchAggregation(
+              "1",
+              "date_histogram",
+              Map.of(
+                  "interval",
+                  ((endTimeEpochMs - startTimeEpochMs) / bucketCount) + "S",
+                  "extended_bounds",
+                  Map.of(
+                      "min", startTimeEpochMs,
+                      "max", endTimeEpochMs)),
+              List.of());
+    } else {
+      this.searchAggregations = new SearchAggregation();
+    }
     this.chunkIds = chunkIds;
   }
 

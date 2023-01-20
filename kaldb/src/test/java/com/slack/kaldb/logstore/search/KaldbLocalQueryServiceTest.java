@@ -227,7 +227,34 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                //                .setBucketCount(2)
+                .setAggs(
+                    KaldbSearch.SearchAggregation.newBuilder()
+                        .setName("1")
+                        .setType("date_histogram")
+                        .setMetadata(
+                            KaldbSearch.Struct.newBuilder()
+                                .putFields(
+                                    "interval",
+                                    KaldbSearch.Value.newBuilder().setStringValue("1S").build())
+                                .putFields(
+                                    "extended_bounds",
+                                    KaldbSearch.Value.newBuilder()
+                                        .setStructValue(
+                                            KaldbSearch.Struct.newBuilder()
+                                                .putFields(
+                                                    "min",
+                                                    KaldbSearch.Value.newBuilder()
+                                                        .setIntValue(chunk1StartTimeMs)
+                                                        .build())
+                                                .putFields(
+                                                    "max",
+                                                    KaldbSearch.Value.newBuilder()
+                                                        .setIntValue(chunk1EndTimeMs)
+                                                        .build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build())
                 .build());
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.

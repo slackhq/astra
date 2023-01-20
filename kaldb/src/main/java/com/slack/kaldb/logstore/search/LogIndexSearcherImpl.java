@@ -101,7 +101,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
               "date_histogram",
               Map.of(
                   "interval",
-                  ((endTimeMsEpoch - startTimeMsEpoch) / bucketCount) + "s",
+                  ((endTimeMsEpoch - startTimeMsEpoch) / bucketCount) / 1000 + "S",
                   "extended_bounds",
                   Map.of(
                       "min", startTimeMsEpoch,

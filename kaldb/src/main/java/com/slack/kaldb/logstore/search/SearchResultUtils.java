@@ -181,10 +181,10 @@ public class SearchResultUtils {
               //
               //      }
               resultMap.put(responseBucketValue.getKey(), responseBucketResult.build());
+              throw new IllegalArgumentException("Not implemented yet");
             });
 
-    throw new IllegalArgumentException("Not implemented yet");
-    //    return resultMap;
+    return resultMap;
   }
 
   public static List<KaldbSearch.ResponseBuckets> toResponseBucketsProto(
