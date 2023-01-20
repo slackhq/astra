@@ -11,6 +11,7 @@ import com.slack.service.murron.trace.Trace;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -19,7 +20,7 @@ public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, 
 
   final List<DatasetMetadata> throughputSortedDatasets;
   final int stickyTimeoutMs;
-  Map<String, Supplier<Integer>> topicPartitionSuppliers = new HashMap<>();
+  ConcurrentHashMap<String, Supplier<Integer>> topicPartitionSuppliers = new ConcurrentHashMap<>();
 
   public PreprocessorPartitioner(List<DatasetMetadata> datasetMetadataList, int stickyTimeoutMs) {
     this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
