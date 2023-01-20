@@ -30,6 +30,10 @@ public class KaldbSearchUtils {
 
   public static KaldbSearch.SearchAggregation setBucketCount(
       int bucketCount, long startTimeEpochMs, long endTimeEpochMs) {
+    if (bucketCount == 0) {
+      return KaldbSearch.SearchAggregation.newBuilder().build();
+    }
+
     return KaldbSearch.SearchAggregation.newBuilder()
         .setName("1")
         .setType("date_histogram")
@@ -38,7 +42,8 @@ public class KaldbSearchUtils {
                 .putFields(
                     "interval",
                     KaldbSearch.Value.newBuilder()
-                        .setStringValue(Long.MAX_VALUE / 1000 + "S")
+                        .setStringValue(
+                            (endTimeEpochMs - startTimeEpochMs) / (bucketCount * 1000L) + "S")
                         .build())
                 .putFields(
                     "extended_bounds",
@@ -46,11 +51,14 @@ public class KaldbSearchUtils {
                         .setStructValue(
                             KaldbSearch.Struct.newBuilder()
                                 .putFields(
-                                    "min", KaldbSearch.Value.newBuilder().setIntValue(0).build())
+                                    "min",
+                                    KaldbSearch.Value.newBuilder()
+                                        .setLongValue(startTimeEpochMs)
+                                        .build())
                                 .putFields(
                                     "max",
                                     KaldbSearch.Value.newBuilder()
-                                        .setLongValue(Long.MAX_VALUE)
+                                        .setLongValue(endTimeEpochMs)
                                         .build())
                                 .build())
                         .build())

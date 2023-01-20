@@ -168,7 +168,7 @@ public class SearchResultUtils {
   public static Object fromProtoResponseBucketResult(
       KaldbSearch.ResponseBucketResult responseBucketResult) {
     if (responseBucketResult.hasAggregation()) {
-      return fromProtoResponseAggregations(List.of(responseBucketResult.getAggregation()));
+      return fromProtoResponseAggregations(List.of(responseBucketResult.getAggregation())).get(0);
     } else if (responseBucketResult.hasValue()) {
       return responseBucketResult.getValue().getValue();
     } else {
@@ -236,12 +236,28 @@ public class SearchResultUtils {
             responseBucketValue -> {
               KaldbSearch.ResponseBucketResult.Builder responseBucketResult =
                   KaldbSearch.ResponseBucketResult.newBuilder();
-              // todo
-              //      if (responseBucketValue.getValue() instanceof ResponseBucket) {
-              //
-              //      }
+
+              if (responseBucketValue.getValue() instanceof Long) {
+                responseBucketResult.setValue(
+                    KaldbSearch.ResponseBucketValue.newBuilder()
+                        .setValue((Long) responseBucketValue.getValue())
+                        .build());
+              } else if (responseBucketValue.getValue() instanceof ResponseAggregation) {
+                ResponseAggregation responseAggregation =
+                    (ResponseAggregation) responseBucketValue.getValue();
+                responseBucketResult.setAggregation(
+                    KaldbSearch.ResponseAggregation.newBuilder()
+                        .setName(responseAggregation.getName())
+                        .setDocCountErrorUpperBound(
+                            responseAggregation.getDocCountErrorUpperBound())
+                        .setSumOtherDocCount(responseAggregation.getSumOtherDocCount())
+                        .addAllBuckets(
+                            toResponseBucketsProto(responseAggregation.getResponseBuckets()))
+                        .build());
+              } else {
+                throw new IllegalArgumentException();
+              }
               resultMap.put(responseBucketValue.getKey(), responseBucketResult.build());
-              throw new IllegalArgumentException("Not implemented yet");
             });
 
     return resultMap;

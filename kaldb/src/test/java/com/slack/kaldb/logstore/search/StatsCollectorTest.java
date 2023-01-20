@@ -64,12 +64,12 @@ public class StatsCollectorTest {
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);
-    //    assertThat(allIndexItems.buckets.size()).isEqualTo(5);
-    //
-    //    for (HistogramBucket bucket : allIndexItems.buckets) {
-    //      // TODO: Test bucket start and end ranges.
-    //      assertThat(bucket.getCount()).isEqualTo(1);
-    //    }
+    assertThat(allIndexItems.aggregations.get(0).getResponseBuckets().size()).isEqualTo(5);
+
+    for (ResponseBucket responseBucket : allIndexItems.aggregations.get(0).getResponseBuckets()) {
+      // TODO: Test bucket start and end ranges.
+      assertThat(responseBucket.getDocCount()).isEqualTo(1);
+    }
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(5);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);

@@ -93,6 +93,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       int howMany,
       int bucketCount) {
 
+    if (bucketCount < 0) {
+      throw new IllegalArgumentException("Bucket count must be > 0");
+    }
+
     SearchAggregation searchAggregation = new SearchAggregation();
     if (bucketCount > 0) {
       searchAggregation =

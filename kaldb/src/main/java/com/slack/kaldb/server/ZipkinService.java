@@ -235,6 +235,7 @@ public class ZipkinService {
                 .setStartTimeEpochMs(startTime)
                 .setEndTimeEpochMs(endTime)
                 .setHowMany(howMany)
+                .setAggs(KaldbSearch.SearchAggregation.newBuilder().build())
                 .build());
     // we don't account for any failed nodes in the searchResult today
     List<LogWireMessage> messages = searchResultToLogWireMessage(searchResult);

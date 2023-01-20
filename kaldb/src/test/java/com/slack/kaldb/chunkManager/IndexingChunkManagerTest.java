@@ -15,6 +15,7 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.KaldbSearchUtils.setBucketCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
@@ -370,36 +371,7 @@ public class IndexingChunkManagerTest {
                 .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(Long.MAX_VALUE)
                 .setHowMany(10)
-                .setAggs(
-                    KaldbSearch.SearchAggregation.newBuilder()
-                        .setName("1")
-                        .setType("date_histogram")
-                        .setMetadata(
-                            KaldbSearch.Struct.newBuilder()
-                                .putFields(
-                                    "interval",
-                                    KaldbSearch.Value.newBuilder()
-                                        .setStringValue(Long.MAX_VALUE / 1000 + "S")
-                                        .build())
-                                .putFields(
-                                    "extended_bounds",
-                                    KaldbSearch.Value.newBuilder()
-                                        .setStructValue(
-                                            KaldbSearch.Struct.newBuilder()
-                                                .putFields(
-                                                    "min",
-                                                    KaldbSearch.Value.newBuilder()
-                                                        .setIntValue(0)
-                                                        .build())
-                                                .putFields(
-                                                    "max",
-                                                    KaldbSearch.Value.newBuilder()
-                                                        .setLongValue(Long.MAX_VALUE)
-                                                        .build())
-                                                .build())
-                                        .build())
-                                .build())
-                        .build())
+                .setAggs(setBucketCount(1000, 0, Long.MAX_VALUE))
                 .addAllChunkIds(chunkIds)
                 .build());
 
