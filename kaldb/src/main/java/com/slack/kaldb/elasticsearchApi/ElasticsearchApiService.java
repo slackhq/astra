@@ -24,6 +24,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
+import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -136,8 +137,7 @@ public class ElasticsearchApiService {
                             .map(
                                 responseBucket ->
                                     new AggregationBucketResponse(
-                                        responseBucket.getKey(0).getDoubleValue(),
-                                        responseBucket.getDocCount()))
+                                        getKey(responseBucket), responseBucket.getDocCount()))
                             .collect(Collectors.toList())));
               });
 
@@ -158,6 +158,18 @@ public class ElasticsearchApiService {
           .build();
     } finally {
       span.finish();
+    }
+  }
+
+  private Object getKey(KaldbSearch.ResponseBuckets bucket) {
+    if (bucket.getKeyList().size() > 1) {
+      return bucket
+          .getKeyList()
+          .stream()
+          .map(SearchResultUtils::fromValue)
+          .collect(Collectors.toList());
+    } else {
+      return SearchResultUtils.fromValue(bucket.getKey(0));
     }
   }
 
