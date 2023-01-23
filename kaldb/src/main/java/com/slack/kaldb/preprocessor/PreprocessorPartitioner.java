@@ -39,18 +39,41 @@ public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, 
     ConcurrentHashMap<String, Supplier<Integer>> datasetPartitionSuppliers =
         new ConcurrentHashMap<>();
     for (DatasetMetadata datasetMetadata : datasetMetadataList) {
-      datasetPartitionSuppliers.put(
-          datasetMetadata.name,
-          Suppliers.memoizeWithExpiration(
-              () -> {
-                List<Integer> partitions =
-                    PreprocessorService.getActivePartitionList(datasetMetadata);
-                return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
-              },
-              kafkaPartitionStickyTimeoutMs,
-              TimeUnit.MILLISECONDS));
+      if (kafkaPartitionStickyTimeoutMs > 0) {
+        datasetPartitionSuppliers.put(
+            datasetMetadata.name,
+            Suppliers.memoizeWithExpiration(
+                () -> {
+                  List<Integer> partitions =
+                      PreprocessorService.getActivePartitionList(datasetMetadata);
+                  return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+                },
+                kafkaPartitionStickyTimeoutMs,
+                TimeUnit.MILLISECONDS));
+      } else {
+        datasetPartitionSuppliers.put(datasetMetadata.name, new NonStickySupplier(datasetMetadata));
+      }
     }
     return datasetPartitionSuppliers;
+  }
+
+  /**
+   * Implements the Supplier interface to not cache partitions i.e if
+   * kafkaPartitionStickyTimeoutMs=0 we will return a new partition at random on every invocation
+   */
+  protected static class NonStickySupplier implements Supplier<Integer> {
+
+    private final DatasetMetadata datasetMetadata;
+
+    NonStickySupplier(DatasetMetadata datasetMetadata) {
+      this.datasetMetadata = datasetMetadata;
+    }
+
+    @Override
+    public Integer get() {
+      List<Integer> partitions = PreprocessorService.getActivePartitionList(datasetMetadata);
+      return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+    }
   }
 
   /**

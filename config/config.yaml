@@ -127,3 +127,4 @@ preprocessorConfig:
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
   dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
+  kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}

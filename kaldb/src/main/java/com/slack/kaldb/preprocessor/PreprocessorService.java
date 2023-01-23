@@ -190,7 +190,7 @@ public class PreprocessorService extends AbstractService {
     checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
     checkArgument(!dataTransformer.isEmpty(), "data transformer must not be empty");
-    checkArgument(kafkaPartitionStickyTimeoutMs > 0, "kafkaPartitionStickyTimeoutMs must not be 0");
+    checkArgument(kafkaPartitionStickyTimeoutMs >= 0, "kafkaPartitionStickyTimeoutMs must be >=0");
 
     StreamsBuilder builder = new StreamsBuilder();
 
