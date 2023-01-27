@@ -200,7 +200,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       ChunkSchema chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
-      // TODO: Recreate chunkSchema here
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
