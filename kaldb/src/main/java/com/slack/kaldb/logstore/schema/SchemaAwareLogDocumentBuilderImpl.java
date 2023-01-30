@@ -256,6 +256,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             defaultPropDescription.isIndexed,
             defaultPropDescription.storeDocValue);
     // add the document to this field.
+    totalFieldsCounter.increment();
     fieldDefMap.put(key, newFieldDef);
     indexTypedField(doc, key, value, newFieldDef);
   }
@@ -332,6 +333,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   static final String CONVERT_ERROR_COUNTER = "convert_errors";
   static final String CONVERT_FIELD_VALUE_COUNTER = "convert_field_value";
   static final String CONVERT_AND_DUPLICATE_FIELD_COUNTER = "convert_and_duplicate_field";
+  public static final String TOTAL_FIELDS_COUNTER = "total_fields";
 
   private final FieldConflictPolicy indexFieldConflictPolicy;
   private final boolean enableFullTextSearch;
@@ -340,6 +342,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private final Counter convertErrorCounter;
   private final Counter convertFieldValueCounter;
   private final Counter convertAndDuplicateFieldCounter;
+  private final Counter totalFieldsCounter;
 
   SchemaAwareLogDocumentBuilderImpl(
       FieldConflictPolicy indexFieldConflictPolicy,
@@ -347,13 +350,16 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       boolean enableFullTextSearch,
       MeterRegistry meterRegistry) {
     this.indexFieldConflictPolicy = indexFieldConflictPolicy;
-    fieldDefMap.putAll(initialFields);
     this.enableFullTextSearch = enableFullTextSearch;
     // Note: Consider adding field name as a tag to help debugging, but it's high cardinality.
     droppedFieldsCounter = meterRegistry.counter(DROP_FIELDS_COUNTER);
     convertFieldValueCounter = meterRegistry.counter(CONVERT_FIELD_VALUE_COUNTER);
     convertAndDuplicateFieldCounter = meterRegistry.counter(CONVERT_AND_DUPLICATE_FIELD_COUNTER);
     convertErrorCounter = meterRegistry.counter(CONVERT_ERROR_COUNTER);
+    totalFieldsCounter = meterRegistry.counter(TOTAL_FIELDS_COUNTER);
+
+    totalFieldsCounter.increment(initialFields.size());
+    fieldDefMap.putAll(initialFields);
   }
 
   @Override
