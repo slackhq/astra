@@ -149,7 +149,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
           FieldType.STRING,
           new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.STRING.name, false, true, true),
           FieldType.BOOLEAN,
-          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.BOOLEAN.name, false, true, false));
+          new LuceneFieldDef(PLACEHOLDER_FIELD_NAME, FieldType.BOOLEAN.name, false, true, true));
 
   @VisibleForTesting
   public FieldConflictPolicy getIndexFieldConflictPolicy() {

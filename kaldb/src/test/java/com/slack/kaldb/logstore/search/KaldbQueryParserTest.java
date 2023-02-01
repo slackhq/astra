@@ -13,7 +13,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -21,7 +20,7 @@ public class KaldbQueryParserTest {
 
   @Rule
   public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(false, true);
+      new TemporaryLogStoreAndSearcherRule(false);
 
   public KaldbQueryParserTest() throws IOException {}
 
@@ -47,7 +46,15 @@ public class KaldbQueryParserTest {
     // indexed=true storeDocValues=true - Not ReservedField
     withLongField("my_duration_ms");
 
-    // TODO: How to structure the test to test out Int/Double/Float/Bool fields
+    withLongField("my_duration_ms");
+
+    withIntegerField("my_int_field");
+
+    withFloatField("my_float_field");
+
+    withDoubleField("my_double_field");
+
+    withBooleanField("my_boolean_field");
   }
 
   private void withTextField(String field) {
@@ -62,7 +69,6 @@ public class KaldbQueryParserTest {
     canFindDocuments(time, field, "test");
   }
 
-  @Ignore
   public void withStringField(String field) {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
@@ -78,13 +84,61 @@ public class KaldbQueryParserTest {
   public void withLongField(String field) {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "1", field, 100L, time));
+        makeMessageForExistsSearch("testIndex", "1", field, Long.MAX_VALUE, time));
     strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
-    canFindDocuments(time, field, "100");
+    canFindDocuments(time, field, String.valueOf(Long.MAX_VALUE));
+  }
+
+  public void withIntegerField(String field) {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, Integer.MAX_VALUE, time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canFindDocuments(time, field, String.valueOf(Integer.MAX_VALUE));
+  }
+
+  public void withFloatField(String field) {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, Float.MAX_VALUE, time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canFindDocuments(time, field, String.valueOf(Float.MAX_VALUE));
+  }
+
+  public void withDoubleField(String field) {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, Double.MIN_VALUE, time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canFindDocuments(time, field, String.valueOf(Double.MIN_VALUE));
+  }
+
+  public void withBooleanField(String field) {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, Boolean.TRUE, time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canFindDocuments(time, field, String.valueOf(Boolean.TRUE));
   }
 
   public void canFindDocuments(Instant startTime, String field, String value) {
@@ -139,9 +193,49 @@ public class KaldbQueryParserTest {
     return LogMessage.fromWireMessage(wireMsg);
   }
 
-  // used to create a LogMessage with a IntField on which we will perform exists query
+  // used to create a LogMessage with a LongField on which we will perform exists query
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Long fieldValue, Instant ts) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
+    fieldMap.put(intFieldName, fieldValue);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    return LogMessage.fromWireMessage(wireMsg);
+  }
+
+  // used to create a LogMessage with a IntegerField on which we will perform exists query
+  private static LogMessage makeMessageForExistsSearch(
+      String indexName, String id, String intFieldName, Integer fieldValue, Instant ts) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
+    fieldMap.put(intFieldName, fieldValue);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    return LogMessage.fromWireMessage(wireMsg);
+  }
+
+  // used to create a LogMessage with a IntegerField on which we will perform exists query
+  private static LogMessage makeMessageForExistsSearch(
+      String indexName, String id, String intFieldName, Float fieldValue, Instant ts) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
+    fieldMap.put(intFieldName, fieldValue);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    return LogMessage.fromWireMessage(wireMsg);
+  }
+
+  // used to create a LogMessage with a IntegerField on which we will perform exists query
+  private static LogMessage makeMessageForExistsSearch(
+      String indexName, String id, String intFieldName, Double fieldValue, Instant ts) {
+    Map<String, Object> fieldMap = new HashMap<>();
+    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
+    fieldMap.put(intFieldName, fieldValue);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    return LogMessage.fromWireMessage(wireMsg);
+  }
+
+  // used to create a LogMessage with a IntegerField on which we will perform exists query
+  private static LogMessage makeMessageForExistsSearch(
+      String indexName, String id, String intFieldName, Boolean fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
