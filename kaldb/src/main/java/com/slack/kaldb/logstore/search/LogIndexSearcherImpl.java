@@ -8,9 +8,9 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
+import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
@@ -49,6 +51,7 @@ import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,7 +127,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        InternalAggregation histogram = null;
+        InternalDateHistogram histogram = null;
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
@@ -143,23 +146,36 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (bucketCount > 0) {
-            histogram = ((InternalAggregation) collector[1]);
+            histogram = ((InternalDateHistogram) collector[1]);
           }
         } else {
           results = Collections.emptyList();
           Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager()));
-          histogram = ((InternalAggregation) collector[0]);
+          histogram = ((InternalDateHistogram) collector[0]);
         }
 
-        histogram.getName();
+
+        List<HistogramBucket> buckets = new ArrayList<>();
+        long totalCount = results.size();
+        if (histogram != null) {
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
+
+          for (int i = 0; i < histogram.getBuckets().size(); i++) {
+            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            buckets.add(new HistogramBucket(
+                Double.parseDouble(bucket.getKeyAsString()),
+                Double.parseDouble(bucket.getKeyAsString()) + 1,
+                bucket.getDocCount()
+            ));
+          }
+        }
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            bucketCount > 0 ? 0 : results.size(),
-            List.of(),
-//            histogram.getBuckets(),
+            totalCount,
+            buckets,
             0,
             0,
             1,
