@@ -28,10 +28,14 @@ import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -59,8 +63,22 @@ import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 =======
+=======
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.DeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentGenerator;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
+>>>>>>> Rework results to return fixed bucket widths for now
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
@@ -139,6 +157,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         InternalAutoDateHistogram histogram = null;
 =======
         InternalAggregation histogram = null;
@@ -152,6 +171,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
         InternalDateHistogram histogram = null;
 >>>>>>> Test using fixed interval to avoid bucket issue
+=======
+        InternalAutoDateHistogram histogram = null;
+>>>>>>> Rework results to return fixed bucket widths for now
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
@@ -189,6 +211,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
             histogram = ((InternalAutoDateHistogram) collector[1]);
           }
         } else {
@@ -222,26 +245,37 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 >>>>>>> Switch to auto date hitogram impl
 =======
             histogram = ((InternalDateHistogram) collector[1]);
+=======
+            histogram = ((InternalAutoDateHistogram) collector[1]);
+>>>>>>> Rework results to return fixed bucket widths for now
           }
         } else {
           results = Collections.emptyList();
           Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
+<<<<<<< bburkholder/opensearch-serialize
           histogram = ((InternalDateHistogram) collector[0]);
 >>>>>>> Test using fixed interval to avoid bucket issue
+=======
+          histogram = ((InternalAutoDateHistogram) collector[0]);
+>>>>>>> Rework results to return fixed bucket widths for now
         }
 
-        List<HistogramBucket> buckets = new ArrayList<>();
+        // todo - this is a temp test
+        //  the returned buckets aren't consistent across nodes, so we need to coerce these for now since
+        //  the query node can't handle these quite correctly - this will result in buckets that aren't quite accurate
+        //  especially at the start and end
+        List<HistogramBucket> buckets = FixedIntervalHistogramImpl.makeHistogram(startTimeMsEpoch, endTimeMsEpoch, bucketCount);
         long totalCount = results.size();
         if (histogram != null) {
-          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
-
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount)).getSum();
           for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
-            buckets.add(new HistogramBucket(
-                Double.parseDouble(bucket.getKeyAsString()),
-                Double.parseDouble(bucket.getKeyAsString()) + 1,
-                bucket.getDocCount()
-            ));
+            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            long key = Long.valueOf(bucket.getKeyAsString());
+            buckets.stream().forEach(histogramBucket -> {
+              if (histogramBucket.getHigh() >= key && key >= histogramBucket.getLow()) {
+                histogramBucket.increment(bucket.getDocCount());
+              }
+            });
           }
         }
 
