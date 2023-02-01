@@ -773,21 +773,21 @@ public class OpensearchShim {
 
 //    AutoDateHistogramAggregationBuilder
 
-    DateHistogramAggregationBuilder dateHistogramAggregationBuilder = new DateHistogramAggregationBuilder("bar")
+//    DateHistogramAggregationBuilder dateHistogramAggregationBuilder = new DateHistogramAggregationBuilder("bar")
+////        .fixedInterval(DateHistogramInterval.MINUTE)
 //        .fixedInterval(DateHistogramInterval.MINUTE)
-        .fixedInterval(DateHistogramInterval.MINUTE)
-        .hardBounds(new LongBounds(from, to))
-        .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+//        .hardBounds(new LongBounds(from, to))
+//        .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
     AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
         new AutoDateHistogramAggregationBuilder("bar")
             .setNumBuckets(numBuckets)
-            .setMinimumIntervalExpression("second")
+            .setMinimumIntervalExpression("minute")
             .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
 //    dateHistogramAggregationBuilder.subAggregation(avgAggregationBuilder);
-    dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
-    Aggregator aggregator = dateHistogramAggregationBuilder.build(queryShardContext, null)
+    autoDateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
+    Aggregator aggregator = autoDateHistogramAggregationBuilder.build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
 
 
