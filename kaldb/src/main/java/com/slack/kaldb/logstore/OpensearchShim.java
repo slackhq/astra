@@ -71,6 +71,7 @@ import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggr
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregatorFactory;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.support.ValuesSourceConfig;
@@ -127,11 +128,11 @@ public class OpensearchShim {
   }
 
 
-  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(int numBuckets) {
+  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(int numBuckets, long from, long to) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = OpensearchShim.test(numBuckets);
+        Aggregator aggregator = OpensearchShim.test(numBuckets, from, to);
         aggregator.preCollection();
         return aggregator;
       }
@@ -147,9 +148,9 @@ public class OpensearchShim {
     };
   }
 
-  public static Collector getCollector(int numBuckets) {
+  public static Collector getCollector(int numBuckets, long from, long to) {
     try {
-      Aggregator aggregator = OpensearchShim.test(numBuckets);
+      Aggregator aggregator = OpensearchShim.test(numBuckets, from, to);
       aggregator.preCollection();
 
 
@@ -159,7 +160,7 @@ public class OpensearchShim {
     }
   }
 
-  public static Aggregator test(int numBuckets) throws IOException {
+  public static Aggregator test(int numBuckets, long from, long to) throws IOException {
 
     final BigArrays bigArrays = new BigArrays(PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
@@ -772,7 +773,13 @@ public class OpensearchShim {
 
 //    AutoDateHistogramAggregationBuilder
 
-    AutoDateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+    DateHistogramAggregationBuilder dateHistogramAggregationBuilder = new DateHistogramAggregationBuilder("bar")
+//        .fixedInterval(DateHistogramInterval.MINUTE)
+        .fixedInterval(DateHistogramInterval.MINUTE)
+        .hardBounds(new LongBounds(from, to))
+        .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
         new AutoDateHistogramAggregationBuilder("bar")
             .setNumBuckets(numBuckets)
             .setMinimumIntervalExpression("second")

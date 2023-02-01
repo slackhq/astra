@@ -138,6 +138,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         InternalAutoDateHistogram histogram = null;
 =======
         InternalAggregation histogram = null;
@@ -148,12 +149,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
         InternalAutoDateHistogram histogram = null;
 >>>>>>> Switch to auto date hitogram impl
+=======
+        InternalDateHistogram histogram = null;
+>>>>>>> Test using fixed interval to avoid bucket issue
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
             collectorManager =
@@ -166,6 +171,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
             collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
 >>>>>>> Switch to auto date hitogram impl
+=======
+            collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch));
+>>>>>>> Test using fixed interval to avoid bucket issue
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -177,6 +185,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (bucketCount > 0) {
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
@@ -211,16 +220,23 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
           histogram = ((InternalAutoDateHistogram) collector[0]);
 >>>>>>> Switch to auto date hitogram impl
+=======
+            histogram = ((InternalDateHistogram) collector[1]);
+          }
+        } else {
+          results = Collections.emptyList();
+          Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
+          histogram = ((InternalDateHistogram) collector[0]);
+>>>>>>> Test using fixed interval to avoid bucket issue
         }
-
 
         List<HistogramBucket> buckets = new ArrayList<>();
         long totalCount = results.size();
         if (histogram != null) {
-          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount)).getSum();
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
 
           for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
             buckets.add(new HistogramBucket(
                 Double.parseDouble(bucket.getKeyAsString()),
                 Double.parseDouble(bucket.getKeyAsString()) + 1,
