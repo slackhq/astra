@@ -67,6 +67,7 @@ import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.SearchContextAggregations;
+import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregatorFactory;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
@@ -126,11 +127,11 @@ public class OpensearchShim {
   }
 
 
-  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager() {
+  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(int numBuckets) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = OpensearchShim.test();
+        Aggregator aggregator = OpensearchShim.test(numBuckets);
         aggregator.preCollection();
         return aggregator;
       }
@@ -138,6 +139,7 @@ public class OpensearchShim {
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
         if (collectors.size() == 1) {
+          collectors.stream().findFirst().get().postCollection();
           return collectors.stream().findFirst().get().buildTopLevel();
         }
         throw new IllegalArgumentException("NOT IMPLEMENTED");
@@ -145,9 +147,9 @@ public class OpensearchShim {
     };
   }
 
-  public static Collector getCollector() {
+  public static Collector getCollector(int numBuckets) {
     try {
-      Aggregator aggregator = OpensearchShim.test();
+      Aggregator aggregator = OpensearchShim.test(numBuckets);
       aggregator.preCollection();
 
 
@@ -157,13 +159,12 @@ public class OpensearchShim {
     }
   }
 
-  public static Aggregator test() throws IOException {
-
+  public static Aggregator test(int numBuckets) throws IOException {
 
     final BigArrays bigArrays = new BigArrays(PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
-
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
+    AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     DateHistogramAggregatorFactory.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -769,10 +770,12 @@ public class OpensearchShim {
 //    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo").field("doubleproperty");
     ValueCountAggregationBuilder valueCountAggregationBuilder = new ValueCountAggregationBuilder("baz").field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
-    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
-        new DateHistogramAggregationBuilder("bar")
-            .fixedInterval(DateHistogramInterval.HOUR)
-            .keyed(true)
+//    AutoDateHistogramAggregationBuilder
+
+    AutoDateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+        new AutoDateHistogramAggregationBuilder("bar")
+            .setNumBuckets(numBuckets)
+            .setMinimumIntervalExpression("second")
             .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
 //    dateHistogramAggregationBuilder.subAggregation(avgAggregationBuilder);

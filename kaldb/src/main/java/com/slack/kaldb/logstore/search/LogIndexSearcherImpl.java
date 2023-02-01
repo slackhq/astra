@@ -62,6 +62,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 =======
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 <<<<<<< bburkholder/opensearch-serialize
 >>>>>>> POC working histogram
@@ -136,6 +137,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         List<LogMessage> results;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         InternalAutoDateHistogram histogram = null;
 =======
         InternalAggregation histogram = null;
@@ -143,12 +145,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
         InternalDateHistogram histogram = null;
 >>>>>>> Cleanup, port into logindexsearcher
+=======
+        InternalAutoDateHistogram histogram = null;
+>>>>>>> Switch to auto date hitogram impl
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
             collectorManager =
                 new MultiCollectorManager(
@@ -157,6 +163,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
             collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager());
 >>>>>>> POC working histogram
+=======
+            collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
+>>>>>>> Switch to auto date hitogram impl
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -168,6 +177,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (bucketCount > 0) {
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
             histogram = ((InternalAutoDateHistogram) collector[1]);
@@ -193,16 +203,24 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
           histogram = ((InternalDateHistogram) collector[0]);
 >>>>>>> Cleanup, port into logindexsearcher
+=======
+            histogram = ((InternalAutoDateHistogram) collector[1]);
+          }
+        } else {
+          results = Collections.emptyList();
+          Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
+          histogram = ((InternalAutoDateHistogram) collector[0]);
+>>>>>>> Switch to auto date hitogram impl
         }
 
 
         List<HistogramBucket> buckets = new ArrayList<>();
         long totalCount = results.size();
         if (histogram != null) {
-          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount)).getSum();
 
           for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
             buckets.add(new HistogramBucket(
                 Double.parseDouble(bucket.getKeyAsString()),
                 Double.parseDouble(bucket.getKeyAsString()) + 1,
