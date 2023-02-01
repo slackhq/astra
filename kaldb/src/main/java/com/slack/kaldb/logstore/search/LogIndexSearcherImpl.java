@@ -128,14 +128,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        InternalAutoDateHistogram histogram = null;
+        InternalDateHistogram histogram = null;
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
-            collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
+            collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -147,22 +147,21 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (bucketCount > 0) {
-            histogram = ((InternalAutoDateHistogram) collector[1]);
+            histogram = ((InternalDateHistogram) collector[1]);
           }
         } else {
           results = Collections.emptyList();
-          Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
-          histogram = ((InternalAutoDateHistogram) collector[0]);
+          Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
+          histogram = ((InternalDateHistogram) collector[0]);
         }
-
 
         List<HistogramBucket> buckets = new ArrayList<>();
         long totalCount = results.size();
         if (histogram != null) {
-          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount)).getSum();
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
 
           for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
             buckets.add(new HistogramBucket(
                 Double.parseDouble(bucket.getKeyAsString()),
                 Double.parseDouble(bucket.getKeyAsString()) + 1,
