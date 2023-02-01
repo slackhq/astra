@@ -10,7 +10,7 @@ public class OpensearchShimTest {
   @Test
   public void test() throws Exception{
 
-    Aggregator aggregator = OpensearchShim.test();
+    Aggregator aggregator = OpensearchShim.test(20);
 
     System.out.println(aggregator.name());
   }
