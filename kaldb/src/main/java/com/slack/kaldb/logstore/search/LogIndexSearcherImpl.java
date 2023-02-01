@@ -9,10 +9,14 @@ import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
+=======
+>>>>>>> Cleanup, port into logindexsearcher
 import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
 import com.slack.kaldb.histogram.Histogram;
+import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.histogram.NoOpHistogramImpl;
 >>>>>>> POC working histogram
 import com.slack.kaldb.logstore.LogMessage;
@@ -31,6 +35,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+<<<<<<< bburkholder/opensearch-serialize
+=======
+
+>>>>>>> Cleanup, port into logindexsearcher
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -55,7 +63,11 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHisto
 =======
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+<<<<<<< bburkholder/opensearch-serialize
 >>>>>>> POC working histogram
+=======
+import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
+>>>>>>> Cleanup, port into logindexsearcher
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,10 +135,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       try {
         List<LogMessage> results;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         InternalAutoDateHistogram histogram = null;
 =======
         InternalAggregation histogram = null;
 >>>>>>> POC working histogram
+=======
+        InternalDateHistogram histogram = null;
+>>>>>>> Cleanup, port into logindexsearcher
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
@@ -153,6 +169,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
           if (bucketCount > 0) {
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
             histogram = ((InternalAutoDateHistogram) collector[1]);
           }
         } else {
@@ -163,20 +180,42 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                       query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
 =======
             histogram = ((InternalAggregation) collector[1]);
+=======
+            histogram = ((InternalDateHistogram) collector[1]);
+>>>>>>> Cleanup, port into logindexsearcher
           }
         } else {
           results = Collections.emptyList();
           Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager()));
+<<<<<<< bburkholder/opensearch-serialize
           histogram = ((InternalAggregation) collector[0]);
 >>>>>>> POC working histogram
+=======
+          histogram = ((InternalDateHistogram) collector[0]);
+>>>>>>> Cleanup, port into logindexsearcher
         }
 
-        histogram.getName();
+
+        List<HistogramBucket> buckets = new ArrayList<>();
+        long totalCount = results.size();
+        if (histogram != null) {
+          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount)).getSum();
+
+          for (int i = 0; i < histogram.getBuckets().size(); i++) {
+            InternalDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
+            buckets.add(new HistogramBucket(
+                Double.parseDouble(bucket.getKeyAsString()),
+                Double.parseDouble(bucket.getKeyAsString()) + 1,
+                bucket.getDocCount()
+            ));
+          }
+        }
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
             bucketCount > 0
                 ? histogram
@@ -191,6 +230,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             List.of(),
 //            histogram.getBuckets(),
 >>>>>>> POC working histogram
+=======
+            totalCount,
+            buckets,
+>>>>>>> Cleanup, port into logindexsearcher
             0,
             0,
             1,

@@ -1,13 +1,10 @@
 package com.slack.kaldb.logstore;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.SortField;
 import org.opensearch.Version;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.action.search.SearchType;
@@ -16,7 +13,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Rounding;
-import org.opensearch.common.TriFunction;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.settings.Settings;
@@ -32,11 +28,9 @@ import org.opensearch.index.analysis.AnalyzerScope;
 import org.opensearch.index.analysis.IndexAnalyzers;
 import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.cache.bitset.BitsetFilterCache;
-import org.opensearch.index.fielddata.IndexFieldData;
+import org.opensearch.index.fielddata.IndexFieldDataCache;
+import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.fielddata.IndexNumericFieldData;
-import org.opensearch.index.fielddata.LeafFieldData;
-import org.opensearch.index.fielddata.SortedBinaryDocValues;
-import org.opensearch.index.fielddata.SortedNumericDoubleValues;
 import org.opensearch.index.fielddata.plain.SortedNumericIndexFieldData;
 import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.DataStreamFieldMapper;
@@ -51,12 +45,10 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.NestedPathFieldMapper;
-import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.mapper.ObjectMapper;
 import org.opensearch.index.mapper.RoutingFieldMapper;
 import org.opensearch.index.mapper.SeqNoFieldMapper;
 import org.opensearch.index.mapper.SourceFieldMapper;
-import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.mapper.VersionFieldMapper;
 import org.opensearch.index.query.ParsedQuery;
 import org.opensearch.index.query.QueryShardContext;
@@ -64,11 +56,9 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.indices.mapper.MapperRegistry;
 import org.opensearch.plugins.MapperPlugin;
-import org.opensearch.script.AggregationScript;
-import org.opensearch.search.DocValueFormat;
-import org.opensearch.search.MultiValueMode;
 import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.SearchShardTarget;
 import org.opensearch.search.aggregations.Aggregator;
@@ -82,13 +72,8 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregat
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
-import org.opensearch.search.aggregations.support.CoreValuesSourceType;
-import org.opensearch.search.aggregations.support.FieldContext;
-import org.opensearch.search.aggregations.support.ValueType;
-import org.opensearch.search.aggregations.support.ValuesSource;
 import org.opensearch.search.aggregations.support.ValuesSourceConfig;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
-import org.opensearch.search.aggregations.support.ValuesSourceType;
 import org.opensearch.search.collapse.CollapseContext;
 import org.opensearch.search.dfs.DfsSearchResult;
 import org.opensearch.search.fetch.FetchPhase;
@@ -105,27 +90,19 @@ import org.opensearch.search.internal.ScrollContext;
 import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.internal.ShardSearchContextId;
 import org.opensearch.search.internal.ShardSearchRequest;
-import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.query.QuerySearchResult;
 import org.opensearch.search.query.ReduceableSearchResult;
 import org.opensearch.search.rescore.RescoreContext;
-import org.opensearch.search.sort.BucketedSort;
 import org.opensearch.search.sort.SortAndFormats;
-import org.opensearch.search.sort.SortOrder;
 import org.opensearch.search.suggest.SuggestionSearchContext;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.function.LongSupplier;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -134,14 +111,13 @@ import static java.util.stream.Collectors.toList;
 
 public class OpensearchShim {
 
-
-  protected static final XContentBuilder mapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
+  protected static XContentBuilder mapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
     XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
     buildFields.accept(builder);
     return builder.endObject().endObject().endObject();
   }
 
-  protected static final XContentBuilder fieldMapping(String fieldName, CheckedConsumer<XContentBuilder, IOException> buildField) throws IOException {
+  protected static XContentBuilder fieldMapping(String fieldName, CheckedConsumer<XContentBuilder, IOException> buildField) throws IOException {
     return mapping(b -> {
       b.startObject(fieldName);
       buildField.accept(b);
@@ -151,15 +127,6 @@ public class OpensearchShim {
 
 
   public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager() {
-
-//    return new CollectorManager<?, ?>
-
-
-//
-//    AggregationPhase aggregationPhase = new AggregationPhase();
-//    aggregationPhase.preProcess();
-//
-//
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
@@ -174,10 +141,8 @@ public class OpensearchShim {
           return collectors.stream().findFirst().get().buildTopLevel();
         }
         throw new IllegalArgumentException("NOT IMPLEMENTED");
-//        return null;
       }
     };
-//    return OpensearchShim.getCollector();
   }
 
   public static Collector getCollector() {
@@ -198,269 +163,12 @@ public class OpensearchShim {
     final BigArrays bigArrays = new BigArrays(PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
 
-    /*
-    registerAggregation(
-            new AggregationSpec(AvgAggregationBuilder.NAME, AvgAggregationBuilder::new, AvgAggregationBuilder.PARSER).addResultReader(
-                InternalAvg::new
-            ).setAggregatorRegistrar(AvgAggregationBuilder::registerAggregators),
-            builder
-        );
-     */
-
-
-//    ValuesSourceType dateHistogramValuesSourceType = new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return new ValuesSource.Numeric() {
-//          @Override
-//          public boolean isFloatingPoint() {
-//            return false;
-//          }
-//
-//          @Override
-//          public SortedNumericDocValues longValues(LeafReaderContext context) throws IOException {
-//            NumericDocValues values = context.reader().getNumericDocValues(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-//            return DocValues.singleton(values);
-//          }
-//
-//          @Override
-//          public SortedNumericDoubleValues doubleValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//
-//          @Override
-//          public SortedBinaryDocValues bytesValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//        };
-//
-//        //return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return null;
-//      }
-//    };
-//
-//    ValuesSourceType avgValuesSourceType = new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return new ValuesSource.Numeric() {
-//          @Override
-//          public boolean isFloatingPoint() {
-//            return false;
-//          }
-//
-//          @Override
-//          public SortedNumericDocValues longValues(LeafReaderContext context) throws IOException {
-//            NumericDocValues values = context.reader().getNumericDocValues(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-//            return DocValues.singleton(values);
-//          }
-//
-//          @Override
-//          public SortedNumericDoubleValues doubleValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//
-//          @Override
-//          public SortedBinaryDocValues bytesValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//        };
-//
-//        //return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return null;
-//      }
-//    };
-
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
     DateHistogramAggregatorFactory.registerAggregators(valuesSourceRegistryBuilder);
+    AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
-
-//    registerAggregation(
-//        new SearchPlugin.AggregationSpec(AvgAggregationBuilder.NAME, AvgAggregationBuilder::new, AvgAggregationBuilder.PARSER).addResultReader(
-//            InternalAvg::new
-//        ).setAggregatorRegistrar(AvgAggregationBuilder::registerAggregators),
-//        builder
-//    );
-
-
-//    valuesSourceRegistryBuilder.register(new ValuesSourceRegistry.RegistryKey<>(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, Long.class), new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
-////        return null;
-//      }
-//    }, 0L, true);
-
-    //valuesSourceRegistryBuilder.register();
-
-
-//    valuesSourceRegistryBuilder.register(
-//        DateHistogramAggregationBuilder.REGISTRY_KEY, CoreValuesSourceType.DATE, new DateHistogramAggregationSupplier() {
-//          @Override
-//          public Aggregator build(String name, AggregatorFactories factories, Rounding rounding, Rounding.Prepared preparedRounding, BucketOrder order, boolean keyed, long minDocCount, LongBounds extendedBounds, LongBounds hardBounds, ValuesSourceConfig valuesSourceConfig, SearchContext aggregationContext, Aggregator parent, CardinalityUpperBound cardinality, Map<String, Object> metadata) throws IOException {
-//            return null;
-//          }
-//        }, false
-//    );
-//
-
-    //valuesSourceRegistryBuilder.register();
-//
-//    valuesSourceRegistryBuilder.register(DateHistogramAggregationBuilder.REGISTRY_KEY, new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return "DATE";
-//        //return null;
-//      }
-//    }, new DateHistogramAggregationSupplier() {
-//      @Override
-//      public Aggregator build(String name, AggregatorFactories factories, Rounding rounding, Rounding.Prepared preparedRounding, BucketOrder order, boolean keyed, long minDocCount, LongBounds extendedBounds, LongBounds hardBounds, ValuesSourceConfig valuesSourceConfig, SearchContext aggregationContext, Aggregator parent, CardinalityUpperBound cardinality, Map<String, Object> metadata) throws IOException {
-//        return null;
-//      }
-//    }, true);
-
-//    valuesSourceRegistryBuilder.register(DateHistogramAggregationBuilder.REGISTRY_KEY, CoreValuesSourceType.DATE, new DateHistogramAggregationSupplier() {
-//      @Override
-//      public Aggregator build(String name, AggregatorFactories factories, Rounding rounding, Rounding.Prepared preparedRounding, BucketOrder order, boolean keyed, long minDocCount, LongBounds extendedBounds, LongBounds hardBounds, ValuesSourceConfig valuesSourceConfig, SearchContext aggregationContext, Aggregator parent, CardinalityUpperBound cardinality, Map<String, Object> metadata) throws IOException {
-//        return null;
-//      }
-//    }, true);
-
-//    valuesSourceRegistryBuilder
-
-    //valuesSourceRegistryBuilder.registerUsage(DateHistogramAggregationBuilder.REGISTRY_KEY.getName(), CoreValuesSourceType.DATE);
-
-//    valuesSourceRegistryBuilder.registerUsage(DateHistogramAggregationBuilder.REGISTRY_KEY.getName(), new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return "kaldbcustom";
-////        return null;
-//      }
-//    });
-
-//    valuesSourceRegistryBuilder.registerUsage(AvgAggregationBuilder.REGISTRY_KEY.getName(), CoreValuesSourceType.NUMERIC);
-//    valuesSourceRegistryBuilder.registerUsage(ValueCountAggregationBuilder.REGISTRY_KEY.getName(), CoreValuesSourceType.BYTES);
     ValuesSourceRegistry registry = valuesSourceRegistryBuilder.build();
-
-
-    //dateHistogramAggregatorFactory.
-
-    //DateHistogramAggregatorFactory dateHistogramAggregatorFactory1
-
-//    registry.getUsageService();
-
-    //todo - field context on value source
-    // todo - value source aggregator facotyr
-    //   DateHistogramAggregatorFactory
-
-    // todo - I have the correct valuesourceConfig, says it's unmapped (no fild context or script)
-    //   the valuesSource is a ValuesSource.Numeric
-
-    // todo - NEEDS to have a field context
-
-
-    // ValuesSourceAggregationBuilder
-    // ValuesSourceConfig config = resolveConfig(queryShardContext);
-
-
-//    MappedFieldType mappedFieldType = new DateFieldMapper.DateFieldType("foo");
 
 
     Settings settings = Settings.builder()
@@ -473,46 +181,12 @@ public class OpensearchShim {
     DateFieldMapper dateFieldMapper = new DateFieldMapper.Builder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
         DateFieldMapper.Resolution.MILLISECONDS, null, false, Version.V_2_3_0).build(builderContext);
 
-//    DynamicKeyFieldMapper dynamicKeyFieldMapper = new DynamicKeyFieldMapper() {
-//      @Override
-//      public MappedFieldType keyedFieldType(String key) {
-//        return null;
-//      }
-//
-//      @Override
-//      protected void parseCreateField(ParseContext context) throws IOException {
-//
-//      }
-//
-//      @Override
-//      protected void mergeOptions(FieldMapper other, List<String> conflicts) {
-//
-//      }
-//
-//      @Override
-//      protected String contentType() {
-//        return null;
-//      }
-//    };
-
     IndexSettings indexSettings = new IndexSettings(IndexMetadata.builder("testDataSet")
         .putMapping(new MappingMetadata(new CompressedXContent(dateFieldMapper, ToXContent.EMPTY_PARAMS)))
         .settings(settings)
         .build(), Settings.builder()
         .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_3_0)
         .build());
-
-//    SimilarityService similarityService = new SimilarityService(
-//        indexSettings,
-//        null,
-//        Map.of()
-//    );
-
-
-//    MapperRegistry
-    //IndicesModule.
-
-    //MapperRegistry.
 
     Map<String, Mapper.TypeParser> builtInMetadataMappers;
     // Use a LinkedHashMap for metadataMappers because iteration order matters
@@ -532,7 +206,7 @@ public class OpensearchShim {
     builtInMetadataMappers.put(DocCountFieldMapper.NAME, DocCountFieldMapper.PARSER);
     // _field_names must be added last so that it has a chance to see all the other mappers
     builtInMetadataMappers.put(FieldNamesFieldMapper.NAME, FieldNamesFieldMapper.PARSER);
-    //return Collections.unmodifiableMap(builtInMetadataMappers);
+
 
     builtInMetadataMappers.put(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, new Mapper.TypeParser() {
       @Override
@@ -540,19 +214,6 @@ public class OpensearchShim {
         return null;
       }
     });
-
-
-//    MapperRegistry mapperRegistry = new MapperRegistry(
-//        builtInMetadataMappers,
-//        //Map.of(),
-//        Map.of(),
-//        new Function<String, Predicate<String>>() {
-//          @Override
-//          public Predicate<String> apply(String s) {
-//            return null;
-//          }
-//        }
-//    );
 
     MapperRegistry mapperRegistry = new IndicesModule(
         emptyList().stream().filter(p -> p instanceof MapperPlugin).map(p -> (MapperPlugin) p).collect(toList())
@@ -576,66 +237,29 @@ public class OpensearchShim {
         ),
         similarityService,
         mapperRegistry,
-        () -> { throw new UnsupportedOperationException(); },
+        () -> {
+          throw new UnsupportedOperationException();
+        },
         () -> true,
         null
     );
 
+    XContentBuilder mapping1 = OpensearchShim.fieldMapping(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type", "long")); //.field("format", "epoch_millis"));
+    mapperService.merge("_doc", new CompressedXContent(BytesReference.bytes(mapping1)), MapperService.MergeReason.MAPPING_UPDATE);
 
-    /*
-    protected final XContentBuilder mapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
-        buildFields.accept(builder);
-        return builder.endObject().endObject().endObject();
-    }
-     */
-
-    /*
-        protected final XContentBuilder fieldMapping(CheckedConsumer<XContentBuilder, IOException> buildField) throws IOException {
-        return mapping(b -> {
-            b.startObject("field");
-            buildField.accept(b);
-            b.endObject();
-        });
-    }
-     */
-
-//    try {
-//      XContentBuilder mapping = OpensearchShim.fieldMapping(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type", "long"));
-      XContentBuilder mapping = OpensearchShim.fieldMapping(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type", "long")); //.field("format", "epoch_millis"));
-      mapperService.merge("_doc", new CompressedXContent(BytesReference.bytes(mapping)), MapperService.MergeReason.MAPPING_UPDATE);
-//    } catch (Exception e) {
-//
-//    }
+    XContentBuilder mapping2 = OpensearchShim.fieldMapping("doubleproperty", b -> b.field("type", "double")); //.field("format", "epoch_millis"));
+    mapperService.merge("_doc", new CompressedXContent(BytesReference.bytes(mapping2)), MapperService.MergeReason.MAPPING_UPDATE);
 
 
-    //mapperService.documentMapperWithAutoCreate()
-
-//    Map<String, Object> map = Collections.unmodifiableMap(builtInMetadataMappers);
-//    mapperService.merge("_doc", map, MapperService.MergeReason.MAPPING_UPDATE);
-//    MetadataFieldMapper.Builder("").build(builderContext);
-//    mapperService.merge("type", new CompressedXContent(new FieldNamesFieldMapper(new Explicit<>(true, true), Version.V_1_1_0, new FieldNamesFieldMapper.FieldNamesFieldType(true))));
-//    mapperService.documentMapper();
 
 
-    DateFieldMapper.DateFieldType dateFieldType = new DateFieldMapper.DateFieldType("_time");
-
-    //Mapper.BuilderContext builderContext = new Mapper.BuilderContext(Settings.EMPTY, new ContentPath());
-//    DateFieldMapper dateFieldMapper = new DateFieldMapper.Builder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-//        DateFieldMapper.Resolution.MILLISECONDS, null, false, Version.V_1_0_0).build(builderContext);
-
-//    mapperService.m
-
-//    mapperService.merge(SINGLE_MAPPING_NAME, new CompressedXContent(dateFieldMapper, ToXContent.EMPTY_PARAMS), MapperService.MergeReason.MAPPING_UPDATE);
-//    mapperService.merge("type", Map.of("string", new Object()), MapperService.MergeReason.MAPPING_UPDATE);
-
-//    mapperService.merge(new IndexMetadata.Builder("index")
-//            .
-//        .build());
-//
-
-
-    //DateFieldMapper.DateFieldType dateFieldType = new DateFieldMapper.DateFieldType("_time");
+    IndexFieldDataService indexFieldDataService = new IndexFieldDataService(
+        indexSettings,
+        new IndicesFieldDataCache(settings, new IndexFieldDataCache.Listener() {
+        }),
+        new NoneCircuitBreakerService(),
+        mapperService
+    );
 
 
     QueryShardContext queryShardContext = new QueryShardContext(
@@ -644,77 +268,25 @@ public class OpensearchShim {
         bigArrays,
         null,
 //        null,
-        new TriFunction<MappedFieldType, String, Supplier<SearchLookup>, IndexFieldData<?>>() {
-          @Override
-          public IndexFieldData<?> apply(MappedFieldType mappedFieldType, String s, Supplier<SearchLookup> searchLookupSupplier) {
-            MappedFieldType mappedFieldType1 = mappedFieldType;
-            String index = s;
-            Supplier<SearchLookup> searchLookupSupplier1 = searchLookupSupplier;
-
-            return new SortedNumericIndexFieldData(mappedFieldType.name(), IndexNumericFieldData.NumericType.LONG);
-//            return new IndexFieldData<LeafFieldData>() {
-//              @Override
-//              public String getFieldName() {
-//                return null;
-//              }
+        indexFieldDataService::getForField,
+//        (mappedFieldType, s, searchLookupSupplier) -> {
+//          return mappedFieldType.
 //
-//              @Override
-//              public ValuesSourceType getValuesSourceType() {
-////                new ValuesSourceType()
-//                return new SortedNumericIndexFieldData(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, IndexNumericFieldData.NumericType.LONG).getValuesSourceType();
-////                return IndexNumericFieldData.NumericType.LONG.getValuesSourceType();
-////                return CoreValuesSourceType.NUMERIC;
-////                return null;
-//              }
-//
-//              @Override
-//              public LeafFieldData load(LeafReaderContext context) {
-//                return null;
-//              }
-//
-//              @Override
-//              public LeafFieldData loadDirect(LeafReaderContext context) throws Exception {
-//                return null;
-//              }
-//
-//              @Override
-//              public SortField sortField(Object missingValue, MultiValueMode sortMode, XFieldComparatorSource.Nested nested, boolean reverse) {
-//                return null;
-//              }
-//
-//              @Override
-//              public BucketedSort newBucketedSort(BigArrays bigArrays, Object missingValue, MultiValueMode sortMode, XFieldComparatorSource.Nested nested, SortOrder sortOrder, DocValueFormat format, int bucketSize, BucketedSort.ExtraData extra) {
-//                return null;
-//              }
-//            };
-//            return null;
-          }
-        },
-        //null,
+//          return new SortedNumericIndexFieldData(mappedFieldType.name(), IndexNumericFieldData.NumericType.LONG);
+//        },
         mapperService,
         similarityService,
-//        null,
         null,
         null,
         null,
         null,
         null,
-        () -> {
-          return Instant.now().toEpochMilli();
-        },
+        () -> Instant.now().toEpochMilli(),
         null,
-        new Predicate<String>() {
-          @Override
-          public boolean test(String s) {
-            return false;
-          }
-        },
+        s -> false,
         null,
-//        null
         registry
     );
-
-    //queryShardContext.fieldMapper()
 
     SearchContext searchContext = new SearchContext() {
       @Override
@@ -789,7 +361,6 @@ public class OpensearchShim {
 
       @Override
       public SearchContextAggregations aggregations() {
-        //new SearchContextAggregations()
         return null;
       }
 
@@ -1195,317 +766,49 @@ public class OpensearchShim {
     };
 
 
-//    MappedFieldType mp = new MappedFieldType(
-//        "name",
-//        false,
-//        false,
-//        true,
-//        TextSearchInfo.NONE,
-//        Map.of("bar", "baz")
-//    ) {
-//      @Override
-//      public ValueFetcher valueFetcher(QueryShardContext context, SearchLookup searchLookup, String format) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return "foo";
-////        return null;
-//      }
-//
-//      @Override
-//      public Query termQuery(Object value, QueryShardContext context) {
-//        return null;
-//      }
-//    };
+//    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo").field("doubleproperty");
+    ValueCountAggregationBuilder valueCountAggregationBuilder = new ValueCountAggregationBuilder("baz").field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
-
-//    NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(
-//        "doubleproperty",
-//        NumberFieldMapper.NumberType.DOUBLE
-//    );
-
-//    FieldContext doubleFieldContext = new FieldContext("name",
-//        null,
-////        new SortedNumericIndexFieldData("fieldname", IndexNumericFieldData.NumericType.DATE),
-//        numberFieldType);
-////        null);
-
-
-//    DateFieldMapper.DateFieldType timestampFieldType = new DateFieldMapper.DateFieldType(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-//    NumberFieldMapper.NumberFieldType timestampFieldType = new DateFieldMapper.Builder().build()
-//
-//
-//        new NumberFieldMapper.NumberFieldType(
-//        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-//        NumberFieldMapper.
-//    );
-
-//    FieldContext longFieldContent = new FieldContext("name",
-//        null,
-////        new SortedNumericIndexFieldData("fieldname", IndexNumericFieldData.NumericType.DATE),
-//        timestampFieldType);
-//
-//    FieldContext timestampFieldContent = new FieldContext("name2", null, timestampFieldType);
-
-
-//    ValuesSourceType valuesSourceType = new ValuesSourceType() {
-//      @Override
-//      public ValuesSource getEmpty() {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//        return null;
-//      }
-//
-//      @Override
-//      public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//        return new ValuesSource.Numeric() {
-//          @Override
-//          public boolean isFloatingPoint() {
-//            return false;
-//          }
-//
-//          @Override
-//          public SortedNumericDocValues longValues(LeafReaderContext context) throws IOException {
-//            NumericDocValues values = context.reader().getNumericDocValues(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-//            return DocValues.singleton(values);
-//          }
-//
-//          @Override
-//          public SortedNumericDoubleValues doubleValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//
-//          @Override
-//          public SortedBinaryDocValues bytesValues(LeafReaderContext context) throws IOException {
-//            return null;
-//          }
-//        };
-//
-//        //return null;
-//      }
-//
-//      @Override
-//      public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//        return null;
-//      }
-//
-//      @Override
-//      public String typeName() {
-//        return null;
-//      }
-//    };
-
-//    ValuesSourceConfig valuesSourceConfig = new ValuesSourceConfig(
-//        valuesSourceType,
-//        null,
-////        timestampFieldContent,
-//        true,
-//        null,
-//        null,
-//        null,
-//        ZoneId.systemDefault(),
-//        DocValueFormat.RAW,
-//        Instant.EPOCH::getEpochSecond
-//    );
-
-//    ValuesSourceConfig resolved = ValuesSourceConfig.resolve(
-//        ,
-//        ValueType.DATE,
-//        "foo",
-//        null,
-//        null,
-//        ZoneId.systemDefault(),
-//        "format",
-//        CoreValuesSourceType.DATE
-//    );
-
-
-    //longFieldContent.
-
-
-    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo").field("doubleproperty");
-    ValueCountAggregationBuilder valueCountAggregationBuilder = new ValueCountAggregationBuilder("baz").field("doubleproperty");
-//    avgAggregationBuilder.build().create()
     DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
         new DateHistogramAggregationBuilder("bar")
             .fixedInterval(DateHistogramInterval.HOUR)
             .keyed(true)
             .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-//
-
-//    new DateHistogramAggregator()
 
 //    dateHistogramAggregationBuilder.subAggregation(avgAggregationBuilder);
-//    dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
-//    Aggregator aggregator = dateHistogramAggregationBuilder.build(queryShardContext, null)
-//        .create(searchContext, null, CardinalityUpperBound.ONE);
+    dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
+    Aggregator aggregator = dateHistogramAggregationBuilder.build(queryShardContext, null)
+        .create(searchContext, null, CardinalityUpperBound.ONE);
 
 
-//    DateFieldMapper dateFieldMapper = new DateFieldMapper.Builder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-//        DateFieldMapper.Resolution.MILLISECONDS, null, false, Version.V_2_3_0).build(builderContext);
-
-
-//    DateFieldMapper.DateFieldType mappedFieldType = new DateFieldMapper.DateFieldType(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-    NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, NumberFieldMapper.NumberType.LONG);
-
-
-    SortedNumericIndexFieldData sortedNumericIndexFieldData = new SortedNumericIndexFieldData(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, IndexNumericFieldData.NumericType.DATE);
-
-//    sortedNumericIndexFieldData.v
-
-    ValuesSource.Numeric numeric = new ValuesSource.Numeric() {
-      @Override
-      public boolean isFloatingPoint() {
-        return false;
-      }
-
-      @Override
-      public SortedNumericDocValues longValues(LeafReaderContext context) throws IOException {
-        return null;
-      }
-
-      @Override
-      public SortedNumericDoubleValues doubleValues(LeafReaderContext context) throws IOException {
-        return null;
-      }
-
-      @Override
-      public SortedBinaryDocValues bytesValues(LeafReaderContext context) throws IOException {
-        return null;
-      }
-    };
-
-
-//    ValuesSourceConfig valuesSourceConfig = ValuesSourceConfig.resolveUnmapped(CoreValuesSourceType.DATE, queryShardContext);
-
-
-
-
-    //NumberFieldMapper.NumberType.LONG
-//    NumberFieldMapper mappedFieldType = new NumberFieldMapper.Builder(
+//    ValuesSourceConfig valuesSourceConfig = ValuesSourceConfig.resolve(
+//        queryShardContext,
+//        null,
 //        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-//        NumberFieldMapper.NumberType.LONG,
-//        true,
-//        true
-//    ).build(builderContext);
+//        null,
+//        null,
+//        null,
+//        null,
+//        new SortedNumericIndexFieldData(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, IndexNumericFieldData.NumericType.LONG).getValuesSourceType()
+//    );
 
-//    new SortedNumericIndexFieldData(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, IndexNumericFieldData.NumericType.LONG).getValuesSourceType()
-
-    ValuesSourceConfig valuesSourceConfig = ValuesSourceConfig.resolve(
-        queryShardContext,
-        null, //ValueType.DA,
-        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        null,
-        null,
-        null,
-//        ZoneId.systemDefault(),
-        null,
-        new SortedNumericIndexFieldData(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, IndexNumericFieldData.NumericType.LONG).getValuesSourceType()
-//        CoreValuesSourceType.NUMERIC
-//        new ValuesSourceType() {
-//          @Override
-//          public ValuesSource getEmpty() {
-//            return null;
-//          }
-//
-//          @Override
-//          public ValuesSource getScript(AggregationScript.LeafFactory script, ValueType scriptValueType) {
-//            return null;
-//          }
-//
-//          @Override
-//          public ValuesSource getField(FieldContext fieldContext, AggregationScript.LeafFactory script) {
-//            return null;
-//          }
-//
-//          @Override
-//          public ValuesSource replaceMissing(ValuesSource valuesSource, Object rawMissing, DocValueFormat docValueFormat, LongSupplier now) {
-//            return null;
-//          }
-//
-//          @Override
-//          public String typeName() {
-//            return null;
-//          }
-//        }
-        //sortedNumericIndexFieldData.getValuesSourceType()
-    );
-
-    DateHistogramAggregatorFactory factory = new DateHistogramAggregatorFactory(
-        "name",
-        valuesSourceConfig,
-//        ValuesSourceConfig.resolveUnmapped(sortedNumericIndexFieldData.getValuesSourceType(), queryShardContext),
-//        ValuesSourceConfig.resolveFieldOnly(
-//            numberFieldType,
-//            queryShardContext
-//        ),
-//        new ValuesSourceConfig(),
-        BucketOrder.key(true),
-        true,
-        10
-        , Rounding.builder(Rounding.DateTimeUnit.DAY_OF_MONTH).build(),
-        null,
-        null,
-        queryShardContext,
-        null,
-        new AggregatorFactories.Builder(),
-        Map.of("foo", "bar")
-    );
-
-
-    Aggregator aggregator = factory.create(searchContext, null, CardinalityUpperBound.ONE);
-
-//    avgAggregationBuilder.
-//
-//    avgAggregationBuilder.field("doubleproperty");
-
-    //avgAggregationBuilder.
-
-//    AggregatorFactories.Builder subFactoriesBuilder = AggregatorFactories.builder();
-//    subFactoriesBuilder.addAggregator(avgAggregationBuilder);
-//
-//
-//
-//
-////    valuesSourceConfig
-//
-//    DateHistogramAggregatorFactory dateHistogramFactory = new DateHistogramAggregatorFactory(
+//    DateHistogramAggregatorFactory factory = new DateHistogramAggregatorFactory(
 //        "name",
 //        valuesSourceConfig,
-//        BucketOrder.key(false),
-//        false,
-//        10,
-//        Rounding.builder(Rounding.DateTimeUnit.DAY_OF_MONTH).build(),
+//        BucketOrder.key(true),
+//        true,
+//        10
+//        , Rounding.builder(Rounding.DateTimeUnit.DAY_OF_MONTH).build(),
 //        null,
 //        null,
+//        queryShardContext,
 //        null,
-////        queryShardContext,
-//        null,
-//        subFactoriesBuilder,
+//        new AggregatorFactories.Builder(),
 //        Map.of("foo", "bar")
 //    );
-//
-////    AvgAggregationBuilder avgAggregationBuilder = new AvgAggregationBuilder("foo");
-//    //AggregatorFactory avgFactory = avgAggregationBuilder.build(null, dateHistogramFactory);
-//
-//
-//
-//    //searchContext.aggregations().aggregators();
-//
-//    Aggregator aggregator = dateHistogramFactory.create(
-//        searchContext,
-//        null,
-//        CardinalityUpperBound.ONE
-//    );
 
 
-//    aggregator.preCollection();
+//    Aggregator aggregator = factory.create(searchContext, null, CardinalityUpperBound.ONE);
 
     return aggregator;
   }
