@@ -14,6 +14,8 @@ import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -21,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
@@ -55,6 +58,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   private final SearcherManager searcherManager;
   private final StandardAnalyzer analyzer;
 
+  private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
+
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
@@ -70,14 +75,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return numDocs;
   }
 
-  public LogIndexSearcherImpl(SearcherManager searcherManager) {
+  public LogIndexSearcherImpl(
+      SearcherManager searcherManager, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
     this.searcherManager = searcherManager;
     this.analyzer = new StandardAnalyzer();
+    this.chunkSchema = chunkSchema;
   }
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
   private QueryParser buildQueryParser() {
-    return new QueryParser(SystemField.ALL.fieldName, analyzer);
+    return new KaldbQueryParser(SystemField.ALL.fieldName, analyzer, chunkSchema);
   }
 
   public SearchResult<LogMessage> search(

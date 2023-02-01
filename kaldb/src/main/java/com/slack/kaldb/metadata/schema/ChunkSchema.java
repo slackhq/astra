@@ -5,6 +5,7 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,6 +21,10 @@ public class ChunkSchema extends KaldbMetadata {
 
   public static void serializeToFile(ChunkSchema chunkSchema, File file) throws IOException {
     Files.writeString(file.toPath(), serDe.toJsonStr(chunkSchema));
+  }
+
+  public static ChunkSchema deserializeFile(Path path) throws IOException {
+    return serDe.fromJsonStr(Files.readString(path));
   }
 
   public static ChunkSchema deserializeFromFile(File file) throws IOException {

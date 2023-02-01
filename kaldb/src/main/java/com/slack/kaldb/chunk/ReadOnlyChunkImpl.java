@@ -11,6 +11,7 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
+import com.slack.kaldb.metadata.schema.ChunkSchema;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -192,10 +193,18 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
         throw new IOException("No files found on blob storage, released slot for re-assignment");
       }
 
+      Path schemaPath = Path.of(dataDirectory.toString(), ReadWriteChunk.SCHEMA_FILE_NAME);
+      if (!Files.exists(schemaPath)) {
+        throw new RuntimeException("We expect a schema.json file to exist within the index");
+      }
+      ChunkSchema chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
       this.logSearcher =
           (LogIndexSearcher<T>)
-              new LogIndexSearcherImpl(LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory));
+              new LogIndexSearcherImpl(
+                  LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
+                  chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {

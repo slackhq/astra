@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
+import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -271,6 +272,14 @@ public class KaldbTest {
             indexerMeterRegistry);
     indexer.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
+    await()
+        .until(
+            () ->
+                getCount(
+                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
+                        indexerMeterRegistry)
+                    == 22);
+
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli());
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
@@ -427,6 +436,14 @@ public class KaldbTest {
             indexer1MeterRegistry);
     indexer1.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
 
+    await()
+        .until(
+            () ->
+                getCount(
+                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
+                        indexer1MeterRegistry)
+                    == 22);
+
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
     final Instant startTime2 =
@@ -444,6 +461,14 @@ public class KaldbTest {
             startTime2,
             indexer2MeterRegistry);
     indexer2.serviceManager.awaitHealthy(DEFAULT_START_STOP_DURATION);
+
+    await()
+        .until(
+            () ->
+                getCount(
+                        SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
+                        indexer2MeterRegistry)
+                    == 22);
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L);
