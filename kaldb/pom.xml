@@ -471,6 +471,12 @@
             <version>2.16.3</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.opensearch</groupId>
+            <artifactId>opensearch</artifactId>
+            <version>2.3.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
