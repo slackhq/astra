@@ -1,7 +1,14 @@
 package com.slack.kaldb.logstore.search.queryparser;
 
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.core.KeywordAnalyzer;
+import org.apache.lucene.document.DoublePoint;
+import org.apache.lucene.document.FloatPoint;
+import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.FieldExistsQuery;
@@ -9,35 +16,21 @@ import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 
-import java.util.concurrent.ConcurrentHashMap;
-
 public class KaldbQueryParser extends QueryParser {
 
-  private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
   private static final String EXISTS_FIELD = "_exists_";
   KeywordAnalyzer cachedStrAnalyzer = new KeywordAnalyzer();
 
-  public KaldbQueryParser(
-          String defaultField,
-          Analyzer analyzer,
-          ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
-    super(defaultField, analyzer);
-    if (chunkSchema == null || chunkSchema.isEmpty()) {
-      throw new IllegalArgumentException(
-          "chunkSchema should never be empty. We should always initialize the parser with default fields");
-    }
-    this.chunkSchema = chunkSchema;
   private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
 
   public KaldbQueryParser(
       String defaultField,
-      Analyzer defaultAnalyzer,
+      Analyzer analyzer,
       ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
-    super(defaultField, defaultAnalyzer);
+    super(defaultField, analyzer);
     if (chunkSchema == null || chunkSchema.isEmpty()) {
-      // When we instantiate SchemaAwareLogDocumentBuilderImpl we load a bunch of default fields. So
-      // this should never be empty
-      throw new RuntimeException("This should never be empty");
+      throw new IllegalArgumentException(
+          "chunkSchema should never be empty. We should always initialize the parser with default fields");
     }
     this.chunkSchema = chunkSchema;
   }
