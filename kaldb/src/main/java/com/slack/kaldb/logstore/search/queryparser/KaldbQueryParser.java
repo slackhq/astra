@@ -15,9 +15,8 @@ public class KaldbQueryParser extends QueryParser {
       ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
     super(defaultField, analyzer);
     if (chunkSchema == null || chunkSchema.isEmpty()) {
-      // When we instantiate SchemaAwareLogDocumentBuilderImpl we load a bunch of default fields. So
-      // this should never be empty
-      throw new RuntimeException("This should never be empty");
+      throw new RuntimeException(
+          "This should never be empty. We should always initialize the parser with default fields");
     }
     this.chunkSchema = chunkSchema;
   }
