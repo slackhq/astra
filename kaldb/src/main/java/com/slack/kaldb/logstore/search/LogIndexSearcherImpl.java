@@ -1,9 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
-
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,11 +18,15 @@ import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+=======
+import com.slack.kaldb.logstore.OpensearchShim;
+>>>>>>> Add POC for serialization
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
-import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.util.JsonUtil;
+<<<<<<< bburkholder/opensearch-serialize
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 =======
 
 >>>>>>> Cleanup, port into logindexsearcher
+=======
+>>>>>>> Add POC for serialization
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -64,6 +66,7 @@ import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 =======
 =======
@@ -79,16 +82,50 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.json.JsonXContent;
 >>>>>>> Rework results to return fixed bucket widths for now
+=======
+import org.opensearch.common.io.stream.InputStreamStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.io.stream.OutputStreamStreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.aggregations.AggregationBuilder;
+>>>>>>> Add POC for serialization
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+<<<<<<< bburkholder/opensearch-serialize
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 <<<<<<< bburkholder/opensearch-serialize
 >>>>>>> POC working histogram
 =======
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 >>>>>>> Cleanup, port into logindexsearcher
+=======
+import org.opensearch.search.aggregations.metrics.InternalValueCount;
+import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
+>>>>>>> Add POC for serialization
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
+import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
+import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 /*
  * A wrapper around lucene that helps us search a single index containing logs.
@@ -259,6 +296,35 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           histogram = ((InternalAutoDateHistogram) collector[0]);
 >>>>>>> Rework results to return fixed bucket widths for now
         }
+
+        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(
+            Arrays.asList(
+                new NamedWriteableRegistry.Entry(AggregationBuilder.class, AutoDateHistogramAggregationBuilder.NAME, AutoDateHistogramAggregationBuilder::new),
+                new NamedWriteableRegistry.Entry(InternalAggregation.class, AutoDateHistogramAggregationBuilder.NAME, InternalAutoDateHistogram::new),
+                new NamedWriteableRegistry.Entry(AggregationBuilder.class, ValueCountAggregationBuilder.NAME, ValueCountAggregationBuilder::new),
+                new NamedWriteableRegistry.Entry(InternalAggregation.class, ValueCountAggregationBuilder.NAME, InternalValueCount::new),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.BOOLEAN.getWriteableName(), in -> DocValueFormat.BOOLEAN),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.DateTime.NAME, DocValueFormat.DateTime::new),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.GEOHASH.getWriteableName(), in -> DocValueFormat.GEOHASH),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.GEOTILE.getWriteableName(), in -> DocValueFormat.GEOTILE),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.IP.getWriteableName(), in -> DocValueFormat.IP),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.RAW.getWriteableName(), in -> DocValueFormat.RAW),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.BINARY.getWriteableName(), in -> DocValueFormat.BINARY),
+                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(), in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)
+            )
+        );
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream);
+        histogram.writeTo(streamOutput);
+
+        InputStream inputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+        StreamInput streamInput = new InputStreamStreamInput(inputStream);
+        NamedWriteableAwareStreamInput namedWriteableAwareStreamInput = new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry);
+
+        //FilterStreamInput fs = new FilterStreamInput(streamInput);
+        InternalAutoDateHistogram reconstructed = new InternalAutoDateHistogram(namedWriteableAwareStreamInput);
 
         // todo - this is a temp test
         //  the returned buckets aren't consistent across nodes, so we need to coerce these for now since
