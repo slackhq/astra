@@ -6,7 +6,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+=======
+import com.slack.kaldb.logstore.OpensearchShim;
+>>>>>>> Test aggs all the way out
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -53,8 +57,12 @@ public class SearchResultUtils {
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
         protoSearchResult.getSnapshotsWithReplicas(),
+<<<<<<< bburkholder/opensearch-serialize
         OpenSearchAggregationAdapter.fromByteArray(
             protoSearchResult.getInternalAggregations().toByteArray()));
+=======
+        OpensearchShim.fromByteArray(protoSearchResult.getInternalAggregations().toByteArray()));
+>>>>>>> Test aggs all the way out
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
@@ -92,9 +100,26 @@ public class SearchResultUtils {
     }
     searchResultBuilder.addAllHits(protoHits);
 
+<<<<<<< bburkholder/opensearch-serialize
     ByteString bytes =
         ByteString.copyFrom(
             OpenSearchAggregationAdapter.toByteArray(searchResult.internalAggregation));
+=======
+    // Set buckets
+    List<KaldbSearch.HistogramBucket> protoBuckets = new ArrayList<>(searchResult.buckets.size());
+    for (HistogramBucket bucket : searchResult.buckets) {
+      KaldbSearch.HistogramBucket.Builder builder = KaldbSearch.HistogramBucket.newBuilder();
+      protoBuckets.add(
+          builder
+              .setCount(bucket.getCount())
+              .setHigh(bucket.getHigh())
+              .setLow(bucket.getLow())
+              .build());
+    }
+    searchResultBuilder.addAllBuckets(protoBuckets);
+    ByteString bytes =
+        ByteString.copyFrom(OpensearchShim.toByteArray(searchResult.internalAggregation));
+>>>>>>> Test aggs all the way out
     searchResultBuilder.setInternalAggregations(bytes);
     span.finish();
     return searchResultBuilder.build();

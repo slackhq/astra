@@ -80,7 +80,12 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
+<<<<<<< bburkholder/opensearch-serialize
     SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 0, 1, 0, null);
+=======
+    SearchResult<T> errorResult =
+        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0, null);
+>>>>>>> Test aggs all the way out
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 

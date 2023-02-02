@@ -10,7 +10,11 @@ import org.opensearch.search.aggregations.InternalAggregation;
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
+<<<<<<< bburkholder/opensearch-serialize
       new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
+=======
+      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0, null);
+>>>>>>> Test aggs all the way out
 
   public final long totalCount;
 
@@ -69,6 +73,10 @@ public class SearchResult<T> {
         && totalSnapshots == that.totalSnapshots
         && snapshotsWithReplicas == that.snapshotsWithReplicas
         && Objects.equal(hits, that.hits)
+<<<<<<< bburkholder/opensearch-serialize
+=======
+        && Objects.equal(buckets, that.buckets)
+>>>>>>> Test aggs all the way out
         && Objects.equal(internalAggregation, that.internalAggregation);
   }
 
@@ -100,6 +108,10 @@ public class SearchResult<T> {
         totalCount,
         hits,
         tookMicros,
+<<<<<<< bburkholder/opensearch-serialize
+=======
+        buckets,
+>>>>>>> Test aggs all the way out
         failedNodes,
         totalNodes,
         totalSnapshots,

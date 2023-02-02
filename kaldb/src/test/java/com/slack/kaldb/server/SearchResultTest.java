@@ -37,7 +37,11 @@ public class SearchResultTest {
         OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
+<<<<<<< bburkholder/opensearch-serialize
         new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
+=======
+        new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7, null);
+>>>>>>> Test aggs all the way out
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 

@@ -24,7 +24,11 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+=======
+import com.slack.kaldb.logstore.OpensearchShim;
+>>>>>>> Test aggs all the way out
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -39,6 +43,11 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+<<<<<<< bburkholder/opensearch-serialize
+=======
+
+import org.opensearch.search.aggregations.InternalAggregation;
+>>>>>>> Test aggs all the way out
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,18 +131,52 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
+
+    InternalAutoDateHistogram internalAggregation = null;
+    Map<String, AggregationResponse> aggregations = new HashMap<>();
+    if (searchResult.getInternalAggregations().size() > 0) {
+      try {
+        internalAggregation = OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
+
+        LOG.info("INTERNAL AGGS - {}", internalAggregation);
+
+        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
+        internalAggregation.getBuckets().forEach(bucket -> {
+          aggregationBucketResponses.add(new AggregationBucketResponse(
+              Double.parseDouble(bucket.getKeyAsString()),
+              bucket.getDocCount()
+          ));
+        });
+        aggregations.put(request.getAggregations().stream().findFirst().get().getAggregationKey(), new AggregationResponse(aggregationBucketResponses));
+      } catch (Exception e) {
+        LOG.error("ERROR reading internal agg", e);
+      }
+    }
+
     try {
       HitsMetadata hits = getHits(searchResult);
+<<<<<<< bburkholder/opensearch-serialize
       Map<String, AggregationResponse> aggregations =
           buildLegacyAggregationResponse(
               request.getAggregations(), searchResult.getInternalAggregations());
+=======
+
+      Map<String, String> debugAggs = new HashMap<>();
+      if (internalAggregation != null) {
+        debugAggs.put("internalAggs", internalAggregation.toString());
+      }
+>>>>>>> Test aggs all the way out
 
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+<<<<<<< bburkholder/opensearch-serialize
           .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
+=======
+          .debugMetadata(debugAggs)
+>>>>>>> Test aggs all the way out
           .status(200)
           .build();
     } catch (Exception e) {

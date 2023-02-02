@@ -32,6 +32,30 @@ import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 
 public class SearchResultAggregatorImplTest {
+<<<<<<< bburkholder/opensearch-serialize
+=======
+  private SearchResult<LogMessage> makeSearchResult(
+      List<LogMessage> messages,
+      long tookMs,
+      long totalCount,
+      List<HistogramBucket> buckets,
+      int failedNodes,
+      int totalNodes,
+      int totalSnapshots,
+      int snapshotsWithReplicas) {
+    return new SearchResult<>(
+        messages,
+        tookMs,
+        totalCount,
+        buckets,
+        failedNodes,
+        totalNodes,
+        totalSnapshots,
+        snapshotsWithReplicas,
+        null);
+  }
+
+>>>>>>> Test aggs all the way out
   @Before
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
