@@ -61,10 +61,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         internalAggregation = searchResult.internalAggregation;
       } else {
         if (searchResult.internalAggregation != null) {
-          internalAggregation =
-              internalAggregation.reduce(
-                  List.of(searchResult.internalAggregation),
-                  InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+          internalAggregation = internalAggregation.reduce(List.of(internalAggregation, searchResult.internalAggregation), InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
         }
       }
     }
