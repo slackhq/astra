@@ -67,6 +67,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         internalAggregation = searchResult.internalAggregation;
       } else {
         if (searchResult.internalAggregation != null) {
+<<<<<<< bburkholder/opensearch-serialize
           internalAggregation =
               internalAggregation.reduce(
 <<<<<<< bburkholder/opensearch-serialize
@@ -77,6 +78,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                   List.of(searchResult.internalAggregation),
                   InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
 >>>>>>> Test aggs all the way out
+=======
+          internalAggregation = internalAggregation.reduce(List.of(internalAggregation, searchResult.internalAggregation), InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+>>>>>>> Tweak internal aggregation reduce logic
         }
       }
     }
