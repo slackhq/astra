@@ -8,6 +8,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.opensearch.common.util.BigArrays;
+import org.opensearch.common.util.PageCacheRecycler;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.search.aggregations.InternalAggregation;
 
 /**
  * This class will merge multiple search results into a single search result. Takes all the hits
@@ -15,6 +19,10 @@ import java.util.stream.Collectors;
  * merged using the histogram merge function.
  */
 public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchResultAggregator<T> {
+
+  final BigArrays bigArrays =
+      new BigArrays(
+          PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
   private final SearchQuery searchQuery;
 
@@ -38,6 +46,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                     searchQuery.endTimeEpochMs,
                     searchQuery.bucketCount))
             : Optional.empty();
+    InternalAggregation internalAggregation = null;
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
@@ -47,6 +56,17 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
       histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
+
+      if (internalAggregation == null) {
+        internalAggregation = searchResult.internalAggregation;
+      } else {
+        if (searchResult.internalAggregation != null) {
+          internalAggregation =
+              internalAggregation.reduce(
+                  List.of(searchResult.internalAggregation),
+                  InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+        }
+      }
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
@@ -66,6 +86,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         failedNodes,
         totalNodes,
         totalSnapshots,
-        snapshpotReplicas);
+        snapshpotReplicas,
+        internalAggregation);
   }
 }

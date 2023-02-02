@@ -81,7 +81,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    */
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
     SearchResult<T> errorResult =
-        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
+        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0, null);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
@@ -186,7 +186,8 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         searchResult.failedNodes,
         searchResult.totalNodes + 1,
         searchResult.totalSnapshots,
-        searchResult.snapshotsWithReplicas);
+        searchResult.snapshotsWithReplicas,
+        searchResult.internalAggregation);
   }
 
   @VisibleForTesting

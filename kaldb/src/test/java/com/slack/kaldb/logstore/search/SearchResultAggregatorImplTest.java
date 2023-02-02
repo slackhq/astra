@@ -36,7 +36,8 @@ public class SearchResultAggregatorImplTest {
         failedNodes,
         totalNodes,
         totalSnapshots,
-        snapshotsWithReplicas);
+        snapshotsWithReplicas,
+        null);
   }
 
   @Before
