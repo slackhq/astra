@@ -1,5 +1,9 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
+import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
+import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
+
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
@@ -15,6 +19,15 @@ import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
@@ -35,39 +48,9 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
-import org.opensearch.common.io.stream.InputStreamStreamInput;
-import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.common.io.stream.OutputStreamStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.search.DocValueFormat;
-import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
-import org.opensearch.search.aggregations.metrics.InternalValueCount;
-import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonEmptyString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureNonNullString;
-import static com.slack.kaldb.util.ArgValidationUtils.ensureTrue;
 
 /*
  * A wrapper around lucene that helps us search a single index containing logs.
@@ -148,7 +131,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
-            collectorManager = new MultiCollectorManager(topFieldCollector, OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch));
+            collectorManager =
+                new MultiCollectorManager(
+                    topFieldCollector,
+                    OpensearchShim.getCollectorManager(
+                        bucketCount, startTimeMsEpoch, endTimeMsEpoch));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -164,55 +151,43 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
         } else {
           results = Collections.emptyList();
-          Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
+          Object[] collector =
+              searcher.search(
+                  query,
+                  new MultiCollectorManager(
+                      OpensearchShim.getCollectorManager(
+                          bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
           histogram = ((InternalAutoDateHistogram) collector[0]);
         }
 
-        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(
-            Arrays.asList(
-                new NamedWriteableRegistry.Entry(AggregationBuilder.class, AutoDateHistogramAggregationBuilder.NAME, AutoDateHistogramAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(InternalAggregation.class, AutoDateHistogramAggregationBuilder.NAME, InternalAutoDateHistogram::new),
-                new NamedWriteableRegistry.Entry(AggregationBuilder.class, ValueCountAggregationBuilder.NAME, ValueCountAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(InternalAggregation.class, ValueCountAggregationBuilder.NAME, InternalValueCount::new),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.BOOLEAN.getWriteableName(), in -> DocValueFormat.BOOLEAN),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.DateTime.NAME, DocValueFormat.DateTime::new),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.GEOHASH.getWriteableName(), in -> DocValueFormat.GEOHASH),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.GEOTILE.getWriteableName(), in -> DocValueFormat.GEOTILE),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.IP.getWriteableName(), in -> DocValueFormat.IP),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.RAW.getWriteableName(), in -> DocValueFormat.RAW),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.BINARY.getWriteableName(), in -> DocValueFormat.BINARY),
-                new NamedWriteableRegistry.Entry(DocValueFormat.class, DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(), in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)
-            )
-        );
-
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream);
-        histogram.writeTo(streamOutput);
-
-        InputStream inputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
-        StreamInput streamInput = new InputStreamStreamInput(inputStream);
-        NamedWriteableAwareStreamInput namedWriteableAwareStreamInput = new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry);
-
-        //FilterStreamInput fs = new FilterStreamInput(streamInput);
-        InternalAutoDateHistogram reconstructed = new InternalAutoDateHistogram(namedWriteableAwareStreamInput);
-
         // todo - this is a temp test
-        //  the returned buckets aren't consistent across nodes, so we need to coerce these for now since
-        //  the query node can't handle these quite correctly - this will result in buckets that aren't quite accurate
+        //  the returned buckets aren't consistent across nodes, so we need to coerce these for now
+        // since
+        //  the query node can't handle these quite correctly - this will result in buckets that
+        // aren't quite accurate
         //  especially at the start and end
-        List<HistogramBucket> buckets = FixedIntervalHistogramImpl.makeHistogram(startTimeMsEpoch, endTimeMsEpoch, bucketCount);
+        List<HistogramBucket> buckets =
+            FixedIntervalHistogramImpl.makeHistogram(startTimeMsEpoch, endTimeMsEpoch, bucketCount);
         long totalCount = results.size();
         if (histogram != null) {
-          totalCount = histogram.getBuckets().stream().collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount)).getSum();
+          totalCount =
+              histogram
+                  .getBuckets()
+                  .stream()
+                  .collect(
+                      Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                  .getSum();
           for (int i = 0; i < histogram.getBuckets().size(); i++) {
             InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
             long key = Long.valueOf(bucket.getKeyAsString());
-            buckets.stream().forEach(histogramBucket -> {
-              if (histogramBucket.getHigh() >= key && key >= histogramBucket.getLow()) {
-                histogramBucket.increment(bucket.getDocCount());
-              }
-            });
+            buckets
+                .stream()
+                .forEach(
+                    histogramBucket -> {
+                      if (histogramBucket.getHigh() >= key && key >= histogramBucket.getLow()) {
+                        histogramBucket.increment(bucket.getDocCount());
+                      }
+                    });
           }
         }
 
@@ -225,7 +200,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             0,
             0,
             1,
-            1);
+            1,
+            histogram);
       } finally {
         searcherManager.release(searcher);
       }

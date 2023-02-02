@@ -6,11 +6,12 @@ import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.opensearch.search.aggregations.InternalAggregation;
 
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0);
+      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0, null);
 
   public final long totalCount;
 
@@ -28,6 +29,8 @@ public class SearchResult<T> {
   public final int totalSnapshots;
   public final int snapshotsWithReplicas;
 
+  public final InternalAggregation internalAggregation;
+
   public SearchResult() {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
@@ -37,6 +40,7 @@ public class SearchResult<T> {
     this.totalNodes = 0;
     this.totalSnapshots = 0;
     this.snapshotsWithReplicas = 0;
+    this.internalAggregation = null;
   }
 
   // TODO: Move stats into a separate struct.
@@ -48,7 +52,8 @@ public class SearchResult<T> {
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
-      int snapshotsWithReplicas) {
+      int snapshotsWithReplicas,
+      InternalAggregation internalAggregation) {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
@@ -57,6 +62,7 @@ public class SearchResult<T> {
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
     this.snapshotsWithReplicas = snapshotsWithReplicas;
+    this.internalAggregation = internalAggregation;
   }
 
   @Override
@@ -71,24 +77,8 @@ public class SearchResult<T> {
         && totalSnapshots == that.totalSnapshots
         && snapshotsWithReplicas == that.snapshotsWithReplicas
         && Objects.equal(hits, that.hits)
-        && Objects.equal(buckets, that.buckets);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(
-        totalCount,
-        hits,
-        tookMicros,
-        buckets,
-        failedNodes,
-        totalNodes,
-        totalSnapshots,
-        snapshotsWithReplicas);
-  }
-
-  public static SearchResult<LogMessage> empty() {
-    return EMPTY;
+        && Objects.equal(buckets, that.buckets)
+        && Objects.equal(internalAggregation, that.internalAggregation);
   }
 
   @Override
@@ -110,6 +100,26 @@ public class SearchResult<T> {
         + totalSnapshots
         + ", snapshotsWithReplicas="
         + snapshotsWithReplicas
+        + ", internalAggregation="
+        + internalAggregation
         + '}';
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(
+        totalCount,
+        hits,
+        tookMicros,
+        buckets,
+        failedNodes,
+        totalNodes,
+        totalSnapshots,
+        snapshotsWithReplicas,
+        internalAggregation);
+  }
+
+  public static SearchResult<LogMessage> empty() {
+    return EMPTY;
   }
 }

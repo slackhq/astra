@@ -35,7 +35,7 @@ public class SearchResultTest {
     buckets.add(new HistogramBucket(1, 2));
 
     SearchResult<LogMessage> searchResult =
-        new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7);
+        new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7, null);
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 

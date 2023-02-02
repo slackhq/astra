@@ -24,6 +24,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
+import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -38,6 +39,9 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+
+import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,16 +125,42 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
+
+    InternalAutoDateHistogram internalAggregation = null;
+    Map<String, AggregationResponse> aggregations = new HashMap<>();
+    if (searchResult.getInternalAggregations().size() > 0) {
+      try {
+        internalAggregation = OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
+
+        LOG.info("INTERNAL AGGS - {}", internalAggregation);
+
+        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
+        internalAggregation.getBuckets().forEach(bucket -> {
+          aggregationBucketResponses.add(new AggregationBucketResponse(
+              Double.parseDouble(bucket.getKeyAsString()),
+              bucket.getDocCount()
+          ));
+        });
+        aggregations.put(request.getAggregations().stream().findFirst().get().getAggregationKey(), new AggregationResponse(aggregationBucketResponses));
+      } catch (Exception e) {
+        LOG.error("ERROR reading internal agg", e);
+      }
+    }
+
     try {
       HitsMetadata hits = getHits(searchResult);
-      Map<String, AggregationResponse> aggregations =
-          getAggregations(request.getAggregations(), searchResult);
+
+      Map<String, String> debugAggs = new HashMap<>();
+      if (internalAggregation != null) {
+        debugAggs.put("internalAggs", internalAggregation.toString());
+      }
 
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .debugMetadata(debugAggs)
           .status(200)
           .build();
     } catch (Exception e) {

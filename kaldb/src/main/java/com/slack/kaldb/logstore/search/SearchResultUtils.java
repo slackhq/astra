@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -58,7 +59,8 @@ public class SearchResultUtils {
         protoSearchResult.getFailedNodes(),
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
-        protoSearchResult.getSnapshotsWithReplicas());
+        protoSearchResult.getSnapshotsWithReplicas(),
+        OpensearchShim.fromByteArray(protoSearchResult.getInternalAggregations().toByteArray()));
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
@@ -104,6 +106,9 @@ public class SearchResultUtils {
               .build());
     }
     searchResultBuilder.addAllBuckets(protoBuckets);
+    ByteString bytes =
+        ByteString.copyFrom(OpensearchShim.toByteArray(searchResult.internalAggregation));
+    searchResultBuilder.setInternalAggregations(bytes);
     span.finish();
     return searchResultBuilder.build();
   }
