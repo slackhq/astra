@@ -1,14 +1,11 @@
 package com.slack.kaldb.logstore.search.queryparser;
 
+import static com.slack.kaldb.metadata.schema.FieldTypeUtils.KEYWORD_ANALYZER;
+
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.KeywordAnalyzer;
-import org.apache.lucene.document.DoublePoint;
-import org.apache.lucene.document.FloatPoint;
-import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.FieldExistsQuery;
@@ -19,7 +16,6 @@ import org.apache.lucene.search.Query;
 public class KaldbQueryParser extends QueryParser {
 
   private static final String EXISTS_FIELD = "_exists_";
-  KeywordAnalyzer cachedStrAnalyzer = new KeywordAnalyzer();
 
   private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
 
@@ -55,51 +51,44 @@ public class KaldbQueryParser extends QueryParser {
     if (EXISTS_FIELD.equals(field)) {
       return new FieldExistsQuery(queryText);
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.LONG) {
-      return LongPoint.newExactQuery(field, Long.parseLong(queryText));
+
+    if (quoted) {
+      return getFieldQuery(field, queryText, getPhraseSlop());
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.INTEGER) {
-      return IntPoint.newExactQuery(field, Integer.parseInt(queryText));
+
+    if (field == null || chunkSchema.get(field) == null) {
+      throw new IllegalArgumentException("");
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.FLOAT) {
-      return FloatPoint.newExactQuery(field, Float.parseFloat(queryText));
+
+    LuceneFieldDef fieldType = chunkSchema.get(field);
+    Analyzer queryAnalyzer = fieldType.fieldType.getAnalyzer(false);
+
+    // TODO: fold this bit into the fieldType
+    if (fieldType.fieldType == FieldType.TEXT) {
+      // Today we only support one text field - i.e we don't support configuring analyzer.
+      // when we do the info will be present in fieldDef and we can pass that analyzer
+      return super.newFieldQuery(this.getAnalyzer(), field, queryText, quoted);
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.DOUBLE) {
-      return DoublePoint.newExactQuery(field, Double.parseDouble(queryText));
-    }
-    if (chunkSchema.get(field) != null
-        && (chunkSchema.get(field).fieldType == FieldType.BOOLEAN
-            || chunkSchema.get(field).fieldType == FieldType.STRING)) {
-      super.newFieldQuery(cachedStrAnalyzer, field, queryText, quoted);
-    }
-    // Today we only support one text field - i.e we don't support configuring analyzer.
-    // when we do the info will be present in fieldDef and we can pass that analyzer
-    return super.newFieldQuery(this.getAnalyzer(), field, queryText, quoted);
+    return fieldType.fieldType.termQuery(field, queryText, queryAnalyzer);
   }
 
   @Override
   protected Query getFieldQuery(String field, String queryText, int slop) throws ParseException {
-    if (EXISTS_FIELD.equals(field)) {
-      return new FieldExistsQuery(queryText);
+    if (field == null || chunkSchema.get(field) == null) {
+      throw new IllegalArgumentException("");
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.LONG) {
-      return LongPoint.newExactQuery(field, Long.parseLong(queryText));
+    LuceneFieldDef fieldType = chunkSchema.get(field);
+    Analyzer queryAnalyzer = fieldType.fieldType.getAnalyzer(false);
+
+    if (fieldType.fieldType == FieldType.TEXT) {
+      // Today we only support one text field - i.e we don't support configuring analyzer.
+      // when we do the info will be present in fieldDef and we can pass that analyzer
+      return super.newFieldQuery(this.getAnalyzer(), field, queryText, true);
     }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.INTEGER) {
-      return IntPoint.newExactQuery(field, Integer.parseInt(queryText));
-    }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.FLOAT) {
-      return FloatPoint.newExactQuery(field, Float.parseFloat(queryText));
-    }
-    if (chunkSchema.get(field) != null && chunkSchema.get(field).fieldType == FieldType.DOUBLE) {
-      return DoublePoint.newExactQuery(field, Double.parseDouble(queryText));
-    }
-    if (chunkSchema.get(field) != null
-        && (chunkSchema.get(field).fieldType == FieldType.BOOLEAN
-            || chunkSchema.get(field).fieldType == FieldType.STRING)) {
+    if (fieldType.fieldType == FieldType.STRING) {
       // mimics super.getFieldQuery but passes our analyzer
-      // needs cleanup in the future
-      Query query = super.newFieldQuery(cachedStrAnalyzer, field, queryText, true);
+      // needs cleanup in the future so that we don't copy things over
+      Query query = super.newFieldQuery(KEYWORD_ANALYZER, field, queryText, true);
       if (query instanceof PhraseQuery) {
         query = addSlopToPhrase((PhraseQuery) query, slop);
       } else if (query instanceof MultiPhraseQuery) {
@@ -111,9 +100,7 @@ public class KaldbQueryParser extends QueryParser {
       }
       return query;
     }
-    // Today we only support one text field - i.e we don't support configuring analyzer.
-    // when we do the info will be present in fieldDef and we can pass that analyzer
-    return super.getFieldQuery(field, queryText, slop);
+    return fieldType.fieldType.termQuery(field, queryText, queryAnalyzer);
   }
 
   /** Rebuild a phrase query with a slop value */

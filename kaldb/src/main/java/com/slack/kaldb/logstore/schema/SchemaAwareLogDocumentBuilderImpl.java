@@ -302,7 +302,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
       return FieldType.INTEGER;
     }
     if (value instanceof String) {
-      return FieldType.TEXT;
+      return FieldType.STRING;
     }
     if (value instanceof Float) {
       return FieldType.FLOAT;
