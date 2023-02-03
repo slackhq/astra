@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
 =======
@@ -27,6 +28,12 @@ import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
 >>>>>>> Add POC for serialization
+=======
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.LogMessage.SystemField;
+import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
+>>>>>>> Initial cleanup
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -54,7 +61,6 @@ import java.util.stream.Collectors;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -239,10 +245,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
             collectorManager =
                 new MultiCollectorManager(
+<<<<<<< bburkholder/opensearch-serialize
                     topFieldCollector,
                     OpensearchShim.getCollectorManager(
                         bucketCount, startTimeMsEpoch, endTimeMsEpoch));
 >>>>>>> Test aggs all the way out
+=======
+                    topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
+>>>>>>> Initial cleanup
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -308,22 +318,18 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           Object[] collector =
               searcher.search(
                   query,
+<<<<<<< bburkholder/opensearch-serialize
                   new MultiCollectorManager(
                       OpensearchShim.getCollectorManager(
                           bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
 >>>>>>> Test aggs all the way out
+=======
+                  new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
+>>>>>>> Initial cleanup
           histogram = ((InternalAutoDateHistogram) collector[0]);
 >>>>>>> Rework results to return fixed bucket widths for now
         }
 
-        // todo - this is a temp test
-        //  the returned buckets aren't consistent across nodes, so we need to coerce these for now
-        // since
-        //  the query node can't handle these quite correctly - this will result in buckets that
-        // aren't quite accurate
-        //  especially at the start and end
-        List<HistogramBucket> buckets =
-            FixedIntervalHistogramImpl.makeHistogram(startTimeMsEpoch, endTimeMsEpoch, bucketCount);
         long totalCount = results.size();
         if (histogram != null) {
           totalCount =
@@ -333,22 +339,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                   .collect(
                       Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                   .getSum();
-          for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
-            long key = Long.valueOf(bucket.getKeyAsString());
-            buckets
-                .stream()
-                .forEach(
-                    histogramBucket -> {
-                      if (histogramBucket.getHigh() >= key && key >= histogramBucket.getLow()) {
-                        histogramBucket.increment(bucket.getDocCount());
-                      }
-                    });
-          }
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
+<<<<<<< bburkholder/opensearch-serialize
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
 <<<<<<< bburkholder/opensearch-serialize
@@ -375,6 +370,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             1,
             1,
             histogram);
+=======
+            results, elapsedTime.elapsed(TimeUnit.MICROSECONDS), totalCount, 0, 0, 1, 1, histogram);
+>>>>>>> Initial cleanup
       } finally {
         searcherManager.release(searcher);
       }

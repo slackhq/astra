@@ -7,10 +7,14 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
 >>>>>>> Test aggs all the way out
+=======
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
+>>>>>>> Initial cleanup
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -75,11 +79,15 @@ public class SearchResultUtils {
     span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
     span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
+<<<<<<< bburkholder/opensearch-serialize
     span.tag(
         "internalAggregation",
         searchResult.internalAggregation != null
             ? searchResult.internalAggregation.toString()
             : "");
+=======
+    span.tag("internalAggregation", searchResult.internalAggregation.toString());
+>>>>>>> Initial cleanup
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
@@ -101,6 +109,7 @@ public class SearchResultUtils {
     searchResultBuilder.addAllHits(protoHits);
 
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
     ByteString bytes =
         ByteString.copyFrom(
             OpenSearchAggregationAdapter.toByteArray(searchResult.internalAggregation));
@@ -117,6 +126,8 @@ public class SearchResultUtils {
               .build());
     }
     searchResultBuilder.addAllBuckets(protoBuckets);
+=======
+>>>>>>> Initial cleanup
     ByteString bytes =
         ByteString.copyFrom(OpensearchShim.toByteArray(searchResult.internalAggregation));
 >>>>>>> Test aggs all the way out

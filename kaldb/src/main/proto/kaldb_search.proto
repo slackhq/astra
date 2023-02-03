@@ -27,7 +27,10 @@ message SearchResult {
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
+<<<<<<< bburkholder/opensearch-serialize
   bytes internal_aggregations = 10;
+=======
+>>>>>>> Initial cleanup
 }
 
 service KaldbService {

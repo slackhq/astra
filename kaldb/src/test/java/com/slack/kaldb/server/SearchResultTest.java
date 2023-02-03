@@ -4,17 +4,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+=======
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
+>>>>>>> Initial cleanup
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.junit.Test;
+<<<<<<< bburkholder/opensearch-serialize
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
+=======
+import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.metrics.InternalAvg;
+>>>>>>> Initial cleanup
 
 public class SearchResultTest {
 
@@ -33,6 +44,7 @@ public class SearchResultTest {
       logMessages.add(logMessage);
     }
 
+<<<<<<< bburkholder/opensearch-serialize
     Aggregator dateHistogramAggregation =
         OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
@@ -42,6 +54,13 @@ public class SearchResultTest {
 =======
         new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7, null);
 >>>>>>> Test aggs all the way out
+=======
+    InternalAggregation internalAggregation =
+        new InternalAvg("avg", 10, 10, DocValueFormat.RAW, Map.of("foo", "bar"));
+
+    SearchResult<LogMessage> searchResult =
+        new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
+>>>>>>> Initial cleanup
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 
@@ -53,7 +72,11 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getTotalSnapshots()).isEqualTo(7);
     assertThat(protoSearchResult.getSnapshotsWithReplicas()).isEqualTo(7);
     assertThat(protoSearchResult.getInternalAggregations().toByteArray())
+<<<<<<< bburkholder/opensearch-serialize
         .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
+=======
+        .isEqualTo(OpensearchShim.toByteArray(internalAggregation));
+>>>>>>> Initial cleanup
 
     SearchResult<LogMessage> convertedSearchResult =
         SearchResultUtils.fromSearchResultProto(protoSearchResult);

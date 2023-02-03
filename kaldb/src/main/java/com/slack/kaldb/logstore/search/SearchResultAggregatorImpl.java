@@ -1,7 +1,10 @@
 package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
+=======
+>>>>>>> Initial cleanup
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,6 +42,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     int snapshpotReplicas = 0;
     int totalCount = 0;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
     Optional<Histogram> histogram =
         searchQuery.bucketCount > 0
@@ -49,6 +53,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                     searchQuery.bucketCount))
             : Optional.empty();
 >>>>>>> Test aggs all the way out
+=======
+>>>>>>> Initial cleanup
     InternalAggregation internalAggregation = null;
 
     for (SearchResult<T> searchResult : searchResults) {
@@ -59,14 +65,18 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
       histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
 >>>>>>> Test aggs all the way out
+=======
+>>>>>>> Initial cleanup
 
       if (internalAggregation == null) {
         internalAggregation = searchResult.internalAggregation;
       } else {
         if (searchResult.internalAggregation != null) {
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
           internalAggregation =
               internalAggregation.reduce(
@@ -81,6 +91,12 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 =======
           internalAggregation = internalAggregation.reduce(List.of(internalAggregation, searchResult.internalAggregation), InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
 >>>>>>> Tweak internal aggregation reduce logic
+=======
+          internalAggregation =
+              internalAggregation.reduce(
+                  List.of(internalAggregation, searchResult.internalAggregation),
+                  InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+>>>>>>> Initial cleanup
         }
       }
     }

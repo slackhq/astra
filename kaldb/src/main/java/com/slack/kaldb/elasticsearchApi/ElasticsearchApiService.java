@@ -17,7 +17,6 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
@@ -25,10 +24,14 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
 >>>>>>> Test aggs all the way out
+=======
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
+>>>>>>> Initial cleanup
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -44,10 +47,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 
 import org.opensearch.search.aggregations.InternalAggregation;
 >>>>>>> Test aggs all the way out
+=======
+>>>>>>> Initial cleanup
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,23 +137,24 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-
     InternalAutoDateHistogram internalAggregation = null;
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (searchResult.getInternalAggregations().size() > 0) {
       try {
-        internalAggregation = OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
-
-        LOG.info("INTERNAL AGGS - {}", internalAggregation);
-
+        internalAggregation =
+            OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
-        internalAggregation.getBuckets().forEach(bucket -> {
-          aggregationBucketResponses.add(new AggregationBucketResponse(
-              Double.parseDouble(bucket.getKeyAsString()),
-              bucket.getDocCount()
-          ));
-        });
-        aggregations.put(request.getAggregations().stream().findFirst().get().getAggregationKey(), new AggregationResponse(aggregationBucketResponses));
+        internalAggregation
+            .getBuckets()
+            .forEach(
+                bucket -> {
+                  aggregationBucketResponses.add(
+                      new AggregationBucketResponse(
+                          Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount()));
+                });
+        aggregations.put(
+            request.getAggregations().stream().findFirst().get().getAggregationKey(),
+            new AggregationResponse(aggregationBucketResponses));
       } catch (Exception e) {
         LOG.error("ERROR reading internal agg", e);
       }
@@ -156,11 +163,14 @@ public class ElasticsearchApiService {
     try {
       HitsMetadata hits = getHits(searchResult);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
       Map<String, AggregationResponse> aggregations =
           buildLegacyAggregationResponse(
               request.getAggregations(), searchResult.getInternalAggregations());
 =======
 
+=======
+>>>>>>> Initial cleanup
       Map<String, String> debugAggs = new HashMap<>();
       if (internalAggregation != null) {
         debugAggs.put("internalAggs", internalAggregation.toString());

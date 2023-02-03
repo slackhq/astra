@@ -3,8 +3,11 @@ package com.slack.kaldb.logstore.search;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
+<<<<<<< bburkholder/opensearch-serialize
 import com.google.common.io.Files;
 import com.slack.kaldb.logstore.DocumentBuilder;
+=======
+>>>>>>> Initial cleanup
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
@@ -38,7 +41,7 @@ public class SearchResultAggregatorImplTest {
       List<LogMessage> messages,
       long tookMs,
       long totalCount,
-      List<HistogramBucket> buckets,
+      List<Object> buckets,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
@@ -77,6 +80,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 =
         makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
     InternalAggregation histogram2 =
@@ -86,6 +90,17 @@ public class SearchResultAggregatorImplTest {
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
         new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, histogram2);
+=======
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
+    SearchResult<LogMessage> searchResult2 =
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 0, 1, 1, 0);
+>>>>>>> Initial cleanup
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -115,6 +130,7 @@ public class SearchResultAggregatorImplTest {
         .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
@@ -126,6 +142,11 @@ public class SearchResultAggregatorImplTest {
                 .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+=======
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -143,6 +164,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 =
         makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
     InternalAggregation histogram2 =
@@ -152,6 +174,17 @@ public class SearchResultAggregatorImplTest {
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
         new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, histogram2);
+=======
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
+    SearchResult<LogMessage> searchResult2 =
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 0, 1, 1, 0);
+>>>>>>> Initial cleanup
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -180,6 +213,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
@@ -191,6 +225,11 @@ public class SearchResultAggregatorImplTest {
                 .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+=======
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -214,6 +253,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages4 =
         MessageUtil.makeMessagesWithTimeDifference(31, 40, 1000 * 60, startTime4);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 =
         makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
     InternalAggregation histogram2 =
@@ -231,6 +271,25 @@ public class SearchResultAggregatorImplTest {
         new SearchResult<>(messages3, tookMs + 2, 10, 0, 1, 1, 0, histogram3);
     SearchResult<LogMessage> searchResult4 =
         new SearchResult<>(messages4, tookMs + 3, 10, 0, 1, 1, 1, histogram4);
+=======
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+    //    Histogram histogram3 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages3);
+    //    Histogram histogram4 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages4);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
+    SearchResult<LogMessage> searchResult2 =
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 1, 1, 1, 1);
+    SearchResult<LogMessage> searchResult3 =
+        makeSearchResult(messages3, tookMs + 2, 10, List.of(), 0, 1, 1, 0);
+    SearchResult<LogMessage> searchResult4 =
+        makeSearchResult(messages4, tookMs + 3, 10, List.of(), 0, 1, 1, 1);
+>>>>>>> Initial cleanup
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -257,6 +316,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(40);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
@@ -268,6 +328,11 @@ public class SearchResultAggregatorImplTest {
                 .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size() + messages3.size() + messages4.size());
+=======
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -317,10 +382,14 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
     assertThat(internalAutoDateHistogram.getBuckets().size()).isEqualTo(0);
+=======
+    //    assertThat(aggSearchResult.buckets.size()).isZero();
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -338,6 +407,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 =
         makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
     InternalAggregation histogram2 =
@@ -347,6 +417,17 @@ public class SearchResultAggregatorImplTest {
         new SearchResult<>(Collections.emptyList(), tookMs, 7, 0, 2, 2, 2, histogram1);
     SearchResult<LogMessage> searchResult2 =
         new SearchResult<>(Collections.emptyList(), tookMs + 1, 8, 0, 1, 1, 0, histogram2);
+=======
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(Collections.emptyList(), tookMs, 7, List.of(), 0, 2, 2, 2);
+    SearchResult<LogMessage> searchResult2 =
+        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, List.of(), 0, 1, 1, 0);
+>>>>>>> Initial cleanup
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -370,6 +451,7 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
@@ -381,6 +463,11 @@ public class SearchResultAggregatorImplTest {
                 .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+=======
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -398,10 +485,17 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 1, 1, 1, 0, histogram1);
+=======
+    //    Histogram histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(messages1, tookMs, 10, List.of(), 1, 1, 1, 0);
+>>>>>>> Initial cleanup
     SearchResult<LogMessage> searchResult2 =
         new SearchResult<>(messages2, tookMs + 1, 11, 0, 1, 1, 0, emptyAggregation());
 
@@ -432,10 +526,14 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(21);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
     assertThat(internalAutoDateHistogram).isEqualTo(histogram1);
+=======
+    //    assertThat(aggSearchResult.buckets.size()).isZero();
+>>>>>>> Initial cleanup
   }
 
   @Test
@@ -453,6 +551,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
+<<<<<<< bburkholder/opensearch-serialize
     InternalAggregation histogram1 =
         makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
     InternalAggregation histogram2 =
@@ -462,6 +561,17 @@ public class SearchResultAggregatorImplTest {
         new SearchResult<>(messages1, tookMs, 7, 0, 2, 2, 2, histogram1);
     SearchResult<LogMessage> searchResult2 =
         new SearchResult<>(Collections.emptyList(), tookMs + 1, 8, 0, 1, 1, 0, histogram2);
+=======
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+
+    SearchResult<LogMessage> searchResult1 =
+        makeSearchResult(messages1, tookMs, 7, List.of(), 0, 2, 2, 2);
+    SearchResult<LogMessage> searchResult2 =
+        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, List.of(), 0, 1, 1, 0);
+>>>>>>> Initial cleanup
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -485,6 +595,7 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
+<<<<<<< bburkholder/opensearch-serialize
 
     InternalAutoDateHistogram internalAutoDateHistogram =
         Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
@@ -546,5 +657,10 @@ public class SearchResultAggregatorImplTest {
       logStore.close();
       logStore.cleanup();
     }
+=======
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
+>>>>>>> Initial cleanup
   }
 }

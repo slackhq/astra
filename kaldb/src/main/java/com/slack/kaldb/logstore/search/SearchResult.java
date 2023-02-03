@@ -11,10 +11,14 @@ public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
       new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
 =======
       new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0, null);
 >>>>>>> Test aggs all the way out
+=======
+      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
+>>>>>>> Initial cleanup
 
   public final long totalCount;
 
@@ -54,6 +58,30 @@ public class SearchResult<T> {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
+<<<<<<< bburkholder/opensearch-serialize
+=======
+    this.failedNodes = failedNodes;
+    this.totalNodes = totalNodes;
+    this.totalSnapshots = totalSnapshots;
+    this.snapshotsWithReplicas = snapshotsWithReplicas;
+    this.internalAggregation = internalAggregation;
+  }
+
+  @Deprecated
+  public SearchResult(
+      List<T> hits,
+      long tookMicros,
+      long totalCount,
+      List<Object> buckets,
+      int failedNodes,
+      int totalNodes,
+      int totalSnapshots,
+      int snapshotsWithReplicas,
+      InternalAggregation internalAggregation) {
+    this.hits = hits;
+    this.tookMicros = tookMicros;
+    this.totalCount = totalCount;
+>>>>>>> Initial cleanup
     this.failedNodes = failedNodes;
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
@@ -74,9 +102,12 @@ public class SearchResult<T> {
         && snapshotsWithReplicas == that.snapshotsWithReplicas
         && Objects.equal(hits, that.hits)
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
         && Objects.equal(buckets, that.buckets)
 >>>>>>> Test aggs all the way out
+=======
+>>>>>>> Initial cleanup
         && Objects.equal(internalAggregation, that.internalAggregation);
   }
 
@@ -109,9 +140,12 @@ public class SearchResult<T> {
         hits,
         tookMicros,
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
         buckets,
 >>>>>>> Test aggs all the way out
+=======
+>>>>>>> Initial cleanup
         failedNodes,
         totalNodes,
         totalSnapshots,
