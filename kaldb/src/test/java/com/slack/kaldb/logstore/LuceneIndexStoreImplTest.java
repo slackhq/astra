@@ -223,8 +223,9 @@ public class LuceneIndexStoreImplTest {
       MessageUtil.addFieldToMessage(msg, "hugefield", hugeField);
       logStore.logStore.addMessage(msg);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
-      assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
-      // Counters not set since no commit.
+      // UTF8 encoding is longer than the max length 32766
+      assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
+      // Counters not set since no commit
       assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(COMMITS_TIMER, logStore.metricsRegistry)).isEqualTo(0);
     }
