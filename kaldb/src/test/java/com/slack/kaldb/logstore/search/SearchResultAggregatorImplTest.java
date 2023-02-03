@@ -1,11 +1,8 @@
 package com.slack.kaldb.logstore.search;
 
-import static com.slack.kaldb.testlib.HistogramUtil.makeHistogram;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
-import com.slack.kaldb.histogram.Histogram;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.time.Instant;
@@ -23,7 +20,7 @@ public class SearchResultAggregatorImplTest {
       List<LogMessage> messages,
       long tookMs,
       long totalCount,
-      List<HistogramBucket> buckets,
+      List<Object> buckets,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
@@ -61,13 +58,15 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
-    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 0, 1, 1, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -97,9 +96,9 @@ public class SearchResultAggregatorImplTest {
         .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
-    }
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
   }
 
   @Test
@@ -117,13 +116,15 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
-    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 0, 1, 1, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -152,9 +153,9 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
-    }
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
   }
 
   @Test
@@ -178,19 +179,23 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages4 =
         MessageUtil.makeMessagesWithTimeDifference(31, 40, 1000 * 60, startTime4);
 
-    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
-    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
-    Histogram histogram3 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages3);
-    Histogram histogram4 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages4);
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
+    //    Histogram histogram3 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages3);
+    //    Histogram histogram4 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages4);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages1, tookMs, 10, List.of(), 0, 1, 1, 0);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(messages2, tookMs + 1, 10, histogram2.getBuckets(), 1, 1, 1, 1);
+        makeSearchResult(messages2, tookMs + 1, 10, List.of(), 1, 1, 1, 1);
     SearchResult<LogMessage> searchResult3 =
-        makeSearchResult(messages3, tookMs + 2, 10, histogram3.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(messages3, tookMs + 2, 10, List.of(), 0, 1, 1, 0);
     SearchResult<LogMessage> searchResult4 =
-        makeSearchResult(messages4, tookMs + 3, 10, histogram4.getBuckets(), 0, 1, 1, 1);
+        makeSearchResult(messages4, tookMs + 3, 10, List.of(), 0, 1, 1, 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -217,9 +222,9 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(40);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
-    }
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
   }
 
   @Test
@@ -269,7 +274,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
-    assertThat(aggSearchResult.buckets.size()).isZero();
+    //    assertThat(aggSearchResult.buckets.size()).isZero();
   }
 
   @Test
@@ -287,14 +292,15 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
-    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(Collections.emptyList(), tookMs, 7, histogram1.getBuckets(), 0, 2, 2, 2);
+        makeSearchResult(Collections.emptyList(), tookMs, 7, List.of(), 0, 2, 2, 2);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(
-            Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, List.of(), 0, 1, 1, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -318,9 +324,9 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
-    }
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
   }
 
   @Test
@@ -338,10 +344,10 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    Histogram histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
+    //    Histogram histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 10, histogram1.getBuckets(), 1, 1, 1, 0);
+        makeSearchResult(messages1, tookMs, 10, List.of(), 1, 1, 1, 0);
     SearchResult<LogMessage> searchResult2 =
         makeSearchResult(messages2, tookMs + 1, 11, Collections.emptyList(), 0, 1, 1, 0);
 
@@ -372,7 +378,7 @@ public class SearchResultAggregatorImplTest {
     }
 
     assertThat(aggSearchResult.totalCount).isEqualTo(21);
-    assertThat(aggSearchResult.buckets.size()).isZero();
+    //    assertThat(aggSearchResult.buckets.size()).isZero();
   }
 
   @Test
@@ -390,14 +396,15 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
-    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+    //    Histogram histogram1 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages1);
+    //    Histogram histogram2 = makeHistogram(histogramStartMs, histogramEndMs, bucketCount,
+    // messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        makeSearchResult(messages1, tookMs, 7, histogram1.getBuckets(), 0, 2, 2, 2);
+        makeSearchResult(messages1, tookMs, 7, List.of(), 0, 2, 2, 2);
     SearchResult<LogMessage> searchResult2 =
-        makeSearchResult(
-            Collections.emptyList(), tookMs + 1, 8, histogram2.getBuckets(), 0, 1, 1, 0);
+        makeSearchResult(Collections.emptyList(), tookMs + 1, 8, List.of(), 0, 1, 1, 0);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -421,8 +428,8 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
-    for (HistogramBucket b : aggSearchResult.buckets) {
-      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
-    }
+    //    for (HistogramBucket b : aggSearchResult.buckets) {
+    //      assertThat(b.getCount() == 10 || b.getCount() == 0).isTrue();
+    //    }
   }
 }

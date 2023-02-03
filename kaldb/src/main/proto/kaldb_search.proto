@@ -20,20 +20,13 @@ message SearchRequest {
 message SearchResult {
   int64 total_count = 2;
   repeated string hits = 3;
-  repeated HistogramBucket buckets = 4;
+  bytes internal_aggregations = 4;
   int64 took_micros = 5;
 
   int32 failed_nodes = 6;
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
-  bytes internal_aggregations = 10;
-}
-
-message HistogramBucket {
-  double low = 1;
-  double high = 2;
-  double count = 3;
 }
 
 service KaldbService {

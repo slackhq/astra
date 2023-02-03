@@ -1,12 +1,8 @@
 package com.slack.kaldb.logstore.search;
 
-import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
-import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.logstore.LogMessage;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.PageCacheRecycler;
@@ -38,14 +34,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     int totalSnapshots = 0;
     int snapshpotReplicas = 0;
     int totalCount = 0;
-    Optional<Histogram> histogram =
-        searchQuery.bucketCount > 0
-            ? Optional.of(
-                new FixedIntervalHistogramImpl(
-                    searchQuery.startTimeEpochMs,
-                    searchQuery.endTimeEpochMs,
-                    searchQuery.bucketCount))
-            : Optional.empty();
     InternalAggregation internalAggregation = null;
 
     for (SearchResult<T> searchResult : searchResults) {
@@ -55,13 +43,15 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       totalSnapshots += searchResult.totalSnapshots;
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
-      histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
 
       if (internalAggregation == null) {
         internalAggregation = searchResult.internalAggregation;
       } else {
         if (searchResult.internalAggregation != null) {
-          internalAggregation = internalAggregation.reduce(List.of(internalAggregation, searchResult.internalAggregation), InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+          internalAggregation =
+              internalAggregation.reduce(
+                  List.of(internalAggregation, searchResult.internalAggregation),
+                  InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
         }
       }
     }
@@ -79,7 +69,6 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         resultHits,
         tookMicros,
         totalCount,
-        histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
         failedNodes,
         totalNodes,
         totalSnapshots,

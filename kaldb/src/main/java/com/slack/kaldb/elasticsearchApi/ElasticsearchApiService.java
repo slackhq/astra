@@ -17,14 +17,13 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
-import com.slack.kaldb.logstore.OpensearchShim;
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -39,8 +38,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-
-import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,7 +114,6 @@ public class ElasticsearchApiService {
     span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
     span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
-    span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
     span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
     span.tag("resultTotalNodes", String.valueOf(searchResult.getTotalNodes()));
@@ -125,23 +121,24 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-
     InternalAutoDateHistogram internalAggregation = null;
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (searchResult.getInternalAggregations().size() > 0) {
       try {
-        internalAggregation = OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
-
-        LOG.info("INTERNAL AGGS - {}", internalAggregation);
-
+        internalAggregation =
+            OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
-        internalAggregation.getBuckets().forEach(bucket -> {
-          aggregationBucketResponses.add(new AggregationBucketResponse(
-              Double.parseDouble(bucket.getKeyAsString()),
-              bucket.getDocCount()
-          ));
-        });
-        aggregations.put(request.getAggregations().stream().findFirst().get().getAggregationKey(), new AggregationResponse(aggregationBucketResponses));
+        internalAggregation
+            .getBuckets()
+            .forEach(
+                bucket -> {
+                  aggregationBucketResponses.add(
+                      new AggregationBucketResponse(
+                          Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount()));
+                });
+        aggregations.put(
+            request.getAggregations().stream().findFirst().get().getAggregationKey(),
+            new AggregationResponse(aggregationBucketResponses));
       } catch (Exception e) {
         LOG.error("ERROR reading internal agg", e);
       }
@@ -149,7 +146,6 @@ public class ElasticsearchApiService {
 
     try {
       HitsMetadata hits = getHits(searchResult);
-
       Map<String, String> debugAggs = new HashMap<>();
       if (internalAggregation != null) {
         debugAggs.put("internalAggs", internalAggregation.toString());
@@ -195,35 +191,6 @@ public class ElasticsearchApiService {
         .hitsTotal(ImmutableMap.of("value", responseHits.size(), "relation", "eq"))
         .hits(responseHits)
         .build();
-  }
-
-  private Map<String, AggregationResponse> getAggregations(
-      List<SearchRequestAggregation> aggregations, KaldbSearch.SearchResult searchResult) {
-    // todo - we currently are only supporting a single aggregation of type `date_histogram` and
-    //  assume it is the always the first aggregation requested
-    //  this will need to be refactored when we support more aggregation types
-    Optional<SearchRequestAggregation> aggregationRequest = aggregations.stream().findFirst();
-
-    Map<String, AggregationResponse> aggregationResponseMap = new HashMap<>();
-    if (aggregationRequest.isPresent()) {
-      List<AggregationBucketResponse> buckets =
-          new ArrayList<>(searchResult.getBucketsList().size());
-      searchResult
-          .getBucketsList()
-          .forEach(
-              histogramBucket -> {
-                // our response from kaldb has the start and end of the bucket, but we only need the
-                // midpoint for the response object
-                double getKey =
-                    histogramBucket.getLow()
-                        + ((histogramBucket.getHigh() - histogramBucket.getLow()) / 2);
-                buckets.add(new AggregationBucketResponse(getKey, histogramBucket.getCount()));
-              });
-      aggregationResponseMap.put(
-          aggregationRequest.get().getAggregationKey(), new AggregationResponse(buckets));
-    }
-
-    return aggregationResponseMap;
   }
 
   /**

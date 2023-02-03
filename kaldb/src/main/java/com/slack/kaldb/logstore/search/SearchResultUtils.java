@@ -4,10 +4,9 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.OpensearchShim;
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -45,17 +44,11 @@ public class SearchResultUtils {
       LogMessage message = LogMessage.fromWireMessage(hit);
       hits.add(message);
     }
-    List<HistogramBucket> histogramBuckets = new ArrayList<>();
-    for (KaldbSearch.HistogramBucket protoBucket : protoSearchResult.getBucketsList()) {
-      histogramBuckets.add(
-          new HistogramBucket(protoBucket.getLow(), protoBucket.getHigh(), protoBucket.getCount()));
-    }
 
     return new SearchResult<>(
         hits,
         protoSearchResult.getTookMicros(),
         protoSearchResult.getTotalCount(),
-        histogramBuckets,
         protoSearchResult.getFailedNodes(),
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
@@ -73,7 +66,7 @@ public class SearchResultUtils {
     span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
     span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
-    span.tag("buckets", String.valueOf(searchResult.buckets.size()));
+    span.tag("internalAggregation", searchResult.internalAggregation.toString());
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
@@ -94,18 +87,6 @@ public class SearchResultUtils {
     }
     searchResultBuilder.addAllHits(protoHits);
 
-    // Set buckets
-    List<KaldbSearch.HistogramBucket> protoBuckets = new ArrayList<>(searchResult.buckets.size());
-    for (HistogramBucket bucket : searchResult.buckets) {
-      KaldbSearch.HistogramBucket.Builder builder = KaldbSearch.HistogramBucket.newBuilder();
-      protoBuckets.add(
-          builder
-              .setCount(bucket.getCount())
-              .setHigh(bucket.getHigh())
-              .setLow(bucket.getLow())
-              .build());
-    }
-    searchResultBuilder.addAllBuckets(protoBuckets);
     ByteString bytes =
         ByteString.copyFrom(OpensearchShim.toByteArray(searchResult.internalAggregation));
     searchResultBuilder.setInternalAggregations(bytes);
