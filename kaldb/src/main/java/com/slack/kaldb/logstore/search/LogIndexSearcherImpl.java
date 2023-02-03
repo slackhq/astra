@@ -8,21 +8,16 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
-import com.slack.kaldb.histogram.Histogram;
-import com.slack.kaldb.histogram.HistogramBucket;
-import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.OpensearchShim;
+import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -68,15 +62,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
     return new SearcherManager(directory, null);
-  }
-
-  // todo - this is not needed once this data is on the snapshot
-  public static int getNumDocs(Path path) throws IOException {
-    MMapDirectory directory = new MMapDirectory(path);
-    DirectoryReader directoryReader = DirectoryReader.open(directory);
-    int numDocs = directoryReader.numDocs();
-    directoryReader.close();
-    return numDocs;
   }
 
   public LogIndexSearcherImpl(
@@ -133,9 +118,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           if (bucketCount > 0) {
             collectorManager =
                 new MultiCollectorManager(
-                    topFieldCollector,
-                    OpensearchShim.getCollectorManager(
-                        bucketCount, startTimeMsEpoch, endTimeMsEpoch));
+                    topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -154,20 +137,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           Object[] collector =
               searcher.search(
                   query,
-                  new MultiCollectorManager(
-                      OpensearchShim.getCollectorManager(
-                          bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
+                  new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
           histogram = ((InternalAutoDateHistogram) collector[0]);
         }
 
-        // todo - this is a temp test
-        //  the returned buckets aren't consistent across nodes, so we need to coerce these for now
-        // since
-        //  the query node can't handle these quite correctly - this will result in buckets that
-        // aren't quite accurate
-        //  especially at the start and end
-        List<HistogramBucket> buckets =
-            FixedIntervalHistogramImpl.makeHistogram(startTimeMsEpoch, endTimeMsEpoch, bucketCount);
         long totalCount = results.size();
         if (histogram != null) {
           totalCount =
@@ -177,31 +150,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                   .collect(
                       Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                   .getSum();
-          for (int i = 0; i < histogram.getBuckets().size(); i++) {
-            InternalAutoDateHistogram.Bucket bucket = histogram.getBuckets().get(i);
-            long key = Long.valueOf(bucket.getKeyAsString());
-            buckets
-                .stream()
-                .forEach(
-                    histogramBucket -> {
-                      if (histogramBucket.getHigh() >= key && key >= histogramBucket.getLow()) {
-                        histogramBucket.increment(bucket.getDocCount());
-                      }
-                    });
-          }
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
-            results,
-            elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            totalCount,
-            buckets,
-            0,
-            0,
-            1,
-            1,
-            histogram);
+            results, elapsedTime.elapsed(TimeUnit.MICROSECONDS), totalCount, 0, 0, 1, 1, histogram);
       } finally {
         searcherManager.release(searcher);
       }
@@ -245,34 +198,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } else {
       return null;
     }
-  }
-
-  private CollectorManager<StatsCollector, Histogram> buildStatsCollector(
-      int bucketCount, long startTimeMsEpoch, long endTimeMsEpoch) {
-    Histogram histogram =
-        bucketCount > 0
-            ? new FixedIntervalHistogramImpl(startTimeMsEpoch, endTimeMsEpoch, bucketCount)
-            : new NoOpHistogramImpl();
-
-    return new CollectorManager<>() {
-      @Override
-      public StatsCollector newCollector() {
-        return new StatsCollector(histogram);
-      }
-
-      @Override
-      public Histogram reduce(Collection<StatsCollector> collectors) {
-        Histogram histogram = null;
-        for (StatsCollector collector : collectors) {
-          if (histogram == null) {
-            histogram = collector.getHistogram();
-          } else {
-            histogram.mergeHistogram(collector.getHistogram().getBuckets());
-          }
-        }
-        return histogram;
-      }
-    };
   }
 
   private Query buildQuery(
