@@ -28,7 +28,6 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
-import org.opensearch.common.util.PageCacheRecycler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -268,9 +267,6 @@ public class OpenSearchAdapter {
   }
 
   public static Aggregator buildAutoDateHistogramAggregator(int numBuckets) throws IOException {
-    final BigArrays bigArrays =
-        new BigArrays(
-            PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);
@@ -281,8 +277,10 @@ public class OpenSearchAdapter {
         b -> b.field("type", "long"));
 
     QueryShardContext queryShardContext =
-        buildQueryShardContext(bigArrays, indexSettings, similarityService, mapperService);
-    SearchContext searchContext = new KaldbSearchContext(bigArrays, queryShardContext);
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
+    SearchContext searchContext =
+        new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
 
     AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
         new AutoDateHistogramAggregationBuilder("datehistogram")
