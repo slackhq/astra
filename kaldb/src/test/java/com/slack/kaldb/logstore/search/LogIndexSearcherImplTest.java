@@ -20,12 +20,14 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 
 public class LogIndexSearcherImplTest {
 
@@ -223,8 +225,11 @@ public class LogIndexSearcherImplTest {
             1);
     assertThat(babies.hits.size()).isEqualTo(1);
     assertThat(babies.totalCount).isEqualTo(1);
-    //    assertThat(babies.buckets.size()).isEqualTo(1);
-    //    assertThat(babies.buckets.get(0).getCount()).isEqualTo(1);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(babies.internalAggregation);
+    assertThat(histogram.getBuckets().size()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
   }
 
   @Test
@@ -244,8 +249,15 @@ public class LogIndexSearcherImplTest {
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
     assertThat(apples.totalCount).isEqualTo(3); // total count is 3, hits is 2.
-    //    assertThat(apples.buckets.size()).isEqualTo(1);
-    //    assertThat(apples.buckets.get(0).getCount()).isEqualTo(3);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(apples.internalAggregation);
+    assertThat(histogram.getTargetBuckets()).isEqualTo(1);
+
+    assertThat(histogram.getBuckets().size()).isEqualTo(3);
+    assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
   }
 
   @Test
@@ -372,8 +384,16 @@ public class LogIndexSearcherImplTest {
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
     assertThat(allIndexItems.totalCount).isEqualTo(4);
-    //    assertThat(allIndexItems.buckets.size()).isEqualTo(1);
-    //    assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
+    assertThat(histogram.getTargetBuckets()).isEqualTo(1);
+
+    assertThat(histogram.getBuckets().size()).isEqualTo(4);
+    assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
   }
 
   @Test
@@ -703,8 +723,16 @@ public class LogIndexSearcherImplTest {
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(0);
-    //    assertThat(allIndexItems.buckets.size()).isEqualTo(1);
-    //    assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(0);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
+    assertThat(histogram.getTargetBuckets()).isEqualTo(1);
+
+    assertThat(histogram.getBuckets().size()).isEqualTo(4);
+    assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
   }
 
   @Test
@@ -716,8 +744,11 @@ public class LogIndexSearcherImplTest {
         strictLogStore.logSearcher.search(TEST_DATASET_NAME, "elephant", 0, MAX_TIME, 1000, 1);
     assertThat(elephants.hits.size()).isEqualTo(0);
     assertThat(elephants.totalCount).isEqualTo(0);
-    //    assertThat(elephants.buckets.size()).isEqualTo(1);
-    //    assertThat(elephants.buckets.get(0).getCount()).isEqualTo(0);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(elephants.internalAggregation);
+    assertThat(histogram.getTargetBuckets()).isEqualTo(1);
+    assertThat(histogram.getBuckets().size()).isEqualTo(0);
   }
 
   @Test
@@ -734,7 +765,7 @@ public class LogIndexSearcherImplTest {
             0);
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.totalCount).isEqualTo(2);
-    //    assertThat(babies.buckets.size()).isEqualTo(0);
+    assertThat(babies.internalAggregation).isNull();
   }
 
   @Test
@@ -751,11 +782,22 @@ public class LogIndexSearcherImplTest {
             1);
     assertThat(babies.hits.size()).isEqualTo(0);
     assertThat(babies.totalCount).isEqualTo(2);
-    //    assertThat(babies.buckets.size()).isEqualTo(1);
-    //
-    // assertThat(babies.buckets.get(0).getHigh()).isEqualTo(time.plusSeconds(10).toEpochMilli());
-    //    assertThat(babies.buckets.get(0).getLow()).isEqualTo(time.toEpochMilli());
-    //    assertThat(babies.buckets.get(0).getCount()).isEqualTo(2);
+
+    InternalAutoDateHistogram histogram =
+        (InternalAutoDateHistogram) Objects.requireNonNull(babies.internalAggregation);
+    assertThat(histogram.getTargetBuckets()).isEqualTo(1);
+    assertThat(histogram.getBuckets().size()).isEqualTo(2);
+
+    assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+    assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
+
+    assertThat(
+            Long.parseLong(histogram.getBuckets().get(0).getKeyAsString()) >= time.toEpochMilli())
+        .isTrue();
+    assertThat(
+            Long.parseLong(histogram.getBuckets().get(1).getKeyAsString())
+                <= time.plusSeconds(10).toEpochMilli())
+        .isTrue();
   }
 
   @Test(expected = IllegalArgumentException.class)
