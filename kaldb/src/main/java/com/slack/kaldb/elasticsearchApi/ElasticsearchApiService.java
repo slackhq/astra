@@ -24,7 +24,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -160,7 +160,8 @@ public class ElasticsearchApiService {
     if (internalAggregations.size() > 0) {
       debugAggs.put(
           "internalAggs",
-          OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray()).toString());
+          OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
+              .toString());
     }
     return debugAggs;
   }
@@ -177,7 +178,8 @@ public class ElasticsearchApiService {
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (internalAggregations.size() > 0) {
       try {
-        internalAggregation = OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray());
+        internalAggregation =
+            OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()

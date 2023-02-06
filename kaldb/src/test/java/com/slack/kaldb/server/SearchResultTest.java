@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -33,7 +33,8 @@ public class SearchResultTest {
       logMessages.add(logMessage);
     }
 
-    Aggregator dateHistogramAggregation = OpenSearchAdapter.buildAutoDateHistogramAggregator(10);
+    Aggregator dateHistogramAggregation =
+        OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
@@ -48,7 +49,7 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getTotalSnapshots()).isEqualTo(7);
     assertThat(protoSearchResult.getSnapshotsWithReplicas()).isEqualTo(7);
     assertThat(protoSearchResult.getInternalAggregations().toByteArray())
-        .isEqualTo(OpenSearchAdapter.toByteArray(internalAggregation));
+        .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
 
     SearchResult<LogMessage> convertedSearchResult =
         SearchResultUtils.fromSearchResultProto(protoSearchResult);
