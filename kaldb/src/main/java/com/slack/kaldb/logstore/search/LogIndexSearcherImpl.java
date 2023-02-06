@@ -24,6 +24,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
@@ -38,6 +39,9 @@ import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+>>>>>>> Cleanup OpenSearchAggregationAdapter
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -251,6 +255,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                 new MultiCollectorManager(
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
                     topFieldCollector,
                     OpensearchShim.getCollectorManager(
                         bucketCount, startTimeMsEpoch, endTimeMsEpoch));
@@ -261,6 +266,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
                     topFieldCollector, OpenSearchAdapter.getCollectorManager(bucketCount));
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+                    topFieldCollector,
+                    OpenSearchAggregationAdapter.getCollectorManager(bucketCount));
+>>>>>>> Cleanup OpenSearchAggregationAdapter
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -285,6 +294,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
               ((InternalAutoDateHistogram)
                   searcher.search(
                       query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
+<<<<<<< bburkholder/opensearch-serialize
 =======
             histogram = ((InternalAggregation) collector[1]);
 =======
@@ -357,6 +367,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
               ((InternalAutoDateHistogram)
                   searcher.search(query, OpenSearchAdapter.getCollectorManager(bucketCount)));
 >>>>>>> Cleanup LogSearcherImpl
+=======
+>>>>>>> Cleanup OpenSearchAggregationAdapter
         }
 
         elapsedTime.stop();

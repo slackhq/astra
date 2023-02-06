@@ -6,6 +6,7 @@ import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.opensearch.OpensearchShim;
@@ -13,6 +14,9 @@ import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+>>>>>>> Cleanup OpenSearchAggregationAdapter
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -55,6 +59,7 @@ public class SearchResultTest {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
     Aggregator dateHistogramAggregation =
         OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
@@ -73,6 +78,10 @@ public class SearchResultTest {
 =======
     Aggregator dateHistogramAggregation = OpenSearchAdapter.buildAutoDateHistogramAggregator(10);
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+    Aggregator dateHistogramAggregation =
+        OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
+>>>>>>> Cleanup OpenSearchAggregationAdapter
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
 >>>>>>> Fix tests
     SearchResult<LogMessage> searchResult =
@@ -91,6 +100,7 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getInternalAggregations().toByteArray())
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
 =======
         .isEqualTo(OpensearchShim.toByteArray(internalAggregation));
@@ -98,6 +108,9 @@ public class SearchResultTest {
 =======
         .isEqualTo(OpenSearchAdapter.toByteArray(internalAggregation));
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+        .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
+>>>>>>> Cleanup OpenSearchAggregationAdapter
 
     SearchResult<LogMessage> convertedSearchResult =
         SearchResultUtils.fromSearchResultProto(protoSearchResult);

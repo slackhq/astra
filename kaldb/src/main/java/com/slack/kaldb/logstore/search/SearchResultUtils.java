@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.LogWireMessage;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
@@ -19,6 +20,9 @@ import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+>>>>>>> Cleanup OpenSearchAggregationAdapter
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -67,6 +71,7 @@ public class SearchResultUtils {
         protoSearchResult.getSnapshotsWithReplicas(),
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         OpenSearchAggregationAdapter.fromByteArray(
             protoSearchResult.getInternalAggregations().toByteArray()));
 =======
@@ -75,6 +80,10 @@ public class SearchResultUtils {
 =======
         OpenSearchAdapter.fromByteArray(protoSearchResult.getInternalAggregations().toByteArray()));
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+        OpenSearchAggregationAdapter.fromByteArray(
+            protoSearchResult.getInternalAggregations().toByteArray()));
+>>>>>>> Cleanup OpenSearchAggregationAdapter
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
@@ -127,6 +136,7 @@ public class SearchResultUtils {
     ByteString bytes =
         ByteString.copyFrom(
             OpenSearchAggregationAdapter.toByteArray(searchResult.internalAggregation));
+<<<<<<< bburkholder/opensearch-serialize
 =======
     // Set buckets
     List<KaldbSearch.HistogramBucket> protoBuckets = new ArrayList<>(searchResult.buckets.size());
@@ -149,6 +159,8 @@ public class SearchResultUtils {
 =======
         ByteString.copyFrom(OpenSearchAdapter.toByteArray(searchResult.internalAggregation));
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+>>>>>>> Cleanup OpenSearchAggregationAdapter
     searchResultBuilder.setInternalAggregations(bytes);
     span.finish();
     return searchResultBuilder.build();

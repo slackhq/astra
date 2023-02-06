@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.opensearch.Version;
@@ -49,9 +50,7 @@ import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregatorFactory;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
-import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
@@ -59,9 +58,16 @@ import org.opensearch.search.internal.SearchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenSearchAdapter {
-  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
+/**
+ * Utility class to allow using OpenSearch aggregations from within Kaldb. This class should
+ * ultimately act as an adapter where OpenSearch code is not needed external to this class. <br>
+ * TODO - implement a custom InternalAggregation and return these instead of the OpenSearch
+ * InternalAggregation classes
+ */
+public class OpenSearchAggregationAdapter {
+  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAggregationAdapter.class);
 
+  /** Serializes InternalAggregation to byte array for transport */
   public static byte[] toByteArray(InternalAggregation internalAggregation) {
     if (internalAggregation == null) {
       return new byte[] {};
@@ -77,10 +83,15 @@ public class OpenSearchAdapter {
     return byteArrayOutputStream.toByteArray();
   }
 
+  /**
+   * Deserializes a bytearray into an InternalDateHistogram. <br>
+   * TODO - abstract this to allow deserialization of any internal aggregation
+   */
   public static InternalAutoDateHistogram fromByteArray(byte[] bytes) throws IOException {
     NamedWriteableRegistry namedWriteableRegistry =
         new NamedWriteableRegistry(
             Arrays.asList(
+                // todo - add additional aggregations as needed
                 new NamedWriteableRegistry.Entry(
                     AggregationBuilder.class,
                     AutoDateHistogramAggregationBuilder.NAME,
@@ -159,38 +170,60 @@ public class OpenSearchAdapter {
         });
   }
 
+  /**
+   * Builds a CollectorManager for use in the Lucene aggregation step <br>
+   * TODO - abstract this to allow instantiating other aggregators than just a date histogram
+   */
   public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
       int numBuckets) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
         Aggregator aggregator = buildAutoDateHistogramAggregator(numBuckets);
+        // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
       }
 
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
-        if (collectors.size() == 1) {
-          collectors.stream().findFirst().get().postCollection();
-          return collectors.stream().findFirst().get().buildTopLevel();
+        InternalAggregation internalAggregation = null;
+
+        for (Aggregator collector : collectors) {
+          // postCollection must be invoked prior to building the internal aggregations
+          collector.postCollection();
+          InternalAggregation collectorAggregation = collector.buildTopLevel();
+          if (internalAggregation == null) {
+            internalAggregation = collectorAggregation;
+          } else {
+            internalAggregation =
+                collectorAggregation.reduce(
+                    List.of(internalAggregation, collectorAggregation),
+                    InternalAggregation.ReduceContext.forPartialReduction(
+                        KaldbBigArrays.getInstance(), null, null));
+          }
         }
-        throw new IllegalArgumentException("NOT IMPLEMENTED");
+        return internalAggregation;
       }
     };
   }
 
+  /**
+   * Registers the field types that can be aggregated by the different aggregators. Each aggregation
+   * builder must be registered with the appropriate fields, or the resulting aggregation will be
+   * empty.
+   */
   private static ValuesSourceRegistry buildValueSourceRegistry() {
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
+    // todo - add additional aggregations as needed
     AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
-    DateHistogramAggregatorFactory.registerAggregators(valuesSourceRegistryBuilder);
-    AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     return valuesSourceRegistryBuilder.build();
   }
 
+  /** Builds the minimal amount of IndexSettings required for using Aggregations */
   protected static IndexSettings buildIndexSettings() {
     Settings settings =
         Settings.builder()
@@ -202,6 +235,11 @@ public class OpenSearchAdapter {
         IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
   }
 
+  /**
+   * Builds a MapperService using the minimal amount of settings required for Aggregations. After
+   * initializing the mapper service, individual fields will still need to be added using
+   * this.registerField()
+   */
   private static MapperService buildMapperService(
       IndexSettings indexSettings, SimilarityService similarityService) {
     return new MapperService(
@@ -222,6 +260,10 @@ public class OpenSearchAdapter {
         null);
   }
 
+  /**
+   * Minimal implementation of an OpenSearch QueryShardContext while still allowing an
+   * AggregatorFactory to successfully instantiate. See AggregatorFactory.class
+   */
   private static QueryShardContext buildQueryShardContext(
       BigArrays bigArrays,
       IndexSettings indexSettings,
@@ -254,6 +296,12 @@ public class OpenSearchAdapter {
         valuesSourceRegistry);
   }
 
+  /**
+   * Registers a field type and name to the MapperService for use in aggregations. This informs the
+   * aggregators how to access a specific field and what value type it contains. registerField(
+   * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
+   * "long"));
+   */
   private static void registerField(
       MapperService mapperService,
       String fieldName,
@@ -266,6 +314,10 @@ public class OpenSearchAdapter {
         MapperService.MergeReason.MAPPING_UPDATE);
   }
 
+  /**
+   * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
+   * aggregations implementation.
+   */
   public static Aggregator buildAutoDateHistogramAggregator(int numBuckets) throws IOException {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());

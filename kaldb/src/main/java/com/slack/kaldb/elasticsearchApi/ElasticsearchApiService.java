@@ -27,6 +27,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
@@ -37,6 +38,9 @@ import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 >>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+>>>>>>> Cleanup OpenSearchAggregationAdapter
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -206,11 +210,16 @@ public class ElasticsearchApiService {
       debugAggs.put(
           "internalAggs",
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
           OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
               .toString());
 =======
           OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray()).toString());
 >>>>>>> Cleanup ElasticsearchApiService response
+=======
+          OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
+              .toString());
+>>>>>>> Cleanup OpenSearchAggregationAdapter
     }
     return debugAggs;
   }
@@ -228,11 +237,16 @@ public class ElasticsearchApiService {
     if (internalAggregations.size() > 0) {
       try {
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         internalAggregation =
             OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
 =======
         internalAggregation = OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray());
 >>>>>>> Cleanup ElasticsearchApiService response
+=======
+        internalAggregation =
+            OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
+>>>>>>> Cleanup OpenSearchAggregationAdapter
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()
