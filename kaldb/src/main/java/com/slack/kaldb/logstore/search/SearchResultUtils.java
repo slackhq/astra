@@ -80,14 +80,20 @@ public class SearchResultUtils {
     span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Fix tests
     span.tag(
         "internalAggregation",
         searchResult.internalAggregation != null
             ? searchResult.internalAggregation.toString()
             : "");
+<<<<<<< bburkholder/opensearch-serialize
 =======
     span.tag("internalAggregation", searchResult.internalAggregation.toString());
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Fix tests
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
