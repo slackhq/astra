@@ -134,27 +134,28 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           }
         } else {
           results = Collections.emptyList();
-          Object[] collector =
-              searcher.search(
-                  query,
-                  new MultiCollectorManager(OpenSearchAdapter.getCollectorManager(bucketCount)));
-          histogram = ((InternalAutoDateHistogram) collector[0]);
-        }
-
-        long totalCount = results.size();
-        if (histogram != null) {
-          totalCount =
-              histogram
-                  .getBuckets()
-                  .stream()
-                  .collect(
-                      Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
-                  .getSum();
+          histogram =
+              ((InternalAutoDateHistogram)
+                  searcher.search(query, OpenSearchAdapter.getCollectorManager(bucketCount)));
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
-            results, elapsedTime.elapsed(TimeUnit.MICROSECONDS), totalCount, 0, 0, 1, 1, histogram);
+            results,
+            elapsedTime.elapsed(TimeUnit.MICROSECONDS),
+            bucketCount > 0
+                ? histogram
+                    .getBuckets()
+                    .stream()
+                    .collect(
+                        Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                    .getSum()
+                : results.size(),
+            0,
+            0,
+            1,
+            1,
+            histogram);
       } finally {
         searcherManager.release(searcher);
       }
