@@ -337,7 +337,6 @@ public class OpenSearchAggregationAdapter {
     AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
         new AutoDateHistogramAggregationBuilder("datehistogram")
             .setNumBuckets(numBuckets)
-            .setMinimumIntervalExpression("minute")
             .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
     ValueCountAggregationBuilder valueCountAggregationBuilder =
