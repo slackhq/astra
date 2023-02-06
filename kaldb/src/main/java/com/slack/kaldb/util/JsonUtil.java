@@ -35,6 +35,10 @@ public class JsonUtil {
     return ourInstance.mapper.readValue(s, valueTypeRef);
   }
 
+  public static <T> T read(byte[] data, TypeReference<T> valueTypeRef) throws IOException {
+    return ourInstance.mapper.readValue(data, valueTypeRef);
+  }
+
   private JsonUtil() {
     mapper =
         JsonMapper.builder()

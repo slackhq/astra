@@ -1,3 +1,4 @@
+
 # KalDB
 
 KalDB is a cloud-native search engine for log management & analytics. It is designed to be very cost-effective, easy to operate, and scale to petabytes.
@@ -24,14 +25,14 @@ KalDB is a cloud-native search engine for log management & analytics. It is desi
 - Kafka-native ingestion
 
 # 🔎 Uses & Limitations
-| :white_check_mark: &nbsp; When to use                                                  	                                                    | :x: When not to use                                       	|
-|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------	|
-| Your documents are immutable: application logs, system logs, access logs, user actions logs, audit trail  (logs), etc.                    	 | Your documents are mutable.   	|
-| Your data has a time component. KalDB includes optimizations and design choices specifically related to time.                               | You need a low-latency search for e-commerce websites.               	|
-| You want a full-text search in a multi-tenant environment.     	                                                                            | You provide a public-facing search with high QPS.	|
-| You want to index directly from Kafka.                                                                                                      | You want to re-score documents at query time.
-| You ingest a tremendous amount of logs and don't want to pay huge bills.                                                             	      |
-| You ingest a tremendous amount of data and you don't want to waste your precious time babysitting your ElasticSearch cluster.                             
+| :white_check_mark: &nbsp; When to use                                                  	                                                    | :x: When not to use                                       	            |
+|---------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| Your documents are immutable: application logs, system logs, access logs, user actions logs, audit trail  (logs), etc.                    	 | Your documents are mutable.   	                                        |
+| Your data has a time component. KalDB includes optimizations and design choices specifically related to time.                               | You need a low-latency search for e-commerce websites.               	 |
+| You want a full-text search in a multi-tenant environment.     	                                                                            | You provide a public-facing search with high QPS.	                     |
+| You want to index directly from Kafka.                                                                                                      | You want to re-score documents at query time.                          |
+| You ingest a tremendous amount of logs and don't want to pay huge bills.                                                             	      |                                                                        |
+| You ingest a tremendous amount of data and you don't want to waste your precious time babysitting your ElasticSearch cluster.               |                                                                        |
 
 # 🎨  Design
 ![KalDB Architecture](docs/assets/images/kaldb_architecture.png)
@@ -61,4 +62,33 @@ project.
 To start the application dependencies (Zookeeper, Kafka, S3) you can use the provided docker compose file:
 ```bash
 docker-compose up
+```
+
+Compile KalDB
+```
+ mvn clean compile
+```
+
+Start KalDB
+```
+mvn -DskipTests=true clean package
+java -jar kaldb/target/kaldb.jar config/config.yaml
+```
+
+Index Data
+1. Data from the  "test-topic-in" (preprocessorConfig/kafkaStreamConfig/upstreamTopics in config.yaml) Kafka topic is read as input by the preprocessor.
+2. The input data transformer "json" (preprocessorConfig/dataTransformer in config.yaml) is how the preprocessor will parse the data.
+3. Each document must contain 3 mandatory fields - "service_name", "timestamp" ( what format? )
+4. There needs to be a dataset entry for the incoming data that maps the incoming service name
+   1. To create a dataset entry, go to the manager-...
+5. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.
+6. The indexer service is configured to read from "test-topic" (indexerConfig/kafkaConfig/kafkaTopic in config.yaml) and create lucene indexes locally
+7. 
+```
+
+```
+
+Query via Grafana
+```
+http://localhost:3000/explore
 ```

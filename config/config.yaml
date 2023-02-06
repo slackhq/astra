@@ -122,9 +122,9 @@ preprocessorConfig:
     serverPort: ${KALDB_PREPROCESSOR_SERVER_PORT:-8086}
     serverAddress: ${KALDB_PREPROCESSOR_SERVER_ADDRESS:-localhost}
     requestTimeoutMs: ${KALDB_PREPROCESSOR_REQUEST_TIMEOUT_MS:-5000}
-  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic}]
-  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic-out}
+  upstreamTopics: [${KAKFA_UPSTREAM_TOPICS:-test-topic-in}]
+  downstreamTopic: ${KAKFA_DOWNSTREAM_TOPIC:-test-topic}
   preprocessorInstanceCount: ${PREPROCESSOR_INSTANCE_COUNT:-1}
-  dataTransformer: ${PREPROCESSOR_TRANSFORMER:-api_log}
+  dataTransformer: ${PREPROCESSOR_TRANSFORMER:-json}
   rateLimiterMaxBurstSeconds: ${PREPROCESSOR_RATE_LIMITER_MAX_BURST_SECONDS:-1}
   kafkaPartitionStickyTimeoutMs: ${KAFKA_PARTITION_STICKY_TIMEOUT_MS:-0}
