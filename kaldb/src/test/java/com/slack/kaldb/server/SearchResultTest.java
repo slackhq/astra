@@ -11,12 +11,10 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import org.junit.Test;
-import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.metrics.InternalAvg;
 
 public class SearchResultTest {
 
@@ -35,9 +33,8 @@ public class SearchResultTest {
       logMessages.add(logMessage);
     }
 
-    InternalAggregation internalAggregation =
-        new InternalAvg("avg", 10, 10, DocValueFormat.RAW, Map.of("foo", "bar"));
-
+    Aggregator dateHistogramAggregation = OpensearchShim.buildAutoDateHistogramAggregator(10);
+    InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
     KaldbSearch.SearchResult protoSearchResult =
