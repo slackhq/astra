@@ -17,6 +17,7 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
+import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
@@ -141,31 +142,9 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-    InternalAutoDateHistogram internalAggregation = null;
-    Map<String, AggregationResponse> aggregations = new HashMap<>();
-    if (searchResult.getInternalAggregations().size() > 0) {
-      try {
-        internalAggregation =
-            OpenSearchAdapter.fromByteArray(searchResult.getInternalAggregations().toByteArray());
-        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
-        internalAggregation
-            .getBuckets()
-            .forEach(
-                bucket -> {
-                  aggregationBucketResponses.add(
-                      new AggregationBucketResponse(
-                          Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount()));
-                });
-        aggregations.put(
-            request.getAggregations().stream().findFirst().get().getAggregationKey(),
-            new AggregationResponse(aggregationBucketResponses));
-      } catch (Exception e) {
-        LOG.error("ERROR reading internal agg", e);
-      }
-    }
-
     try {
       HitsMetadata hits = getHits(searchResult);
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
       Map<String, AggregationResponse> aggregations =
@@ -180,6 +159,11 @@ public class ElasticsearchApiService {
         debugAggs.put("internalAggs", internalAggregation.toString());
       }
 >>>>>>> Test aggs all the way out
+=======
+      Map<String, AggregationResponse> aggregations =
+          buildLegacyAggregationResponse(
+              request.getAggregations(), searchResult.getInternalAggregations());
+>>>>>>> Cleanup ElasticsearchApiService response
 
       return new EsSearchResponse.Builder()
           .hits(hits)
@@ -187,10 +171,14 @@ public class ElasticsearchApiService {
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
           .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
 =======
           .debugMetadata(debugAggs)
 >>>>>>> Test aggs all the way out
+=======
+          .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
+>>>>>>> Cleanup ElasticsearchApiService response
           .status(200)
           .build();
     } catch (Exception e) {
@@ -217,8 +205,12 @@ public class ElasticsearchApiService {
     if (internalAggregations.size() > 0) {
       debugAggs.put(
           "internalAggs",
+<<<<<<< bburkholder/opensearch-serialize
           OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
               .toString());
+=======
+          OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray()).toString());
+>>>>>>> Cleanup ElasticsearchApiService response
     }
     return debugAggs;
   }
@@ -235,8 +227,12 @@ public class ElasticsearchApiService {
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (internalAggregations.size() > 0) {
       try {
+<<<<<<< bburkholder/opensearch-serialize
         internalAggregation =
             OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
+=======
+        internalAggregation = OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray());
+>>>>>>> Cleanup ElasticsearchApiService response
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()
