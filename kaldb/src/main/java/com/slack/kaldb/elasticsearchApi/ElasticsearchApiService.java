@@ -17,6 +17,7 @@ import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
 import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
+import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
@@ -121,42 +122,18 @@ public class ElasticsearchApiService {
     span.tag(
         "resultSnapshotsWithReplicas", String.valueOf(searchResult.getSnapshotsWithReplicas()));
 
-    InternalAutoDateHistogram internalAggregation = null;
-    Map<String, AggregationResponse> aggregations = new HashMap<>();
-    if (searchResult.getInternalAggregations().size() > 0) {
-      try {
-        internalAggregation =
-            OpenSearchAdapter.fromByteArray(searchResult.getInternalAggregations().toByteArray());
-        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
-        internalAggregation
-            .getBuckets()
-            .forEach(
-                bucket -> {
-                  aggregationBucketResponses.add(
-                      new AggregationBucketResponse(
-                          Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount()));
-                });
-        aggregations.put(
-            request.getAggregations().stream().findFirst().get().getAggregationKey(),
-            new AggregationResponse(aggregationBucketResponses));
-      } catch (Exception e) {
-        LOG.error("ERROR reading internal agg", e);
-      }
-    }
-
     try {
       HitsMetadata hits = getHits(searchResult);
-      Map<String, String> debugAggs = new HashMap<>();
-      if (internalAggregation != null) {
-        debugAggs.put("internalAggs", internalAggregation.toString());
-      }
+      Map<String, AggregationResponse> aggregations =
+          buildLegacyAggregationResponse(
+              request.getAggregations(), searchResult.getInternalAggregations());
 
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
-          .debugMetadata(debugAggs)
+          .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
           .status(200)
           .build();
     } catch (Exception e) {
@@ -170,6 +147,54 @@ public class ElasticsearchApiService {
     } finally {
       span.finish();
     }
+  }
+
+  /**
+   * Temporary method to serialize the internal aggregations into the debug metadata for eaiser
+   * troubleshooting
+   */
+  @Deprecated
+  private Map<String, String> getDebugAggregations(ByteString internalAggregations)
+      throws IOException {
+    Map<String, String> debugAggs = new HashMap<>();
+    if (internalAggregations.size() > 0) {
+      debugAggs.put(
+          "internalAggs",
+          OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray()).toString());
+    }
+    return debugAggs;
+  }
+
+  /**
+   * Converts an InternalAggregation response type into one that maps into the EsSearchResponse.
+   * This is a temporary method and will be removed after implementing another aggregation type, as
+   * the existing AggregationResponse will only work with DateHistogram count responses.
+   */
+  @Deprecated
+  private Map<String, AggregationResponse> buildLegacyAggregationResponse(
+      List<SearchRequestAggregation> searchRequestAggregations, ByteString internalAggregations) {
+    InternalAutoDateHistogram internalAggregation;
+    Map<String, AggregationResponse> aggregations = new HashMap<>();
+    if (internalAggregations.size() > 0) {
+      try {
+        internalAggregation = OpenSearchAdapter.fromByteArray(internalAggregations.toByteArray());
+        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
+        internalAggregation
+            .getBuckets()
+            .forEach(
+                bucket ->
+                    aggregationBucketResponses.add(
+                        new AggregationBucketResponse(
+                            Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount())));
+        aggregations.put(
+            searchRequestAggregations.stream().findFirst().get().getAggregationKey(),
+            new AggregationResponse(aggregationBucketResponses));
+      } catch (Exception e) {
+        LOG.error("Error converting internal aggregations to Elasticsearch response", e);
+      }
+    }
+
+    return aggregations;
   }
 
   private String getTraceId() {
