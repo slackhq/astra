@@ -1,12 +1,10 @@
 package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.opensearch.common.util.BigArrays;
-import org.opensearch.common.util.PageCacheRecycler;
-import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.aggregations.InternalAggregation;
 
 /**
@@ -15,10 +13,6 @@ import org.opensearch.search.aggregations.InternalAggregation;
  * merged using the histogram merge function.
  */
 public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchResultAggregator<T> {
-
-  final BigArrays bigArrays =
-      new BigArrays(
-          PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
   private final SearchQuery searchQuery;
 
@@ -51,7 +45,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
           internalAggregation =
               internalAggregation.reduce(
                   List.of(internalAggregation, searchResult.internalAggregation),
-                  InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      KaldbBigArrays.getInstance(), null, null));
         }
       }
     }
