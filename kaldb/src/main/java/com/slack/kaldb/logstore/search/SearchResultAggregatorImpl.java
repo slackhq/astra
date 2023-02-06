@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 =======
 >>>>>>> Initial cleanup
@@ -14,6 +15,12 @@ import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.PageCacheRecycler;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 >>>>>>> Test aggs all the way out
+=======
+import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+>>>>>>> Rework BigArrays initialization
 import org.opensearch.search.aggregations.InternalAggregation;
 
 /**
@@ -22,10 +29,6 @@ import org.opensearch.search.aggregations.InternalAggregation;
  * merged using the histogram merge function.
  */
 public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchResultAggregator<T> {
-
-  final BigArrays bigArrays =
-      new BigArrays(
-          PageCacheRecycler.NON_RECYCLING_INSTANCE, new NoneCircuitBreakerService(), "none");
 
   private final SearchQuery searchQuery;
 
@@ -84,6 +87,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                   List.of(internalAggregation, searchResult.internalAggregation),
                   InternalAggregation.ReduceContext.forPartialReduction(
                       KaldbBigArrays.getInstance(), null, null));
+<<<<<<< bburkholder/opensearch-serialize
 =======
                   List.of(searchResult.internalAggregation),
                   InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
@@ -97,6 +101,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
                   List.of(internalAggregation, searchResult.internalAggregation),
                   InternalAggregation.ReduceContext.forPartialReduction(bigArrays, null, null));
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Rework BigArrays initialization
         }
       }
     }
