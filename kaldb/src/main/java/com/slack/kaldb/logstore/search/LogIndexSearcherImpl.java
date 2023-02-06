@@ -11,7 +11,7 @@ import com.google.common.base.Stopwatch;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -118,7 +118,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           if (bucketCount > 0) {
             collectorManager =
                 new MultiCollectorManager(
-                    topFieldCollector, OpenSearchAdapter.getCollectorManager(bucketCount));
+                    topFieldCollector,
+                    OpenSearchAggregationAdapter.getCollectorManager(bucketCount));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -136,7 +137,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           results = Collections.emptyList();
           histogram =
               ((InternalAutoDateHistogram)
-                  searcher.search(query, OpenSearchAdapter.getCollectorManager(bucketCount)));
+                  searcher.search(
+                      query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
         }
 
         elapsedTime.stop();
