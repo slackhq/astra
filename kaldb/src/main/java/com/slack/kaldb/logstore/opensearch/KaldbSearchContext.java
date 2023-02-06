@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.opensearch;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.FieldDoc;
@@ -44,6 +45,14 @@ import org.opensearch.search.rescore.RescoreContext;
 import org.opensearch.search.sort.SortAndFormats;
 import org.opensearch.search.suggest.SuggestionSearchContext;
 
+/**
+ * Minimal implementation of an OpenSearch SearchContext while still allowing it to construct valid
+ * Aggregators using the AggregatorFactory.create(SearchContext searchContext, Aggregator parent,
+ * CardinalityUpperBound cardinality) method. Throws NotImplementedException() for all methods
+ * except those specifically implemented, to prevent unexpected invocations without proper
+ * implementation. Additional future aggregations may require more methods to be implemented, or
+ * existing methods to have a higher fidelity implementation.
+ */
 public class KaldbSearchContext extends SearchContext {
   private final BigArrays bigArrays;
   private final QueryShardContext queryShardContext;
@@ -54,179 +63,197 @@ public class KaldbSearchContext extends SearchContext {
   }
 
   @Override
-  public void setTask(SearchShardTask task) {}
+  public void setTask(SearchShardTask task) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public SearchShardTask getTask() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean isCancelled() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
-  protected void doClose() {}
+  protected void doClose() {
+    throw new NotImplementedException();
+  }
 
   @Override
-  public void preProcess(boolean rewrite) {}
+  public void preProcess(boolean rewrite) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public Query buildFilteredQuery(Query query) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ShardSearchContextId id() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public String source() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ShardSearchRequest request() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchType searchType() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchShardTarget shardTarget() {
+    // only appears to be used in the AggregatorBase to construct a QueryPhaseExecutionException
+    // in the QueryPhaseExecutionException the SearchShardTarget can safely be null
+    // See SearchException.writeTo()
     return null;
   }
 
   @Override
   public int numberOfShards() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public float queryBoost() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public ScrollContext scrollContext() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContextAggregations aggregations() {
+    // todo - required for multibucket consumers
     return null;
   }
 
   @Override
   public SearchContext aggregations(SearchContextAggregations aggregations) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void addSearchExt(SearchExtBuilder searchExtBuilder) {}
+  public void addSearchExt(SearchExtBuilder searchExtBuilder) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public SearchExtBuilder getSearchExt(String name) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchHighlightContext highlight() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void highlight(SearchHighlightContext highlight) {}
+  public void highlight(SearchHighlightContext highlight) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public SuggestionSearchContext suggest() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void suggest(SuggestionSearchContext suggest) {}
+  public void suggest(SuggestionSearchContext suggest) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public List<RescoreContext> rescore() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void addRescore(RescoreContext rescore) {}
+  public void addRescore(RescoreContext rescore) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public boolean hasScriptFields() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public ScriptFieldsContext scriptFields() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean sourceRequested() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean hasFetchSourceContext() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public FetchSourceContext fetchSourceContext() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext fetchSourceContext(FetchSourceContext fetchSourceContext) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public FetchDocValuesContext docValuesContext() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext docValuesContext(FetchDocValuesContext docValuesContext) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public FetchFieldsContext fetchFieldsContext() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext fetchFieldsContext(FetchFieldsContext fetchFieldsContext) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ContextIndexSearcher searcher() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public IndexShard indexShard() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public MapperService mapperService() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SimilarityService similarityService() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
@@ -236,262 +263,275 @@ public class KaldbSearchContext extends SearchContext {
 
   @Override
   public BitsetFilterCache bitsetFilterCache() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public TimeValue timeout() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void timeout(TimeValue timeout) {}
+  public void timeout(TimeValue timeout) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public int terminateAfter() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void terminateAfter(int terminateAfter) {}
+  public void terminateAfter(int terminateAfter) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public boolean lowLevelCancellation() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext minimumScore(float minimumScore) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public Float minimumScore() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext sort(SortAndFormats sort) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SortAndFormats sort() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext trackScores(boolean trackScores) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean trackScores() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext trackTotalHitsUpTo(int trackTotalHits) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public int trackTotalHitsUpTo() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext searchAfter(FieldDoc searchAfter) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public FieldDoc searchAfter() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext collapse(CollapseContext collapse) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public CollapseContext collapse() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext parsedPostFilter(ParsedQuery postFilter) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ParsedQuery parsedPostFilter() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public Query aliasFilter() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext parsedQuery(ParsedQuery query) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ParsedQuery parsedQuery() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public Query query() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public int from() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext from(int from) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public int size() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext size(int size) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean hasStoredFields() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean hasStoredFieldsContext() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean storedFieldsRequested() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
   public StoredFieldsContext storedFieldsContext() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext storedFieldsContext(StoredFieldsContext storedFieldsContext) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public boolean explain() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void explain(boolean explain) {}
+  public void explain(boolean explain) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public List<String> groupStats() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void groupStats(List<String> groupStats) {}
+  public void groupStats(List<String> groupStats) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public boolean version() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void version(boolean version) {}
+  public void version(boolean version) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public boolean seqNoAndPrimaryTerm() {
-    return false;
+    throw new NotImplementedException();
   }
 
   @Override
-  public void seqNoAndPrimaryTerm(boolean seqNoAndPrimaryTerm) {}
+  public void seqNoAndPrimaryTerm(boolean seqNoAndPrimaryTerm) {
+    throw new NotImplementedException();
+  }
 
   @Override
   public int[] docIdsToLoad() {
-    return new int[0];
+    throw new NotImplementedException();
   }
 
   @Override
   public int docIdsToLoadFrom() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public int docIdsToLoadSize() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public SearchContext docIdsToLoad(
       int[] docIdsToLoad, int docsIdsToLoadFrom, int docsIdsToLoadSize) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public DfsSearchResult dfsResult() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public QuerySearchResult queryResult() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public FetchPhase fetchPhase() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public FetchSearchResult fetchResult() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public Profilers getProfilers() {
+    // Per Javadoc, return null if profiling is not enabled.
     return null;
   }
 
   @Override
   public MappedFieldType fieldType(String name) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public ObjectMapper getObjectMapper(String name) {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
   public long getRelativeTimeInMillis() {
-    return 0;
+    throw new NotImplementedException();
   }
 
   @Override
   public Map<Class<?>, CollectorManager<? extends Collector, ReduceableSearchResult>>
       queryCollectorManagers() {
-    return null;
+    throw new NotImplementedException();
   }
 
   @Override
@@ -501,6 +541,6 @@ public class KaldbSearchContext extends SearchContext {
 
   @Override
   public ReaderContext readerContext() {
-    return null;
+    throw new NotImplementedException();
   }
 }

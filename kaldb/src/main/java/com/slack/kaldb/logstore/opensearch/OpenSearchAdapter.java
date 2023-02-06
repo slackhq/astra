@@ -60,8 +60,8 @@ import org.opensearch.search.internal.SearchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpensearchShim {
-  private static final Logger LOG = LoggerFactory.getLogger(OpensearchShim.class);
+public class OpenSearchAdapter {
+  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
   public static byte[] toByteArray(InternalAggregation internalAggregation) {
     if (internalAggregation == null) {

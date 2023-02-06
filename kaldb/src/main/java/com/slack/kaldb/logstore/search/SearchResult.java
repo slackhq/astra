@@ -57,27 +57,6 @@ public class SearchResult<T> {
     this.internalAggregation = internalAggregation;
   }
 
-  @Deprecated
-  public SearchResult(
-      List<T> hits,
-      long tookMicros,
-      long totalCount,
-      List<Object> buckets,
-      int failedNodes,
-      int totalNodes,
-      int totalSnapshots,
-      int snapshotsWithReplicas,
-      InternalAggregation internalAggregation) {
-    this.hits = hits;
-    this.tookMicros = tookMicros;
-    this.totalCount = totalCount;
-    this.failedNodes = failedNodes;
-    this.totalNodes = totalNodes;
-    this.totalSnapshots = totalSnapshots;
-    this.snapshotsWithReplicas = snapshotsWithReplicas;
-    this.internalAggregation = internalAggregation;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

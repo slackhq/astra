@@ -29,7 +29,6 @@ public class SearchResultAggregatorImplTest {
         messages,
         tookMs,
         totalCount,
-        buckets,
         failedNodes,
         totalNodes,
         totalSnapshots,
