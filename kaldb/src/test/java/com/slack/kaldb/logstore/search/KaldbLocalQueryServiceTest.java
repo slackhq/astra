@@ -139,6 +139,9 @@ public class KaldbLocalQueryServiceTest {
 
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
@@ -151,6 +154,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(
             Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
         .isTrue();
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(response.getBucketsList().size()).isEqualTo(2);
     //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
@@ -161,6 +165,8 @@ public class KaldbLocalQueryServiceTest {
     //    assertThat(bucket2.getCount()).isEqualTo(1);
     //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
 
     // TODO: Query multiple chunks.
   }
@@ -207,11 +213,15 @@ public class KaldbLocalQueryServiceTest {
 
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(response.getBucketsList().size()).isEqualTo(2);
     //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
@@ -222,6 +232,8 @@ public class KaldbLocalQueryServiceTest {
     //    assertThat(bucket2.getCount()).isEqualTo(0);
     //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -267,6 +279,9 @@ public class KaldbLocalQueryServiceTest {
 
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
@@ -279,6 +294,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(
             Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
         .isTrue();
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(response.getBucketsList().size()).isEqualTo(2);
     //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
@@ -289,6 +305,8 @@ public class KaldbLocalQueryServiceTest {
     //    assertThat(bucket2.getCount()).isEqualTo(0);
     //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -346,10 +364,14 @@ public class KaldbLocalQueryServiceTest {
 
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
     assertThat(response.getInternalAggregations().size()).isEqualTo(0);
 =======
     //    assertThat(response.getBucketsList().size()).isEqualTo(0);
 >>>>>>> Initial cleanup
+=======
+    assertThat(response.getInternalAggregations().size()).isEqualTo(0);
+>>>>>>> Update remaining tests
   }
 
   @Test(expected = RuntimeException.class)
@@ -455,6 +477,9 @@ public class KaldbLocalQueryServiceTest {
 
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
@@ -467,6 +492,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(
             Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
         .isTrue();
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(response.getBucketsList().size()).isEqualTo(2);
     //    KaldbSearch.HistogramBucket bucket1 = response.getBuckets(0);
@@ -477,6 +503,8 @@ public class KaldbLocalQueryServiceTest {
     //    assertThat(bucket2.getCount()).isEqualTo(0);
     //    assertThat(bucket2.getHigh()).isEqualTo(chunk1EndTimeMs);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test(expected = StatusRuntimeException.class)

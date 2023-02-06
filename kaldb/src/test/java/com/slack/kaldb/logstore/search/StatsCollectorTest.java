@@ -67,6 +67,9 @@ public class StatsCollectorTest {
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram dateHistogram =
         (InternalAutoDateHistogram) allIndexItems.internalAggregation;
@@ -75,6 +78,7 @@ public class StatsCollectorTest {
         Objects.requireNonNull(dateHistogram).getBuckets()) {
       assertThat(bucket.getDocCount()).isEqualTo(1);
     }
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(allIndexItems.buckets.size()).isEqualTo(5);
     //
@@ -83,6 +87,8 @@ public class StatsCollectorTest {
     //      assertThat(bucket.getCount()).isEqualTo(1);
     //    }
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(5);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);

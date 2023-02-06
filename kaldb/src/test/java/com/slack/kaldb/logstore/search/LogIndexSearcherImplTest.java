@@ -226,15 +226,21 @@ public class LogIndexSearcherImplTest {
     assertThat(babies.hits.size()).isEqualTo(1);
     assertThat(babies.totalCount).isEqualTo(1);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(babies.internalAggregation);
     assertThat(histogram.getBuckets().size()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(babies.buckets.size()).isEqualTo(1);
     //    assertThat(babies.buckets.get(0).getCount()).isEqualTo(1);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -255,6 +261,9 @@ public class LogIndexSearcherImplTest {
     assertThat(apples.hits.size()).isEqualTo(2);
     assertThat(apples.totalCount).isEqualTo(3); // total count is 3, hits is 2.
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(apples.internalAggregation);
@@ -264,10 +273,13 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(apples.buckets.size()).isEqualTo(1);
     //    assertThat(apples.buckets.get(0).getCount()).isEqualTo(3);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -395,6 +407,9 @@ public class LogIndexSearcherImplTest {
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
     assertThat(allIndexItems.totalCount).isEqualTo(4);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
@@ -405,10 +420,13 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(allIndexItems.buckets.size()).isEqualTo(1);
     //    assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(4);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -739,6 +757,9 @@ public class LogIndexSearcherImplTest {
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(0);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
@@ -749,10 +770,13 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(allIndexItems.buckets.size()).isEqualTo(1);
     //    assertThat(allIndexItems.buckets.get(0).getCount()).isEqualTo(0);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -765,15 +789,21 @@ public class LogIndexSearcherImplTest {
     assertThat(elephants.hits.size()).isEqualTo(0);
     assertThat(elephants.totalCount).isEqualTo(0);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(elephants.internalAggregation);
     assertThat(histogram.getTargetBuckets()).isEqualTo(1);
     assertThat(histogram.getBuckets().size()).isEqualTo(0);
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(elephants.buckets.size()).isEqualTo(1);
     //    assertThat(elephants.buckets.get(0).getCount()).isEqualTo(0);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -791,10 +821,14 @@ public class LogIndexSearcherImplTest {
     assertThat(babies.hits.size()).isEqualTo(2);
     assertThat(babies.totalCount).isEqualTo(2);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
     assertThat(babies.internalAggregation).isNull();
 =======
     //    assertThat(babies.buckets.size()).isEqualTo(0);
 >>>>>>> Initial cleanup
+=======
+    assertThat(babies.internalAggregation).isNull();
+>>>>>>> Update remaining tests
   }
 
   @Test
@@ -812,6 +846,9 @@ public class LogIndexSearcherImplTest {
     assertThat(babies.hits.size()).isEqualTo(0);
     assertThat(babies.totalCount).isEqualTo(2);
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
+=======
+>>>>>>> Update remaining tests
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(babies.internalAggregation);
@@ -828,6 +865,7 @@ public class LogIndexSearcherImplTest {
             Long.parseLong(histogram.getBuckets().get(1).getKeyAsString())
                 <= time.plusSeconds(10).toEpochMilli())
         .isTrue();
+<<<<<<< bburkholder/opensearch-serialize
 =======
     //    assertThat(babies.buckets.size()).isEqualTo(1);
     //
@@ -835,6 +873,8 @@ public class LogIndexSearcherImplTest {
     //    assertThat(babies.buckets.get(0).getLow()).isEqualTo(time.toEpochMilli());
     //    assertThat(babies.buckets.get(0).getCount()).isEqualTo(2);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Update remaining tests
   }
 
   @Test(expected = IllegalArgumentException.class)
