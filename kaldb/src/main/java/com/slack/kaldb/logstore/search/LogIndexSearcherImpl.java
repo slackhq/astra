@@ -32,8 +32,12 @@ import com.slack.kaldb.logstore.OpensearchShim;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 >>>>>>> Initial cleanup
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -246,6 +250,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             collectorManager =
                 new MultiCollectorManager(
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
                     topFieldCollector,
                     OpensearchShim.getCollectorManager(
                         bucketCount, startTimeMsEpoch, endTimeMsEpoch));
@@ -253,6 +258,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
                     topFieldCollector, OpensearchShim.getCollectorManager(bucketCount));
 >>>>>>> Initial cleanup
+=======
+                    topFieldCollector, OpenSearchAdapter.getCollectorManager(bucketCount));
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -319,6 +327,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
               searcher.search(
                   query,
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
                   new MultiCollectorManager(
                       OpensearchShim.getCollectorManager(
                           bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
@@ -326,6 +335,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
                   new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount)));
 >>>>>>> Initial cleanup
+=======
+                  new MultiCollectorManager(OpenSearchAdapter.getCollectorManager(bucketCount)));
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
           histogram = ((InternalAutoDateHistogram) collector[0]);
 >>>>>>> Rework results to return fixed bucket widths for now
         }

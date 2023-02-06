@@ -5,10 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 >>>>>>> Initial cleanup
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -50,6 +54,7 @@ public class SearchResultTest {
 
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
     Aggregator dateHistogramAggregation =
         OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
@@ -65,6 +70,9 @@ public class SearchResultTest {
 
 =======
     Aggregator dateHistogramAggregation = OpensearchShim.buildAutoDateHistogramAggregator(10);
+=======
+    Aggregator dateHistogramAggregation = OpenSearchAdapter.buildAutoDateHistogramAggregator(10);
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
 >>>>>>> Fix tests
     SearchResult<LogMessage> searchResult =
@@ -82,10 +90,14 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getSnapshotsWithReplicas()).isEqualTo(7);
     assertThat(protoSearchResult.getInternalAggregations().toByteArray())
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
 =======
         .isEqualTo(OpensearchShim.toByteArray(internalAggregation));
 >>>>>>> Initial cleanup
+=======
+        .isEqualTo(OpenSearchAdapter.toByteArray(internalAggregation));
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
 
     SearchResult<LogMessage> convertedSearchResult =
         SearchResultUtils.fromSearchResultProto(protoSearchResult);

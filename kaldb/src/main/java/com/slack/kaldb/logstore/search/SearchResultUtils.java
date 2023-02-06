@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
@@ -15,6 +16,9 @@ import com.slack.kaldb.logstore.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 >>>>>>> Initial cleanup
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -62,11 +66,15 @@ public class SearchResultUtils {
         protoSearchResult.getTotalSnapshots(),
         protoSearchResult.getSnapshotsWithReplicas(),
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
         OpenSearchAggregationAdapter.fromByteArray(
             protoSearchResult.getInternalAggregations().toByteArray()));
 =======
         OpensearchShim.fromByteArray(protoSearchResult.getInternalAggregations().toByteArray()));
 >>>>>>> Test aggs all the way out
+=======
+        OpenSearchAdapter.fromByteArray(protoSearchResult.getInternalAggregations().toByteArray()));
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
@@ -135,8 +143,12 @@ public class SearchResultUtils {
 =======
 >>>>>>> Initial cleanup
     ByteString bytes =
+<<<<<<< bburkholder/opensearch-serialize
         ByteString.copyFrom(OpensearchShim.toByteArray(searchResult.internalAggregation));
 >>>>>>> Test aggs all the way out
+=======
+        ByteString.copyFrom(OpenSearchAdapter.toByteArray(searchResult.internalAggregation));
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
     searchResultBuilder.setInternalAggregations(bytes);
     span.finish();
     return searchResultBuilder.build();

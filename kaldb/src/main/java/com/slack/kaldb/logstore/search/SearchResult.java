@@ -67,6 +67,7 @@ public class SearchResult<T> {
     this.internalAggregation = internalAggregation;
   }
 
+<<<<<<< bburkholder/opensearch-serialize
   @Deprecated
   public SearchResult(
       List<T> hits,
@@ -89,6 +90,8 @@ public class SearchResult<T> {
     this.internalAggregation = internalAggregation;
   }
 
+=======
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

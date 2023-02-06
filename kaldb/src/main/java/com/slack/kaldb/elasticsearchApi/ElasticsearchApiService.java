@@ -25,6 +25,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
@@ -32,6 +33,9 @@ import com.slack.kaldb.logstore.OpensearchShim;
 =======
 import com.slack.kaldb.logstore.opensearch.OpensearchShim;
 >>>>>>> Initial cleanup
+=======
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+>>>>>>> More cleanup (KaldbSearchContext docs, OpenSearchAdapter rename)
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -142,7 +146,7 @@ public class ElasticsearchApiService {
     if (searchResult.getInternalAggregations().size() > 0) {
       try {
         internalAggregation =
-            OpensearchShim.fromByteArray(searchResult.getInternalAggregations().toByteArray());
+            OpenSearchAdapter.fromByteArray(searchResult.getInternalAggregations().toByteArray());
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()
