@@ -317,6 +317,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         } else {
           results = Collections.emptyList();
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
           Object[] collector = searcher.search(query, new MultiCollectorManager(OpensearchShim.getCollectorManager(bucketCount, startTimeMsEpoch, endTimeMsEpoch)));
 <<<<<<< bburkholder/opensearch-serialize
           histogram = ((InternalDateHistogram) collector[0]);
@@ -351,15 +352,25 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                   .collect(
                       Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                   .getSum();
+=======
+          histogram =
+              ((InternalAutoDateHistogram)
+                  searcher.search(query, OpenSearchAdapter.getCollectorManager(bucketCount)));
+>>>>>>> Cleanup LogSearcherImpl
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+=======
+            results,
+            elapsedTime.elapsed(TimeUnit.MICROSECONDS),
+>>>>>>> Cleanup LogSearcherImpl
             bucketCount > 0
                 ? histogram
                     .getBuckets()
@@ -368,6 +379,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                         Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
                     .getSum()
                 : results.size(),
+<<<<<<< bburkholder/opensearch-serialize
 =======
             bucketCount > 0 ? 0 : results.size(),
             List.of(),
@@ -377,14 +389,19 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             totalCount,
             buckets,
 >>>>>>> Cleanup, port into logindexsearcher
+=======
+>>>>>>> Cleanup LogSearcherImpl
             0,
             0,
             1,
             1,
             histogram);
+<<<<<<< bburkholder/opensearch-serialize
 =======
             results, elapsedTime.elapsed(TimeUnit.MICROSECONDS), totalCount, 0, 0, 1, 1, histogram);
 >>>>>>> Initial cleanup
+=======
+>>>>>>> Cleanup LogSearcherImpl
       } finally {
         searcherManager.release(searcher);
       }
