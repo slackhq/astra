@@ -84,7 +84,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
   private QueryParser buildQueryParser() {
-    return new KaldbQueryParser(SystemField.ALL.fieldName, analyzer, chunkScEema);
+    return new KaldbQueryParser(SystemField.ALL.fieldName, analyzer, chunkSchema);
   }
 
   public SearchResult<LogMessage> search(
