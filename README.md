@@ -2,11 +2,14 @@
 
 KalDB is a cloud-native search engine for log management & analytics. It is designed to be very cost-effective, easy to operate, and scale to petabytes.
 
+[Join our Slack community](https://join.slack.com/t/kaldb/shared_invite/zt-1om21f1yv-jyRUCH1JO6g6HMlKgd8mDw)
+
 # 💡 Features
 
 - Index data persisted on object storage(S3).
 - No delayed logs: Prioritizes ingesting fresh data over older data.
-- Ingest JSON documents with or without a strict schema
+- Dynamic schema: Ingest JSON documents with or without a strict schema
+- Cloud-native: Kubernetes ready
 - Plug-in for [Grafana UI](https://github.com/slackhq/slack-kaldb-app). 
 - Designed to elastically scale to handle log spikes automatically.
 - Based on Apache Lucene.
@@ -15,7 +18,6 @@ KalDB is a cloud-native search engine for log management & analytics. It is desi
 - Co-ordination free ingestion, so failure of a single node doesn't stop ingestion.
 - Designed for zero data loss. 
 - Distributed search
-- Cloud-native: Kubernetes ready
 - Add and remove nodes in seconds. Elastically scale capacity up and down based on load.
 - Decoupled compute & storage
 - Ingest your documents with exactly-once semantics
