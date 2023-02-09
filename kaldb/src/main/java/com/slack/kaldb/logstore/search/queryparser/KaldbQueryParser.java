@@ -15,8 +15,8 @@ public class KaldbQueryParser extends QueryParser {
       ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
     super(defaultField, analyzer);
     if (chunkSchema == null || chunkSchema.isEmpty()) {
-      throw new RuntimeException(
-          "This should never be empty. We should always initialize the parser with default fields");
+      throw new IllegalArgumentException(
+          "chunkSchema should never be empty. We should always initialize the parser with default fields");
     }
     this.chunkSchema = chunkSchema;
   }
