@@ -31,7 +31,8 @@ public abstract class SearchRequestAggregation {
                       new DateHistogramAggregation(
                           aggregationKey,
                           node.get("interval").asText(),
-                          node.get("min_doc_count").asInt()));
+                          node.get("min_doc_count").asInt(),
+                          node.get("field").asText()));
                 }
 
                 // todo - support other aggregation types
