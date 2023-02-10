@@ -7,13 +7,71 @@ import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class SearchResultUtils {
+
+  public static AggBuilder fromSearchAggregations(
+      KaldbSearch.SearchRequest.SearchAggregation searchAggregation) {
+    if (searchAggregation.getType().isEmpty()) {
+      return null;
+    } else if (searchAggregation.getType().equals(AvgAggBuilder.TYPE)) {
+      return new AvgAggBuilder(
+          searchAggregation.getName(), searchAggregation.getValueSource().getField());
+    } else if (searchAggregation.getType().equals(DateHistogramAggBuilder.TYPE)) {
+      return new DateHistogramAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          searchAggregation.getValueSource().getDateHistogram().getInterval());
+    }
+
+    throw new NotImplementedException();
+  }
+
+  public static KaldbSearch.SearchRequest.SearchAggregation toSearchAggregationProto(
+      AggBuilder aggBuilder) {
+    if (aggBuilder instanceof AvgAggBuilder) {
+      AvgAggBuilder avgAggregation = (AvgAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(AvgAggBuilder.TYPE)
+          .setName(avgAggregation.getName())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(avgAggregation.getField())
+                  .build())
+          .build();
+
+    } else if (aggBuilder instanceof DateHistogramAggBuilder) {
+      DateHistogramAggBuilder dateHistogramAggBuilder = (DateHistogramAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(DateHistogramAggBuilder.TYPE)
+          .setName(dateHistogramAggBuilder.getName())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(dateHistogramAggBuilder.getField())
+                  .setDateHistogram(
+                      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                          .DateHistogramAggregation.newBuilder()
+                          .setInterval(dateHistogramAggBuilder.getInterval())
+                          .setMinDocCount(dateHistogramAggBuilder.getMinDocCount())
+                          .setOffset(dateHistogramAggBuilder.getOffset())
+                          .build())
+                  .build())
+          .build();
+    } else {
+      throw new NotImplementedException();
+    }
+  }
 
   public static SearchQuery fromSearchRequest(KaldbSearch.SearchRequest searchRequest) {
     return new SearchQuery(
@@ -22,7 +80,7 @@ public class SearchResultUtils {
         searchRequest.getStartTimeEpochMs(),
         searchRequest.getEndTimeEpochMs(),
         searchRequest.getHowMany(),
-        searchRequest.getBucketCount(),
+        fromSearchAggregations(searchRequest.getAggregations()),
         searchRequest.getChunkIdsList());
   }
 

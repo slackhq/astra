@@ -1,12 +1,18 @@
 package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import org.apache.lucene.store.AlreadyClosedException;
 
 public class AlreadyClosedLogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public SearchResult<LogMessage> search(
-      String dataset, String query, long minTime, long maxTime, int howMany, int bucketCount) {
+      String dataset,
+      String query,
+      long minTime,
+      long maxTime,
+      int howMany,
+      AggBuilder aggBuilder) {
     throw new AlreadyClosedException("Failed to acquire an index searcher");
   }
 

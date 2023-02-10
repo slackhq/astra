@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -42,7 +43,7 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,21 +77,21 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return new KaldbQueryParser(SystemField.ALL.fieldName, analyzer, chunkSchema);
   }
 
+  @Override
   public SearchResult<LogMessage> search(
       String dataset,
       String queryStr,
       long startTimeMsEpoch,
       long endTimeMsEpoch,
       int howMany,
-      int bucketCount) {
+      AggBuilder aggBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
     ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
     ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
-    ensureTrue(bucketCount >= 0, "bucket count should not be negative.");
-    ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
+    ensureTrue(howMany > 0 || aggBuilder != null, "Hits or aggregation should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
@@ -98,7 +99,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
     span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
     span.tag("howMany", String.valueOf(howMany));
-    span.tag("bucketCount", String.valueOf(bucketCount));
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
@@ -109,17 +109,17 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        InternalAutoDateHistogram histogram = null;
+        InternalDateHistogram histogram = null;
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
+              buildTopFieldCollector(howMany, aggBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
-          if (bucketCount > 0) {
+          if (aggBuilder != null) {
             collectorManager =
                 new MultiCollectorManager(
                     topFieldCollector,
-                    OpenSearchAggregationAdapter.getCollectorManager(bucketCount));
+                    OpenSearchAggregationAdapter.getCollectorManager(aggBuilder));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -130,27 +130,26 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           for (ScoreDoc hit : hits) {
             results.add(buildLogMessage(searcher, hit));
           }
-          if (bucketCount > 0) {
-            histogram = ((InternalAutoDateHistogram) collector[1]);
+          if (aggBuilder != null) {
+            histogram = ((InternalDateHistogram) collector[1]);
           }
         } else {
           results = Collections.emptyList();
           histogram =
-              ((InternalAutoDateHistogram)
+              ((InternalDateHistogram)
                   searcher.search(
-                      query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
+                      query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder)));
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            bucketCount > 0
+            aggBuilder != null
                 ? histogram
                     .getBuckets()
                     .stream()
-                    .collect(
-                        Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                    .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                     .getSum()
                 : results.size(),
             0,

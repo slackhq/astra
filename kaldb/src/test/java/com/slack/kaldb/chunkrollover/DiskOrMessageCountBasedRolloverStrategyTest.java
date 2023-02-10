@@ -18,6 +18,7 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
@@ -199,7 +200,22 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(
+                    KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+                        .setType(DateHistogramAggBuilder.TYPE)
+                        .setName("1")
+                        .setValueSource(
+                            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                .newBuilder()
+                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                                .setDateHistogram(
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.DateHistogramAggregation
+                                        .newBuilder()
+                                        .setInterval("1s")
+                                        .build())
+                                .build())
+                        .build())
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -262,7 +278,22 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(
+                    KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+                        .setType(DateHistogramAggBuilder.TYPE)
+                        .setName("1")
+                        .setValueSource(
+                            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                .newBuilder()
+                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                                .setDateHistogram(
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.DateHistogramAggregation
+                                        .newBuilder()
+                                        .setInterval("1s")
+                                        .build())
+                                .build())
+                        .build())
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);

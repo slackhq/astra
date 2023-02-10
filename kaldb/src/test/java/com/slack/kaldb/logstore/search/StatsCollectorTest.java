@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.time.Instant;
@@ -19,7 +20,7 @@ import java.util.Objects;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class StatsCollectorTest {
   @Rule
@@ -62,16 +63,15 @@ public class StatsCollectorTest {
             time.toEpochMilli(),
             time.plusSeconds(4 * 60).toEpochMilli(),
             0,
-            5);
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);
 
-    InternalAutoDateHistogram dateHistogram =
-        (InternalAutoDateHistogram) allIndexItems.internalAggregation;
+    InternalDateHistogram dateHistogram = (InternalDateHistogram) allIndexItems.internalAggregation;
     assertThat(Objects.requireNonNull(dateHistogram).getBuckets().size()).isEqualTo(5);
-    for (InternalAutoDateHistogram.Bucket bucket :
-        Objects.requireNonNull(dateHistogram).getBuckets()) {
+    for (InternalDateHistogram.Bucket bucket : Objects.requireNonNull(dateHistogram).getBuckets()) {
       assertThat(bucket.getDocCount()).isEqualTo(1);
     }
 

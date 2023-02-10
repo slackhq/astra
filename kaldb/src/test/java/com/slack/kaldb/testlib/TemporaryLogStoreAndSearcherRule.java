@@ -7,6 +7,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +40,14 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public static List<LogMessage> findAllMessages(
       LogIndexSearcherImpl searcher, String dataset, String query, int howMany, int bucketCount) {
     SearchResult<LogMessage> results =
-        searcher.search(dataset, query, 0, MAX_TIME, howMany, bucketCount);
+        searcher.search(
+            dataset,
+            query,
+            0,
+            MAX_TIME,
+            howMany,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     return results.hits;
   }
 

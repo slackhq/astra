@@ -4,7 +4,8 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
-import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,8 +50,11 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
@@ -87,19 +91,25 @@ public class OpenSearchAggregationAdapter {
    * Deserializes a bytearray into an InternalDateHistogram. <br>
    * TODO - abstract this to allow deserialization of any internal aggregation
    */
-  public static InternalAutoDateHistogram fromByteArray(byte[] bytes) throws IOException {
+  public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
     NamedWriteableRegistry namedWriteableRegistry =
         new NamedWriteableRegistry(
             Arrays.asList(
                 // todo - add additional aggregations as needed
                 new NamedWriteableRegistry.Entry(
                     AggregationBuilder.class,
-                    AutoDateHistogramAggregationBuilder.NAME,
-                    AutoDateHistogramAggregationBuilder::new),
+                    DateHistogramAggregationBuilder.NAME,
+                    DateHistogramAggregationBuilder::new),
                 new NamedWriteableRegistry.Entry(
                     InternalAggregation.class,
-                    AutoDateHistogramAggregationBuilder.NAME,
-                    InternalAutoDateHistogram::new),
+                    DateHistogramAggregationBuilder.NAME,
+                    InternalDateHistogram::new),
+                new NamedWriteableRegistry.Entry(
+                    AggregationBuilder.class,
+                    AvgAggregationBuilder.NAME,
+                    AvgAggregationBuilder::new),
+                new NamedWriteableRegistry.Entry(
+                    InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
                 new NamedWriteableRegistry.Entry(
                     AggregationBuilder.class,
                     ValueCountAggregationBuilder.NAME,
@@ -148,7 +158,7 @@ public class OpenSearchAggregationAdapter {
     NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
         new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry);
 
-    return new InternalAutoDateHistogram(namedWriteableAwareStreamInput);
+    return new InternalDateHistogram(namedWriteableAwareStreamInput);
   }
 
   protected static XContentBuilder mapping(
@@ -175,11 +185,11 @@ public class OpenSearchAggregationAdapter {
    * TODO - abstract this to allow instantiating other aggregators than just a date histogram
    */
   public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      int numBuckets) {
+      AggBuilder aggBuilder) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAutoDateHistogramAggregator(numBuckets);
+        Aggregator aggregator = buildDateHistogramAggregator((DateHistogramAggBuilder) aggBuilder);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -217,7 +227,8 @@ public class OpenSearchAggregationAdapter {
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
     // todo - add additional aggregations as needed
-    AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     return valuesSourceRegistryBuilder.build();
@@ -318,15 +329,14 @@ public class OpenSearchAggregationAdapter {
    * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
    * aggregations implementation.
    */
-  public static Aggregator buildAutoDateHistogramAggregator(int numBuckets) throws IOException {
+  public static Aggregator buildDateHistogramAggregator(DateHistogramAggBuilder builder)
+      throws IOException {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);
 
-    registerField(
-        mapperService,
-        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        b -> b.field("type", "long"));
+    // todo - this needs to use mapping information
+    registerField(mapperService, builder.getField(), b -> b.field("type", "long"));
 
     QueryShardContext queryShardContext =
         buildQueryShardContext(
@@ -334,17 +344,19 @@ public class OpenSearchAggregationAdapter {
     SearchContext searchContext =
         new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
 
-    AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
-        new AutoDateHistogramAggregationBuilder("datehistogram")
-            .setNumBuckets(numBuckets)
-            .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+        new DateHistogramAggregationBuilder(builder.getName())
+            .field(builder.getField())
+            .fixedInterval(new DateHistogramInterval(builder.getInterval()))
+            .minDocCount(builder.getMinDocCount())
+            .offset(builder.getOffset());
+    // todo extra fields
+    // .extendedBounds(new LongBounds())
+    // .format("epoch_millis")
 
-    ValueCountAggregationBuilder valueCountAggregationBuilder =
-        new ValueCountAggregationBuilder("valuecount")
-            .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-    autoDateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
-    return autoDateHistogramAggregationBuilder
+    // todo -
+    // dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
+    return dateHistogramAggregationBuilder
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
   }

@@ -3,6 +3,7 @@ package com.slack.kaldb.elasticsearchApi.searchRequest;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
+import com.slack.kaldb.logstore.LogMessage;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -18,7 +19,9 @@ public class EsSearchRequestTest {
     // 1m interval for 1 day should be 1440
     assertThat(
             EsSearchRequest.getBucketCount(
-                List.of(new DateHistogramAggregation("foo", "1m", 100)),
+                List.of(
+                    new DateHistogramAggregation(
+                        "foo", "1m", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1440);
@@ -26,7 +29,9 @@ public class EsSearchRequestTest {
     // 1d interval for 1 day should be 1
     assertThat(
             EsSearchRequest.getBucketCount(
-                List.of(new DateHistogramAggregation("foo", "1d", 100)),
+                List.of(
+                    new DateHistogramAggregation(
+                        "foo", "1d", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1);
@@ -34,7 +39,9 @@ public class EsSearchRequestTest {
     // 1s interval for 1 day should be 86400
     assertThat(
             EsSearchRequest.getBucketCount(
-                List.of(new DateHistogramAggregation("foo", "1s", 100)),
+                List.of(
+                    new DateHistogramAggregation(
+                        "foo", "1s", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(86400);
@@ -47,10 +54,12 @@ public class EsSearchRequestTest {
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(60);
 
-    // should gracefully handle invalid aggregation
+    // should gracefully handle invalid aggBuilder
     assertThat(
             EsSearchRequest.getBucketCount(
-                List.of(new DateHistogramAggregation("foo", "garbage", 100)),
+                List.of(
+                    new DateHistogramAggregation(
+                        "foo", "garbage", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(60);
@@ -59,8 +68,10 @@ public class EsSearchRequestTest {
     assertThat(
             EsSearchRequest.getBucketCount(
                 List.of(
-                    new DateHistogramAggregation("foo", "1d", 100),
-                    new DateHistogramAggregation("foo", "1s", 100)),
+                    new DateHistogramAggregation(
+                        "foo", "1d", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName),
+                    new DateHistogramAggregation(
+                        "foo", "1s", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1);
