@@ -24,6 +24,7 @@ import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.File;
@@ -99,17 +100,35 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.key1:value1",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:duplicate1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "duplicateproperty:duplicate1",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:2", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.duplicateproperty:2",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 

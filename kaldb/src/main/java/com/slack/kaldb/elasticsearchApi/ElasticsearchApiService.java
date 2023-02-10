@@ -39,7 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,12 +174,13 @@ public class ElasticsearchApiService {
   @Deprecated
   private Map<String, AggregationResponse> buildLegacyAggregationResponse(
       List<SearchRequestAggregation> searchRequestAggregations, ByteString internalAggregations) {
-    InternalAutoDateHistogram internalAggregation;
+    InternalDateHistogram internalAggregation;
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (internalAggregations.size() > 0) {
       try {
         internalAggregation =
-            OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
+            (InternalDateHistogram)
+                OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()

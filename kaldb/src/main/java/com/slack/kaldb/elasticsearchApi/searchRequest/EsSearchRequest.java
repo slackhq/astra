@@ -8,11 +8,15 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.DateHistogramAggregation;
 import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.SearchResultUtils;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,13 +107,36 @@ public class EsSearchRequest {
   }
 
   public KaldbSearch.SearchRequest toKaldbSearchRequest() {
+    if (aggregations.size() > 1) {
+      // todo
+      throw new NotImplementedException();
+    }
+
+    KaldbSearch.SearchRequest.SearchAggregation aggregation =
+        KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build();
+
+    if (aggregations.size() == 1) {
+      DateHistogramAggregation legacyAggRequest = (DateHistogramAggregation) aggregations.get(0);
+
+      // todo - this is due to some incorrect indexing / schema changes
+      String fieldname = legacyAggRequest.getFieldName();
+      if (fieldname.equals("@timestamp")) {
+        fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+      }
+
+      aggregation =
+          SearchResultUtils.toSearchAggregationProto(
+              new DateHistogramAggBuilder(
+                  legacyAggRequest.getAggregationKey(), fieldname, legacyAggRequest.getInterval()));
+    }
+
     return KaldbSearch.SearchRequest.newBuilder()
         .setDataset(getIndex())
         .setQueryString(getQuery())
         .setStartTimeEpochMs(getRange().getGteEpochMillis())
         .setEndTimeEpochMs(getRange().getLteEpochMillis())
         .setHowMany(getSize())
-        .setBucketCount(getBucketCount(getAggregations(), getRange()))
+        .setAggregations(aggregation)
         .build();
   }
 

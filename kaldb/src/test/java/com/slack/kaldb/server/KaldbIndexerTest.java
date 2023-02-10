@@ -28,6 +28,7 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
@@ -703,7 +704,8 @@ public class KaldbIndexerTest {
                 chunk1StartTimeMs,
                 chunk1StartTimeMs + (100 * 1000),
                 10,
-                2,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList()),
             Duration.ofMillis(3000));
 

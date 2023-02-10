@@ -28,6 +28,7 @@ import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -182,7 +183,8 @@ public class RecoveryChunkManagerTest {
             0,
             MAX_TIME,
             10,
-            1000,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     SearchResult<LogMessage> results = chunkManager.getActiveChunk().query(searchQuery);
     assertThat(results.hits.size()).isEqualTo(1);
@@ -219,7 +221,8 @@ public class RecoveryChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        1000,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList()))
                 .hits
                 .size())
@@ -248,7 +251,8 @@ public class RecoveryChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        1000,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList()))
                 .hits
                 .size())
@@ -300,7 +304,8 @@ public class RecoveryChunkManagerTest {
             0,
             com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME,
             10,
-            1000,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     SearchResult<LogMessage> result = chunkManager.query(searchQuery, Duration.ofMillis(3000));
 

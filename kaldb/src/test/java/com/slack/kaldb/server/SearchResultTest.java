@@ -7,6 +7,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
@@ -34,7 +35,9 @@ public class SearchResultTest {
     }
 
     Aggregator dateHistogramAggregation =
-        OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
+        OpenSearchAggregationAdapter.buildDateHistogramAggregator(
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
