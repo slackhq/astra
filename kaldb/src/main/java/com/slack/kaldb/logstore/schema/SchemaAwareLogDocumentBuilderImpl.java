@@ -69,7 +69,10 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             false,
             true,
             true));
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.TIMESTAMP.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.TIMESTAMP.fieldName, FieldType.LONG.name, false, true, true));
     fieldDefBuilder.put(
         LogMessage.ReservedField.TYPE.fieldName,
         new LuceneFieldDef(
