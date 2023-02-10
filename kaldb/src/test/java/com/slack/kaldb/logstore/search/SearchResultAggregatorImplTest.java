@@ -19,6 +19,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class SearchResultAggregatorImplTest {
 <<<<<<< bburkholder/opensearch-serialize
@@ -126,7 +127,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -152,14 +154,13 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getTargetBuckets()).isEqualTo(bucketCount);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
             internalAutoDateHistogram
                 .getBuckets()
                 .stream()
-                .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
 <<<<<<< bburkholder/opensearch-serialize
@@ -226,7 +227,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -251,14 +253,13 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getTargetBuckets()).isEqualTo(bucketCount);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
             internalAutoDateHistogram
                 .getBuckets()
                 .stream()
-                .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
 <<<<<<< bburkholder/opensearch-serialize
@@ -347,7 +348,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
@@ -370,14 +372,13 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getTargetBuckets()).isEqualTo(bucketCount);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
             internalAutoDateHistogram
                 .getBuckets()
                 .stream()
-                .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size() + messages3.size() + messages4.size());
 <<<<<<< bburkholder/opensearch-serialize
@@ -417,7 +418,8 @@ public class SearchResultAggregatorImplTest {
             searchStartMs,
             searchEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -442,8 +444,8 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(internalAutoDateHistogram.getBuckets().size()).isEqualTo(0);
 <<<<<<< bburkholder/opensearch-serialize
 =======
@@ -507,7 +509,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -527,14 +530,13 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getTargetBuckets()).isEqualTo(bucketCount);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
             internalAutoDateHistogram
                 .getBuckets()
                 .stream()
-                .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
 <<<<<<< bburkholder/opensearch-serialize
@@ -590,7 +592,8 @@ public class SearchResultAggregatorImplTest {
             startTimeMs,
             endTimeMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -615,8 +618,8 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(internalAutoDateHistogram).isEqualTo(histogram1);
 <<<<<<< bburkholder/opensearch-serialize
 =======
@@ -680,7 +683,8 @@ public class SearchResultAggregatorImplTest {
             histogramStartMs,
             histogramEndMs,
             howMany,
-            bucketCount,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -700,27 +704,29 @@ public class SearchResultAggregatorImplTest {
 =======
 >>>>>>> Update remaining tests
 
-    InternalAutoDateHistogram internalAutoDateHistogram =
-        Objects.requireNonNull((InternalAutoDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getTargetBuckets()).isEqualTo(bucketCount);
+    InternalDateHistogram internalAutoDateHistogram =
+        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
             internalAutoDateHistogram
                 .getBuckets()
                 .stream()
-                .collect(Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
   }
 
-  private InternalAutoDateHistogram emptyAggregation() throws IOException {
-    return (InternalAutoDateHistogram)
-        OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(1).buildEmptyAggregation();
+  private InternalDateHistogram emptyAggregation() throws IOException {
+    return (InternalDateHistogram)
+        OpenSearchAggregationAdapter.buildDateHistogramAggregator(
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+            .buildEmptyAggregation();
   }
 
   /**
    * Makes an InternalAutoDateHistogram given the provided configuration. Since the
    * InternalAutoDateHistogram has private constructors this uses a temporary LogSearcher to index,
-   * search, and then collect the results into an appropriate aggregation.
+   * search, and then collect the results into an appropriate aggBuilder.
    */
   private InternalAggregation makeHistogram(
       long histogramStartMs, long histogramEndMs, int bucketCount, List<LogMessage> logMessages)
@@ -751,7 +757,14 @@ public class SearchResultAggregatorImplTest {
     logStore.refresh();
 
     SearchResult<LogMessage> messageSearchResult =
-        logSearcher.search("testDataSet", "*:*", histogramStartMs, histogramEndMs, 0, bucketCount);
+        logSearcher.search(
+            "testDataSet",
+            "*:*",
+            histogramStartMs,
+            histogramEndMs,
+            0,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     try {
       return messageSearchResult.internalAggregation;

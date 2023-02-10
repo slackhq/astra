@@ -73,7 +73,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
   }
 
   /*
-   * Query the chunks in the time range, aggregate the results per aggregation policy and return the results.
+   * Query the chunks in the time range, aggregate the results per aggBuilder policy and return the results.
    * We aggregate locally and then the query aggregator will aggregate again. This is OKAY for the current use-case we support
    * 1. topK results sorted by timestamp
    * 2. histogram over a fixed time range

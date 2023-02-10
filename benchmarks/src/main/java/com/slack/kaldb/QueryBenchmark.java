@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.service.murron.Murron;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -122,7 +123,14 @@ public class QueryBenchmark {
 
   @Benchmark
   public void measureLogSearcherSearch() {
-    logIndexSearcher.search("*", "", 0, Long.MAX_VALUE, 500, 60);
+    logIndexSearcher.search(
+        "*",
+        "",
+        0,
+        Long.MAX_VALUE,
+        500,
+        new DateHistogramAggBuilder(
+            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "100d"));
   }
 
   public ConsumerRecord<String, byte[]> makeConsumerRecord(String line) {

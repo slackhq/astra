@@ -15,6 +15,7 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -38,7 +39,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class KaldbLocalQueryServiceTest {
   private static final String TEST_KAFKA_PARITION_ID = "10";
@@ -79,6 +80,22 @@ public class KaldbLocalQueryServiceTest {
     }
   }
 
+  private static KaldbSearch.SearchRequest.SearchAggregation buildHistogramRequest(int numBuckets) {
+    return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+        .setType(DateHistogramAggBuilder.TYPE)
+        .setName("1")
+        .setValueSource(
+            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                .setDateHistogram(
+                    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                        .DateHistogramAggregation.newBuilder()
+                        .setInterval("1s")
+                        .build())
+                .build())
+        .build();
+  }
+
   @Test
   public void testKalDbSearch() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
@@ -112,7 +129,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(2))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -140,12 +157,19 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 >>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+=======
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
+>>>>>>> Initial aggs request POC
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
     assertThat(
@@ -198,7 +222,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(2))
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
@@ -214,12 +238,19 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 >>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+=======
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
+>>>>>>> Initial aggs request POC
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
 <<<<<<< bburkholder/opensearch-serialize
 =======
@@ -264,7 +295,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(2))
                 .build());
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
@@ -280,12 +311,19 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 >>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+=======
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
+>>>>>>> Initial aggs request POC
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
     assertThat(
@@ -336,7 +374,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(0)
+                .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -400,7 +438,7 @@ public class KaldbLocalQueryServiceTest {
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
             .setHowMany(0)
-            .setBucketCount(0)
+            .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
             .build());
   }
 
@@ -449,7 +487,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(2))
                 .build());
 
     // Validate search response
@@ -478,12 +516,19 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 >>>>>>> Update remaining tests
     InternalAutoDateHistogram dateHistogram =
         OpenSearchAggregationAdapter.fromByteArray(
             response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+=======
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
+>>>>>>> Initial aggs request POC
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
     assertThat(
@@ -552,7 +597,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setBucketCount(0)
+                .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
                 .build());
   }
 }

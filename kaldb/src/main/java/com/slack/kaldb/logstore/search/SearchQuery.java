@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search;
 
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import java.util.List;
 
 /** A class that represents a search query internally to LogStore. */
@@ -11,7 +12,7 @@ public class SearchQuery {
   public final long startTimeEpochMs;
   public final long endTimeEpochMs;
   public final int howMany;
-  public final int bucketCount;
+  public final AggBuilder aggBuilder;
   public final List<String> chunkIds;
 
   public SearchQuery(
@@ -20,14 +21,14 @@ public class SearchQuery {
       long startTimeEpochMs,
       long endTimeEpochMs,
       int howMany,
-      int bucketCount,
+      AggBuilder aggBuilder,
       List<String> chunkIds) {
     this.dataset = dataset;
     this.queryStr = queryStr;
     this.startTimeEpochMs = startTimeEpochMs;
     this.endTimeEpochMs = endTimeEpochMs;
     this.howMany = howMany;
-    this.bucketCount = bucketCount;
+    this.aggBuilder = aggBuilder;
     this.chunkIds = chunkIds;
   }
 
@@ -46,10 +47,10 @@ public class SearchQuery {
         + endTimeEpochMs
         + ", howMany="
         + howMany
-        + ", bucketCount="
-        + bucketCount
         + ", chunkIds="
-        + String.join(",", chunkIds)
+        + chunkIds
+        + ", aggBuilder="
+        + aggBuilder
         + '}';
   }
 }

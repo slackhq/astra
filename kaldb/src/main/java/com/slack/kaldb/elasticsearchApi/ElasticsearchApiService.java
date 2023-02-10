@@ -57,6 +57,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 =======
 
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -64,6 +65,9 @@ import org.opensearch.search.aggregations.InternalAggregation;
 =======
 >>>>>>> Initial cleanup
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+=======
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+>>>>>>> Initial aggs request POC
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,7 +236,7 @@ public class ElasticsearchApiService {
   @Deprecated
   private Map<String, AggregationResponse> buildLegacyAggregationResponse(
       List<SearchRequestAggregation> searchRequestAggregations, ByteString internalAggregations) {
-    InternalAutoDateHistogram internalAggregation;
+    InternalDateHistogram internalAggregation;
     Map<String, AggregationResponse> aggregations = new HashMap<>();
     if (internalAggregations.size() > 0) {
       try {
@@ -245,8 +249,13 @@ public class ElasticsearchApiService {
 >>>>>>> Cleanup ElasticsearchApiService response
 =======
         internalAggregation =
+<<<<<<< bburkholder/opensearch-serialize
             OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
 >>>>>>> Cleanup OpenSearchAggregationAdapter
+=======
+            (InternalDateHistogram)
+                OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
+>>>>>>> Initial aggs request POC
         List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
         internalAggregation
             .getBuckets()

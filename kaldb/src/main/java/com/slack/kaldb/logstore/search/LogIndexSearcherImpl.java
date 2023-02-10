@@ -26,6 +26,7 @@ import com.slack.kaldb.logstore.LogWireMessage;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+<<<<<<< bburkholder/opensearch-serialize
 =======
 import com.slack.kaldb.logstore.OpensearchShim;
 >>>>>>> Add POC for serialization
@@ -42,6 +43,9 @@ import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 =======
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 >>>>>>> Cleanup OpenSearchAggregationAdapter
+=======
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+>>>>>>> Initial aggs request POC
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
@@ -98,6 +102,7 @@ import org.apache.lucene.store.MMapDirectory;
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
+<<<<<<< bburkholder/opensearch-serialize
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 =======
 =======
@@ -140,6 +145,9 @@ import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 =======
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 >>>>>>> Test aggs all the way out
+=======
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+>>>>>>> Initial aggs request POC
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -173,21 +181,21 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     return new KaldbQueryParser(SystemField.ALL.fieldName, analyzer, chunkSchema);
   }
 
+  @Override
   public SearchResult<LogMessage> search(
       String dataset,
       String queryStr,
       long startTimeMsEpoch,
       long endTimeMsEpoch,
       int howMany,
-      int bucketCount) {
+      AggBuilder aggBuilder) {
 
     ensureNonEmptyString(dataset, "dataset should be a non-empty string");
     ensureNonNullString(queryStr, "query should be a non-empty string");
     ensureTrue(startTimeMsEpoch >= 0, "start time should be non-negative value");
     ensureTrue(startTimeMsEpoch < endTimeMsEpoch, "end time should be greater than start time");
     ensureTrue(howMany >= 0, "hits requested should not be negative.");
-    ensureTrue(bucketCount >= 0, "bucket count should not be negative.");
-    ensureTrue(howMany > 0 || bucketCount > 0, "Hits or histogram should be requested.");
+    ensureTrue(howMany > 0 || aggBuilder != null, "Hits or aggregation should be requested.");
 
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("LogIndexSearcherImpl.search");
     span.tag("dataset", dataset);
@@ -195,7 +203,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     span.tag("startTimeMsEpoch", String.valueOf(startTimeMsEpoch));
     span.tag("endTimeMsEpoch", String.valueOf(endTimeMsEpoch));
     span.tag("howMany", String.valueOf(howMany));
-    span.tag("bucketCount", String.valueOf(bucketCount));
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
@@ -206,6 +213,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
+<<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
@@ -227,11 +235,15 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
         InternalAutoDateHistogram histogram = null;
 >>>>>>> Rework results to return fixed bucket widths for now
+=======
+        InternalDateHistogram histogram = null;
+>>>>>>> Initial aggs request POC
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
-              buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
+              buildTopFieldCollector(howMany, aggBuilder != null ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
+<<<<<<< bburkholder/opensearch-serialize
           if (bucketCount > 0) {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
@@ -270,6 +282,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
                     topFieldCollector,
                     OpenSearchAggregationAdapter.getCollectorManager(bucketCount));
 >>>>>>> Cleanup OpenSearchAggregationAdapter
+=======
+          if (aggBuilder != null) {
+            collectorManager =
+                new MultiCollectorManager(
+                    topFieldCollector,
+                    OpenSearchAggregationAdapter.getCollectorManager(aggBuilder));
+>>>>>>> Initial aggs request POC
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -280,6 +299,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           for (ScoreDoc hit : hits) {
             results.add(buildLogMessage(searcher, hit));
           }
+<<<<<<< bburkholder/opensearch-serialize
           if (bucketCount > 0) {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
@@ -287,12 +307,17 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 <<<<<<< bburkholder/opensearch-serialize
 <<<<<<< bburkholder/opensearch-serialize
             histogram = ((InternalAutoDateHistogram) collector[1]);
+=======
+          if (aggBuilder != null) {
+            histogram = ((InternalDateHistogram) collector[1]);
+>>>>>>> Initial aggs request POC
           }
         } else {
           results = Collections.emptyList();
           histogram =
-              ((InternalAutoDateHistogram)
+              ((InternalDateHistogram)
                   searcher.search(
+<<<<<<< bburkholder/opensearch-serialize
                       query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
 <<<<<<< bburkholder/opensearch-serialize
 =======
@@ -369,6 +394,9 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 >>>>>>> Cleanup LogSearcherImpl
 =======
 >>>>>>> Cleanup OpenSearchAggregationAdapter
+=======
+                      query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder)));
+>>>>>>> Initial aggs request POC
         }
 
         elapsedTime.stop();
@@ -382,13 +410,16 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 =======
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
+<<<<<<< bburkholder/opensearch-serialize
 >>>>>>> Cleanup LogSearcherImpl
             bucketCount > 0
+=======
+            aggBuilder != null
+>>>>>>> Initial aggs request POC
                 ? histogram
                     .getBuckets()
                     .stream()
-                    .collect(
-                        Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                    .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                     .getSum()
                 : results.size(),
 <<<<<<< bburkholder/opensearch-serialize

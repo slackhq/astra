@@ -14,7 +14,30 @@ message SearchRequest {
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
-  int32 bucket_count = 7;
+  SearchAggregation aggregations = 7;
+
+  message SearchAggregation {
+    string type = 1;
+    string name = 2;
+    map<string, Value> metadata = 3;
+    repeated SearchAggregation sub_aggregations = 4;
+
+    ValueSourceAggregation value_source = 5;
+
+    message ValueSourceAggregation {
+      string field = 1;
+
+      oneof type {
+        DateHistogramAggregation date_histogram = 11;
+      }
+
+      message DateHistogramAggregation {
+        string interval = 1;
+        int64 min_doc_count = 2;
+        int64 offset = 3;
+      }
+    }
+  }
 }
 
 message SearchResult {
@@ -31,6 +54,26 @@ message SearchResult {
   bytes internal_aggregations = 10;
 =======
 >>>>>>> Initial cleanup
+}
+
+message Value {
+  oneof kind {
+    int32 int_value = 1;
+    int64 long_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+    bool bool_value = 5;
+    Struct struct_value = 6;
+    ListValue list_value = 7;
+  }
+}
+
+message Struct {
+  map<string, Value> fields = 1;
+}
+
+message ListValue {
+  repeated Value values = 1;
 }
 
 service KaldbService {

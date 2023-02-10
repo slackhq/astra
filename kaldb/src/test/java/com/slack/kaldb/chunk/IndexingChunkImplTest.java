@@ -24,6 +24,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -165,7 +166,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(100);
 
@@ -177,7 +179,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(1);
 
@@ -189,7 +192,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(results.totalCount).isEqualTo(100);
       assertThat(results.hits.size()).isEqualTo(10);
@@ -302,7 +306,8 @@ public class IndexingChunkImplTest {
                           startTimeMs,
                           endTimeMs,
                           10,
-                          1000,
+                          new DateHistogramAggBuilder(
+                              "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                           Collections.emptyList()))
                   .hits
                   .size())
@@ -332,7 +337,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(results.hits.size()).isEqualTo(1);
 
@@ -392,7 +398,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(resultsBeforeCommit.hits.size()).isEqualTo(0);
 
@@ -407,7 +414,8 @@ public class IndexingChunkImplTest {
                   0,
                   MAX_TIME,
                   10,
-                  1000,
+                  new DateHistogramAggBuilder(
+                      "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
       assertThat(resultsAfterPreSnapshot.hits.size()).isEqualTo(1);
     }
@@ -585,7 +593,8 @@ public class IndexingChunkImplTest {
               0,
               MAX_TIME,
               10,
-              1000,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);
@@ -645,7 +654,8 @@ public class IndexingChunkImplTest {
               0,
               MAX_TIME,
               10,
-              1000,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
               Collections.emptyList());
       assertThat(chunk.isReadOnly()).isTrue();
       SearchResult<LogMessage> resultsAfterPreSnapshot = chunk.query(searchQuery);

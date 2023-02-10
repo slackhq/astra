@@ -344,7 +344,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           query.startTimeEpochMs,
           query.endTimeEpochMs,
           query.howMany,
-          query.bucketCount);
+          query.aggBuilder);
     } else {
       return (SearchResult<T>) SearchResult.empty();
     }
