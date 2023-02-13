@@ -106,9 +106,12 @@ public class EsSearchRequest {
     }
   }
 
+  /**
+   * Converts an EsSearchResult to a KaldbSearch.SearchRequest.
+   */
   public KaldbSearch.SearchRequest toKaldbSearchRequest() {
     if (aggregations.size() > 1) {
-      // todo
+      // only a single top-level aggregation is supported
       throw new NotImplementedException();
     }
 
