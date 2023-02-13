@@ -348,8 +348,11 @@ public class OpenSearchAggregationAdapter {
         new DateHistogramAggregationBuilder(builder.getName())
             .field(builder.getField())
             .fixedInterval(new DateHistogramInterval(builder.getInterval()))
-            .minDocCount(builder.getMinDocCount())
-            .offset(builder.getOffset());
+            .minDocCount(builder.getMinDocCount());
+
+    if (builder.getOffset() != null && !builder.getOffset().isEmpty()) {
+      dateHistogramAggregationBuilder.offset(builder.getOffset());
+    }
     // todo extra fields
     // .extendedBounds(new LongBounds())
     // .format("epoch_millis")
