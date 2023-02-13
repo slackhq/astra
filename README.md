@@ -78,7 +78,7 @@ java -jar kaldb/target/kaldb.jar config/config.yaml
 Index Data
 1. Data from the  "test-topic-in" (preprocessorConfig/kafkaStreamConfig/upstreamTopics in config.yaml) Kafka topic is read as input by the preprocessor.
 2. The input data transformer "json" (preprocessorConfig/dataTransformer in config.yaml) is how the preprocessor will parse the data.
-3. Each document must contain 3 mandatory fields - "service_name", "timestamp" ( what format? )
+3. Each document must contain 2 mandatory fields - "service_name" and "timestamp" (DateTimeFormatter.ISO_INSTANT)
 4. There needs to be a dataset entry for the incoming data that maps the incoming service name
    1. To create a dataset entry, go to the manager-...
 5. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.

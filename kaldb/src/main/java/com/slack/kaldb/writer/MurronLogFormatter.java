@@ -9,6 +9,7 @@ import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,13 @@ public class MurronLogFormatter {
         Long.parseLong(
             String.valueOf(
                 jsonMsgMap.getOrDefault(LogMessage.ReservedField.DURATION_MS.fieldName, "1")));
-    long timestamp = 1l;
+
+    String dateStr =
+        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.TIMESTAMP.fieldName, "");
+    if (dateStr == null || dateStr.isEmpty()) {
+      throw new IOException("Document must contain timestamp key");
+    }
+    long timestamp = Instant.parse(dateStr).toEpochMilli();
 
     String traceId = (String) jsonMsgMap.get(LogMessage.ReservedField.TRACE_ID.fieldName);
     String host = (String) jsonMsgMap.get(LogMessage.ReservedField.HOSTNAME.fieldName);
