@@ -30,7 +30,9 @@ public class SearchResultUtils {
       return new DateHistogramAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
-          searchAggregation.getValueSource().getDateHistogram().getInterval());
+          searchAggregation.getValueSource().getDateHistogram().getInterval(),
+          searchAggregation.getValueSource().getDateHistogram().getOffset(),
+          searchAggregation.getValueSource().getDateHistogram().getMinDocCount());
     }
 
     throw new NotImplementedException();

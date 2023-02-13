@@ -21,7 +21,7 @@ public class EsSearchRequestTest {
             EsSearchRequest.getBucketCount(
                 List.of(
                     new DateHistogramAggregation(
-                        "foo", "1m", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
+                        "foo", "1m", 100, "", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1440);
@@ -31,7 +31,7 @@ public class EsSearchRequestTest {
             EsSearchRequest.getBucketCount(
                 List.of(
                     new DateHistogramAggregation(
-                        "foo", "1d", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
+                        "foo", "1d", 100, "", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1);
@@ -41,7 +41,7 @@ public class EsSearchRequestTest {
             EsSearchRequest.getBucketCount(
                 List.of(
                     new DateHistogramAggregation(
-                        "foo", "1s", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
+                        "foo", "1s", 100, "", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(86400);
@@ -59,7 +59,11 @@ public class EsSearchRequestTest {
             EsSearchRequest.getBucketCount(
                 List.of(
                     new DateHistogramAggregation(
-                        "foo", "garbage", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
+                        "foo",
+                        "garbage",
+                        100,
+                        "",
+                        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(60);
@@ -69,9 +73,9 @@ public class EsSearchRequestTest {
             EsSearchRequest.getBucketCount(
                 List.of(
                     new DateHistogramAggregation(
-                        "foo", "1d", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName),
+                        "foo", "1d", 100, "", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName),
                     new DateHistogramAggregation(
-                        "foo", "1s", 100, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
+                        "foo", "1s", 100, "", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)),
                 new SearchRequestTimeRange(
                     now.minus(1, ChronoUnit.DAYS).toEpochMilli(), now.toEpochMilli())))
         .isEqualTo(1);
