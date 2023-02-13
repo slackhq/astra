@@ -34,7 +34,7 @@ message SearchRequest {
       message DateHistogramAggregation {
         string interval = 1;
         int64 min_doc_count = 2;
-        int64 offset = 3;
+        string offset = 3;
       }
     }
   }

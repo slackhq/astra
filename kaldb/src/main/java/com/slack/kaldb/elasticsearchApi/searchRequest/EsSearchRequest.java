@@ -127,7 +127,11 @@ public class EsSearchRequest {
       aggregation =
           SearchResultUtils.toSearchAggregationProto(
               new DateHistogramAggBuilder(
-                  legacyAggRequest.getAggregationKey(), fieldname, legacyAggRequest.getInterval()));
+                  legacyAggRequest.getAggregationKey(),
+                  fieldname,
+                  legacyAggRequest.getInterval(),
+                  legacyAggRequest.getOffset(),
+                  legacyAggRequest.getMinDocCount()));
     }
 
     return KaldbSearch.SearchRequest.newBuilder()
