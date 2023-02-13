@@ -32,6 +32,7 @@ public abstract class SearchRequestAggregation {
                           aggregationKey,
                           node.get("interval").asText(),
                           node.get("min_doc_count").asInt(),
+                          node.get("offset").asText(),
                           node.get("field").asText()));
                 }
 
