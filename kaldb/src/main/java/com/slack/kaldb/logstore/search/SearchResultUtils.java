@@ -74,19 +74,26 @@ public class SearchResultUtils {
     } else if (aggBuilder instanceof DateHistogramAggBuilder) {
       DateHistogramAggBuilder dateHistogramAggBuilder = (DateHistogramAggBuilder) aggBuilder;
 
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.DateHistogramAggregation
+              .Builder
+          dateHistogramAggregationBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                  .DateHistogramAggregation.newBuilder()
+                  .setInterval(dateHistogramAggBuilder.getInterval())
+                  .setMinDocCount(dateHistogramAggBuilder.getMinDocCount());
+
+      if (dateHistogramAggBuilder.getOffset() != null
+          && !dateHistogramAggBuilder.getOffset().isEmpty()) {
+        dateHistogramAggregationBuilder.setOffset(dateHistogramAggBuilder.getOffset());
+      }
+
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(DateHistogramAggBuilder.TYPE)
           .setName(dateHistogramAggBuilder.getName())
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())
-                  .setDateHistogram(
-                      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
-                          .DateHistogramAggregation.newBuilder()
-                          .setInterval(dateHistogramAggBuilder.getInterval())
-                          .setMinDocCount(dateHistogramAggBuilder.getMinDocCount())
-                          .setOffset(dateHistogramAggBuilder.getOffset())
-                          .build())
+                  .setDateHistogram(dateHistogramAggregationBuilder.build())
                   .build())
           .build();
     } else {
