@@ -32,7 +32,9 @@ public class SearchResultUtils {
           searchAggregation.getValueSource().getField(),
           searchAggregation.getValueSource().getDateHistogram().getInterval(),
           searchAggregation.getValueSource().getDateHistogram().getOffset(),
-          searchAggregation.getValueSource().getDateHistogram().getMinDocCount());
+          searchAggregation.getValueSource().getDateHistogram().getMinDocCount(),
+          searchAggregation.getValueSource().getDateHistogram().getFormat(),
+          searchAggregation.getValueSource().getDateHistogram().getExtendedBoundsMap());
     }
 
     throw new NotImplementedException();
@@ -61,11 +63,17 @@ public class SearchResultUtils {
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                   .DateHistogramAggregation.newBuilder()
                   .setInterval(dateHistogramAggBuilder.getInterval())
-                  .setMinDocCount(dateHistogramAggBuilder.getMinDocCount());
+                  .setMinDocCount(dateHistogramAggBuilder.getMinDocCount())
+                  .putAllExtendedBounds(dateHistogramAggBuilder.getExtendedBounds());
 
       if (dateHistogramAggBuilder.getOffset() != null
           && !dateHistogramAggBuilder.getOffset().isEmpty()) {
         dateHistogramAggregationBuilder.setOffset(dateHistogramAggBuilder.getOffset());
+      }
+
+      if (dateHistogramAggBuilder.getFormat() != null
+          && !dateHistogramAggBuilder.getFormat().isEmpty()) {
+        dateHistogramAggregationBuilder.setFormat(dateHistogramAggBuilder.getFormat());
       }
 
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()

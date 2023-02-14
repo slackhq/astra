@@ -488,7 +488,7 @@ public class SearchResultAggregatorImplTest {
   /**
    * Makes an InternalAutoDateHistogram given the provided configuration. Since the
    * InternalAutoDateHistogram has private constructors this uses a temporary LogSearcher to index,
-   * search, and then collect the results into an appropriate aggBuilder.
+   * search, and then collect the results into an appropriate aggregation.
    */
   private InternalAggregation makeHistogram(
       long histogramStartMs, long histogramEndMs, int bucketCount, List<LogMessage> logMessages)

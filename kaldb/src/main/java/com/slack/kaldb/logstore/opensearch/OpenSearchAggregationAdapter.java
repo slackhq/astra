@@ -53,6 +53,7 @@ import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
@@ -353,11 +354,21 @@ public class OpenSearchAggregationAdapter {
     if (builder.getOffset() != null && !builder.getOffset().isEmpty()) {
       dateHistogramAggregationBuilder.offset(builder.getOffset());
     }
-    // todo extra fields
-    // .extendedBounds(new LongBounds())
-    // .format("epoch_millis")
 
-    // todo -
+    if (builder.getFormat() != null && !builder.getFormat().isEmpty()) {
+      // todo - this should be used when the field type is changed to date
+      // dateHistogramAggregationBuilder.format(builder.getFormat());
+    }
+
+    if (builder.getExtendedBounds().containsKey("min")
+        && builder.getExtendedBounds().containsKey("max")) {
+      LongBounds longBounds =
+          new LongBounds(
+              builder.getExtendedBounds().get("min"), builder.getExtendedBounds().get("max"));
+      dateHistogramAggregationBuilder.extendedBounds(longBounds);
+    }
+
+    // todo - subaggregations
     // dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
     return dateHistogramAggregationBuilder
         .build(queryShardContext, null)
