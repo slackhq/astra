@@ -132,7 +132,9 @@ public class EsSearchRequest {
                   fieldname,
                   legacyAggRequest.getInterval(),
                   legacyAggRequest.getOffset(),
-                  legacyAggRequest.getMinDocCount()));
+                  legacyAggRequest.getMinDocCount(),
+                  legacyAggRequest.getFormat(),
+                  legacyAggRequest.getExtendedBounds()));
     }
 
     return KaldbSearch.SearchRequest.newBuilder()
