@@ -70,13 +70,9 @@ Index Data
 2. The input data transformer "json" (preprocessorConfig/dataTransformer in config.yaml) is how the preprocessor will parse the data.
 3. Each document must contain 2 mandatory fields - "service_name" and "timestamp" (DateTimeFormatter.ISO_INSTANT)
 4. There needs to be a dataset entry for the incoming data that maps the incoming service name
-   1. To create a dataset entry, go to the manager-...
-5. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.
-6. The indexer service is configured to read from "test-topic" (indexerConfig/kafkaConfig/kafkaTopic in config.yaml) and create lucene indexes locally
-7. 
-```
-
-```
+5. To create a dataset entry, go to the manager node (default http://localhost:8083/docs) and call CreateDatasetMetadata with name/owner as test and serviceNamePattern = "_all"
+6. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.
+7. The indexer service is configured to read from "test-topic" (indexerConfig/kafkaConfig/kafkaTopic in config.yaml) and creates lucene indexes locally
 
 Query via Grafana
 ```
