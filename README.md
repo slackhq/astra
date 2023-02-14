@@ -70,9 +70,11 @@ Index Data
 2. The input data transformer "json" (preprocessorConfig/dataTransformer in config.yaml) is how the preprocessor will parse the data.
 3. Each document must contain 2 mandatory fields - "service_name" and "timestamp" (DateTimeFormatter.ISO_INSTANT)
 4. There needs to be a dataset entry for the incoming data that maps the incoming service name
-5. To create a dataset entry, go to the manager node (default http://localhost:8083/docs) and call CreateDatasetMetadata with name/owner as test and serviceNamePattern = "_all"
-6. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.
-7. The indexer service is configured to read from "test-topic" (indexerConfig/kafkaConfig/kafkaTopic in config.yaml) and creates lucene indexes locally
+5. To create a dataset entry, go to the manager node (default http://localhost:8083/docs) and call CreateDatasetMetadata with name/owner as "test" and serviceNamePattern = "_all"
+6. Then we need to update partition assignment. For this we have to go to the manager node (default http://localhost:8083/docs) and call UpdatePartitionAssignment with name="test", throughputBytes=1000000 (1 MB/s after which messages will be dropped) and partitionIds=["0"] (the partition is a string and here we tell to only read from partition 0 of test-topic-in)
+7. Now we can start producing data to Kafka partiton=0 partition="test-topic-in" 
+8. The preprocessor writes data into the following kafka topic "test-topic"(preprocessorConfig/downstreamTopic in config.yaml). We apply rate-limits etc.
+9. The indexer service is configured to read from "test-topic" (indexerConfig/kafkaConfig/kafkaTopic in config.yaml) and creates lucene indexes locally
 
 Query via Grafana
 ```
