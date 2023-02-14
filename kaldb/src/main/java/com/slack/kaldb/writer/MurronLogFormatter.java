@@ -65,7 +65,7 @@ public class MurronLogFormatter {
     Map<String, Object> jsonMsgMap =
         JsonUtil.read(murronMsg.getMessage().toStringUtf8(), mapTypeRef);
 
-    String type = (String) jsonMsgMap.getOrDefault(typeTag, murronMsg.getType());
+    String name = (String) jsonMsgMap.getOrDefault(typeTag, murronMsg.getType());
 
     String id = "";
     if (!idField.isEmpty()) {
@@ -83,7 +83,8 @@ public class MurronLogFormatter {
     return SpanFormatter.toSpan(
         jsonMsgMap,
         id,
-        type,
+        name,
+        murronMsg.getType(),
         timestamp,
         duration,
         Optional.of(murronMsg.getHost()),

@@ -46,6 +46,7 @@ public class JsonLogFormatter {
         jsonMsgMap,
         id,
         name,
+        name,
         timestamp,
         duration,
         Optional.ofNullable(host),

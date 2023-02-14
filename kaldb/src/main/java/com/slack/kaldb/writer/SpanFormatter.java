@@ -30,6 +30,7 @@ public class SpanFormatter {
       Map<String, Object> jsonMsgMap,
       String id,
       String name,
+      String serviceName,
       long timestamp,
       long duration,
       Optional<String> host,
@@ -105,6 +106,7 @@ public class SpanFormatter {
           Trace.KeyValue.newBuilder()
               .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
               .setVType(Trace.ValueType.STRING)
+              .setVStr(serviceName)
               .build());
     }
     spanBuilder.addAllTags(tags);
