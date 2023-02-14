@@ -44,7 +44,7 @@ public class SpanFormatter {
     spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
 
     traceId.ifPresent(s -> spanBuilder.setTraceId(ByteString.copyFromUtf8(s)));
-    spanBuilder.setTimestamp(timestamp / 1000);
+    spanBuilder.setTimestamp(timestamp);
     spanBuilder.setDuration(duration);
 
     List<Trace.KeyValue> tags = new ArrayList<>(jsonMsgMap.size());
@@ -78,25 +78,35 @@ public class SpanFormatter {
     }
 
     // Add missing fields from murron message.
-    host.ifPresent(
-        s ->
-            tags.add(
-                Trace.KeyValue.newBuilder()
-                    .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
-                    .setVType(Trace.ValueType.STRING)
-                    .setVStr(s)
-                    .build()));
+    boolean containsHostName =
+        tags.stream()
+            .anyMatch(
+                keyValue -> keyValue.getKey().equals(LogMessage.ReservedField.HOSTNAME.fieldName));
+    if (!containsHostName) {
+      host.ifPresent(
+          s ->
+              tags.add(
+                  Trace.KeyValue.newBuilder()
+                      .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+                      .setVType(Trace.ValueType.STRING)
+                      .setVStr(s)
+                      .build()));
+    }
 
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
 
-    // Replace hyphens with underscore since lucene doesn't like it.
-    tags.add(
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr(name.replace("-", "_"))
-            .build());
-
+    boolean containsServiceName =
+        tags.stream()
+            .anyMatch(
+                keyValue ->
+                    keyValue.getKey().equals(LogMessage.ReservedField.SERVICE_NAME.fieldName));
+    if (!containsServiceName) {
+      tags.add(
+          Trace.KeyValue.newBuilder()
+              .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
+              .setVType(Trace.ValueType.STRING)
+              .build());
+    }
     spanBuilder.addAllTags(tags);
     return spanBuilder.build();
   }

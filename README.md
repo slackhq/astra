@@ -59,20 +59,10 @@ IntelliJ run configs are provided for all node types, and execute using the prov
 configurations are stored in the `.run` folder and should automatically be detected by IntelliJ upon importing the 
 project.
 
-To start the application dependencies (Zookeeper, Kafka, S3) you can use the provided docker compose file:
+To start KalDB and it's dependencies (Zookeeper, Kafka, S3) you can use the provided docker compose file:
+
 ```bash
 docker-compose up
-```
-
-Compile KalDB
-```
- mvn clean compile
-```
-
-Start KalDB
-```
-mvn -DskipTests=true clean package
-java -jar kaldb/target/kaldb.jar config/config.yaml
 ```
 
 Index Data

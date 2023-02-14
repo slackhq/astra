@@ -7,12 +7,9 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
-import java.io.IOException;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,45 +26,6 @@ public class MurronLogFormatter {
           LogMessage.ReservedField.TRACE_ID.fieldName,
           API_LOG_DURATION_FIELD);
   private static final String TYPE_TAG = "type";
-
-  public static Trace.Span fromJsonLog(byte[] data) throws IOException {
-    TypeReference<Map<String, Object>> mapTypeRef = new TypeReference<>() {};
-    Map<String, Object> jsonMsgMap = JsonUtil.read(data, mapTypeRef);
-
-    String id = (String) jsonMsgMap.getOrDefault(ID, UUID.randomUUID().toString());
-
-    String serviceName =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.SERVICE_NAME.fieldName, "");
-    if (serviceName == null || serviceName.isEmpty()) {
-      throw new IOException("Document must contain service_name key");
-    }
-    String name =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.NAME.fieldName, serviceName);
-
-    long duration =
-        Long.parseLong(
-            String.valueOf(
-                jsonMsgMap.getOrDefault(LogMessage.ReservedField.DURATION_MS.fieldName, "1")));
-
-    String dateStr =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.TIMESTAMP.fieldName, "");
-    if (dateStr == null || dateStr.isEmpty()) {
-      throw new IOException("Document must contain timestamp key");
-    }
-    long timestamp = Instant.parse(dateStr).toEpochMilli();
-
-    String traceId = (String) jsonMsgMap.get(LogMessage.ReservedField.TRACE_ID.fieldName);
-    String host = (String) jsonMsgMap.get(LogMessage.ReservedField.HOSTNAME.fieldName);
-
-    return SpanFormatter.toSpan(
-        jsonMsgMap,
-        id,
-        name,
-        timestamp,
-        duration,
-        Optional.ofNullable(host),
-        Optional.ofNullable(traceId));
-  }
 
   public static Trace.Span fromEnvoyLog(Murron.MurronMessage murronMsg)
       throws JsonProcessingException {

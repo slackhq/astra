@@ -2,6 +2,7 @@ package com.slack.kaldb.preprocessor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.slack.kaldb.writer.JsonLogFormatter;
 import com.slack.kaldb.writer.MurronLogFormatter;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.Murron;
@@ -44,7 +45,7 @@ public class PreprocessorValueMapper {
 
   // JSON log
   public static final MessageTransformer jsonLogTransformer =
-      record -> List.of(MurronLogFormatter.fromJsonLog(record));
+      record -> List.of(JsonLogFormatter.fromJsonLog(record));
 
   // A single trace record consists of a list of spans wrapped in a murron message.
   public static final MessageTransformer spanTransformer =
