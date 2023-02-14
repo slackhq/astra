@@ -75,11 +75,7 @@ services:
       - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
-      zookeeper:
-        condition: service_started
-      kafka:
-        condition: service_started
-      s3:
-        condition: service_started
-      openzipkin:
-        condition: service_started
+      - zookeeper
+      - kafka
+      - s3
+      - openzipkin
