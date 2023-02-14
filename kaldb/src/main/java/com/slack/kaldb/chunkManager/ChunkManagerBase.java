@@ -163,7 +163,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-              .aggregate(searchResults);
+              .aggregate(searchResults, false);
       return incrementNodeCount(aggregatedResults);
     } catch (Exception e) {
       LOG.error("Error searching across chunks ", e);

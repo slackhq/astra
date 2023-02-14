@@ -2,10 +2,12 @@ package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 /**
  * This class will merge multiple search results into a single search result. Takes all the hits
@@ -21,14 +23,14 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
   }
 
   @Override
-  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults) {
+  public SearchResult<T> aggregate(List<SearchResult<T>> searchResults, boolean finalAggregation) {
     long tookMicros = 0;
     int failedNodes = 0;
     int totalNodes = 0;
     int totalSnapshots = 0;
     int snapshpotReplicas = 0;
     int totalCount = 0;
-    InternalAggregation internalAggregation = null;
+    List<InternalAggregation> internalAggregationList = new ArrayList<>();
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
@@ -37,18 +39,26 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       totalSnapshots += searchResult.totalSnapshots;
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
+      internalAggregationList.add(searchResult.internalAggregation);
+    }
 
-      if (internalAggregation == null) {
-        internalAggregation = searchResult.internalAggregation;
+    InternalAggregation internalAggregation = null;
+    if (internalAggregationList.size() > 0) {
+      InternalAggregation.ReduceContext reduceContext;
+      if (finalAggregation) {
+        reduceContext =
+            InternalAggregation.ReduceContext.forFinalReduction(
+                KaldbBigArrays.getInstance(),
+                null,
+                (s) -> {},
+                PipelineAggregator.PipelineTree.EMPTY);
       } else {
-        if (searchResult.internalAggregation != null) {
-          internalAggregation =
-              internalAggregation.reduce(
-                  List.of(internalAggregation, searchResult.internalAggregation),
-                  InternalAggregation.ReduceContext.forPartialReduction(
-                      KaldbBigArrays.getInstance(), null, null));
-        }
+        reduceContext =
+            InternalAggregation.ReduceContext.forPartialReduction(
+                KaldbBigArrays.getInstance(), null, null);
       }
+      internalAggregation =
+          internalAggregationList.get(0).reduce(internalAggregationList, reduceContext);
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.

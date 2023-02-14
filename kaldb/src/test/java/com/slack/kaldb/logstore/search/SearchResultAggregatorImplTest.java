@@ -55,9 +55,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -72,14 +72,14 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -94,15 +94,16 @@ public class SearchResultAggregatorImplTest {
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalAutoDateHistogram
+            internalDateHistogram
                 .getBuckets()
                 .stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
   @Test
@@ -121,9 +122,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -138,14 +139,14 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -159,21 +160,22 @@ public class SearchResultAggregatorImplTest {
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalAutoDateHistogram
+            internalDateHistogram
                 .getBuckets()
                 .stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
   @Test
   public void testSearchResultAggregatorOn4Results() throws IOException {
     long tookMs = 10;
-    int bucketCount = 24;
+    int bucketCount = 32;
     int howMany = 10;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -192,13 +194,13 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(31, 40, 1000 * 60, startTime4);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
     InternalAggregation histogram3 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages3);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages3);
     InternalAggregation histogram4 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages4);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages4);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -217,12 +219,12 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults =
         List.of(searchResult1, searchResult4, searchResult3, searchResult2);
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 3);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -236,15 +238,16 @@ public class SearchResultAggregatorImplTest {
 
     assertThat(aggSearchResult.totalCount).isEqualTo(40);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalAutoDateHistogram
+            internalDateHistogram
                 .getBuckets()
                 .stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size() + messages3.size() + messages4.size());
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
   @Test
@@ -275,14 +278,14 @@ public class SearchResultAggregatorImplTest {
             searchEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -296,9 +299,9 @@ public class SearchResultAggregatorImplTest {
 
     assertThat(aggSearchResult.totalCount).isEqualTo(20);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram.getBuckets().size()).isEqualTo(0);
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(0);
   }
 
   @Test
@@ -317,9 +320,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(Collections.emptyList(), tookMs, 7, 0, 2, 2, 2, histogram1);
@@ -334,14 +337,14 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -350,21 +353,21 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalAutoDateHistogram
+            internalDateHistogram
                 .getBuckets()
                 .stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
   @Test
   public void testSearchResultsAggIgnoresBucketsInSearchResultsSafely() throws IOException {
     long tookMs = 10;
-    int bucketCount = 0;
     int howMany = 10;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -376,7 +379,7 @@ public class SearchResultAggregatorImplTest {
     List<LogMessage> messages2 =
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
-    InternalAggregation histogram1 = makeHistogram(startTimeMs, endTimeMs, 2, messages1);
+    InternalAggregation histogram1 = makeHistogram(startTimeMs, endTimeMs, "6m", messages1);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 1, 1, 1, 0, histogram1);
@@ -391,14 +394,14 @@ public class SearchResultAggregatorImplTest {
             endTimeMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, false);
 
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
     assertThat(aggSearchResult.hits.size()).isEqualTo(howMany);
@@ -412,9 +415,9 @@ public class SearchResultAggregatorImplTest {
 
     assertThat(aggSearchResult.totalCount).isEqualTo(21);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalAutoDateHistogram).isEqualTo(histogram1);
+    assertThat(internalDateHistogram).isEqualTo(histogram1);
   }
 
   @Test
@@ -433,9 +436,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, bucketCount, messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 7, 0, 2, 2, 2, histogram1);
@@ -450,14 +453,14 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
     searchResults.add(searchResult2);
 
     SearchResult<LogMessage> aggSearchResult =
-        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults);
+        new SearchResultAggregatorImpl<>(searchQuery).aggregate(searchResults, true);
 
     assertThat(aggSearchResult.hits.size()).isZero();
     assertThat(aggSearchResult.tookMicros).isEqualTo(tookMs + 1);
@@ -466,32 +469,33 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
     assertThat(aggSearchResult.totalCount).isEqualTo(15);
 
-    InternalDateHistogram internalAutoDateHistogram =
+    InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalAutoDateHistogram
+            internalDateHistogram
                 .getBuckets()
                 .stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
+    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
   private InternalDateHistogram emptyAggregation() throws IOException {
     return (InternalDateHistogram)
         OpenSearchAggregationAdapter.buildDateHistogramAggregator(
                 new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"))
             .buildEmptyAggregation();
   }
 
   /**
-   * Makes an InternalAutoDateHistogram given the provided configuration. Since the
-   * InternalAutoDateHistogram has private constructors this uses a temporary LogSearcher to index,
+   * Makes an InternalDateHistogram given the provided configuration. Since the
+   * InternalDateHistogram has private constructors this uses a temporary LogSearcher to index,
    * search, and then collect the results into an appropriate aggregation.
    */
   private InternalAggregation makeHistogram(
-      long histogramStartMs, long histogramEndMs, int bucketCount, List<LogMessage> logMessages)
+      long histogramStartMs, long histogramEndMs, String interval, List<LogMessage> logMessages)
       throws IOException {
     File tempFolder = Files.createTempDir();
     LuceneIndexStoreConfig indexStoreCfg =
@@ -526,7 +530,7 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             0,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, interval));
 
     try {
       return messageSearchResult.internalAggregation;
