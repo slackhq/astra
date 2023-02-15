@@ -67,11 +67,6 @@ public class SearchResultUtils {
     span.tag("totalSnapshots", String.valueOf(searchResult.totalSnapshots));
     span.tag("snapshotsWithReplicas", String.valueOf(searchResult.snapshotsWithReplicas));
     span.tag("hits", String.valueOf(searchResult.hits.size()));
-    span.tag(
-        "internalAggregation",
-        searchResult.internalAggregation != null
-            ? searchResult.internalAggregation.toString()
-            : "");
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
     searchResultBuilder.setTotalCount(searchResult.totalCount);
