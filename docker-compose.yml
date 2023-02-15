@@ -9,7 +9,7 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
 
   kafka:
-    image: 'bitnami/kafka:2.8.0'
+    image: 'bitnami/kafka:3.2.3'
     container_name: kaldb_kafka
     ports:
       - '9092:9092'
@@ -37,7 +37,7 @@ services:
       - ../slack-kaldb-app:/var/lib/grafana/plugins
     environment:
       GF_LOG_MODE: "console file"
-      GF_LOG_LEVEL: "debug"
+      GF_LOG_LEVEL: "info"
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
@@ -57,3 +57,25 @@ services:
     container_name: openzipkin
     ports:
       - 9411:9411
+
+  #to build this image run 'docker build -t slackhq/kaldb .'
+  kaldb:
+    image: 'slackhq/kaldb'
+    container_name: kaldb_kaldb
+    profiles:
+      - kaldb
+    ports:
+      - 8080:8080
+      - 8081:8081
+      - 8082:8082
+      - 8083:8083
+      - 8085:8085
+      - 8086:8086
+    environment:
+      - KALDB_ZK_CONNECTION_STRING=zookeeper:2181
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      - zookeeper
+      - kafka
+      - s3
+      - openzipkin
