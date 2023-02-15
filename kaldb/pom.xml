@@ -156,7 +156,7 @@
         <dependency>
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch</artifactId>
-            <version>2.3.0</version>
+            <version>2.5.0</version>
         </dependency>
 
         <!-- Kafka writer dependencies -->
