@@ -212,6 +212,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                                     KaldbSearch.SearchRequest.SearchAggregation
                                         .ValueSourceAggregation.DateHistogramAggregation
                                         .newBuilder()
+                                        .setMinDocCount(1)
                                         .setInterval("1s")
                                         .build())
                                 .build())
@@ -291,6 +292,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
                                         .ValueSourceAggregation.DateHistogramAggregation
                                         .newBuilder()
                                         .setInterval("1s")
+                                        .setMinDocCount(1)
                                         .build())
                                 .build())
                         .build())

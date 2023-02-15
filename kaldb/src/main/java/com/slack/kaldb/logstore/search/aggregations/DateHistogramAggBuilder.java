@@ -17,7 +17,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
     this.interval = interval;
     this.offset = "";
-    this.minDocCount = 0;
+    this.minDocCount = 1;
     this.format = null;
     this.extendedBounds = Map.of();
   }
