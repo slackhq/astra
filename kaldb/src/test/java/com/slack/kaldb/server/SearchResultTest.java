@@ -3,8 +3,8 @@ package com.slack.kaldb.server;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.junit.Test;
+import org.opensearch.search.aggregations.Aggregator;
+import org.opensearch.search.aggregations.InternalAggregation;
 
 public class SearchResultTest {
 
@@ -31,11 +33,11 @@ public class SearchResultTest {
       logMessages.add(logMessage);
     }
 
-    List<HistogramBucket> buckets = new ArrayList<>();
-    buckets.add(new HistogramBucket(1, 2));
-
+    Aggregator dateHistogramAggregation =
+        OpenSearchAggregationAdapter.buildAutoDateHistogramAggregator(10);
+    InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
-        new SearchResult<>(logMessages, 1, 1000, buckets, 1, 5, 7, 7);
+        new SearchResult<>(logMessages, 1, 1000, 1, 5, 7, 7, internalAggregation);
     KaldbSearch.SearchResult protoSearchResult =
         SearchResultUtils.toSearchResultProto(searchResult);
 
@@ -46,7 +48,8 @@ public class SearchResultTest {
     assertThat(protoSearchResult.getTotalNodes()).isEqualTo(5);
     assertThat(protoSearchResult.getTotalSnapshots()).isEqualTo(7);
     assertThat(protoSearchResult.getSnapshotsWithReplicas()).isEqualTo(7);
-    assertThat(protoSearchResult.getBucketsCount()).isEqualTo(1);
+    assertThat(protoSearchResult.getInternalAggregations().toByteArray())
+        .isEqualTo(OpenSearchAggregationAdapter.toByteArray(internalAggregation));
 
     SearchResult<LogMessage> convertedSearchResult =
         SearchResultUtils.fromSearchResultProto(protoSearchResult);

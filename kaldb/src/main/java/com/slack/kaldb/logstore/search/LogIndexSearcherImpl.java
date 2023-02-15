@@ -8,26 +8,23 @@ import brave.ScopedSpan;
 import brave.Tracing;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
-import com.slack.kaldb.histogram.Histogram;
-import com.slack.kaldb.histogram.NoOpHistogramImpl;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -45,6 +42,7 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,15 +62,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
     return new SearcherManager(directory, null);
-  }
-
-  // todo - this is not needed once this data is on the snapshot
-  public static int getNumDocs(Path path) throws IOException {
-    MMapDirectory directory = new MMapDirectory(path);
-    DirectoryReader directoryReader = DirectoryReader.open(directory);
-    int numDocs = directoryReader.numDocs();
-    directoryReader.close();
-    return numDocs;
   }
 
   public LogIndexSearcherImpl(
@@ -120,17 +109,17 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        Histogram histogram = new NoOpHistogramImpl();
-
-        CollectorManager<StatsCollector, Histogram> statsCollector =
-            buildStatsCollector(bucketCount, startTimeMsEpoch, endTimeMsEpoch);
+        InternalAutoDateHistogram histogram = null;
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
               buildTopFieldCollector(howMany, bucketCount > 0 ? Integer.MAX_VALUE : howMany);
           MultiCollectorManager collectorManager;
           if (bucketCount > 0) {
-            collectorManager = new MultiCollectorManager(topFieldCollector, statsCollector);
+            collectorManager =
+                new MultiCollectorManager(
+                    topFieldCollector,
+                    OpenSearchAggregationAdapter.getCollectorManager(bucketCount));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -142,23 +131,33 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (bucketCount > 0) {
-            histogram = ((Histogram) collector[1]);
+            histogram = ((InternalAutoDateHistogram) collector[1]);
           }
         } else {
           results = Collections.emptyList();
-          histogram = searcher.search(query, statsCollector);
+          histogram =
+              ((InternalAutoDateHistogram)
+                  searcher.search(
+                      query, OpenSearchAggregationAdapter.getCollectorManager(bucketCount)));
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            bucketCount > 0 ? histogram.count() : results.size(),
-            histogram.getBuckets(),
+            bucketCount > 0
+                ? histogram
+                    .getBuckets()
+                    .stream()
+                    .collect(
+                        Collectors.summarizingLong(InternalAutoDateHistogram.Bucket::getDocCount))
+                    .getSum()
+                : results.size(),
             0,
             0,
             1,
-            1);
+            1,
+            histogram);
       } finally {
         searcherManager.release(searcher);
       }
@@ -202,34 +201,6 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     } else {
       return null;
     }
-  }
-
-  private CollectorManager<StatsCollector, Histogram> buildStatsCollector(
-      int bucketCount, long startTimeMsEpoch, long endTimeMsEpoch) {
-    Histogram histogram =
-        bucketCount > 0
-            ? new FixedIntervalHistogramImpl(startTimeMsEpoch, endTimeMsEpoch, bucketCount)
-            : new NoOpHistogramImpl();
-
-    return new CollectorManager<>() {
-      @Override
-      public StatsCollector newCollector() {
-        return new StatsCollector(histogram);
-      }
-
-      @Override
-      public Histogram reduce(Collection<StatsCollector> collectors) {
-        Histogram histogram = null;
-        for (StatsCollector collector : collectors) {
-          if (histogram == null) {
-            histogram = collector.getHistogram();
-          } else {
-            histogram.mergeHistogram(collector.getHistogram().getBuckets());
-          }
-        }
-        return histogram;
-      }
-    };
   }
 
   private Query buildQuery(

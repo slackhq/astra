@@ -1,13 +1,11 @@
 package com.slack.kaldb.logstore.search;
 
-import com.slack.kaldb.histogram.FixedIntervalHistogramImpl;
-import com.slack.kaldb.histogram.Histogram;
 import com.slack.kaldb.logstore.LogMessage;
-import java.util.Collections;
+import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
+import org.opensearch.search.aggregations.InternalAggregation;
 
 /**
  * This class will merge multiple search results into a single search result. Takes all the hits
@@ -30,14 +28,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     int totalSnapshots = 0;
     int snapshpotReplicas = 0;
     int totalCount = 0;
-    Optional<Histogram> histogram =
-        searchQuery.bucketCount > 0
-            ? Optional.of(
-                new FixedIntervalHistogramImpl(
-                    searchQuery.startTimeEpochMs,
-                    searchQuery.endTimeEpochMs,
-                    searchQuery.bucketCount))
-            : Optional.empty();
+    InternalAggregation internalAggregation = null;
 
     for (SearchResult<T> searchResult : searchResults) {
       tookMicros = Math.max(tookMicros, searchResult.tookMicros);
@@ -46,7 +37,18 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       totalSnapshots += searchResult.totalSnapshots;
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
-      histogram.ifPresent(value -> value.mergeHistogram(searchResult.buckets));
+
+      if (internalAggregation == null) {
+        internalAggregation = searchResult.internalAggregation;
+      } else {
+        if (searchResult.internalAggregation != null) {
+          internalAggregation =
+              internalAggregation.reduce(
+                  List.of(internalAggregation, searchResult.internalAggregation),
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      KaldbBigArrays.getInstance(), null, null));
+        }
+      }
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
@@ -62,10 +64,10 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         resultHits,
         tookMicros,
         totalCount,
-        histogram.isPresent() ? histogram.get().getBuckets() : Collections.emptyList(),
         failedNodes,
         totalNodes,
         totalSnapshots,
-        snapshpotReplicas);
+        snapshpotReplicas,
+        internalAggregation);
   }
 }

@@ -24,6 +24,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
@@ -38,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +115,6 @@ public class ElasticsearchApiService {
     span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
     span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
-    span.tag("resultBucketCount", String.valueOf(searchResult.getBucketsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
     span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
     span.tag("resultTotalNodes", String.valueOf(searchResult.getTotalNodes()));
@@ -124,13 +125,15 @@ public class ElasticsearchApiService {
     try {
       HitsMetadata hits = getHits(searchResult);
       Map<String, AggregationResponse> aggregations =
-          getAggregations(request.getAggregations(), searchResult);
+          buildLegacyAggregationResponse(
+              request.getAggregations(), searchResult.getInternalAggregations());
 
       return new EsSearchResponse.Builder()
           .hits(hits)
           .aggregations(aggregations)
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
+          .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
           .status(200)
           .build();
     } catch (Exception e) {
@@ -144,6 +147,56 @@ public class ElasticsearchApiService {
     } finally {
       span.finish();
     }
+  }
+
+  /**
+   * Temporary method to serialize the internal aggregations into the debug metadata for eaiser
+   * troubleshooting
+   */
+  @Deprecated
+  private Map<String, String> getDebugAggregations(ByteString internalAggregations)
+      throws IOException {
+    Map<String, String> debugAggs = new HashMap<>();
+    if (internalAggregations.size() > 0) {
+      debugAggs.put(
+          "internalAggs",
+          OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
+              .toString());
+    }
+    return debugAggs;
+  }
+
+  /**
+   * Converts an InternalAggregation response type into one that maps into the EsSearchResponse.
+   * This is a temporary method and will be removed after implementing another aggregation type, as
+   * the existing AggregationResponse will only work with DateHistogram count responses.
+   */
+  @Deprecated
+  private Map<String, AggregationResponse> buildLegacyAggregationResponse(
+      List<SearchRequestAggregation> searchRequestAggregations, ByteString internalAggregations) {
+    InternalAutoDateHistogram internalAggregation;
+    Map<String, AggregationResponse> aggregations = new HashMap<>();
+    if (internalAggregations.size() > 0) {
+      try {
+        internalAggregation =
+            OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
+        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
+        internalAggregation
+            .getBuckets()
+            .forEach(
+                bucket ->
+                    aggregationBucketResponses.add(
+                        new AggregationBucketResponse(
+                            Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount())));
+        aggregations.put(
+            searchRequestAggregations.stream().findFirst().get().getAggregationKey(),
+            new AggregationResponse(aggregationBucketResponses));
+      } catch (Exception e) {
+        LOG.error("Error converting internal aggregations to Elasticsearch response", e);
+      }
+    }
+
+    return aggregations;
   }
 
   private String getTraceId() {
@@ -165,35 +218,6 @@ public class ElasticsearchApiService {
         .hitsTotal(ImmutableMap.of("value", responseHits.size(), "relation", "eq"))
         .hits(responseHits)
         .build();
-  }
-
-  private Map<String, AggregationResponse> getAggregations(
-      List<SearchRequestAggregation> aggregations, KaldbSearch.SearchResult searchResult) {
-    // todo - we currently are only supporting a single aggregation of type `date_histogram` and
-    //  assume it is the always the first aggregation requested
-    //  this will need to be refactored when we support more aggregation types
-    Optional<SearchRequestAggregation> aggregationRequest = aggregations.stream().findFirst();
-
-    Map<String, AggregationResponse> aggregationResponseMap = new HashMap<>();
-    if (aggregationRequest.isPresent()) {
-      List<AggregationBucketResponse> buckets =
-          new ArrayList<>(searchResult.getBucketsList().size());
-      searchResult
-          .getBucketsList()
-          .forEach(
-              histogramBucket -> {
-                // our response from kaldb has the start and end of the bucket, but we only need the
-                // midpoint for the response object
-                double getKey =
-                    histogramBucket.getLow()
-                        + ((histogramBucket.getHigh() - histogramBucket.getLow()) / 2);
-                buckets.add(new AggregationBucketResponse(getKey, histogramBucket.getCount()));
-              });
-      aggregationResponseMap.put(
-          aggregationRequest.get().getAggregationKey(), new AggregationResponse(buckets));
-    }
-
-    return aggregationResponseMap;
   }
 
   /**

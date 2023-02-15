@@ -80,8 +80,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
-    SearchResult<T> errorResult =
-        new SearchResult<>(new ArrayList<>(), 0, 0, new ArrayList<>(), 0, 0, 1, 0);
+    SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 0, 1, 0, null);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
@@ -182,11 +181,11 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
         searchResult.hits,
         searchResult.tookMicros,
         searchResult.totalCount,
-        searchResult.buckets,
         searchResult.failedNodes,
         searchResult.totalNodes + 1,
         searchResult.totalSnapshots,
-        searchResult.snapshotsWithReplicas);
+        searchResult.snapshotsWithReplicas,
+        searchResult.internalAggregation);
   }
 
   @VisibleForTesting

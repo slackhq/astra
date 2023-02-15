@@ -1,16 +1,16 @@
 package com.slack.kaldb.logstore.search;
 
 import com.google.common.base.Objects;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.opensearch.search.aggregations.InternalAggregation;
 
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, Collections.emptyList(), 1, 1, 0, 0);
+      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
 
   public final long totalCount;
 
@@ -19,24 +19,22 @@ public class SearchResult<T> {
   public final List<T> hits;
   public final long tookMicros;
 
-  // TODO: Make this list immutable?
-  // TODO: Instead of histogram bucket, return tuple.
-  public final List<HistogramBucket> buckets;
-
   public final int failedNodes;
   public final int totalNodes;
   public final int totalSnapshots;
   public final int snapshotsWithReplicas;
 
+  public final InternalAggregation internalAggregation;
+
   public SearchResult() {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
     this.totalCount = 0;
-    this.buckets = new ArrayList<>();
     this.failedNodes = 0;
     this.totalNodes = 0;
     this.totalSnapshots = 0;
     this.snapshotsWithReplicas = 0;
+    this.internalAggregation = null;
   }
 
   // TODO: Move stats into a separate struct.
@@ -44,19 +42,19 @@ public class SearchResult<T> {
       List<T> hits,
       long tookMicros,
       long totalCount,
-      List<HistogramBucket> buckets,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
-      int snapshotsWithReplicas) {
+      int snapshotsWithReplicas,
+      InternalAggregation internalAggregation) {
     this.hits = hits;
     this.tookMicros = tookMicros;
     this.totalCount = totalCount;
-    this.buckets = buckets;
     this.failedNodes = failedNodes;
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
     this.snapshotsWithReplicas = snapshotsWithReplicas;
+    this.internalAggregation = internalAggregation;
   }
 
   @Override
@@ -71,24 +69,7 @@ public class SearchResult<T> {
         && totalSnapshots == that.totalSnapshots
         && snapshotsWithReplicas == that.snapshotsWithReplicas
         && Objects.equal(hits, that.hits)
-        && Objects.equal(buckets, that.buckets);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(
-        totalCount,
-        hits,
-        tookMicros,
-        buckets,
-        failedNodes,
-        totalNodes,
-        totalSnapshots,
-        snapshotsWithReplicas);
-  }
-
-  public static SearchResult<LogMessage> empty() {
-    return EMPTY;
+        && Objects.equal(internalAggregation, that.internalAggregation);
   }
 
   @Override
@@ -100,8 +81,6 @@ public class SearchResult<T> {
         + hits
         + ", tookMicros="
         + tookMicros
-        + ", buckets="
-        + buckets
         + ", failedNodes="
         + failedNodes
         + ", totalNodes="
@@ -110,6 +89,25 @@ public class SearchResult<T> {
         + totalSnapshots
         + ", snapshotsWithReplicas="
         + snapshotsWithReplicas
+        + ", internalAggregation="
+        + internalAggregation
         + '}';
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(
+        totalCount,
+        hits,
+        tookMicros,
+        failedNodes,
+        totalNodes,
+        totalSnapshots,
+        snapshotsWithReplicas,
+        internalAggregation);
+  }
+
+  public static SearchResult<LogMessage> empty() {
+    return EMPTY;
   }
 }

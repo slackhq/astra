@@ -11,14 +11,15 @@ import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
-import com.slack.kaldb.histogram.HistogramBucket;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Objects;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 
 public class StatsCollectorTest {
   @Rule
@@ -65,11 +66,13 @@ public class StatsCollectorTest {
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
     assertThat(allIndexItems.totalCount).isEqualTo(5);
-    assertThat(allIndexItems.buckets.size()).isEqualTo(5);
 
-    for (HistogramBucket bucket : allIndexItems.buckets) {
-      // TODO: Test bucket start and end ranges.
-      assertThat(bucket.getCount()).isEqualTo(1);
+    InternalAutoDateHistogram dateHistogram =
+        (InternalAutoDateHistogram) allIndexItems.internalAggregation;
+    assertThat(Objects.requireNonNull(dateHistogram).getBuckets().size()).isEqualTo(5);
+    for (InternalAutoDateHistogram.Bucket bucket :
+        Objects.requireNonNull(dateHistogram).getBuckets()) {
+      assertThat(bucket.getDocCount()).isEqualTo(1);
     }
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(5);
