@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -198,23 +199,23 @@ public class OpenSearchAggregationAdapter {
 
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
-        InternalAggregation internalAggregation = null;
-
+        List<InternalAggregation> internalAggregationList = new ArrayList<>();
         for (Aggregator collector : collectors) {
           // postCollection must be invoked prior to building the internal aggregations
           collector.postCollection();
-          InternalAggregation collectorAggregation = collector.buildTopLevel();
-          if (internalAggregation == null) {
-            internalAggregation = collectorAggregation;
-          } else {
-            internalAggregation =
-                collectorAggregation.reduce(
-                    List.of(internalAggregation, collectorAggregation),
-                    InternalAggregation.ReduceContext.forPartialReduction(
-                        KaldbBigArrays.getInstance(), null, null));
-          }
+          internalAggregationList.add(collector.buildTopLevel());
         }
-        return internalAggregation;
+
+        if (internalAggregationList.size() == 0) {
+          return null;
+        } else {
+          return internalAggregationList
+              .get(0)
+              .reduce(
+                  internalAggregationList,
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      KaldbBigArrays.getInstance(), null, null));
+        }
       }
     };
   }
