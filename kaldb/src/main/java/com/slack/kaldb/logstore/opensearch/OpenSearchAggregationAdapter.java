@@ -349,8 +349,8 @@ public class OpenSearchAggregationAdapter {
     DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
         new DateHistogramAggregationBuilder(builder.getName())
             .field(builder.getField())
-            .fixedInterval(new DateHistogramInterval(builder.getInterval()))
-            .minDocCount(builder.getMinDocCount());
+            .minDocCount(builder.getMinDocCount())
+            .fixedInterval(new DateHistogramInterval(builder.getInterval()));
 
     if (builder.getOffset() != null && !builder.getOffset().isEmpty()) {
       dateHistogramAggregationBuilder.offset(builder.getOffset());
@@ -361,12 +361,24 @@ public class OpenSearchAggregationAdapter {
       // dateHistogramAggregationBuilder.format(builder.getFormat());
     }
 
-    if (builder.getExtendedBounds().containsKey("min")
-        && builder.getExtendedBounds().containsKey("max")) {
-      LongBounds longBounds =
-          new LongBounds(
-              builder.getExtendedBounds().get("min"), builder.getExtendedBounds().get("max"));
-      dateHistogramAggregationBuilder.extendedBounds(longBounds);
+    if (builder.getMinDocCount() == 0) {
+      if (builder.getExtendedBounds() != null
+          && builder.getExtendedBounds().containsKey("min")
+          && builder.getExtendedBounds().containsKey("max")) {
+
+        LongBounds longBounds =
+            new LongBounds(
+                builder.getExtendedBounds().get("min"), builder.getExtendedBounds().get("max"));
+        dateHistogramAggregationBuilder.extendedBounds(longBounds);
+      } else {
+        // Minimum doc count _must_ be used with an extended bounds param
+        // As per
+        // https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-histogram-aggregation.html#search-aggregations-bucket-histogram-aggregation-extended-bounds
+        // "Using extended_bounds only makes sense when min_doc_count is 0 (the empty buckets will
+        // never be returned if min_doc_count is greater than 0)."
+        throw new IllegalArgumentException(
+            "Extended bounds must be provided if using a min doc count");
+      }
     }
 
     // todo - subaggregations

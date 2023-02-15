@@ -9,7 +9,7 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 public class KaldbSearchUtils {
 
   public static KaldbSearch.SearchResult searchUsingGrpcApi(
-      String queryString, int port, long startTime, long endTime) {
+      String queryString, int port, long startTime, long endTime, String interval) {
     KaldbServiceGrpc.KaldbServiceBlockingStub kaldbService =
         GrpcClients.builder(uri(port))
             .build(KaldbServiceGrpc.KaldbServiceBlockingStub.class)
@@ -33,7 +33,8 @@ public class KaldbSearchUtils {
                             .setDateHistogram(
                                 KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                     .DateHistogramAggregation.newBuilder()
-                                    .setInterval("1s")
+                                    .setMinDocCount(1)
+                                    .setInterval(interval)
                                     .build())
                             .build())
                     .build())

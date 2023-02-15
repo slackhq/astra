@@ -386,6 +386,7 @@ public class IndexingChunkManagerTest {
                                     KaldbSearch.SearchRequest.SearchAggregation
                                         .ValueSourceAggregation.DateHistogramAggregation
                                         .newBuilder()
+                                        .setMinDocCount(1)
                                         .setInterval("1s")
                                         .build())
                                 .build())

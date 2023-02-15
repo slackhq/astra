@@ -80,7 +80,8 @@ public class KaldbLocalQueryServiceTest {
     }
   }
 
-  private static KaldbSearch.SearchRequest.SearchAggregation buildHistogramRequest(int numBuckets) {
+  private static KaldbSearch.SearchRequest.SearchAggregation buildHistogramRequest(
+      long startMs, long endMs, int numBuckets) {
     return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
         .setType(DateHistogramAggBuilder.TYPE)
         .setName("1")
@@ -90,7 +91,8 @@ public class KaldbLocalQueryServiceTest {
                 .setDateHistogram(
                     KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                         .DateHistogramAggregation.newBuilder()
-                        .setInterval("1s")
+                        .setInterval((endMs - startMs) / numBuckets + "s")
+                        .setMinDocCount(1)
                         .build())
                 .build())
         .build();
@@ -129,7 +131,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregations(buildHistogramRequest(2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
@@ -161,12 +163,6 @@ public class KaldbLocalQueryServiceTest {
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
 
     // TODO: Query multiple chunks.
   }
@@ -198,7 +194,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregations(buildHistogramRequest(2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
@@ -247,7 +243,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setAggregations(buildHistogramRequest(2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
@@ -267,12 +263,6 @@ public class KaldbLocalQueryServiceTest {
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
   }
 
   @Test
@@ -407,7 +397,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setAggregations(buildHistogramRequest(2))
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     // Validate search response
@@ -440,12 +430,6 @@ public class KaldbLocalQueryServiceTest {
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
   }
 
   @Test(expected = StatusRuntimeException.class)

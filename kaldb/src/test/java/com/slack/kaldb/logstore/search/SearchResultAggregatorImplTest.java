@@ -25,6 +25,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.junit.Before;
@@ -41,7 +42,7 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSimpleSearchResultsAggWithOneResult() throws IOException {
     long tookMs = 10;
-    int bucketCount = 12;
+    int bucketCount = 13;
     int howMany = 1;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = LocalDateTime.of(2020, 1, 1, 2, 0, 0).atZone(ZoneOffset.UTC).toInstant();
@@ -55,9 +56,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -109,7 +110,7 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSimpleSearchResultsAggWithMultipleResults() throws IOException {
     long tookMs = 10;
-    int bucketCount = 12;
+    int bucketCount = 13;
     int howMany = 10;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -122,9 +123,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -139,7 +140,7 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -175,7 +176,7 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSearchResultAggregatorOn4Results() throws IOException {
     long tookMs = 10;
-    int bucketCount = 32;
+    int bucketCount = 25;
     int howMany = 10;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -194,13 +195,13 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(31, 40, 1000 * 60, startTime4);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
     InternalAggregation histogram3 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages3);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages3);
     InternalAggregation histogram4 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages4);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages4);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
@@ -253,7 +254,6 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSimpleSearchResultsAggWithNoHistograms() throws IOException {
     long tookMs = 10;
-    int bucketCount = 0;
     int howMany = 10;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -307,7 +307,7 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSimpleSearchResultsAggNoHits() throws IOException {
     long tookMs = 10;
-    int bucketCount = 12;
+    int bucketCount = 13;
     int howMany = 0;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -320,9 +320,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(Collections.emptyList(), tookMs, 7, 0, 2, 2, 2, histogram1);
@@ -423,7 +423,7 @@ public class SearchResultAggregatorImplTest {
   @Test
   public void testSimpleSearchResultsAggIgnoreHitsSafely() throws IOException {
     long tookMs = 10;
-    int bucketCount = 12;
+    int bucketCount = 13;
     int howMany = 0;
     Instant startTime1 = LocalDateTime.of(2020, 1, 1, 1, 0, 0).atZone(ZoneOffset.UTC).toInstant();
     Instant startTime2 = startTime1.plus(1, ChronoUnit.HOURS);
@@ -436,9 +436,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     InternalAggregation histogram1 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages1);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages1);
     InternalAggregation histogram2 =
-        makeHistogram(histogramStartMs, histogramEndMs, "6m", messages2);
+        makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 7, 0, 2, 2, 2, histogram1);
@@ -453,7 +453,7 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             howMany,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"),
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "10m"),
             Collections.emptyList());
     List<SearchResult<LogMessage>> searchResults = new ArrayList<>(2);
     searchResults.add(searchResult1);
@@ -530,7 +530,13 @@ public class SearchResultAggregatorImplTest {
             histogramEndMs,
             0,
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, interval));
+                "1",
+                LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                interval,
+                "0",
+                0,
+                "",
+                Map.of("min", histogramStartMs, "max", histogramEndMs)));
 
     try {
       return messageSearchResult.internalAggregation;
