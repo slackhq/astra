@@ -10,6 +10,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+/*
+   Utility classes to take a byte array with a Json payload and converts to a Trace.Span.
+   If the Json does not have an "id" we generate a random UUID.
+   The payload Json is expected to contain a "service_name" and a "@timestamp" field otherwise the document will fail to index
+*/
 public class JsonLogFormatter {
 
   public static Trace.Span fromJsonLog(byte[] data) throws IOException {
