@@ -13,15 +13,105 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** A utility class that converts a Span into a LogMessage. */
+/** A utility class that converts a Span into a LogMessage, Json map to Span */
 public class SpanFormatter {
   private static final Logger LOG = LoggerFactory.getLogger(SpanFormatter.class);
 
   public static final String DEFAULT_LOG_MESSAGE_TYPE = "INFO";
   public static final String DEFAULT_INDEX_NAME = "unknown";
+
+  // TODO: Take duration unit as input.
+  // TODO: Take a generic field mapping dictionary as input for fields.
+  public static Trace.Span toSpan(
+      Map<String, Object> jsonMsgMap,
+      String id,
+      String name,
+      String serviceName,
+      long timestamp,
+      long duration,
+      Optional<String> host,
+      Optional<String> traceId) {
+
+    Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
+
+    spanBuilder.setName(name);
+
+    String parentId =
+        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.PARENT_ID.fieldName, "");
+    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
+
+    traceId.ifPresent(s -> spanBuilder.setTraceId(ByteString.copyFromUtf8(s)));
+    spanBuilder.setTimestamp(timestamp);
+    spanBuilder.setDuration(duration);
+
+    List<Trace.KeyValue> tags = new ArrayList<>(jsonMsgMap.size());
+    for (Map.Entry<String, Object> entry : jsonMsgMap.entrySet()) {
+      String key = entry.getKey();
+      if (MurronLogFormatter.nonTagFields.contains(key)) {
+        continue;
+      }
+      Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
+      tagBuilder.setKey(key);
+      if (entry.getValue() instanceof String) {
+        tagBuilder.setVType(Trace.ValueType.STRING);
+        tagBuilder.setVStr(entry.getValue().toString());
+      } else if (entry.getValue() instanceof Boolean) {
+        tagBuilder.setVType(Trace.ValueType.BOOL);
+        tagBuilder.setVBool((boolean) entry.getValue());
+      } else if (entry.getValue() instanceof Integer) {
+        tagBuilder.setVType(Trace.ValueType.INT64);
+        tagBuilder.setVInt64((int) entry.getValue());
+      } else if (entry.getValue() instanceof Float) {
+        tagBuilder.setVType(Trace.ValueType.FLOAT64);
+        tagBuilder.setVFloat64((float) entry.getValue());
+      } else if (entry.getValue() instanceof Double) {
+        tagBuilder.setVType(Trace.ValueType.FLOAT64);
+        tagBuilder.setVFloat64((double) entry.getValue());
+      } else if (entry.getValue() != null) {
+        tagBuilder.setVType(Trace.ValueType.BINARY);
+        tagBuilder.setVBinary(ByteString.copyFrom(entry.getValue().toString().getBytes()));
+      }
+      tags.add(tagBuilder.build());
+    }
+
+    // Add missing fields from murron message.
+    boolean containsHostName =
+        tags.stream()
+            .anyMatch(
+                keyValue -> keyValue.getKey().equals(LogMessage.ReservedField.HOSTNAME.fieldName));
+    if (!containsHostName) {
+      host.ifPresent(
+          s ->
+              tags.add(
+                  Trace.KeyValue.newBuilder()
+                      .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
+                      .setVType(Trace.ValueType.STRING)
+                      .setVStr(s)
+                      .build()));
+    }
+
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+
+    boolean containsServiceName =
+        tags.stream()
+            .anyMatch(
+                keyValue ->
+                    keyValue.getKey().equals(LogMessage.ReservedField.SERVICE_NAME.fieldName));
+    if (!containsServiceName) {
+      tags.add(
+          Trace.KeyValue.newBuilder()
+              .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
+              .setVType(Trace.ValueType.STRING)
+              .setVStr(serviceName)
+              .build());
+    }
+    spanBuilder.addAllTags(tags);
+    return spanBuilder.build();
+  }
 
   public static Trace.ListOfSpans fromMurronMessage(Murron.MurronMessage message)
       throws InvalidProtocolBufferException {

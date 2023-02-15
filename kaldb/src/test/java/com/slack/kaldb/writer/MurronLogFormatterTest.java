@@ -72,7 +72,7 @@ public class MurronLogFormatterTest {
     assertThat(getTagValue(tags, LogMessage.ReservedField.TRACE_ID.fieldName)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.HOSTNAME.fieldName)).isEqualTo(host);
     assertThat(getTagValue(tags, LogMessage.ReservedField.SERVICE_NAME.fieldName))
-        .isEqualTo("hhvm_api_log");
+        .isEqualTo("hhvm-api_log");
   }
 
   @Test
@@ -108,7 +108,7 @@ public class MurronLogFormatterTest {
     assertThat(getTagValue(tags, LogMessage.ReservedField.TRACE_ID.fieldName)).isNull();
     assertThat(getTagValue(tags, LogMessage.ReservedField.HOSTNAME.fieldName)).isEqualTo(host);
     assertThat(getTagValue(tags, LogMessage.ReservedField.SERVICE_NAME.fieldName))
-        .isEqualTo("hhvm_api_log");
+        .isEqualTo("hhvm-api_log");
   }
 
   @Test

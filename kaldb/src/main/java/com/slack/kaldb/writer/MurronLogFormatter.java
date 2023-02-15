@@ -3,14 +3,12 @@ package com.slack.kaldb.writer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +19,8 @@ public class MurronLogFormatter {
   public static final String API_LOG_DURATION_FIELD = "microtime_elapsed";
   public static final String ENVOY_DURATION_FIELD = "duration";
   public static final String ENVOY_REQUEST_ID = "request_id";
-  static final Set<String> nonTagFields =
+  public static final String ID = "id";
+  protected static final Set<String> nonTagFields =
       ImmutableSet.of(
           LogMessage.ReservedField.PARENT_ID.fieldName,
           LogMessage.ReservedField.TRACE_ID.fieldName,
@@ -45,8 +44,6 @@ public class MurronLogFormatter {
         "");
   }
 
-  // TODO: Take duration unit as input.
-  // TODO: Take a generic field mapping dictionary as input for fields.
   private static Trace.Span toSpan(
       Murron.MurronMessage murronMsg,
       String typeTag,
@@ -68,81 +65,29 @@ public class MurronLogFormatter {
     Map<String, Object> jsonMsgMap =
         JsonUtil.read(murronMsg.getMessage().toStringUtf8(), mapTypeRef);
 
-    Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
+    String name = (String) jsonMsgMap.getOrDefault(typeTag, murronMsg.getType());
 
-    // Set the type tag as the span name.
-    String typeName = (String) jsonMsgMap.getOrDefault(typeTag, "");
-    spanBuilder.setName(typeName.isEmpty() ? murronMsg.getType() : typeName);
-
-    String parentId =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.PARENT_ID.fieldName, "");
-    spanBuilder.setParentId(ByteString.copyFrom(parentId.getBytes()));
-
-    String traceId = (String) jsonMsgMap.getOrDefault(traceIdFieldName, "");
-    spanBuilder.setTraceId(ByteString.copyFrom(traceId.getBytes()));
-
-    spanBuilder.setTimestamp(murronMsg.getTimestamp() / 1000);
-    spanBuilder.setDuration(
-        Long.parseLong(String.valueOf(jsonMsgMap.getOrDefault(durationField, "1")))
-            * durationTimeMuiltiplier);
-
-    List<Trace.KeyValue> tags = new ArrayList<>(jsonMsgMap.size());
-    for (Map.Entry<String, Object> entry : jsonMsgMap.entrySet()) {
-      String key = entry.getKey();
-      if (nonTagFields.contains(key)) {
-        continue;
-      }
-      Trace.KeyValue.Builder tagBuilder = Trace.KeyValue.newBuilder();
-      tagBuilder.setKey(key);
-      if (entry.getValue() instanceof String) {
-        tagBuilder.setVType(Trace.ValueType.STRING);
-        tagBuilder.setVStr(entry.getValue().toString());
-      } else if (entry.getValue() instanceof Boolean) {
-        tagBuilder.setVType(Trace.ValueType.BOOL);
-        tagBuilder.setVBool((boolean) entry.getValue());
-      } else if (entry.getValue() instanceof Integer) {
-        tagBuilder.setVType(Trace.ValueType.INT64);
-        tagBuilder.setVInt64((int) entry.getValue());
-      } else if (entry.getValue() instanceof Float) {
-        tagBuilder.setVType(Trace.ValueType.FLOAT64);
-        tagBuilder.setVFloat64((float) entry.getValue());
-      } else if (entry.getValue() instanceof Double) {
-        tagBuilder.setVType(Trace.ValueType.FLOAT64);
-        tagBuilder.setVFloat64((double) entry.getValue());
-      } else if (entry.getValue() != null) {
-        tagBuilder.setVType(Trace.ValueType.BINARY);
-        tagBuilder.setVBinary(ByteString.copyFrom(entry.getValue().toString().getBytes()));
-      }
-      tags.add(tagBuilder.build());
-    }
-
-    // Add missing fields from murron message.
-    tags.add(
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.HOSTNAME.fieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr(murronMsg.getHost())
-            .build());
-
-    // Create a message id.
-    String msgId = "";
+    String id = "";
     if (!idField.isEmpty()) {
-      msgId = (String) jsonMsgMap.getOrDefault(idField, "");
+      id = (String) jsonMsgMap.getOrDefault(idField, "");
     }
-    if (msgId.isEmpty()) {
-      msgId = murronMsg.getHost() + ":" + murronMsg.getPid() + ":" + murronMsg.getOffset();
+    if (id.isEmpty()) {
+      id = murronMsg.getHost() + ":" + murronMsg.getPid() + ":" + murronMsg.getOffset();
     }
-    spanBuilder.setId(ByteString.copyFrom(msgId.getBytes()));
+    long timestamp = murronMsg.getTimestamp() / 1000;
+    long duration =
+        Long.parseLong(String.valueOf(jsonMsgMap.getOrDefault(durationField, "1")))
+            * durationTimeMuiltiplier;
+    String traceId = (String) jsonMsgMap.get(traceIdFieldName);
 
-    // Replace hyphens with underscore since lucene doesn't like it.
-    tags.add(
-        Trace.KeyValue.newBuilder()
-            .setKey(LogMessage.ReservedField.SERVICE_NAME.fieldName)
-            .setVType(Trace.ValueType.STRING)
-            .setVStr(murronMsg.getType().replace("-", "_"))
-            .build());
-
-    spanBuilder.addAllTags(tags);
-    return spanBuilder.build();
+    return SpanFormatter.toSpan(
+        jsonMsgMap,
+        id,
+        name,
+        murronMsg.getType(),
+        timestamp,
+        duration,
+        Optional.of(murronMsg.getHost()),
+        Optional.ofNullable(traceId));
   }
 }
