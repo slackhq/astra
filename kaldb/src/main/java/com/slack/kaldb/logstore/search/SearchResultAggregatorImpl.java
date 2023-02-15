@@ -39,7 +39,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       totalSnapshots += searchResult.totalSnapshots;
       snapshpotReplicas += searchResult.snapshotsWithReplicas;
       totalCount += searchResult.totalCount;
-      internalAggregationList.add(searchResult.internalAggregation);
+      if (searchResult.internalAggregation != null) {
+        internalAggregationList.add(searchResult.internalAggregation);
+      }
     }
 
     InternalAggregation internalAggregation = null;
