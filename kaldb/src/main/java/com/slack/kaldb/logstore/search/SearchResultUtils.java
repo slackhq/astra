@@ -15,6 +15,7 @@ import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
 
 public class SearchResultUtils {
@@ -34,10 +35,16 @@ public class SearchResultUtils {
           searchAggregation.getValueSource().getDateHistogram().getOffset(),
           searchAggregation.getValueSource().getDateHistogram().getMinDocCount(),
           searchAggregation.getValueSource().getDateHistogram().getFormat(),
-          searchAggregation.getValueSource().getDateHistogram().getExtendedBoundsMap());
+          searchAggregation.getValueSource().getDateHistogram().getExtendedBoundsMap(),
+          searchAggregation
+              .getSubAggregationsList()
+              .stream()
+              .map(SearchResultUtils::fromSearchAggregations)
+              .collect(Collectors.toList()));
     }
 
-    throw new NotImplementedException();
+    throw new NotImplementedException(
+        String.format("Search aggregation %s is not yet supported", searchAggregation.getType()));
   }
 
   public static KaldbSearch.SearchRequest.SearchAggregation toSearchAggregationProto(

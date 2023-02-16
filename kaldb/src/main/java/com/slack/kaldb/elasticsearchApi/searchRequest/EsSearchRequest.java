@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.NotImplementedException;
 
+@Deprecated
 public class EsSearchRequest {
   private final String index;
   private final int size;
@@ -91,7 +92,8 @@ public class EsSearchRequest {
                   legacyAggRequest.getOffset(),
                   legacyAggRequest.getMinDocCount(),
                   legacyAggRequest.getFormat(),
-                  legacyAggRequest.getExtendedBounds()));
+                  legacyAggRequest.getExtendedBounds(),
+                  List.of()));
     }
 
     return KaldbSearch.SearchRequest.newBuilder()

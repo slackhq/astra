@@ -2,6 +2,7 @@ package com.slack.kaldb.elasticsearchApi.searchRequest.aggregations;
 
 import java.util.Map;
 
+@Deprecated
 public class DateHistogramAggregation extends SearchRequestAggregation {
 
   private final String interval;

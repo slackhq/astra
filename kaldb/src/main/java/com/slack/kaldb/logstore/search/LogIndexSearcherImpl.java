@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -43,7 +42,7 @@ import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.MMapDirectory;
-import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,7 +108,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       IndexSearcher searcher = searcherManager.acquire();
       try {
         List<LogMessage> results;
-        InternalDateHistogram histogram = null;
+        InternalAggregation internalAggregation = null;
 
         if (howMany > 0) {
           CollectorManager<TopFieldCollector, TopFieldDocs> topFieldCollector =
@@ -131,32 +130,33 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             results.add(buildLogMessage(searcher, hit));
           }
           if (aggBuilder != null) {
-            histogram = ((InternalDateHistogram) collector[1]);
+            internalAggregation = (InternalAggregation) collector[1];
           }
         } else {
           results = Collections.emptyList();
-          histogram =
-              ((InternalDateHistogram)
-                  searcher.search(
-                      query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder)));
+          internalAggregation =
+              searcher.search(query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder));
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
             results,
             elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            aggBuilder != null
-                ? histogram
-                    .getBuckets()
-                    .stream()
-                    .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
-                    .getSum()
-                : results.size(),
+            // todo?
+            results.size(),
+            //            aggBuilder != null
+            //                ? internalAggregation
+            //                    .getBuckets()
+            //                    .stream()
+            //
+            // .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
+            //                    .getSum()
+            //                : results.size(),
             0,
             0,
             1,
             1,
-            histogram);
+            internalAggregation);
       } finally {
         searcherManager.release(searcher);
       }

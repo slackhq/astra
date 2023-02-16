@@ -3,6 +3,8 @@ package com.slack.kaldb.elasticsearchApi;
 import brave.ScopedSpan;
 import brave.Tracing;
 import brave.propagation.TraceContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -16,10 +18,6 @@ import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Path;
 import com.linecorp.armeria.server.annotation.Post;
-import com.slack.kaldb.elasticsearchApi.searchRequest.EsSearchRequest;
-import com.slack.kaldb.elasticsearchApi.searchRequest.aggregations.SearchRequestAggregation;
-import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationBucketResponse;
-import com.slack.kaldb.elasticsearchApi.searchResponse.AggregationResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
@@ -32,14 +30,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +64,9 @@ public class ElasticsearchApiService {
               .setNameFormat("elasticsearch-multisearch-api-%d")
               .build());
 
+  private final OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+  private final ObjectMapper om = new ObjectMapper();
+
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
   }
@@ -84,8 +84,7 @@ public class ElasticsearchApiService {
   public HttpResponse multiSearch(String postBody) throws Exception {
     LOG.debug("Search request: {}", postBody);
 
-    List<EsSearchRequest> requests = EsSearchRequest.parse(postBody);
-
+    List<KaldbSearch.SearchRequest> requests = openSearchRequest.parseHttpPostBody(postBody);
     List<ListenableFuture<EsSearchResponse>> responseFutures =
         requests
             .stream()
@@ -103,9 +102,8 @@ public class ElasticsearchApiService {
         HttpStatus.OK, MediaType.JSON_UTF_8, JsonUtil.writeAsString(responseMetadata));
   }
 
-  private EsSearchResponse doSearch(EsSearchRequest request) {
+  private EsSearchResponse doSearch(KaldbSearch.SearchRequest searchRequest) {
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("ElasticsearchApiService.doSearch");
-    KaldbSearch.SearchRequest searchRequest = request.toKaldbSearchRequest();
     KaldbSearch.SearchResult searchResult = searcher.doSearch(searchRequest);
 
     span.tag("requestDataset", searchRequest.getDataset());
@@ -124,16 +122,12 @@ public class ElasticsearchApiService {
 
     try {
       HitsMetadata hits = getHits(searchResult);
-      Map<String, AggregationResponse> aggregations =
-          buildLegacyAggregationResponse(
-              request.getAggregations(), searchResult.getInternalAggregations());
-
       return new EsSearchResponse.Builder()
           .hits(hits)
-          .aggregations(aggregations)
+          .aggregations(aggregations(searchResult.getInternalAggregations()))
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
-          .debugMetadata(getDebugAggregations(searchResult.getInternalAggregations()))
+          .debugMetadata(Map.of())
           .status(200)
           .build();
     } catch (Exception e) {
@@ -149,55 +143,11 @@ public class ElasticsearchApiService {
     }
   }
 
-  /**
-   * Temporary method to serialize the internal aggregations into the debug metadata for eaiser
-   * troubleshooting
-   */
   @Deprecated
-  private Map<String, String> getDebugAggregations(ByteString internalAggregations)
-      throws IOException {
-    Map<String, String> debugAggs = new HashMap<>();
-    if (internalAggregations.size() > 0) {
-      debugAggs.put(
-          "internalAggs",
-          OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray())
-              .toString());
-    }
-    return debugAggs;
-  }
-
-  /**
-   * Converts an InternalAggregation response type into one that maps into the EsSearchResponse.
-   * This is a temporary method and will be removed after implementing another aggregation type, as
-   * the existing AggregationResponse will only work with DateHistogram count responses.
-   */
-  @Deprecated
-  private Map<String, AggregationResponse> buildLegacyAggregationResponse(
-      List<SearchRequestAggregation> searchRequestAggregations, ByteString internalAggregations) {
-    InternalDateHistogram internalAggregation;
-    Map<String, AggregationResponse> aggregations = new HashMap<>();
-    if (internalAggregations.size() > 0) {
-      try {
-        internalAggregation =
-            (InternalDateHistogram)
-                OpenSearchAggregationAdapter.fromByteArray(internalAggregations.toByteArray());
-        List<AggregationBucketResponse> aggregationBucketResponses = new ArrayList<>();
-        internalAggregation
-            .getBuckets()
-            .forEach(
-                bucket ->
-                    aggregationBucketResponses.add(
-                        new AggregationBucketResponse(
-                            Double.parseDouble(bucket.getKeyAsString()), bucket.getDocCount())));
-        aggregations.put(
-            searchRequestAggregations.stream().findFirst().get().getAggregationKey(),
-            new AggregationResponse(aggregationBucketResponses));
-      } catch (Exception e) {
-        LOG.error("Error converting internal aggregations to Elasticsearch response", e);
-      }
-    }
-
-    return aggregations;
+  private JsonNode aggregations(ByteString byteInput) throws IOException {
+    InternalAggregation internalAggregations =
+        OpenSearchAggregationAdapter.fromByteArray(byteInput.toByteArray());
+    return om.readTree(internalAggregations.toString());
   }
 
   private String getTraceId() {

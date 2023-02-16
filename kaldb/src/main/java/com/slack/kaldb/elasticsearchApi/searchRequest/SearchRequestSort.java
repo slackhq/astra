@@ -2,6 +2,7 @@ package com.slack.kaldb.elasticsearchApi.searchRequest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+@Deprecated
 public enum SearchRequestSort {
   ASC,
   DESC;

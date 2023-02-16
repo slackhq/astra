@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search.aggregations;
 
+import java.util.List;
 import java.util.Map;
 
 public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
@@ -29,8 +30,10 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
       String offset,
       long minDocCount,
       String format,
-      Map<String, Long> extendedBounds) {
-    super(name, fieldName);
+      Map<String, Long> extendedBounds,
+      List<AggBuilder> subAggregations) {
+    // todo - metadata?
+    super(name, Map.of(), subAggregations, fieldName);
 
     this.interval = interval;
     this.offset = offset;

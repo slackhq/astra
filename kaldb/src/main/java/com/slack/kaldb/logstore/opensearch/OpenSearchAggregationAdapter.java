@@ -4,7 +4,9 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -47,10 +49,12 @@ import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
@@ -72,6 +76,62 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchAggregationAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAggregationAdapter.class);
+  private static final NamedWriteableRegistry namedWriteableRegistry =
+      new NamedWriteableRegistry(
+          Arrays.asList(
+              // todo - add additional aggregations as needed
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  DateHistogramAggregationBuilder.NAME,
+                  DateHistogramAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  DateHistogramAggregationBuilder.NAME,
+                  InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class, AvgAggregationBuilder.NAME, AvgAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  ValueCountAggregationBuilder.NAME,
+                  ValueCountAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  ValueCountAggregationBuilder.NAME,
+                  InternalValueCount::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.BOOLEAN.getWriteableName(),
+                  in -> DocValueFormat.BOOLEAN),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class, DocValueFormat.DateTime.NAME, DocValueFormat.DateTime::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.GEOHASH.getWriteableName(),
+                  in -> DocValueFormat.GEOHASH),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.GEOTILE.getWriteableName(),
+                  in -> DocValueFormat.GEOTILE),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.IP.getWriteableName(),
+                  in -> DocValueFormat.IP),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.RAW.getWriteableName(),
+                  in -> DocValueFormat.RAW),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.BINARY.getWriteableName(),
+                  in -> DocValueFormat.BINARY),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
+                  in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
 
   /** Serializes InternalAggregation to byte array for transport */
   public static byte[] toByteArray(InternalAggregation internalAggregation) {
@@ -79,14 +139,19 @@ public class OpenSearchAggregationAdapter {
       return new byte[] {};
     }
 
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream);
-    try {
-      internalAggregation.writeTo(streamOutput);
-    } catch (Exception e) {
+    byte[] returnBytes;
+    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+      try (StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream)) {
+        InternalAggregations internalAggregations =
+            new InternalAggregations(List.of(internalAggregation), null);
+        internalAggregations.writeTo(streamOutput);
+      }
+      returnBytes = byteArrayOutputStream.toByteArray();
+    } catch (IOException e) {
       LOG.error("Error writing internal agg to byte array", e);
+      throw new RuntimeException(e);
     }
-    return byteArrayOutputStream.toByteArray();
+    return returnBytes;
   }
 
   /**
@@ -94,73 +159,20 @@ public class OpenSearchAggregationAdapter {
    * TODO - abstract this to allow deserialization of any internal aggregation
    */
   public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
-    NamedWriteableRegistry namedWriteableRegistry =
-        new NamedWriteableRegistry(
-            Arrays.asList(
-                // todo - add additional aggregations as needed
-                new NamedWriteableRegistry.Entry(
-                    AggregationBuilder.class,
-                    DateHistogramAggregationBuilder.NAME,
-                    DateHistogramAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(
-                    InternalAggregation.class,
-                    DateHistogramAggregationBuilder.NAME,
-                    InternalDateHistogram::new),
-                new NamedWriteableRegistry.Entry(
-                    AggregationBuilder.class,
-                    AvgAggregationBuilder.NAME,
-                    AvgAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(
-                    InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
-                new NamedWriteableRegistry.Entry(
-                    AggregationBuilder.class,
-                    ValueCountAggregationBuilder.NAME,
-                    ValueCountAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(
-                    InternalAggregation.class,
-                    ValueCountAggregationBuilder.NAME,
-                    InternalValueCount::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.BOOLEAN.getWriteableName(),
-                    in -> DocValueFormat.BOOLEAN),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.DateTime.NAME,
-                    DocValueFormat.DateTime::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.GEOHASH.getWriteableName(),
-                    in -> DocValueFormat.GEOHASH),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.GEOTILE.getWriteableName(),
-                    in -> DocValueFormat.GEOTILE),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.IP.getWriteableName(),
-                    in -> DocValueFormat.IP),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.RAW.getWriteableName(),
-                    in -> DocValueFormat.RAW),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.BINARY.getWriteableName(),
-                    in -> DocValueFormat.BINARY),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
-                    in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
-
-    InputStream inputStream = new ByteArrayInputStream(bytes);
-    StreamInput streamInput = new InputStreamStreamInput(inputStream);
-    NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
-        new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry);
-
-    return new InternalDateHistogram(namedWriteableAwareStreamInput);
+    InternalAggregation internalAggregation;
+    try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+      try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
+        try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
+            new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry)) {
+          // the use of this InternalAggregations wrapper lightly follows OpenSearch
+          // See OpensSearch InternalAggregationsTest.writeToAndReadFrom() for more details
+          InternalAggregations internalAggregations =
+              InternalAggregations.readFrom(namedWriteableAwareStreamInput);
+          internalAggregation = internalAggregations.copyResults().get(0);
+        }
+      }
+    }
+    return internalAggregation;
   }
 
   protected static XContentBuilder mapping(
@@ -191,7 +203,7 @@ public class OpenSearchAggregationAdapter {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildDateHistogramAggregator((DateHistogramAggBuilder) aggBuilder);
+        Aggregator aggregator = buildAggregatorTree(aggBuilder);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -331,18 +343,18 @@ public class OpenSearchAggregationAdapter {
         MapperService.MergeReason.MAPPING_UPDATE);
   }
 
-  /**
-   * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
-   * aggregations implementation.
-   */
-  public static Aggregator buildDateHistogramAggregator(DateHistogramAggBuilder builder)
-      throws IOException {
+  public static Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);
 
     // todo - this needs to use mapping information
-    registerField(mapperService, builder.getField(), b -> b.field("type", "long"));
+    registerField(
+        mapperService,
+        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+        b -> b.field("type", "long"));
+    registerField(mapperService, "longproperty", b -> b.field("type", "long"));
+    // todo end
 
     QueryShardContext queryShardContext =
         buildQueryShardContext(
@@ -350,9 +362,49 @@ public class OpenSearchAggregationAdapter {
     SearchContext searchContext =
         new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
 
+    return getAggregationBuilder(builder)
+        .build(queryShardContext, null)
+        .create(searchContext, null, CardinalityUpperBound.ONE);
+  }
+
+  private static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
+      throws IOException {
+    if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
+      return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
+      return buildAvgAggregator((AvgAggBuilder) aggBuilder);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
+    }
+  }
+
+  public static AvgAggregationBuilder buildAvgAggregator(AvgAggBuilder builder) {
+    // todo - this is due to incorrect schema issues
+    String fieldname = builder.getField();
+    if (fieldname.equals("@timestamp")) {
+      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+    }
+
+    return new AvgAggregationBuilder(builder.getName()).field(fieldname);
+  }
+
+  /**
+   * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
+   * aggregations implementation.
+   */
+  public static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
+      DateHistogramAggBuilder builder) throws IOException {
+
+    // todo - this is due to incorrect schema issues
+    String fieldname = builder.getField();
+    if (fieldname.equals("@timestamp")) {
+      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+    }
+
     DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
         new DateHistogramAggregationBuilder(builder.getName())
-            .field(builder.getField())
+            .field(fieldname)
             .minDocCount(builder.getMinDocCount())
             .fixedInterval(new DateHistogramInterval(builder.getInterval()));
 
@@ -385,10 +437,10 @@ public class OpenSearchAggregationAdapter {
       }
     }
 
-    // todo - subaggregations
-    // dateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
-    return dateHistogramAggregationBuilder
-        .build(queryShardContext, null)
-        .create(searchContext, null, CardinalityUpperBound.ONE);
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      dateHistogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+    }
+
+    return dateHistogramAggregationBuilder;
   }
 }

@@ -9,7 +9,6 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -266,9 +265,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, emptyAggregation());
+        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, null);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, emptyAggregation());
+        new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, null);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -384,7 +383,7 @@ public class SearchResultAggregatorImplTest {
     SearchResult<LogMessage> searchResult1 =
         new SearchResult<>(messages1, tookMs, 10, 1, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 11, 0, 1, 1, 0, emptyAggregation());
+        new SearchResult<>(messages2, tookMs + 1, 11, 0, 1, 1, 0, null);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -481,14 +480,6 @@ public class SearchResultAggregatorImplTest {
     assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(bucketCount);
   }
 
-  private InternalDateHistogram emptyAggregation() throws IOException {
-    return (InternalDateHistogram)
-        OpenSearchAggregationAdapter.buildDateHistogramAggregator(
-                new DateHistogramAggBuilder(
-                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "6m"))
-            .buildEmptyAggregation();
-  }
-
   /**
    * Makes an InternalDateHistogram given the provided configuration. Since the
    * InternalDateHistogram has private constructors this uses a temporary LogSearcher to index,
@@ -536,7 +527,8 @@ public class SearchResultAggregatorImplTest {
                 "0",
                 0,
                 "",
-                Map.of("min", histogramStartMs, "max", histogramEndMs)));
+                Map.of("min", histogramStartMs, "max", histogramEndMs),
+                List.of()));
 
     try {
       return messageSearchResult.internalAggregation;

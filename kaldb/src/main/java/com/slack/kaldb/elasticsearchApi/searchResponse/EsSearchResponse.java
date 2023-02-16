@@ -1,8 +1,8 @@
 package com.slack.kaldb.elasticsearchApi.searchResponse;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class EsSearchResponse {
@@ -23,7 +23,7 @@ public class EsSearchResponse {
   private final HitsMetadata hitsMetadata;
 
   @JsonProperty("aggregations")
-  private final Map<String, AggregationResponse> aggregations;
+  private final JsonNode aggregations;
 
   @JsonProperty("status")
   private final int status;
@@ -34,7 +34,7 @@ public class EsSearchResponse {
       Map<String, Integer> shardsMetadata,
       Map<String, String> debugMetadata,
       HitsMetadata hitsMetadata,
-      Map<String, AggregationResponse> aggregations,
+      JsonNode aggregations,
       int status) {
     this.took = took;
     this.timedOut = timedOut;
@@ -61,7 +61,7 @@ public class EsSearchResponse {
     return hitsMetadata;
   }
 
-  public Map<String, AggregationResponse> getAggregations() {
+  public JsonNode getAggregations() {
     return aggregations;
   }
 
@@ -75,7 +75,7 @@ public class EsSearchResponse {
     private Map<String, Integer> shardsMetadata = new HashMap<>();
     private Map<String, String> debugMetadata = new HashMap<>();
     private HitsMetadata hitsMetadata;
-    private Map<String, AggregationResponse> aggregations = new HashMap<>();
+    private JsonNode aggregations;
     private int status;
 
     public Builder took(long took) {
@@ -106,13 +106,7 @@ public class EsSearchResponse {
       return this;
     }
 
-    public Builder aggregation(
-        String key, List<AggregationBucketResponse> aggregationBucketResponse) {
-      this.aggregations.put(key, new AggregationResponse(aggregationBucketResponse));
-      return this;
-    }
-
-    public Builder aggregations(Map<String, AggregationResponse> aggregations) {
+    public Builder aggregations(JsonNode aggregations) {
       this.aggregations = aggregations;
       return this;
     }

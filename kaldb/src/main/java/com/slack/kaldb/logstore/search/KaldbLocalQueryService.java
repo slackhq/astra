@@ -6,6 +6,7 @@ import com.slack.kaldb.chunkManager.ChunkManager;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +18,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
 
   public KaldbLocalQueryService(ChunkManager<T> chunkManager, Duration defaultQueryTimeout) {
     this.chunkManager = chunkManager;
-    this.defaultQueryTimeout = defaultQueryTimeout;
+    this.defaultQueryTimeout = Duration.of(2, ChronoUnit.MINUTES);
   }
 
   @Override
