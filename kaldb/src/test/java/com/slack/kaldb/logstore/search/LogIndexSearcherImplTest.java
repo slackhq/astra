@@ -235,7 +235,6 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(1);
-    assertThat(babies.totalCount).isEqualTo(1);
 
     InternalDateHistogram histogram =
         (InternalDateHistogram) Objects.requireNonNull(babies.internalAggregation);
@@ -260,7 +259,6 @@ public class LogIndexSearcherImplTest {
     assertThat(apples.hits.stream().map(m -> m.id).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
-    assertThat(apples.totalCount).isEqualTo(3); // total count is 3, hits is 2.
 
     InternalDateHistogram histogram =
         (InternalDateHistogram) Objects.requireNonNull(apples.internalAggregation);
@@ -316,7 +314,6 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(car.totalCount).isEqualTo(0);
 
     // Commit but no refresh. Item is still not available for search.
     strictLogStore.logStore.commit();
@@ -335,7 +332,6 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(carAfterCommit.totalCount).isEqualTo(0);
 
     // Car can be searched after refresh.
     strictLogStore.logStore.refresh();
@@ -354,7 +350,6 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(carAfterRefresh.totalCount).isEqualTo(1);
 
     // Add another message to search, refresh but don't commit.
     strictLogStore.logStore.addMessage(
@@ -378,7 +373,6 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.hits.stream().map(m -> m.id).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("4", "2"));
 
@@ -406,7 +400,6 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     assertThat(allIndexItems.hits.size()).isEqualTo(4);
-    assertThat(allIndexItems.totalCount).isEqualTo(4);
 
     InternalDateHistogram histogram =
         (InternalDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
@@ -981,7 +974,6 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
-    assertThat(allIndexItems.totalCount).isEqualTo(0);
 
     InternalAutoDateHistogram histogram =
         (InternalAutoDateHistogram) Objects.requireNonNull(allIndexItems.internalAggregation);
@@ -1009,7 +1001,6 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(elephants.hits.size()).isEqualTo(0);
-    assertThat(elephants.totalCount).isEqualTo(0);
 
     InternalDateHistogram histogram =
         (InternalDateHistogram) Objects.requireNonNull(elephants.internalAggregation);
@@ -1029,7 +1020,6 @@ public class LogIndexSearcherImplTest {
             100,
             null);
     assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.totalCount).isEqualTo(2);
     assertThat(babies.internalAggregation).isNull();
   }
 
@@ -1047,7 +1037,6 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(0);
-    assertThat(babies.totalCount).isEqualTo(2);
 
     InternalDateHistogram histogram =
         (InternalDateHistogram) Objects.requireNonNull(babies.internalAggregation);
@@ -1210,7 +1199,6 @@ public class LogIndexSearcherImplTest {
               } else {
                 successfulRuns.addAndGet(1);
               }
-              if (babies.totalCount != 2) statsFailures.addAndGet(1);
             } catch (Exception e) {
               searchExceptions.addAndGet(1);
             }

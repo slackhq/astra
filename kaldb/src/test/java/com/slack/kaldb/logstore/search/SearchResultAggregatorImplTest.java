@@ -60,9 +60,9 @@ public class SearchResultAggregatorImplTest {
         makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
+        new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, histogram2);
+        new SearchResult<>(messages2, tookMs + 1, 0, 1, 1, 0, histogram2);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -91,8 +91,6 @@ public class SearchResultAggregatorImplTest {
     assertThat(hit.id).contains("Message20");
     assertThat(hit.timeSinceEpochMilli)
         .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
-
-    assertThat(aggSearchResult.totalCount).isEqualTo(20);
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
@@ -127,9 +125,9 @@ public class SearchResultAggregatorImplTest {
         makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
+        new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, histogram2);
+        new SearchResult<>(messages2, tookMs + 1, 0, 1, 1, 0, histogram2);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -157,8 +155,6 @@ public class SearchResultAggregatorImplTest {
     for (LogMessage m : aggSearchResult.hits) {
       assertThat(messages2.contains(m)).isTrue();
     }
-
-    assertThat(aggSearchResult.totalCount).isEqualTo(20);
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
@@ -203,13 +199,13 @@ public class SearchResultAggregatorImplTest {
         makeHistogram(histogramStartMs, histogramEndMs, "10m", messages4);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, histogram1);
+        new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 10, 1, 1, 1, 1, histogram2);
+        new SearchResult<>(messages2, tookMs + 1, 1, 1, 1, 1, histogram2);
     SearchResult<LogMessage> searchResult3 =
-        new SearchResult<>(messages3, tookMs + 2, 10, 0, 1, 1, 0, histogram3);
+        new SearchResult<>(messages3, tookMs + 2, 0, 1, 1, 0, histogram3);
     SearchResult<LogMessage> searchResult4 =
-        new SearchResult<>(messages4, tookMs + 3, 10, 0, 1, 1, 1, histogram4);
+        new SearchResult<>(messages4, tookMs + 3, 0, 1, 1, 1, histogram4);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -235,8 +231,6 @@ public class SearchResultAggregatorImplTest {
     for (LogMessage m : aggSearchResult.hits) {
       assertThat(messages4.contains(m)).isTrue();
     }
-
-    assertThat(aggSearchResult.totalCount).isEqualTo(40);
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
@@ -265,9 +259,9 @@ public class SearchResultAggregatorImplTest {
         MessageUtil.makeMessagesWithTimeDifference(11, 20, 1000 * 60, startTime2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 0, 1, 1, 0, null);
+        new SearchResult<>(messages1, tookMs, 0, 1, 1, 0, null);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 10, 0, 1, 1, 0, null);
+        new SearchResult<>(messages2, tookMs + 1, 0, 1, 1, 0, null);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -296,11 +290,7 @@ public class SearchResultAggregatorImplTest {
       assertThat(messages2.contains(m)).isTrue();
     }
 
-    assertThat(aggSearchResult.totalCount).isEqualTo(20);
-
-    InternalDateHistogram internalDateHistogram =
-        Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
-    assertThat(internalDateHistogram.getBuckets().size()).isEqualTo(0);
+    assertThat(aggSearchResult.internalAggregation).isNull();
   }
 
   @Test
@@ -324,9 +314,9 @@ public class SearchResultAggregatorImplTest {
         makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(Collections.emptyList(), tookMs, 7, 0, 2, 2, 2, histogram1);
+        new SearchResult<>(Collections.emptyList(), tookMs, 0, 2, 2, 2, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(Collections.emptyList(), tookMs + 1, 8, 0, 1, 1, 0, histogram2);
+        new SearchResult<>(Collections.emptyList(), tookMs + 1, 0, 1, 1, 0, histogram2);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -350,7 +340,6 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.failedNodes).isEqualTo(0);
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
-    assertThat(aggSearchResult.totalCount).isEqualTo(15);
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
@@ -381,9 +370,9 @@ public class SearchResultAggregatorImplTest {
     InternalAggregation histogram1 = makeHistogram(startTimeMs, endTimeMs, "6m", messages1);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 10, 1, 1, 1, 0, histogram1);
+        new SearchResult<>(messages1, tookMs, 1, 1, 1, 0, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(messages2, tookMs + 1, 11, 0, 1, 1, 0, null);
+        new SearchResult<>(messages2, tookMs + 1, 0, 1, 1, 0, null);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -412,8 +401,6 @@ public class SearchResultAggregatorImplTest {
       assertThat(messages2.contains(m)).isTrue();
     }
 
-    assertThat(aggSearchResult.totalCount).isEqualTo(21);
-
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(internalDateHistogram).isEqualTo(histogram1);
@@ -440,9 +427,9 @@ public class SearchResultAggregatorImplTest {
         makeHistogram(histogramStartMs, histogramEndMs, "10m", messages2);
 
     SearchResult<LogMessage> searchResult1 =
-        new SearchResult<>(messages1, tookMs, 7, 0, 2, 2, 2, histogram1);
+        new SearchResult<>(messages1, tookMs, 0, 2, 2, 2, histogram1);
     SearchResult<LogMessage> searchResult2 =
-        new SearchResult<>(Collections.emptyList(), tookMs + 1, 8, 0, 1, 1, 0, histogram2);
+        new SearchResult<>(Collections.emptyList(), tookMs + 1, 0, 1, 1, 0, histogram2);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -466,7 +453,6 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.failedNodes).isEqualTo(0);
     assertThat(aggSearchResult.snapshotsWithReplicas).isEqualTo(2);
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(3);
-    assertThat(aggSearchResult.totalCount).isEqualTo(15);
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);

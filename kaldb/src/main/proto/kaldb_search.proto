@@ -43,7 +43,6 @@ message SearchRequest {
 }
 
 message SearchResult {
-  int64 total_count = 2;
   repeated string hits = 3;
   bytes internal_aggregations = 4;
   int64 took_micros = 5;

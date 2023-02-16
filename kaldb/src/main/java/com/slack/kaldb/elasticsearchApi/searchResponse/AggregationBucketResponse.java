@@ -2,6 +2,7 @@ package com.slack.kaldb.elasticsearchApi.searchResponse;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@Deprecated
 public class AggregationBucketResponse {
 
   @JsonProperty("key")

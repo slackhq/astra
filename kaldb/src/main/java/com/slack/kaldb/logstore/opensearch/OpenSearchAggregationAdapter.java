@@ -8,6 +8,8 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.opensearch.Version;
@@ -159,6 +163,10 @@ public class OpenSearchAggregationAdapter {
    * TODO - abstract this to allow deserialization of any internal aggregation
    */
   public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
+    if (bytes.length == 0) {
+      return null;
+    }
+
     InternalAggregation internalAggregation;
     try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
       try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
@@ -199,11 +207,11 @@ public class OpenSearchAggregationAdapter {
    * TODO - abstract this to allow instantiating other aggregators than just a date histogram
    */
   public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      AggBuilder aggBuilder) {
+      AggBuilder aggBuilder, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAggregatorTree(aggBuilder);
+        Aggregator aggregator = buildAggregatorTree(aggBuilder, chunkSchema);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -343,18 +351,34 @@ public class OpenSearchAggregationAdapter {
         MapperService.MergeReason.MAPPING_UPDATE);
   }
 
-  public static Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
+  public static Aggregator buildAggregatorTree(
+      AggBuilder builder, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema)
+      throws IOException {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);
 
-    // todo - this needs to use mapping information
+    // todo - this mapping logic likely needs to be moved somewhere else
+    /*
     registerField(
         mapperService,
         LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
         b -> b.field("type", "long"));
     registerField(mapperService, "longproperty", b -> b.field("type", "long"));
-    // todo end
+    */
+    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
+      // todo - error - no handler for type [string] declared on field
+      if (entry.getValue().fieldType != FieldType.STRING) {
+        try {
+          registerField(
+              mapperService,
+              entry.getValue().name,
+              b -> b.field("type", entry.getValue().fieldType.name));
+        } catch (Exception e) {
+          LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        }
+      }
+    }
 
     QueryShardContext queryShardContext =
         buildQueryShardContext(

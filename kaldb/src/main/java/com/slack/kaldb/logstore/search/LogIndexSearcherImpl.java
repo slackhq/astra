@@ -118,7 +118,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             collectorManager =
                 new MultiCollectorManager(
                     topFieldCollector,
-                    OpenSearchAggregationAdapter.getCollectorManager(aggBuilder));
+                    OpenSearchAggregationAdapter.getCollectorManager(aggBuilder, chunkSchema));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -135,28 +135,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         } else {
           results = Collections.emptyList();
           internalAggregation =
-              searcher.search(query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder));
+              searcher.search(
+                  query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder, chunkSchema));
         }
 
         elapsedTime.stop();
         return new SearchResult<>(
-            results,
-            elapsedTime.elapsed(TimeUnit.MICROSECONDS),
-            // todo?
-            results.size(),
-            //            aggBuilder != null
-            //                ? internalAggregation
-            //                    .getBuckets()
-            //                    .stream()
-            //
-            // .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
-            //                    .getSum()
-            //                : results.size(),
-            0,
-            0,
-            1,
-            1,
-            internalAggregation);
+            results, elapsedTime.elapsed(TimeUnit.MICROSECONDS), 0, 0, 1, 1, internalAggregation);
       } finally {
         searcherManager.release(searcher);
       }

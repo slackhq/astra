@@ -169,7 +169,6 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
-      assertThat(results.totalCount).isEqualTo(100);
 
       results =
           chunk.query(
@@ -182,7 +181,6 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
-      assertThat(results.totalCount).isEqualTo(1);
 
       results =
           chunk.query(
@@ -195,7 +193,6 @@ public class IndexingChunkImplTest {
                   new DateHistogramAggBuilder(
                       "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                   Collections.emptyList()));
-      assertThat(results.totalCount).isEqualTo(100);
       assertThat(results.hits.size()).isEqualTo(10);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, registry)).isEqualTo(100);

@@ -10,9 +10,7 @@ import org.opensearch.search.aggregations.InternalAggregation;
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
-
-  public final long totalCount;
+      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 0, 0, null);
 
   // TODO: Make hits an iterator.
   // An iterator helps with the early termination of a search and may be efficient in some cases.
@@ -29,7 +27,6 @@ public class SearchResult<T> {
   public SearchResult() {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
-    this.totalCount = 0;
     this.failedNodes = 0;
     this.totalNodes = 0;
     this.totalSnapshots = 0;
@@ -41,7 +38,6 @@ public class SearchResult<T> {
   public SearchResult(
       List<T> hits,
       long tookMicros,
-      long totalCount,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
@@ -49,7 +45,6 @@ public class SearchResult<T> {
       InternalAggregation internalAggregation) {
     this.hits = hits;
     this.tookMicros = tookMicros;
-    this.totalCount = totalCount;
     this.failedNodes = failedNodes;
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
@@ -62,8 +57,7 @@ public class SearchResult<T> {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     SearchResult<?> that = (SearchResult<?>) o;
-    return totalCount == that.totalCount
-        && tookMicros == that.tookMicros
+    return tookMicros == that.tookMicros
         && failedNodes == that.failedNodes
         && totalNodes == that.totalNodes
         && totalSnapshots == that.totalSnapshots
@@ -75,9 +69,7 @@ public class SearchResult<T> {
   @Override
   public String toString() {
     return "SearchResult{"
-        + "totalCount="
-        + totalCount
-        + ", hits="
+        + "hits="
         + hits
         + ", tookMicros="
         + tookMicros
@@ -97,7 +89,6 @@ public class SearchResult<T> {
   @Override
   public int hashCode() {
     return Objects.hashCode(
-        totalCount,
         hits,
         tookMicros,
         failedNodes,

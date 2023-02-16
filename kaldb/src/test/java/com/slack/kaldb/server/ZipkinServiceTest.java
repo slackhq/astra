@@ -245,7 +245,6 @@ public class ZipkinServiceTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(indexedMessagesCount);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(indexedMessagesCount);
 
     // Query from the zipkin search service

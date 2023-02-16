@@ -136,7 +136,6 @@ public class KaldbLocalQueryServiceTest {
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -198,9 +197,7 @@ public class KaldbLocalQueryServiceTest {
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
-    assertThat(response.getTotalCount()).isZero();
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isZero();
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -246,9 +243,7 @@ public class KaldbLocalQueryServiceTest {
                 .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
-    // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
     assertThat(response.getHitsCount()).isEqualTo(0);
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -296,7 +291,6 @@ public class KaldbLocalQueryServiceTest {
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -403,7 +397,6 @@ public class KaldbLocalQueryServiceTest {
     // Validate search response
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);

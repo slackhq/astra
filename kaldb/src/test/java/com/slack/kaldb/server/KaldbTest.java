@@ -284,7 +284,6 @@ public class KaldbTest {
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli(), "3650d");
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
     Thread.sleep(2000);
 
@@ -294,7 +293,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // add more docs and create one more chunk on the indexer
@@ -316,7 +314,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // query for a time-window such that only docs from chunk 2 match
@@ -326,7 +323,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     queryServiceSearchResponse =
@@ -334,7 +330,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
 
     queryServiceSearchResponse =
@@ -347,7 +342,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(1);
 
     // query for a time-window to match both chunk1 + chunk2
@@ -357,7 +351,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // Shutdown
@@ -478,14 +471,12 @@ public class KaldbTest {
         searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L, "3650d");
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(indexerSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
     KaldbSearch.SearchResult indexer2SearchResponse =
         searchUsingGrpcApi("*:*", indexerPort2, 1633083000000L, 1633083099000L, "1h");
     assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(indexer2SearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(indexer2SearchResponse.getHitsCount()).isEqualTo(100);
 
     // Query from query service.
@@ -495,7 +486,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(100);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // When we query with a limited timeline (0,MAX_VALUE) we will only query index 1 AND indexer 2
@@ -504,7 +494,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(200);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // Query from query service.
@@ -513,7 +502,6 @@ public class KaldbTest {
 
     assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse2.getTotalCount()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getHitsCount()).isEqualTo(2);
 
     // Shutdown

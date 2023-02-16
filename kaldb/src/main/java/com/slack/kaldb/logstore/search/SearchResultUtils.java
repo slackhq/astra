@@ -130,7 +130,6 @@ public class SearchResultUtils {
     return new SearchResult<>(
         hits,
         protoSearchResult.getTookMicros(),
-        protoSearchResult.getTotalCount(),
         protoSearchResult.getFailedNodes(),
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
@@ -142,7 +141,6 @@ public class SearchResultUtils {
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("SearchResultUtils.toSearchResultProto");
-    span.tag("totalCount", String.valueOf(searchResult.totalCount));
     span.tag("tookMicros", String.valueOf(searchResult.tookMicros));
     span.tag("failedNodes", String.valueOf(searchResult.failedNodes));
     span.tag("totalNodes", String.valueOf(searchResult.totalNodes));
@@ -151,7 +149,6 @@ public class SearchResultUtils {
     span.tag("hits", String.valueOf(searchResult.hits.size()));
 
     KaldbSearch.SearchResult.Builder searchResultBuilder = KaldbSearch.SearchResult.newBuilder();
-    searchResultBuilder.setTotalCount(searchResult.totalCount);
     searchResultBuilder.setTookMicros(searchResult.tookMicros);
     searchResultBuilder.setFailedNodes(searchResult.failedNodes);
     searchResultBuilder.setTotalNodes(searchResult.totalNodes);

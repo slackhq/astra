@@ -111,7 +111,6 @@ public class ElasticsearchApiService {
     span.tag("requestQueryStartTimeEpochMs", String.valueOf(searchRequest.getStartTimeEpochMs()));
     span.tag("requestQueryEndTimeEpochMs", String.valueOf(searchRequest.getEndTimeEpochMs()));
     span.tag("requestHowMany", String.valueOf(searchRequest.getHowMany()));
-    span.tag("resultTotalCount", String.valueOf(searchResult.getTotalCount()));
     span.tag("resultHitsCount", String.valueOf(searchResult.getHitsCount()));
     span.tag("resultTookMicros", String.valueOf(searchResult.getTookMicros()));
     span.tag("resultFailedNodes", String.valueOf(searchResult.getFailedNodes()));
@@ -147,7 +146,10 @@ public class ElasticsearchApiService {
   private JsonNode aggregations(ByteString byteInput) throws IOException {
     InternalAggregation internalAggregations =
         OpenSearchAggregationAdapter.fromByteArray(byteInput.toByteArray());
-    return om.readTree(internalAggregations.toString());
+    if (internalAggregations != null) {
+      return om.readTree(internalAggregations.toString());
+    }
+    return null;
   }
 
   private String getTraceId() {

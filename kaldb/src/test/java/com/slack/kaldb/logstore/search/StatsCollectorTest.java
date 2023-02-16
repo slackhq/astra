@@ -67,7 +67,6 @@ public class StatsCollectorTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
 
     assertThat(allIndexItems.hits.size()).isEqualTo(0);
-    assertThat(allIndexItems.totalCount).isEqualTo(5);
 
     InternalDateHistogram dateHistogram = (InternalDateHistogram) allIndexItems.internalAggregation;
     assertThat(Objects.requireNonNull(dateHistogram).getBuckets().size()).isEqualTo(5);
