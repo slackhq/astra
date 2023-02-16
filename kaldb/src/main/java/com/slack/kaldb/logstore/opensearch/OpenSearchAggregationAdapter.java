@@ -197,6 +197,10 @@ public class OpenSearchAggregationAdapter {
         return aggregator;
       }
 
+      /**
+       * The collector manager required a collection of collectors for reducing, though for our
+       * normal case this will likely only be a single collector
+       */
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
         List<InternalAggregation> internalAggregationList = new ArrayList<>();

@@ -47,6 +47,8 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     InternalAggregation internalAggregation = null;
     if (internalAggregationList.size() > 0) {
       InternalAggregation.ReduceContext reduceContext;
+      // The last aggregation should be indicated using the final aggregation boolean. This performs
+      // some final pass "destructive" actions, such as applying min doc count or extended bounds.
       if (finalAggregation) {
         reduceContext =
             InternalAggregation.ReduceContext.forFinalReduction(
