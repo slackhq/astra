@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,20 +52,6 @@ public class SearchResult<T> {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    SearchResult<?> that = (SearchResult<?>) o;
-    return tookMicros == that.tookMicros
-        && failedNodes == that.failedNodes
-        && totalNodes == that.totalNodes
-        && totalSnapshots == that.totalSnapshots
-        && snapshotsWithReplicas == that.snapshotsWithReplicas
-        && Objects.equal(hits, that.hits)
-        && Objects.equal(internalAggregation, that.internalAggregation);
-  }
-
-  @Override
   public String toString() {
     return "SearchResult{"
         + "hits="
@@ -87,15 +72,35 @@ public class SearchResult<T> {
   }
 
   @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    SearchResult<?> that = (SearchResult<?>) o;
+
+    if (tookMicros != that.tookMicros) return false;
+    if (failedNodes != that.failedNodes) return false;
+    if (totalNodes != that.totalNodes) return false;
+    if (totalSnapshots != that.totalSnapshots) return false;
+    if (snapshotsWithReplicas != that.snapshotsWithReplicas) return false;
+    if (!hits.equals(that.hits)) return false;
+
+    // todo - this is pending a PR to OpenSearch to address
+    // this is because JavaDateMathParser in OpenSearch does not implement a proper equals method
+    // As such the DocValueFormat.parser are never equal to each other
+    return internalAggregation.toString().equals(that.internalAggregation.toString());
+  }
+
+  @Override
   public int hashCode() {
-    return Objects.hashCode(
-        hits,
-        tookMicros,
-        failedNodes,
-        totalNodes,
-        totalSnapshots,
-        snapshotsWithReplicas,
-        internalAggregation);
+    int result = hits.hashCode();
+    result = 31 * result + (int) (tookMicros ^ (tookMicros >>> 32));
+    result = 31 * result + failedNodes;
+    result = 31 * result + totalNodes;
+    result = 31 * result + totalSnapshots;
+    result = 31 * result + snapshotsWithReplicas;
+    result = 31 * result + internalAggregation.hashCode();
+    return result;
   }
 
   public static SearchResult<LogMessage> empty() {
