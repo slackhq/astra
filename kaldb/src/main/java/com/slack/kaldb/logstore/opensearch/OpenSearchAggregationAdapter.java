@@ -137,6 +137,34 @@ public class OpenSearchAggregationAdapter {
                   DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
                   in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
 
+  private final QueryShardContext queryShardContext;
+  private final SearchContext searchContext;
+
+  public OpenSearchAggregationAdapter(ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
+    IndexSettings indexSettings = buildIndexSettings();
+    SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
+    MapperService mapperService = buildMapperService(indexSettings, similarityService);
+
+    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
+      // todo - error - no handler for type [string] declared on field
+      if (entry.getValue().fieldType != FieldType.STRING) {
+        try {
+          registerField(
+              mapperService,
+              entry.getValue().name,
+              b -> b.field("type", entry.getValue().fieldType.name));
+        } catch (Exception e) {
+          LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        }
+      }
+    }
+
+    this.queryShardContext =
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
+    this.searchContext = new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
+  }
+
   /** Serializes InternalAggregation to byte array for transport */
   public static byte[] toByteArray(InternalAggregation internalAggregation) {
     if (internalAggregation == null) {
@@ -206,12 +234,12 @@ public class OpenSearchAggregationAdapter {
    * Builds a CollectorManager for use in the Lucene aggregation step <br>
    * TODO - abstract this to allow instantiating other aggregators than just a date histogram
    */
-  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      AggBuilder aggBuilder, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
+  public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
+      AggBuilder aggBuilder) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAggregatorTree(aggBuilder, chunkSchema);
+        Aggregator aggregator = buildAggregatorTree(aggBuilder);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -351,40 +379,7 @@ public class OpenSearchAggregationAdapter {
         MapperService.MergeReason.MAPPING_UPDATE);
   }
 
-  public static Aggregator buildAggregatorTree(
-      AggBuilder builder, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema)
-      throws IOException {
-    IndexSettings indexSettings = buildIndexSettings();
-    SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
-    MapperService mapperService = buildMapperService(indexSettings, similarityService);
-
-    // todo - this mapping logic likely needs to be moved somewhere else
-    /*
-    registerField(
-        mapperService,
-        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        b -> b.field("type", "long"));
-    registerField(mapperService, "longproperty", b -> b.field("type", "long"));
-    */
-    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
-      // todo - error - no handler for type [string] declared on field
-      if (entry.getValue().fieldType != FieldType.STRING) {
-        try {
-          registerField(
-              mapperService,
-              entry.getValue().name,
-              b -> b.field("type", entry.getValue().fieldType.name));
-        } catch (Exception e) {
-          LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
-        }
-      }
-    }
-
-    QueryShardContext queryShardContext =
-        buildQueryShardContext(
-            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
-    SearchContext searchContext =
-        new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
+  public Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
 
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)

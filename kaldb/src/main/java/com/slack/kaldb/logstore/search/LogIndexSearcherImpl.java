@@ -58,6 +58,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
 
+  private final OpenSearchAggregationAdapter openSearchAggregationAdapter;
+
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
     MMapDirectory directory = new MMapDirectory(path);
@@ -69,6 +71,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
     this.searcherManager = searcherManager;
     this.analyzer = new StandardAnalyzer();
     this.chunkSchema = chunkSchema;
+    this.openSearchAggregationAdapter = new OpenSearchAggregationAdapter(chunkSchema);
   }
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
@@ -118,7 +121,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
             collectorManager =
                 new MultiCollectorManager(
                     topFieldCollector,
-                    OpenSearchAggregationAdapter.getCollectorManager(aggBuilder, chunkSchema));
+                    openSearchAggregationAdapter.getCollectorManager(aggBuilder));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -135,8 +138,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         } else {
           results = Collections.emptyList();
           internalAggregation =
-              searcher.search(
-                  query, OpenSearchAggregationAdapter.getCollectorManager(aggBuilder, chunkSchema));
+              searcher.search(query, openSearchAggregationAdapter.getCollectorManager(aggBuilder));
         }
 
         elapsedTime.stop();

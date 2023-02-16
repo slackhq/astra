@@ -34,12 +34,13 @@ public class SearchResultTest {
       LogMessage logMessage = MessageUtil.makeMessage(i);
       logMessages.add(logMessage);
     }
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(new ConcurrentHashMap<>());
 
     Aggregator dateHistogramAggregation =
-        OpenSearchAggregationAdapter.buildAggregatorTree(
+        openSearchAggregationAdapter.buildAggregatorTree(
             new DateHistogramAggBuilder(
-                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            new ConcurrentHashMap<>());
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1, 5, 7, 7, internalAggregation);
