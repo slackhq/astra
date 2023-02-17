@@ -44,21 +44,20 @@ public class KaldbQueryParserTest {
 
   @Test
   public void testExistsQuery() {
-    // indexed=true analyzed=false - Use ReservedField
+    // indexed=true analyzed=false storeDocValues=true - Use ReservedField
     withStringField(LogMessage.ReservedField.SERVICE_NAME.fieldName);
-    // indexed=true storeDocValues=true - Not ReservedField
+    // indexed=true analyzed=false storeDocValues=true - Not ReservedField
     withStringField("my_service_name");
 
     // indexed=true analyzed=true - Use ReservedField
     withTextField(LogMessage.ReservedField.USERNAME.fieldName);
     withTextField(LogMessage.ReservedField.MESSAGE.fieldName);
-    // All texty fields that are not reserved will use analyzed=false use case which we tested above
+    // All texty fields that are not reserved will use analyzed=false aka string field which we
+    // already tested
 
     // indexed=true storeDocValues=true - Use ReservedField
     withLongField(LogMessage.ReservedField.DURATION_MS.fieldName);
     // indexed=true storeDocValues=true - Not ReservedField
-    withLongField("my_duration_ms");
-
     withLongField("my_duration_ms");
 
     withIntegerField("my_int_field");
@@ -167,7 +166,7 @@ public class KaldbQueryParserTest {
     assertThat(result.totalCount).isEqualTo(1);
     InternalAutoDateHistogram dateHistogram =
         (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
+    assertThat(dateHistogram).isEqualTo(null);
 
     String queryStr = field + ":*";
     result =
@@ -181,7 +180,7 @@ public class KaldbQueryParserTest {
     assertThat(result.hits.size()).isEqualTo(1);
     assertThat(result.totalCount).isEqualTo(1);
     dateHistogram = (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
+    assertThat(dateHistogram).isEqualTo(null);
 
     queryStr = "_exists_:" + field;
     result =
@@ -195,7 +194,7 @@ public class KaldbQueryParserTest {
     assertThat(result.hits.size()).isEqualTo(1);
     assertThat(result.totalCount).isEqualTo(1);
     dateHistogram = (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
+    assertThat(dateHistogram).isEqualTo(null);
   }
 
   // used to create a LogMessage with a StringField on which we will perform exists query
