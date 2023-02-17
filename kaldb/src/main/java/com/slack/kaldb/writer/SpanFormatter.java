@@ -6,7 +6,9 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -134,7 +136,9 @@ public class SpanFormatter {
     jsonMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, span.getParentId().toStringUtf8());
     jsonMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, span.getTraceId().toStringUtf8());
     jsonMap.put(LogMessage.ReservedField.NAME.fieldName, span.getName());
-    jsonMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, span.getDuration());
+    jsonMap.put(
+        LogMessage.ReservedField.DURATION_MS.fieldName,
+        Duration.of(span.getDuration(), ChronoUnit.MICROS).toMillis());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
     if (span.getTimestamp() <= 0) {

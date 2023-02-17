@@ -9,7 +9,9 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.testlib.SpanUtil;
 import com.slack.service.murron.trace.Trace;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +51,7 @@ public class SpanFormatterTest {
     assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName)).isEqualTo(serviceName);
     assertThat(source.get(LogMessage.ReservedField.NAME.fieldName)).isEqualTo(name);
     assertThat(source.get(LogMessage.ReservedField.DURATION_MS.fieldName))
-        .isEqualTo(durationMicros);
+        .isEqualTo(Duration.of(durationMicros, ChronoUnit.MICROS).toMillis());
     assertThat(source.get("http_method")).isEqualTo("POST");
     assertThat(source.get("method")).isEqualTo("callbacks.flannel");
     assertThat(source.get("boolean")).isEqualTo(true);
@@ -87,7 +89,7 @@ public class SpanFormatterTest {
     assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName)).isEqualTo(serviceName);
     assertThat(source.get(LogMessage.ReservedField.NAME.fieldName)).isEqualTo(name);
     assertThat(source.get(LogMessage.ReservedField.DURATION_MS.fieldName))
-        .isEqualTo(durationMicros);
+        .isEqualTo(Duration.of(durationMicros, ChronoUnit.MICROS).toMillis());
     assertThat(source.get("http_method")).isEqualTo("POST");
     assertThat(source.get("method")).isEqualTo("callbacks.flannel");
     assertThat(source.get("boolean")).isEqualTo(true);
@@ -163,7 +165,7 @@ public class SpanFormatterTest {
           .isEqualTo(serviceName);
       assertThat((String) source.get(LogMessage.ReservedField.NAME.fieldName)).startsWith(name);
       assertThat(source.get(LogMessage.ReservedField.DURATION_MS.fieldName))
-          .isEqualTo(durationMicros);
+          .isEqualTo(Duration.of(durationMicros, ChronoUnit.MICROS).toMillis());
       assertThat(source.get("http_method")).isEqualTo("POST");
       assertThat(source.get("method")).isEqualTo("callbacks.flannel");
       assertThat(source.get("boolean")).isEqualTo(true);
