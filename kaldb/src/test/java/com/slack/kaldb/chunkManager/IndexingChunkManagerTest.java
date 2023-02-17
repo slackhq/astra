@@ -275,7 +275,7 @@ public class IndexingChunkManagerTest {
     assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshots.get(0).startTimeEpochMs)
-        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
+        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();

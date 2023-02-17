@@ -1,5 +1,6 @@
 package com.slack.kaldb.elasticsearchApi;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,11 +15,18 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
 
+/**
+ * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
+ * KaldbSearch.SearchRequests, that can be provided to the GRPC Search API. This class is
+ * responsible for taking a raw payload string, performing any validation as appropriate, and
+ * building a complete working list of queries to be performed.
+ */
 public class OpenSearchRequest {
-  ObjectMapper om =
+  private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-  public List<KaldbSearch.SearchRequest> parseHttpPostBody(String postBody) throws Exception {
+  public List<KaldbSearch.SearchRequest> parseHttpPostBody(String postBody)
+      throws JsonProcessingException {
     // the body contains an NDJSON format, with alternating rows as header/body
     // @see http://ndjson.org/
     // @see
@@ -28,8 +36,8 @@ public class OpenSearchRequest {
 
     // List<EsSearchRequest> requests = new ArrayList<>();
     for (List<String> pair : Lists.partition(Arrays.asList(postBody.split("\n")), 2)) {
-      JsonNode header = om.readTree(pair.get(0));
-      JsonNode body = om.readTree(pair.get(1));
+      JsonNode header = OM.readTree(pair.get(0));
+      JsonNode body = OM.readTree(pair.get(1));
 
       searchRequests.add(
           KaldbSearch.SearchRequest.newBuilder()

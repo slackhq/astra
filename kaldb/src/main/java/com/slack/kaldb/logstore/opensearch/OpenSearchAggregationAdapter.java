@@ -79,7 +79,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchAggregationAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAggregationAdapter.class);
-  private static final NamedWriteableRegistry namedWriteableRegistry =
+  private static final NamedWriteableRegistry NAMED_WRITEABLE_REGISTRY =
       new NamedWriteableRegistry(
           Arrays.asList(
               // todo - add additional aggregations as needed
@@ -144,9 +144,10 @@ public class OpenSearchAggregationAdapter {
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);
 
+    // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
+    //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
-      // todo - error - no handler for type [string] declared on field
-      if (entry.getValue().fieldType != FieldType.STRING) {
+      if (entry.getValue().fieldType == FieldType.LONG) {
         try {
           registerField(
               mapperService,
@@ -198,9 +199,9 @@ public class OpenSearchAggregationAdapter {
     try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
       try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
         try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
-            new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry)) {
+            new NamedWriteableAwareStreamInput(streamInput, NAMED_WRITEABLE_REGISTRY)) {
           // the use of this InternalAggregations wrapper lightly follows OpenSearch
-          // See OpensSearch InternalAggregationsTest.writeToAndReadFrom() for more details
+          // See OpenSearch InternalAggregationsTest.writeToAndReadFrom() for more details
           InternalAggregations internalAggregations =
               InternalAggregations.readFrom(namedWriteableAwareStreamInput);
           internalAggregation = internalAggregations.copyResults().get(0);
@@ -379,13 +380,12 @@ public class OpenSearchAggregationAdapter {
   }
 
   public Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
-
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
   }
 
-  private static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
+  protected static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
       throws IOException {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
@@ -397,7 +397,7 @@ public class OpenSearchAggregationAdapter {
     }
   }
 
-  public static AvgAggregationBuilder buildAvgAggregator(AvgAggBuilder builder) {
+  protected static AvgAggregationBuilder buildAvgAggregator(AvgAggBuilder builder) {
     // todo - this is due to incorrect schema issues
     String fieldname = builder.getField();
     if (fieldname.equals("@timestamp")) {
@@ -411,7 +411,7 @@ public class OpenSearchAggregationAdapter {
    * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
    * aggregations implementation.
    */
-  public static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
+  protected static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
       DateHistogramAggBuilder builder) throws IOException {
 
     // todo - this is due to incorrect schema issues

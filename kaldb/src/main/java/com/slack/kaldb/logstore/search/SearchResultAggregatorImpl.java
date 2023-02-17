@@ -59,6 +59,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             InternalAggregation.ReduceContext.forPartialReduction(
                 KaldbBigArrays.getInstance(), null, null);
       }
+      // Using the first element on the list as the basis for the reduce method is per OpenSearch
+      // recommendations: "For best efficiency, when implementing, try reusing an existing instance
+      // (typically the first in the given list) to save on redundant object construction."
       internalAggregation =
           internalAggregationList.get(0).reduce(internalAggregationList, reduceContext);
     }

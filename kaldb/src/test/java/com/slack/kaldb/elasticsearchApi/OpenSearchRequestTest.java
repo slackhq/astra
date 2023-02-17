@@ -11,7 +11,7 @@ import org.junit.Test;
 
 public class OpenSearchRequestTest {
 
-  private String getQueryString(String filename) throws IOException {
+  private String getRawQueryString(String filename) throws IOException {
     return Resources.toString(
         Resources.getResource(String.format("opensearchRequest/%s.ndjson", filename)),
         Charset.defaultCharset());
@@ -24,7 +24,7 @@ public class OpenSearchRequestTest {
 
   @Test
   public void testDateHistogram() throws Exception {
-    String rawRequest = getQueryString("datehistogram");
+    String rawRequest = getRawQueryString("datehistogram");
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
     List<KaldbSearch.SearchRequest> parsedRequestList =
@@ -40,7 +40,7 @@ public class OpenSearchRequestTest {
 
   @Test
   public void testHistogramWithNestedAvg() throws Exception {
-    String rawRequest = getQueryString("nested_datehistogram_avg");
+    String rawRequest = getRawQueryString("nested_datehistogram_avg");
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
     List<KaldbSearch.SearchRequest> parsedRequestList =
