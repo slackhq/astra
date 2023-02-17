@@ -1,5 +1,6 @@
 package com.slack.kaldb.logstore.search.aggregations;
 
+/** Aggregation request type to count occurrences */
 public class ValueCountAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "value_count";
 

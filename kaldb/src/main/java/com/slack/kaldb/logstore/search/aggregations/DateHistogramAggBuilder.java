@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.search.aggregations;
 import java.util.List;
 import java.util.Map;
 
+/** Aggregation request type to form a histogram bucketed by a timestamp */
 public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "date_histogram";
   private final String interval;
