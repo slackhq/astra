@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.opensearch.Version;
@@ -140,7 +139,7 @@ public class OpenSearchAggregationAdapter {
   private final QueryShardContext queryShardContext;
   private final SearchContext searchContext;
 
-  public OpenSearchAggregationAdapter(ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
+  public OpenSearchAggregationAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     MapperService mapperService = buildMapperService(indexSettings, similarityService);

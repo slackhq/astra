@@ -65,7 +65,7 @@ public class ElasticsearchApiService {
               .build());
 
   private final OpenSearchRequest openSearchRequest = new OpenSearchRequest();
-  private final ObjectMapper om = new ObjectMapper();
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public ElasticsearchApiService(KaldbQueryServiceBase searcher) {
     this.searcher = searcher;
@@ -123,7 +123,7 @@ public class ElasticsearchApiService {
       HitsMetadata hits = getHits(searchResult);
       return new EsSearchResponse.Builder()
           .hits(hits)
-          .aggregations(aggregations(searchResult.getInternalAggregations()))
+          .aggregations(parseAggregations(searchResult.getInternalAggregations()))
           .took(Duration.of(searchResult.getTookMicros(), ChronoUnit.MICROS).toMillis())
           .shardsMetadata(searchResult.getTotalNodes(), searchResult.getFailedNodes())
           .debugMetadata(Map.of())
@@ -142,12 +142,11 @@ public class ElasticsearchApiService {
     }
   }
 
-  @Deprecated
-  private JsonNode aggregations(ByteString byteInput) throws IOException {
+  private JsonNode parseAggregations(ByteString byteInput) throws IOException {
     InternalAggregation internalAggregations =
         OpenSearchAggregationAdapter.fromByteArray(byteInput.toByteArray());
     if (internalAggregations != null) {
-      return om.readTree(internalAggregations.toString());
+      return objectMapper.readTree(internalAggregations.toString());
     }
     return null;
   }

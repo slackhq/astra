@@ -12,8 +12,8 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -35,7 +35,7 @@ public class SearchResultTest {
       logMessages.add(logMessage);
     }
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
-        new OpenSearchAggregationAdapter(new ConcurrentHashMap<>());
+        new OpenSearchAggregationAdapter(Map.of());
 
     Aggregator dateHistogramAggregation =
         openSearchAggregationAdapter.buildAggregatorTree(
