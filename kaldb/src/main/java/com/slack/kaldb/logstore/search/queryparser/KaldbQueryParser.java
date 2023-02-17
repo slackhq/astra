@@ -21,9 +21,9 @@ public class KaldbQueryParser extends QueryParser {
 
   public KaldbQueryParser(
       String defaultField,
-      Analyzer analyzer,
+      Analyzer defaultAnalyzer,
       ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
-    super(defaultField, analyzer);
+    super(defaultField, defaultAnalyzer);
     if (chunkSchema == null || chunkSchema.isEmpty()) {
       throw new IllegalArgumentException(
           "chunkSchema should never be empty. We should always initialize the parser with default fields");
@@ -39,8 +39,12 @@ public class KaldbQueryParser extends QueryParser {
       if ("*".equals(actualField)) {
         return newMatchAllDocsQuery();
       }
-      // field:* query
-      return new FieldExistsQuery(actualField);
+      if (chunkSchema.get(actualField) != null) {
+        // field:* query
+        return new FieldExistsQuery(actualField);
+      } else {
+        throw new ParseException(String.format("Field %s does not exist in schema", actualField));
+      }
     }
     // TODO: Support any additional use-cases
     return super.getWildcardQuery(field, termStr);
@@ -57,16 +61,17 @@ public class KaldbQueryParser extends QueryParser {
     }
 
     if (field == null || chunkSchema.get(field) == null) {
-      throw new IllegalArgumentException("");
+      throw new ParseException(String.format("Field %s does not exist in schema", field));
     }
 
     LuceneFieldDef fieldType = chunkSchema.get(field);
     Analyzer queryAnalyzer = fieldType.fieldType.getAnalyzer(false);
 
-    // TODO: fold this bit into the fieldType
+    // TODO: fold this bit into the fieldType but currently super.newFieldQuery
+    // has a little more logic that I don't want to fold in just yet
     if (fieldType.fieldType == FieldType.TEXT) {
       // Today we only support one text field - i.e we don't support configuring analyzer.
-      // when we do the info will be present in fieldDef and we can pass that analyzer
+      // when we do, that info will be present in fieldDef that can then be passed here
       return super.newFieldQuery(this.getAnalyzer(), field, queryText, quoted);
     }
     return fieldType.fieldType.termQuery(field, queryText, queryAnalyzer);
@@ -75,20 +80,17 @@ public class KaldbQueryParser extends QueryParser {
   @Override
   protected Query getFieldQuery(String field, String queryText, int slop) throws ParseException {
     if (field == null || chunkSchema.get(field) == null) {
-      throw new IllegalArgumentException("");
+      throw new ParseException(String.format("Field %s does not exist in schema", field));
     }
     LuceneFieldDef fieldType = chunkSchema.get(field);
-    Analyzer queryAnalyzer = fieldType.fieldType.getAnalyzer(false);
 
-    if (fieldType.fieldType == FieldType.TEXT) {
-      // Today we only support one text field - i.e we don't support configuring analyzer.
-      // when we do the info will be present in fieldDef and we can pass that analyzer
-      return super.newFieldQuery(this.getAnalyzer(), field, queryText, true);
-    }
-    if (fieldType.fieldType == FieldType.STRING) {
-      // mimics super.getFieldQuery but passes our analyzer
-      // needs cleanup in the future so that we don't copy things over
-      Query query = super.newFieldQuery(KEYWORD_ANALYZER, field, queryText, true);
+    // mimics super.getFieldQuery but passes our analyzer
+    // needs cleanup in the future so that we don't copy things over
+    if (fieldType.fieldType == FieldType.TEXT || fieldType.fieldType == FieldType.STRING) {
+      Analyzer analyzer =
+          fieldType.fieldType == FieldType.TEXT ? this.getAnalyzer() : KEYWORD_ANALYZER;
+
+      Query query = super.newFieldQuery(analyzer, field, queryText, true);
       if (query instanceof PhraseQuery) {
         query = addSlopToPhrase((PhraseQuery) query, slop);
       } else if (query instanceof MultiPhraseQuery) {
@@ -100,7 +102,7 @@ public class KaldbQueryParser extends QueryParser {
       }
       return query;
     }
-    return fieldType.fieldType.termQuery(field, queryText, queryAnalyzer);
+    return fieldType.fieldType.termQuery(field, queryText, fieldType.fieldType.getAnalyzer(true));
   }
 
   /** Rebuild a phrase query with a slop value */
@@ -115,14 +117,5 @@ public class KaldbQueryParser extends QueryParser {
     }
 
     return builder.build();
-  }
-
-  @Override
-  protected Query getRangeQuery(
-      String field, String part1, String part2, boolean startInclusive, boolean endInclusive)
-      throws ParseException {
-    // TODO: Explore IndexOrDocValuesQuery for fields that have both doc-values and point fields to
-    // make queries faster
-    return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
   }
 }

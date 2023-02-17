@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
@@ -45,7 +46,7 @@ public enum FieldType {
 
     @Override
     public Query termQuery(String field, String queryText, Analyzer analyzer) {
-      return null;
+      throw new NotImplementedException("text fields parsing is currently in KaldbQueryParser");
     }
 
     @Override
