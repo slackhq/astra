@@ -1,6 +1,6 @@
 package com.slack.kaldb.logstore.search.queryparser;
 
-import static com.slack.kaldb.metadata.schema.FieldTypeUtils.KEYWORD_ANALYZER;
+import static org.opensearch.common.lucene.Lucene.KEYWORD_ANALYZER;
 
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;

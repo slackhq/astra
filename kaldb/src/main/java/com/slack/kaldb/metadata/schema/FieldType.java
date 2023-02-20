@@ -1,7 +1,7 @@
 package com.slack.kaldb.metadata.schema;
 
-import static com.slack.kaldb.metadata.schema.FieldTypeUtils.KEYWORD_ANALYZER;
-import static com.slack.kaldb.metadata.schema.FieldTypeUtils.STANDARD_ANALYZER;
+import static org.opensearch.common.lucene.Lucene.KEYWORD_ANALYZER;
+import static org.opensearch.common.lucene.Lucene.STANDARD_ANALYZER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,8 @@ public enum FieldType {
 
     @Override
     public Query termQuery(String field, String queryText, Analyzer analyzer) {
-      throw new NotImplementedException("text fields parsing is currently in KaldbQueryParser");
+      throw new NotImplementedException(
+          "text fields parsing is currently implemented directly in KaldbQueryParser");
     }
 
     @Override
