@@ -186,10 +186,7 @@ public class OpenSearchAggregationAdapter {
     return returnBytes;
   }
 
-  /**
-   * Deserializes a bytearray into an InternalDateHistogram. <br>
-   * TODO - abstract this to allow deserialization of any internal aggregation
-   */
+  /** Deserializes a bytearray into an InternalAggregation */
   public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
     if (bytes.length == 0) {
       return null;
@@ -230,10 +227,7 @@ public class OpenSearchAggregationAdapter {
         });
   }
 
-  /**
-   * Builds a CollectorManager for use in the Lucene aggregation step <br>
-   * TODO - abstract this to allow instantiating other aggregators than just a date histogram
-   */
+  /** Builds a CollectorManager for use in the Lucene aggregation step */
   public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
       AggBuilder aggBuilder) {
     return new CollectorManager<>() {
@@ -261,6 +255,10 @@ public class OpenSearchAggregationAdapter {
         if (internalAggregationList.size() == 0) {
           return null;
         } else {
+          // Using the first element on the list as the basis for the reduce method is per
+          // OpenSearch recommendations: "For best efficiency, when implementing, try
+          // reusing an existing instance (typically the first in the given list) to save
+          // on redundant object construction."
           return internalAggregationList
               .get(0)
               .reduce(
@@ -379,25 +377,38 @@ public class OpenSearchAggregationAdapter {
         MapperService.MergeReason.MAPPING_UPDATE);
   }
 
+  /**
+   * Given an aggBuilder, will use the previously initialized queryShardContext and searchContext to
+   * return an OpenSearch aggregator / Lucene Collector
+   */
   public Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
   }
 
+  /**
+   * Given an AggBuilder, will invoke the appropriate aggregation builder method to return the
+   * abstract aggregation builder. This method is expected to be invoked from within the aggregation
+   * builders to compose a nested aggregation tree.
+   */
+  @SuppressWarnings("rawtypes")
   protected static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
       throws IOException {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
-      return buildAvgAggregator((AvgAggBuilder) aggBuilder);
+      return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
     }
   }
 
-  protected static AvgAggregationBuilder buildAvgAggregator(AvgAggBuilder builder) {
+  /**
+   * Given an AvgAggBuilder returns a AvgAggregationBuilder to be used in building aggregation tree
+   */
+  protected static AvgAggregationBuilder getAvgAggregationBuilder(AvgAggBuilder builder) {
     // todo - this is due to incorrect schema issues
     String fieldname = builder.getField();
     if (fieldname.equals("@timestamp")) {
@@ -408,8 +419,8 @@ public class OpenSearchAggregationAdapter {
   }
 
   /**
-   * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
-   * aggregations implementation.
+   * Given an DateHistogramAggBuilder returns a DateHistogramAggregationBuilder to be used in
+   * building aggregation tree
    */
   protected static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
       DateHistogramAggBuilder builder) throws IOException {
