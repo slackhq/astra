@@ -86,7 +86,7 @@ public class SearchResultUtilsTest {
         (DateHistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(dateHistogramAggBuilder1).isEqualTo(dateHistogramAggBuilder2);
-    //    assertThat(dateHistogramAggBuilder1.getSubAggregations())
-    //        .isEqualTo(dateHistogramAggBuilder2.getSubAggregations());
+    assertThat(dateHistogramAggBuilder1.getSubAggregations())
+        .isEqualTo(dateHistogramAggBuilder2.getSubAggregations());
   }
 }

@@ -233,7 +233,7 @@ public class OpenSearchAggregationAdapter {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAggregatorTree(aggBuilder);
+        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -381,7 +381,7 @@ public class OpenSearchAggregationAdapter {
    * Given an aggBuilder, will use the previously initialized queryShardContext and searchContext to
    * return an OpenSearch aggregator / Lucene Collector
    */
-  public Aggregator buildAggregatorTree(AggBuilder builder) throws IOException {
+  public Aggregator buildAggregatorUsingContext(AggBuilder builder) throws IOException {
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);

@@ -38,7 +38,7 @@ public class SearchResultTest {
         new OpenSearchAggregationAdapter(Map.of());
 
     Aggregator dateHistogramAggregation =
-        openSearchAggregationAdapter.buildAggregatorTree(
+        openSearchAggregationAdapter.buildAggregatorUsingContext(
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();

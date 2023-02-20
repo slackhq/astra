@@ -87,7 +87,8 @@ public class SearchResult<T> {
 
     // todo - this is pending a PR to OpenSearch to address
     // https://github.com/opensearch-project/OpenSearch/pull/6357
-    // this is because JavaDateMathParser in OpenSearch does not implement a proper equals method
+    // this is because DocValueFormat.DateTime in OpenSearch does not implement a proper equals
+    // method
     // As such the DocValueFormat.parser are never equal to each other
     return internalAggregation.toString().equals(that.internalAggregation.toString());
   }
