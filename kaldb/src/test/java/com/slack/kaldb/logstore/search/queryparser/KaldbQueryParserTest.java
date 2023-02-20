@@ -43,58 +43,64 @@ public class KaldbQueryParserTest {
   }
 
   @Test
-  public void testExistsQuery() {
+  public void testWithStringField() {
     // indexed=true analyzed=false storeDocValues=true - Use ReservedField
-    withStringField(LogMessage.ReservedField.SERVICE_NAME.fieldName);
-    // indexed=true analyzed=false storeDocValues=true - Not ReservedField
-    withStringField("my_service_name");
+    String field = LogMessage.ReservedField.SERVICE_NAME.fieldName;
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, "test", time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+    canFindDocuments(time, field, "test");
 
+    // indexed=true analyzed=false storeDocValues=true - Not ReservedField
+    field = "my_service_name";
+    time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, "test", time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+    canFindDocuments(time, field, "test");
+  }
+
+  @Test
+  public void testWithTextField() {
     // indexed=true analyzed=true - Use ReservedField
-    withTextField(LogMessage.ReservedField.USERNAME.fieldName);
-    withTextField(LogMessage.ReservedField.MESSAGE.fieldName);
     // All texty fields that are not reserved will use analyzed=false aka string field which we
     // already tested
+    String field = LogMessage.ReservedField.USERNAME.fieldName;
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, "test", time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
 
+    canFindDocuments(time, field, "test");
+  }
+
+  @Test
+  public void testWithLongField() {
     // indexed=true storeDocValues=true - Use ReservedField
-    withLongField(LogMessage.ReservedField.DURATION_MS.fieldName);
+    String field = LogMessage.ReservedField.DURATION_MS.fieldName;
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "1", field, Long.MAX_VALUE, time));
+    strictLogStore.logStore.addMessage(
+        makeMessageForExistsSearch("testIndex", "2", null, "empty", time));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    canFindDocuments(time, field, String.valueOf(Long.MAX_VALUE));
+
     // indexed=true storeDocValues=true - Not ReservedField
-    withLongField("my_duration_ms");
-
-    withIntegerField("my_int_field");
-
-    withFloatField("my_float_field");
-
-    withDoubleField("my_double_field");
-
-    withBooleanField("my_boolean_field");
-  }
-
-  private void withTextField(String field) {
-    Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "1", field, "test", time));
-    strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
-    strictLogStore.logStore.commit();
-    strictLogStore.logStore.refresh();
-
-    canFindDocuments(time, field, "test");
-  }
-
-  public void withStringField(String field) {
-    Instant time = Instant.now();
-    strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "1", field, "test", time));
-    strictLogStore.logStore.addMessage(
-        makeMessageForExistsSearch("testIndex", "2", null, "test", time));
-    strictLogStore.logStore.commit();
-    strictLogStore.logStore.refresh();
-
-    canFindDocuments(time, field, "test");
-  }
-
-  public void withLongField(String field) {
-    Instant time = Instant.now();
+    field = "my_duration_ms";
+    time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch("testIndex", "1", field, Long.MAX_VALUE, time));
     strictLogStore.logStore.addMessage(
@@ -105,7 +111,9 @@ public class KaldbQueryParserTest {
     canFindDocuments(time, field, String.valueOf(Long.MAX_VALUE));
   }
 
-  public void withIntegerField(String field) {
+  @Test
+  public void testWithIntField() {
+    String field = "my_int_field";
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch("testIndex", "1", field, Integer.MAX_VALUE, time));
@@ -117,7 +125,9 @@ public class KaldbQueryParserTest {
     canFindDocuments(time, field, String.valueOf(Integer.MAX_VALUE));
   }
 
-  public void withFloatField(String field) {
+  @Test
+  public void testWithFloatField() {
+    String field = "my_float_field";
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch("testIndex", "1", field, Float.MAX_VALUE, time));
@@ -129,7 +139,9 @@ public class KaldbQueryParserTest {
     canFindDocuments(time, field, String.valueOf(Float.MAX_VALUE));
   }
 
-  public void withDoubleField(String field) {
+  @Test
+  public void testWithDoubleField() {
+    String field = "my_double_field";
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch("testIndex", "1", field, Double.MIN_VALUE, time));
@@ -141,7 +153,9 @@ public class KaldbQueryParserTest {
     canFindDocuments(time, field, String.valueOf(Double.MIN_VALUE));
   }
 
-  public void withBooleanField(String field) {
+  @Test
+  public void testWithBooleanField() {
+    String field = "my_boolean_field";
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageForExistsSearch("testIndex", "1", field, Boolean.TRUE, time));
