@@ -55,6 +55,12 @@ public class SearchResultUtils {
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(AvgAggBuilder.TYPE)
           .setName(avgAggregation.getName())
+          .addAllSubAggregations(
+              avgAggregation
+                  .getSubAggregations()
+                  .stream()
+                  .map(SearchResultUtils::toSearchAggregationProto)
+                  .collect(Collectors.toList()))
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(avgAggregation.getField())
@@ -86,6 +92,12 @@ public class SearchResultUtils {
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(DateHistogramAggBuilder.TYPE)
           .setName(dateHistogramAggBuilder.getName())
+          .addAllSubAggregations(
+              dateHistogramAggBuilder
+                  .getSubAggregations()
+                  .stream()
+                  .map(SearchResultUtils::toSearchAggregationProto)
+                  .collect(Collectors.toList()))
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())

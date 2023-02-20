@@ -9,7 +9,7 @@ import java.util.Map;
  */
 public abstract class ValueSourceAggBuilder extends AggBuilderBase {
   // The name of the field to perform aggregations on (ie, @timestamp, duration_ms)
-  private final String field;
+  protected final String field;
 
   public ValueSourceAggBuilder(String name, String field) {
     super(name);

@@ -7,6 +7,7 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 public class OpenSearchRequestTest {
@@ -19,7 +20,21 @@ public class OpenSearchRequestTest {
 
   @Test
   public void testGeneralFields() throws Exception {
-    // todo - time range, query string, dataset
+    String rawRequest = getRawQueryString("datehistogram");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(1);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1676498801027L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1676500240688L);
   }
 
   @Test
@@ -34,8 +49,22 @@ public class OpenSearchRequestTest {
 
     KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
         parsedRequestList.get(0).getAggregations();
+
     assertThat(dateHistogramAggBuilder.getName()).isEqualTo("2");
-    // todo - add other asserts
+    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(0);
+
+    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.DateHistogramAggregation
+        dateHistogramAggregation = dateHistogramAggBuilder.getValueSource().getDateHistogram();
+    assertThat(dateHistogramAggregation.getInterval()).isEqualTo("10s");
+    assertThat(dateHistogramAggregation.getMinDocCount()).isEqualTo(90000);
+    assertThat(dateHistogramAggregation.getExtendedBoundsMap())
+        .isEqualTo(
+            Map.of(
+                "min", 1676498801027L,
+                "max", 1676500240688L));
+    assertThat(dateHistogramAggregation.getFormat()).isEqualTo("epoch_millis");
+    assertThat(dateHistogramAggregation.getOffset()).isEqualTo("5s");
   }
 
   @Test
@@ -50,9 +79,21 @@ public class OpenSearchRequestTest {
 
     KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
         parsedRequestList.get(0).getAggregations();
-    assertThat(dateHistogramAggBuilder.getName()).isEqualTo("2");
-    // todo - add other asserts
+    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
 
+    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.DateHistogramAggregation
+        dateHistogramAggregation = dateHistogramAggBuilder.getValueSource().getDateHistogram();
+    assertThat(dateHistogramAggregation.getInterval()).isEqualTo("10s");
+    assertThat(dateHistogramAggregation.getMinDocCount()).isEqualTo(90000);
+    assertThat(dateHistogramAggregation.getExtendedBoundsMap())
+        .isEqualTo(
+            Map.of(
+                "min", 1676498801027L,
+                "max", 1676500240688L));
+    assertThat(dateHistogramAggregation.getFormat()).isEqualTo("epoch_millis");
+    assertThat(dateHistogramAggregation.getOffset()).isEqualTo("5s");
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
     KaldbSearch.SearchRequest.SearchAggregation avgAggBuilder =
         parsedRequestList.get(0).getAggregations().getSubAggregations(0);
     assertThat(avgAggBuilder.getName()).isEqualTo("3");
