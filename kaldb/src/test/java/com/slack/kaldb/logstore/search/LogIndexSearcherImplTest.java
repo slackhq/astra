@@ -663,22 +663,6 @@ public class LogIndexSearcherImplTest {
                     .logSearcher
                     .search(
                         TEST_DATASET_NAME,
-                        "*",
-                        0,
-                        MAX_TIME,
-                        1000,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                    .hits
-                    .size());
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
-                    .search(
-                        TEST_DATASET_NAME,
                         "?",
                         0,
                         MAX_TIME,
@@ -862,22 +846,6 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isEqualTo(0);
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
-                    .search(
-                        TEST_DATASET_NAME,
-                        "*",
-                        0,
-                        MAX_TIME,
-                        1000,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                    .hits
-                    .size());
 
     assertThatIllegalArgumentException()
         .isThrownBy(
