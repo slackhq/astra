@@ -60,7 +60,7 @@ public class ConvertFieldValueTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
     assertThat(
             msg1Doc
                 .getFields()
@@ -71,7 +71,7 @@ public class ConvertFieldValueTest {
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -93,7 +93,7 @@ public class ConvertFieldValueTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
     // Value is converted for conflicting field.
     assertThat(
             msg2Doc
@@ -106,7 +106,7 @@ public class ConvertFieldValueTest {
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -158,7 +158,7 @@ public class ConvertFieldValueTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 19;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);

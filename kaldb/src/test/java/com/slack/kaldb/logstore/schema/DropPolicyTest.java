@@ -172,7 +172,7 @@ public class DropPolicyTest {
                 Map.of("nested1", "value1", "nested2", 2)));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(16);
+    assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -231,7 +231,7 @@ public class DropPolicyTest {
                         Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(21);
+    assertThat(testDocument.getFields().size()).isEqualTo(25);
     assertThat(docBuilder.getSchema().size()).isEqualTo(25);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -250,7 +250,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().get("booleanproperty").fieldType)
         .isEqualTo(FieldType.BOOLEAN);
     assertThat(docBuilder.getSchema().get("nested.nested12.nested22.nested32").fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -287,7 +287,7 @@ public class DropPolicyTest {
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(16);
+    assertThat(testDocument.getFields().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -333,7 +333,7 @@ public class DropPolicyTest {
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(15);
+    assertThat(testDocument.getFields().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -381,7 +381,7 @@ public class DropPolicyTest {
                 "1"));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
     assertThat(
             msg1Doc
                 .getFields()
@@ -392,7 +392,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -426,7 +426,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().size()).isEqualTo(19);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -463,7 +463,7 @@ public class DropPolicyTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    final int expectedFieldsInDocumentAfterMesssage = 19;
+    final int expectedFieldsInDocumentAfterMesssage = 23;
     assertThat(testDocument.getFields().size()).isEqualTo(expectedFieldsInDocumentAfterMesssage);
     final int fieldCountAfterIndexingFirstDocument = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);

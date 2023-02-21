@@ -540,15 +540,6 @@ public class LogIndexSearcherImplTest {
             () ->
                 strictLogStore
                     .logSearcher
-                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
-                    .hits
-                    .size());
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
                     .search(TEST_DATASET_NAME, "?", 0, MAX_TIME, 1000, 1)
                     .hits
                     .size());
@@ -657,15 +648,6 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isEqualTo(0);
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
-                    .search(TEST_DATASET_NAME, "*", 0, MAX_TIME, 1000, 1)
-                    .hits
-                    .size());
 
     assertThatIllegalArgumentException()
         .isThrownBy(

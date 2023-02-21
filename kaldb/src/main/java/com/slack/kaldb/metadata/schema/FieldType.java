@@ -1,10 +1,15 @@
 package com.slack.kaldb.metadata.schema;
 
+import static org.opensearch.common.lucene.Lucene.KEYWORD_ANALYZER;
+import static org.opensearch.common.lucene.Lucene.STANDARD_ANALYZER;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
 import org.apache.lucene.document.DoublePoint;
@@ -18,6 +23,9 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
 
 /** The FieldType enum describes the types of fields in a chunk. */
@@ -35,6 +43,17 @@ public enum FieldType {
         // Since a text field is tokenized, we don't need to add doc values to it.
       }
     }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      throw new NotImplementedException(
+          "text fields parsing is currently implemented directly in KaldbQueryParser");
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return quoted ? KEYWORD_ANALYZER : STANDARD_ANALYZER;
+    }
   },
   STRING("string") {
     @Override
@@ -48,6 +67,17 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new SortedDocValuesField(name, new BytesRef((String) value)));
       }
+    }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      final Term term = new Term(field, queryText);
+      return new TermQuery(term);
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
     }
   },
   INTEGER("integer") {
@@ -64,6 +94,16 @@ public enum FieldType {
         doc.add(new NumericDocValuesField(name, value));
       }
     }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      return IntPoint.newExactQuery(field, Integer.parseInt(queryText));
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
+    }
   },
   LONG("long") {
     @Override
@@ -78,6 +118,16 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new NumericDocValuesField(name, value));
       }
+    }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      return LongPoint.newExactQuery(field, Long.parseLong(queryText));
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
     }
   },
   FLOAT("float") {
@@ -94,6 +144,16 @@ public enum FieldType {
         doc.add(new FloatDocValuesField(name, value));
       }
     }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      return FloatPoint.newExactQuery(field, Float.parseFloat(queryText));
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
+    }
   },
   DOUBLE("double") {
     @Override
@@ -108,6 +168,16 @@ public enum FieldType {
       if (fieldDef.storeDocValue) {
         doc.add(new DoubleDocValuesField(name, value));
       }
+    }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      return DoublePoint.newExactQuery(field, Double.parseDouble(queryText));
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
     }
   },
   BOOLEAN("boolean") {
@@ -125,6 +195,17 @@ public enum FieldType {
         doc.add(new SortedDocValuesField(name, new BytesRef(valueStr)));
       }
     }
+
+    @Override
+    public Query termQuery(String field, String queryText, Analyzer analyzer) {
+      final Term term = new Term(field, queryText);
+      return new TermQuery(term);
+    }
+
+    @Override
+    public Analyzer getAnalyzer(boolean quoted) {
+      return KEYWORD_ANALYZER;
+    }
   };
 
   public final String name;
@@ -134,6 +215,10 @@ public enum FieldType {
   }
 
   public abstract void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef);
+
+  public abstract Query termQuery(String field, String queryText, Analyzer analyzer);
+
+  public abstract Analyzer getAnalyzer(boolean quoted);
 
   public String getName() {
     return name;

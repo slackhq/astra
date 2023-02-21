@@ -68,7 +68,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(18);
+    assertThat(testDocument.getFields().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -80,9 +80,9 @@ public class ConvertFieldValueAndDuplicateTest {
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
-    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.STRING);
     assertThat(docBuilder.getSchema().get("nested.nested.nestedList").fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -127,7 +127,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(17);
+    assertThat(testDocument.getFields().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -139,9 +139,9 @@ public class ConvertFieldValueAndDuplicateTest {
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
-    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get("listType").fieldType).isEqualTo(FieldType.STRING);
     assertThat(docBuilder.getSchema().get("nested.nested.nestedList").fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -182,7 +182,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
     assertThat(
             msg1Doc
                 .getFields()
@@ -193,7 +193,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -215,7 +215,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
@@ -227,7 +227,7 @@ public class ConvertFieldValueAndDuplicateTest {
                         f.name().equals(conflictingFieldName)
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
-        .isEqualTo(3);
+        .isEqualTo(4);
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("1");
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isNull();
@@ -235,7 +235,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -287,7 +287,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 true));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
     assertThat(
             msg1Doc
                 .getFields()
@@ -320,8 +320,8 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "random"));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
-    String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.TEXT);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
+    String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.STRING);
     // Value converted and new field is added.
     assertThat(
             msg2Doc
@@ -332,7 +332,7 @@ public class ConvertFieldValueAndDuplicateTest {
                         f.name().equals(conflictingFieldName)
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
-        .isEqualTo(2);
+        .isEqualTo(4);
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("false");
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("random");
@@ -342,7 +342,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.BOOLEAN);
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
@@ -385,7 +385,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 additionalCreatedFieldName,
                 true));
     Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
-    assertThat(msg3Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg3Doc
                 .getFields()
@@ -395,7 +395,7 @@ public class ConvertFieldValueAndDuplicateTest {
                         f.name().equals(additionalCreatedBoolFieldName)
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
-        .isEqualTo(2);
+        .isEqualTo(4);
     assertThat(msg3Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
     assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).stringValue()).isEqualTo("true");
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(21);
@@ -404,7 +404,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.BOOLEAN);
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedBoolFieldName).fieldType)
         .isEqualTo(FieldType.BOOLEAN);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -442,7 +442,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
     assertThat(
             msg1Doc
                 .getFields()
@@ -453,7 +453,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -476,7 +476,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 conflictingFloatValue));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
     assertThat(
@@ -488,7 +488,7 @@ public class ConvertFieldValueAndDuplicateTest {
                         f.name().equals(conflictingFieldName)
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
-        .isEqualTo(3);
+        .isEqualTo(4);
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("100.0");
     assertThat(msg2Doc.getField(additionalCreatedFieldName).numericValue().floatValue())
         .isEqualTo(conflictingFloatValue);
@@ -496,7 +496,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(convertFieldBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
         .isEqualTo(FieldType.FLOAT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -553,7 +553,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 19;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
@@ -594,13 +594,13 @@ public class ConvertFieldValueAndDuplicateTest {
                     "nested",
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
     Document testDocument2 = docBuilder.fromMessage(msg2);
-    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 1);
+    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 2);
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
-    String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.TEXT);
+    String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.STRING);
     assertThat(docBuilder.getSchema().get(additionalCreatedFieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
@@ -672,7 +672,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 19;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 24;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
@@ -725,7 +725,7 @@ public class ConvertFieldValueAndDuplicateTest {
 
     Document testDocument2 = docBuilder.fromMessage(msg2);
     // Nested string field adds 1 more sorted doc values field.
-    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1 + 1);
+    assertThat(testDocument2.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1 + 1);
     assertThat(docBuilder.getSchema().get(nestedStringField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(docBuilder.getSchema().keySet())
