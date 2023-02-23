@@ -23,7 +23,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '11'
-        distribution: 'corretto'
+        distribution: 'temurin'
         cache: 'maven'
     - name: Ensure code is formatted
       run: mvn com.coveo:fmt-maven-plugin:check --file kaldb/pom.xml
