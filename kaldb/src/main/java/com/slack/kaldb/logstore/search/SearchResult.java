@@ -1,6 +1,5 @@
 package com.slack.kaldb.logstore.search;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.logstore.LogMessage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,9 +9,7 @@ import org.opensearch.search.aggregations.InternalAggregation;
 public class SearchResult<T> {
 
   private static final SearchResult EMPTY =
-      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 1, 0, 0, null);
-
-  public final long totalCount;
+      new SearchResult<>(Collections.emptyList(), 0, 0, 1, 0, 0, null);
 
   // TODO: Make hits an iterator.
   // An iterator helps with the early termination of a search and may be efficient in some cases.
@@ -29,7 +26,6 @@ public class SearchResult<T> {
   public SearchResult() {
     this.hits = new ArrayList<>();
     this.tookMicros = 0;
-    this.totalCount = 0;
     this.failedNodes = 0;
     this.totalNodes = 0;
     this.totalSnapshots = 0;
@@ -41,7 +37,6 @@ public class SearchResult<T> {
   public SearchResult(
       List<T> hits,
       long tookMicros,
-      long totalCount,
       int failedNodes,
       int totalNodes,
       int totalSnapshots,
@@ -49,7 +44,6 @@ public class SearchResult<T> {
       InternalAggregation internalAggregation) {
     this.hits = hits;
     this.tookMicros = tookMicros;
-    this.totalCount = totalCount;
     this.failedNodes = failedNodes;
     this.totalNodes = totalNodes;
     this.totalSnapshots = totalSnapshots;
@@ -58,26 +52,9 @@ public class SearchResult<T> {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    SearchResult<?> that = (SearchResult<?>) o;
-    return totalCount == that.totalCount
-        && tookMicros == that.tookMicros
-        && failedNodes == that.failedNodes
-        && totalNodes == that.totalNodes
-        && totalSnapshots == that.totalSnapshots
-        && snapshotsWithReplicas == that.snapshotsWithReplicas
-        && Objects.equal(hits, that.hits)
-        && Objects.equal(internalAggregation, that.internalAggregation);
-  }
-
-  @Override
   public String toString() {
     return "SearchResult{"
-        + "totalCount="
-        + totalCount
-        + ", hits="
+        + "hits="
         + hits
         + ", tookMicros="
         + tookMicros
@@ -95,16 +72,37 @@ public class SearchResult<T> {
   }
 
   @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    SearchResult<?> that = (SearchResult<?>) o;
+
+    if (tookMicros != that.tookMicros) return false;
+    if (failedNodes != that.failedNodes) return false;
+    if (totalNodes != that.totalNodes) return false;
+    if (totalSnapshots != that.totalSnapshots) return false;
+    if (snapshotsWithReplicas != that.snapshotsWithReplicas) return false;
+    if (!hits.equals(that.hits)) return false;
+
+    // todo - this is pending a PR to OpenSearch to address
+    // https://github.com/opensearch-project/OpenSearch/pull/6357
+    // this is because DocValueFormat.DateTime in OpenSearch does not implement a proper equals
+    // method
+    // As such the DocValueFormat.parser are never equal to each other
+    return internalAggregation.toString().equals(that.internalAggregation.toString());
+  }
+
+  @Override
   public int hashCode() {
-    return Objects.hashCode(
-        totalCount,
-        hits,
-        tookMicros,
-        failedNodes,
-        totalNodes,
-        totalSnapshots,
-        snapshotsWithReplicas,
-        internalAggregation);
+    int result = hits.hashCode();
+    result = 31 * result + (int) (tookMicros ^ (tookMicros >>> 32));
+    result = 31 * result + failedNodes;
+    result = 31 * result + totalNodes;
+    result = 31 * result + totalSnapshots;
+    result = 31 * result + snapshotsWithReplicas;
+    result = 31 * result + internalAggregation.hashCode();
+    return result;
   }
 
   public static SearchResult<LogMessage> empty() {

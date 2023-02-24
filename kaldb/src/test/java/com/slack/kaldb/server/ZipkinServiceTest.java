@@ -241,11 +241,10 @@ public class ZipkinServiceTest {
 
     // Query from the grpc search service
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, Instant.now().toEpochMilli());
+        searchUsingGrpcApi("*:*", queryServicePort, 0, Instant.now().toEpochMilli(), "365d");
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
-    assertThat(queryServiceSearchResponse.getTotalCount()).isEqualTo(indexedMessagesCount);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(indexedMessagesCount);
 
     // Query from the zipkin search service

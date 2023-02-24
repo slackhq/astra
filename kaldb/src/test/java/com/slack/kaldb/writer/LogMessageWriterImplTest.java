@@ -20,6 +20,7 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -84,7 +85,15 @@ public class LogMessageWriterImplTest {
 
   private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) {
     return chunkManagerUtil.chunkManager.query(
-        new SearchQuery(indexName, queryString, 0, MAX_TIME, 10, 1000, Collections.emptyList()),
+        new SearchQuery(
+            indexName,
+            queryString,
+            0,
+            MAX_TIME,
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            Collections.emptyList()),
         Duration.ofMillis(3000));
   }
 
@@ -283,7 +292,14 @@ public class LogMessageWriterImplTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        serviceName, "", 0, MAX_TIME, 100, 1000, Collections.emptyList()),
+                        serviceName,
+                        "",
+                        0,
+                        MAX_TIME,
+                        100,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())
