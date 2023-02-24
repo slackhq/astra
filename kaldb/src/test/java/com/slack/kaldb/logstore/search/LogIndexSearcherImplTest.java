@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
@@ -15,12 +16,15 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -30,6 +34,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 
 public class LogIndexSearcherImplTest {
 
@@ -410,6 +415,66 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testTermsAggregation() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new TermsAggBuilder(
+                "1",
+                List.of(),
+                TEST_SOURCE_STRING_PROPERTY,
+                "foo",
+                10,
+                0,
+                Map.of("_count", "asc")));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    StringTerms stringTerms = (StringTerms) allIndexItems.internalAggregation;
+    assertThat(stringTerms.getBuckets().size()).isEqualTo(4);
+
+    List<String> bucketKeys =
+        stringTerms
+            .getBuckets()
+            .stream()
+            .map(bucket -> (String) bucket.getKey())
+            .collect(Collectors.toList());
+    assertThat(bucketKeys.contains("String-1")).isTrue();
+    assertThat(bucketKeys.contains("String-3")).isTrue();
+    assertThat(bucketKeys.contains("String-4")).isTrue();
+    assertThat(bucketKeys.contains("String-5")).isTrue();
+  }
+
+  @Test
+  public void testTermsAggregationMissingValues() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new TermsAggBuilder(
+                "1", List.of(), "thisFieldDoesNotExist", "foo", 10, 0, Map.of("_count", "asc")));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    StringTerms stringTerms = (StringTerms) allIndexItems.internalAggregation;
+    assertThat(stringTerms.getBuckets().size()).isEqualTo(1);
+    assertThat(stringTerms.getBuckets().get(0).getKey()).isEqualTo("foo");
   }
 
   @Test

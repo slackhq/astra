@@ -1,5 +1,7 @@
 package com.slack.kaldb.testlib;
 
+import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
+
 import com.google.common.io.Files;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreConfig;
@@ -8,12 +10,15 @@ import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -80,7 +85,15 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
             SchemaAwareLogDocumentBuilderImpl.build(
                 fieldConflictPolicy, enableFullTextSearch, metricsRegistry),
             metricsRegistry);
-    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
+
+    ConcurrentHashMap<String, LuceneFieldDef> schema = logStore.getSchema();
+
+    // add schema definition for our string property
+    schema.put(
+        TEST_SOURCE_STRING_PROPERTY,
+        new LuceneFieldDef(TEST_SOURCE_STRING_PROPERTY, FieldType.STRING.name, false, true, true));
+
+    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), schema);
   }
 
   public static LuceneIndexStoreConfig getIndexStoreConfig(

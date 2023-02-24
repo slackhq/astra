@@ -83,6 +83,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
     // ValueSourceAggBuilder
     if (!Objects.equals(super.field, that.field)) return false;
+    if (!Objects.equals(super.missing, that.missing)) return false;
 
     // DateHistogramAggBuilder
     if (minDocCount != that.minDocCount) return false;
@@ -103,6 +104,7 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
     // ValueSourceAggBuilder
     result = 31 * result + (field != null ? field.hashCode() : 0);
+    result = 31 * result + (missing != null ? missing.hashCode() : 0);
 
     // AggBuilderBase
     result = 31 * result + (name != null ? name.hashCode() : 0);

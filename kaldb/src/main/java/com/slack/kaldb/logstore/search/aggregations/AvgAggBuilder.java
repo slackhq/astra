@@ -6,8 +6,8 @@ import java.util.Objects;
 public class AvgAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "avg";
 
-  public AvgAggBuilder(String name, String field) {
-    super(name, field);
+  public AvgAggBuilder(String name, String field, Object missing) {
+    super(name, field, missing);
   }
 
   @Override
@@ -29,6 +29,7 @@ public class AvgAggBuilder extends ValueSourceAggBuilder {
 
     // ValueSourceAggBuilder
     if (!Objects.equals(super.field, that.field)) return false;
+    if (!Objects.equals(super.missing, that.missing)) return false;
 
     // AvgAggBuilder
     return true;
@@ -41,6 +42,7 @@ public class AvgAggBuilder extends ValueSourceAggBuilder {
 
     // ValueSourceAggBuilder
     result = 31 * result + (field != null ? field.hashCode() : 0);
+    result = 31 * result + (missing != null ? missing.hashCode() : 0);
 
     // AggBuilderBase
     result = 31 * result + (name != null ? name.hashCode() : 0);

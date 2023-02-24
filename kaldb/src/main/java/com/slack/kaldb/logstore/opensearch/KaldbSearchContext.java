@@ -1,11 +1,13 @@
 package com.slack.kaldb.logstore.opensearch;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.FieldDoc;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.action.search.SearchType;
@@ -55,11 +57,22 @@ import org.opensearch.search.suggest.SuggestionSearchContext;
  */
 public class KaldbSearchContext extends SearchContext {
   private final BigArrays bigArrays;
+  private final ContextIndexSearcher contextIndexSearcher;
   private final QueryShardContext queryShardContext;
 
-  public KaldbSearchContext(BigArrays bigArrays, QueryShardContext queryShardContext) {
+  public KaldbSearchContext(
+      BigArrays bigArrays, QueryShardContext queryShardContext, IndexSearcher indexSearcher)
+      throws IOException {
     this.bigArrays = bigArrays;
     this.queryShardContext = queryShardContext;
+    this.contextIndexSearcher =
+        new ContextIndexSearcher(
+            indexSearcher.getIndexReader(),
+            queryShardContext.getSearchSimilarity(),
+            IndexSearcher.getDefaultQueryCache(),
+            IndexSearcher.getDefaultQueryCachingPolicy(),
+            false,
+            indexSearcher.getExecutor());
   }
 
   @Override
@@ -238,7 +251,7 @@ public class KaldbSearchContext extends SearchContext {
 
   @Override
   public ContextIndexSearcher searcher() {
-    throw new NotImplementedException();
+    return contextIndexSearcher;
   }
 
   @Override
