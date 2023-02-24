@@ -25,6 +25,7 @@ import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
@@ -154,7 +155,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                0,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList()));
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);
 
@@ -199,7 +201,8 @@ public class ReadOnlyChunkImplTest {
                 Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
                 Instant.now().toEpochMilli(),
                 500,
-                0,
+                new DateHistogramAggBuilder(
+                    "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                 Collections.emptyList()));
     assertThat(logMessageEmptySearchResult).isEqualTo(SearchResult.empty());
     assertThat(readOnlyChunk.info()).isNull();
@@ -417,7 +420,8 @@ public class ReadOnlyChunkImplTest {
             Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().toEpochMilli(),
             500,
-            0,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     SearchResult<LogMessage> logMessageSearchResult = readOnlyChunk.query(query);
     assertThat(logMessageSearchResult.hits.size()).isEqualTo(10);

@@ -19,7 +19,6 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 
 public class KaldbQueryParserTest {
   @Rule
@@ -175,12 +174,9 @@ public class KaldbQueryParserTest {
             startTime.toEpochMilli(),
             startTime.plusSeconds(1).toEpochMilli(),
             100,
-            0);
+            null);
     assertThat(result.hits.size()).isEqualTo(1);
-    assertThat(result.totalCount).isEqualTo(1);
-    InternalAutoDateHistogram dateHistogram =
-        (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram).isEqualTo(null);
+    assertThat(result.internalAggregation).isEqualTo(null);
 
     String queryStr = field + ":*";
     result =
@@ -190,11 +186,9 @@ public class KaldbQueryParserTest {
             startTime.toEpochMilli(),
             startTime.plusSeconds(1).toEpochMilli(),
             100,
-            0);
+            null);
     assertThat(result.hits.size()).isEqualTo(1);
-    assertThat(result.totalCount).isEqualTo(1);
-    dateHistogram = (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram).isEqualTo(null);
+    assertThat(result.internalAggregation).isEqualTo(null);
 
     queryStr = "_exists_:" + field;
     result =
@@ -204,11 +198,9 @@ public class KaldbQueryParserTest {
             startTime.toEpochMilli(),
             startTime.plusSeconds(1).toEpochMilli(),
             100,
-            0);
+            null);
     assertThat(result.hits.size()).isEqualTo(1);
-    assertThat(result.totalCount).isEqualTo(1);
-    dateHistogram = (InternalAutoDateHistogram) result.internalAggregation;
-    assertThat(dateHistogram).isEqualTo(null);
+    assertThat(result.internalAggregation).isEqualTo(null);
   }
 
   // used to create a LogMessage with a StringField on which we will perform exists query

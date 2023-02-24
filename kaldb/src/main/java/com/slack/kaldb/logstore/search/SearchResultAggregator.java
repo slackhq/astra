@@ -4,5 +4,12 @@ import java.util.List;
 
 public interface SearchResultAggregator<T> {
 
-  SearchResult<T> aggregate(List<SearchResult<T>> searchResults);
+  /**
+   * Combines a list of search results into a single search result
+   *
+   * @param searchResults List of search results to combine
+   * @param finalAggregation Marks if this is the final aggregation to be performed before returning
+   *     a result
+   */
+  SearchResult<T> aggregate(List<SearchResult<T>> searchResults, boolean finalAggregation);
 }
