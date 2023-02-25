@@ -6,10 +6,6 @@ import com.slack.kaldb.preprocessor.KaldbSerdes;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -65,24 +61,14 @@ public class LogMessageWriterImpl implements MessageWriter {
         final Murron.MurronMessage murronMsg =
             murronMessageDeserializer.deserialize("", record.value());
         Trace.Span apiSpan = MurronLogFormatter.fromApiLog(murronMsg);
-        return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
-      };
-
-  // A json blob with a few fields.
-  @Deprecated
-  public static final LogMessageTransformer jsonLogMessageTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        Optional<LogMessage> msg =
-            LogMessage.fromJSON(new String(record.value(), StandardCharsets.UTF_8));
-        return msg.map(List::of).orElse(Collections.emptyList());
+        return SpanFormatter.toLogMessage(apiSpan);
       };
 
   // A protobuf Trace.Span
   public static final LogMessageTransformer traceSpanTransformer =
       (ConsumerRecord<String, byte[]> record) -> {
         final Trace.Span span = Trace.Span.parseFrom(record.value());
-        final Trace.ListOfSpans listOfSpans = Trace.ListOfSpans.newBuilder().addSpans(span).build();
-        return SpanFormatter.toLogMessage(listOfSpans);
+        return SpanFormatter.toLogMessage(span);
       };
 
   private final ChunkManager<LogMessage> chunkManager;
@@ -98,26 +84,28 @@ public class LogMessageWriterImpl implements MessageWriter {
   public boolean insertRecord(ConsumerRecord<String, byte[]> record) throws IOException {
     if (record == null) return false;
 
-    final List<LogMessage> logMessages;
+    final LogMessage logMessage;
     try {
-      logMessages = this.dataTransformer.toLogMessage(record);
+      logMessage = this.dataTransformer.toLogMessage(record);
       // Ideally, we should return true when logMessages are empty. But, fail the record, since we
       // don't expect any empty records or we may have a bug in earlier code.
-      if (logMessages.isEmpty()) return false;
+      if (logMessage == null) {
+        return false;
+      }
     } catch (Exception e) {
       LOG.warn("Parsing consumer record: {} failed with an exception.", record, e);
       return false;
     }
 
-    final int avgMsgSize = record.serializedValueSize() / logMessages.size();
-    for (LogMessage logMessage : logMessages) {
-      // Currently, ChunkManager.addMessage increments a failure counter to indicate an ingestion
-      // error. We decided to throw the exception to a higher level since in a batch ingestion
-      // the upper layers of the stack can't take any further action. If this becomes an issue
-      // in future, propagate the exception upwards here or return a value.
-      chunkManager.addMessage(
-          logMessage, avgMsgSize, String.valueOf(record.partition()), record.offset());
-    }
+    // Currently, ChunkManager.addMessage increments a failure counter to indicate an ingestion
+    // error. We decided to throw the exception to a higher level since in a batch ingestion
+    // the upper layers of the stack can't take any further action. If this becomes an issue
+    // in future, propagate the exception upwards here or return a value.
+    chunkManager.addMessage(
+        logMessage,
+        record.serializedValueSize(),
+        String.valueOf(record.partition()),
+        record.offset());
     return true;
   }
 }

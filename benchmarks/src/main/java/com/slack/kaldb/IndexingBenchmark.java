@@ -85,7 +85,7 @@ public class IndexingBenchmark {
             "testKey",
             testMurronMsg.toByteString().toByteArray());
 
-    logMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
+    logMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord);
 
     DocumentBuilder<LogMessage> documentBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, registry);
@@ -105,8 +105,7 @@ public class IndexingBenchmark {
   @Benchmark
   public void measureIndexingAsKafkaSerializedDocument() throws Exception {
     // Mimic LogMessageWriterImpl#insertRecord kinda without the chunk rollover logic
-    LogMessage localLogMessage =
-        LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
+    LogMessage localLogMessage = LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord);
     logStore.addMessage(localLogMessage);
   }
 

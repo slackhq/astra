@@ -112,7 +112,7 @@ public class IndexAPILog {
       // Mimic LogMessageWriterImpl#insertRecord kinda without the chunk rollover logic
       try {
         LogMessage localLogMessage =
-            LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
+            LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord);
         logStore.addMessage(localLogMessage);
       } catch (Exception e) {
         System.out.println("skipping - cannot transform " + e);
@@ -139,7 +139,7 @@ public class IndexAPILog {
         // Mimic LogMessageWriterImpl#insertRecord kinda without the chunk rollover logic
         try {
           LogMessage localLogMessage =
-              LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord).get(0);
+              LogMessageWriterImpl.apiLogTransformer.toLogMessage(kafkaRecord);
           logStore.addMessage(localLogMessage);
           indexCount++;
         } catch (Exception e) {
