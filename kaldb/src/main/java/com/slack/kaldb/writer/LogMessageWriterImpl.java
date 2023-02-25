@@ -6,10 +6,7 @@ import com.slack.kaldb.preprocessor.KaldbSerdes;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -66,15 +63,6 @@ public class LogMessageWriterImpl implements MessageWriter {
             murronMessageDeserializer.deserialize("", record.value());
         Trace.Span apiSpan = MurronLogFormatter.fromApiLog(murronMsg);
         return SpanFormatter.toLogMessage(Trace.ListOfSpans.newBuilder().addSpans(apiSpan).build());
-      };
-
-  // A json blob with a few fields.
-  @Deprecated
-  public static final LogMessageTransformer jsonLogMessageTransformer =
-      (ConsumerRecord<String, byte[]> record) -> {
-        Optional<LogMessage> msg =
-            LogMessage.fromJSON(new String(record.value(), StandardCharsets.UTF_8));
-        return msg.map(List::of).orElse(Collections.emptyList());
       };
 
   // A protobuf Trace.Span
