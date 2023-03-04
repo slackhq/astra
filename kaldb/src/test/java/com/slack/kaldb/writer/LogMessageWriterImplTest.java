@@ -4,9 +4,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
-import static com.slack.kaldb.testlib.MessageUtil.getCurrentLogDate;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
@@ -14,16 +12,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -31,9 +27,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -84,67 +78,16 @@ public class LogMessageWriterImplTest {
 
   private SearchResult<LogMessage> searchChunkManager(String indexName, String queryString) {
     return chunkManagerUtil.chunkManager.query(
-        new SearchQuery(indexName, queryString, 0, MAX_TIME, 10, 1000, Collections.emptyList()),
+        new SearchQuery(
+            indexName,
+            queryString,
+            0,
+            MAX_TIME,
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+            Collections.emptyList()),
         Duration.ofMillis(3000));
-  }
-
-  @Test
-  public void testJSONLogMessageInsertion() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.jsonLogMessageTransformer);
-
-    String jsonLogMessge = MessageUtil.makeLogMessageJSON(1);
-    ConsumerRecord<String, byte[]> jsonRecord = consumerRecordWithValue(jsonLogMessge.getBytes());
-
-    assertThat(messageWriter.insertRecord(jsonRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-
-    // Search
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "Message1").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(TEST_DATASET_NAME, "Message2").hits.size()).isEqualTo(0);
-    // TODO: Uncomment after query parser is updated to query numerics using schema.
-    // assertThat(searchChunkManager(TEST_DATASET_NAME, "_id:Message1").hits.size()).isEqualTo(1);
-    // assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:1").hits.size()).isEqualTo(1);
-    // assertThat(searchChunkManager(TEST_DATASET_NAME, "intproperty:2").hits.size()).isEqualTo(0);
-    // assertThat(
-    //        searchChunkManager(TEST_DATASET_NAME, "longproperty:1 AND intproperty:1").hits.size())
-    //    .isEqualTo(1);
-  }
-
-  @Test
-  public void testFaultyJSONLogMessageInsertion() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.jsonLogMessageTransformer);
-
-    Map<String, Object> fieldMap = Maps.newHashMap();
-    String id = "1";
-    fieldMap.put("id", id);
-    fieldMap.put("index", TEST_DATASET_NAME);
-    Map<String, Object> sourceFieldMap = new HashMap<>();
-    sourceFieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, getCurrentLogDate());
-    String message = String.format("The identifier in this message is %s", id);
-    sourceFieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
-    fieldMap.put("source", sourceFieldMap);
-    String jsonLogMessage = JsonUtil.writeAsString(fieldMap);
-
-    ConsumerRecord<String, byte[]> jsonRecord = consumerRecordWithValue(jsonLogMessage.getBytes());
-    assertThat(messageWriter.insertRecord(jsonRecord)).isFalse();
-  }
-
-  @Test
-  public void testMalformedJSONLogMessageInsertion() throws IOException {
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.jsonLogMessageTransformer);
-
-    ConsumerRecord<String, byte[]> jsonRecord =
-        consumerRecordWithValue("malformedJsonMessage".getBytes());
-    assertThat(messageWriter.insertRecord(jsonRecord)).isFalse();
   }
 
   @Test
@@ -283,7 +226,14 @@ public class LogMessageWriterImplTest {
             chunkManager
                 .query(
                     new SearchQuery(
-                        serviceName, "", 0, MAX_TIME, 100, 1000, Collections.emptyList()),
+                        serviceName,
+                        "",
+                        0,
+                        MAX_TIME,
+                        100,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
+                        Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
                 .size())

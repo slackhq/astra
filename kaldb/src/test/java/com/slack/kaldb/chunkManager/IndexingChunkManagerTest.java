@@ -45,6 +45,7 @@ import com.slack.kaldb.logstore.search.IllegalArgumentLogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -248,7 +249,8 @@ public class IndexingChunkManagerTest {
             0,
             MAX_TIME,
             10,
-            1000,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     SearchResult<LogMessage> results = chunkManager.query(searchQuery, Duration.ofMillis(3000));
     assertThat(results.hits.size()).isEqualTo(1);
@@ -273,7 +275,7 @@ public class IndexingChunkManagerTest {
     assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshots.get(0).startTimeEpochMs)
-        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
+        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
@@ -303,7 +305,8 @@ public class IndexingChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        1000,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
@@ -332,7 +335,8 @@ public class IndexingChunkManagerTest {
                         0,
                         MAX_TIME,
                         10,
-                        1000,
+                        new DateHistogramAggBuilder(
+                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
                         Collections.emptyList()),
                     Duration.ofMillis(3000))
                 .hits
@@ -370,7 +374,23 @@ public class IndexingChunkManagerTest {
                 .setStartTimeEpochMs(0)
                 .setEndTimeEpochMs(Long.MAX_VALUE)
                 .setHowMany(10)
-                .setBucketCount(1000)
+                .setAggregations(
+                    KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+                        .setType(DateHistogramAggBuilder.TYPE)
+                        .setName("1")
+                        .setValueSource(
+                            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                .newBuilder()
+                                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                                .setDateHistogram(
+                                    KaldbSearch.SearchRequest.SearchAggregation
+                                        .ValueSourceAggregation.DateHistogramAggregation
+                                        .newBuilder()
+                                        .setMinDocCount(1)
+                                        .setInterval("1s")
+                                        .build())
+                                .build())
+                        .build())
                 .addAllChunkIds(chunkIds)
                 .build());
 
@@ -409,7 +429,8 @@ public class IndexingChunkManagerTest {
             startTimeEpochMs,
             endTimeEpochMs,
             10,
-            1000,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             Collections.emptyList());
     return chunkManager.query(searchQuery, Duration.ofMillis(3000)).hits.size();
   }

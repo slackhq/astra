@@ -5,14 +5,21 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.opensearch.Version;
@@ -45,12 +52,18 @@ import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.InternalAggregations;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
+import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
@@ -66,6 +79,91 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchAggregationAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAggregationAdapter.class);
+  private static final NamedWriteableRegistry NAMED_WRITEABLE_REGISTRY =
+      new NamedWriteableRegistry(
+          Arrays.asList(
+              // todo - add additional aggregations as needed
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  DateHistogramAggregationBuilder.NAME,
+                  DateHistogramAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  DateHistogramAggregationBuilder.NAME,
+                  InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class, AvgAggregationBuilder.NAME, AvgAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  ValueCountAggregationBuilder.NAME,
+                  ValueCountAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  ValueCountAggregationBuilder.NAME,
+                  InternalValueCount::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.BOOLEAN.getWriteableName(),
+                  in -> DocValueFormat.BOOLEAN),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class, DocValueFormat.DateTime.NAME, DocValueFormat.DateTime::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.GEOHASH.getWriteableName(),
+                  in -> DocValueFormat.GEOHASH),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.GEOTILE.getWriteableName(),
+                  in -> DocValueFormat.GEOTILE),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.IP.getWriteableName(),
+                  in -> DocValueFormat.IP),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.RAW.getWriteableName(),
+                  in -> DocValueFormat.RAW),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.BINARY.getWriteableName(),
+                  in -> DocValueFormat.BINARY),
+              new NamedWriteableRegistry.Entry(
+                  DocValueFormat.class,
+                  DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
+                  in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
+
+  private final QueryShardContext queryShardContext;
+  private final SearchContext searchContext;
+
+  public OpenSearchAggregationAdapter(Map<String, LuceneFieldDef> chunkSchema) {
+    IndexSettings indexSettings = buildIndexSettings();
+    SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
+    MapperService mapperService = buildMapperService(indexSettings, similarityService);
+
+    // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
+    //  this needs to be adapted to include other field types once we have support
+    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
+      if (entry.getValue().fieldType == FieldType.LONG) {
+        try {
+          registerField(
+              mapperService,
+              entry.getValue().name,
+              b -> b.field("type", entry.getValue().fieldType.name));
+        } catch (Exception e) {
+          LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        }
+      }
+    }
+
+    this.queryShardContext =
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
+    this.searchContext = new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
+  }
 
   /** Serializes InternalAggregation to byte array for transport */
   public static byte[] toByteArray(InternalAggregation internalAggregation) {
@@ -73,82 +171,41 @@ public class OpenSearchAggregationAdapter {
       return new byte[] {};
     }
 
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream);
-    try {
-      internalAggregation.writeTo(streamOutput);
-    } catch (Exception e) {
+    byte[] returnBytes;
+    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+      try (StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream)) {
+        InternalAggregations internalAggregations =
+            new InternalAggregations(List.of(internalAggregation), null);
+        internalAggregations.writeTo(streamOutput);
+      }
+      returnBytes = byteArrayOutputStream.toByteArray();
+    } catch (IOException e) {
       LOG.error("Error writing internal agg to byte array", e);
+      throw new RuntimeException(e);
     }
-    return byteArrayOutputStream.toByteArray();
+    return returnBytes;
   }
 
-  /**
-   * Deserializes a bytearray into an InternalDateHistogram. <br>
-   * TODO - abstract this to allow deserialization of any internal aggregation
-   */
-  public static InternalAutoDateHistogram fromByteArray(byte[] bytes) throws IOException {
-    NamedWriteableRegistry namedWriteableRegistry =
-        new NamedWriteableRegistry(
-            Arrays.asList(
-                // todo - add additional aggregations as needed
-                new NamedWriteableRegistry.Entry(
-                    AggregationBuilder.class,
-                    AutoDateHistogramAggregationBuilder.NAME,
-                    AutoDateHistogramAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(
-                    InternalAggregation.class,
-                    AutoDateHistogramAggregationBuilder.NAME,
-                    InternalAutoDateHistogram::new),
-                new NamedWriteableRegistry.Entry(
-                    AggregationBuilder.class,
-                    ValueCountAggregationBuilder.NAME,
-                    ValueCountAggregationBuilder::new),
-                new NamedWriteableRegistry.Entry(
-                    InternalAggregation.class,
-                    ValueCountAggregationBuilder.NAME,
-                    InternalValueCount::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.BOOLEAN.getWriteableName(),
-                    in -> DocValueFormat.BOOLEAN),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.DateTime.NAME,
-                    DocValueFormat.DateTime::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.GEOHASH.getWriteableName(),
-                    in -> DocValueFormat.GEOHASH),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.GEOTILE.getWriteableName(),
-                    in -> DocValueFormat.GEOTILE),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.IP.getWriteableName(),
-                    in -> DocValueFormat.IP),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.RAW.getWriteableName(),
-                    in -> DocValueFormat.RAW),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.BINARY.getWriteableName(),
-                    in -> DocValueFormat.BINARY),
-                new NamedWriteableRegistry.Entry(
-                    DocValueFormat.class,
-                    DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
-                    in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
+  /** Deserializes a bytearray into an InternalAggregation */
+  public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
+    if (bytes.length == 0) {
+      return null;
+    }
 
-    InputStream inputStream = new ByteArrayInputStream(bytes);
-    StreamInput streamInput = new InputStreamStreamInput(inputStream);
-    NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
-        new NamedWriteableAwareStreamInput(streamInput, namedWriteableRegistry);
-
-    return new InternalAutoDateHistogram(namedWriteableAwareStreamInput);
+    InternalAggregation internalAggregation;
+    try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+      try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
+        try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
+            new NamedWriteableAwareStreamInput(streamInput, NAMED_WRITEABLE_REGISTRY)) {
+          // the use of this InternalAggregations wrapper lightly follows OpenSearch
+          // See OpenSearch InternalAggregationsTest.writeToAndReadFrom() for more details
+          InternalAggregations internalAggregations =
+              InternalAggregations.readFrom(namedWriteableAwareStreamInput);
+          internalAggregation = internalAggregations.copyResults().get(0);
+        }
+      }
+    }
+    return internalAggregation;
   }
 
   protected static XContentBuilder mapping(
@@ -170,40 +227,45 @@ public class OpenSearchAggregationAdapter {
         });
   }
 
-  /**
-   * Builds a CollectorManager for use in the Lucene aggregation step <br>
-   * TODO - abstract this to allow instantiating other aggregators than just a date histogram
-   */
-  public static CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      int numBuckets) {
+  /** Builds a CollectorManager for use in the Lucene aggregation step */
+  public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
+      AggBuilder aggBuilder) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAutoDateHistogramAggregator(numBuckets);
+        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
       }
 
+      /**
+       * The collector manager required a collection of collectors for reducing, though for our
+       * normal case this will likely only be a single collector
+       */
       @Override
       public InternalAggregation reduce(Collection<Aggregator> collectors) throws IOException {
-        InternalAggregation internalAggregation = null;
-
+        List<InternalAggregation> internalAggregationList = new ArrayList<>();
         for (Aggregator collector : collectors) {
           // postCollection must be invoked prior to building the internal aggregations
           collector.postCollection();
-          InternalAggregation collectorAggregation = collector.buildTopLevel();
-          if (internalAggregation == null) {
-            internalAggregation = collectorAggregation;
-          } else {
-            internalAggregation =
-                collectorAggregation.reduce(
-                    List.of(internalAggregation, collectorAggregation),
-                    InternalAggregation.ReduceContext.forPartialReduction(
-                        KaldbBigArrays.getInstance(), null, null));
-          }
+          internalAggregationList.add(collector.buildTopLevel());
         }
-        return internalAggregation;
+
+        if (internalAggregationList.size() == 0) {
+          return null;
+        } else {
+          // Using the first element on the list as the basis for the reduce method is per
+          // OpenSearch recommendations: "For best efficiency, when implementing, try
+          // reusing an existing instance (typically the first in the given list) to save
+          // on redundant object construction."
+          return internalAggregationList
+              .get(0)
+              .reduce(
+                  internalAggregationList,
+                  InternalAggregation.ReduceContext.forPartialReduction(
+                      KaldbBigArrays.getInstance(), null, null));
+        }
       }
     };
   }
@@ -217,7 +279,8 @@ public class OpenSearchAggregationAdapter {
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
     // todo - add additional aggregations as needed
-    AutoDateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     return valuesSourceRegistryBuilder.build();
@@ -315,37 +378,98 @@ public class OpenSearchAggregationAdapter {
   }
 
   /**
-   * Builds a Lucene collector that can be used in native Lucene search methods using the OpenSearch
-   * aggregations implementation.
+   * Given an aggBuilder, will use the previously initialized queryShardContext and searchContext to
+   * return an OpenSearch aggregator / Lucene Collector
    */
-  public static Aggregator buildAutoDateHistogramAggregator(int numBuckets) throws IOException {
-    IndexSettings indexSettings = buildIndexSettings();
-    SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
-    MapperService mapperService = buildMapperService(indexSettings, similarityService);
-
-    registerField(
-        mapperService,
-        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        b -> b.field("type", "long"));
-
-    QueryShardContext queryShardContext =
-        buildQueryShardContext(
-            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
-    SearchContext searchContext =
-        new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
-
-    AutoDateHistogramAggregationBuilder autoDateHistogramAggregationBuilder =
-        new AutoDateHistogramAggregationBuilder("datehistogram")
-            .setNumBuckets(numBuckets)
-            .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-    ValueCountAggregationBuilder valueCountAggregationBuilder =
-        new ValueCountAggregationBuilder("valuecount")
-            .field(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
-
-    autoDateHistogramAggregationBuilder.subAggregation(valueCountAggregationBuilder);
-    return autoDateHistogramAggregationBuilder
+  public Aggregator buildAggregatorUsingContext(AggBuilder builder) throws IOException {
+    return getAggregationBuilder(builder)
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
+  }
+
+  /**
+   * Given an AggBuilder, will invoke the appropriate aggregation builder method to return the
+   * abstract aggregation builder. This method is expected to be invoked from within the aggregation
+   * builders to compose a nested aggregation tree.
+   */
+  @SuppressWarnings("rawtypes")
+  protected static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
+      throws IOException {
+    if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
+      return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
+      return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
+    }
+  }
+
+  /**
+   * Given an AvgAggBuilder returns a AvgAggregationBuilder to be used in building aggregation tree
+   */
+  protected static AvgAggregationBuilder getAvgAggregationBuilder(AvgAggBuilder builder) {
+    // todo - this is due to incorrect schema issues
+    String fieldname = builder.getField();
+    if (fieldname.equals("@timestamp")) {
+      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+    }
+
+    return new AvgAggregationBuilder(builder.getName()).field(fieldname);
+  }
+
+  /**
+   * Given an DateHistogramAggBuilder returns a DateHistogramAggregationBuilder to be used in
+   * building aggregation tree
+   */
+  protected static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
+      DateHistogramAggBuilder builder) throws IOException {
+
+    // todo - this is due to incorrect schema issues
+    String fieldname = builder.getField();
+    if (fieldname.equals("@timestamp")) {
+      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+    }
+
+    DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
+        new DateHistogramAggregationBuilder(builder.getName())
+            .field(fieldname)
+            .minDocCount(builder.getMinDocCount())
+            .fixedInterval(new DateHistogramInterval(builder.getInterval()));
+
+    if (builder.getOffset() != null && !builder.getOffset().isEmpty()) {
+      dateHistogramAggregationBuilder.offset(builder.getOffset());
+    }
+
+    if (builder.getFormat() != null && !builder.getFormat().isEmpty()) {
+      // todo - this should be used when the field type is changed to date
+      // dateHistogramAggregationBuilder.format(builder.getFormat());
+    }
+
+    if (builder.getMinDocCount() == 0) {
+      if (builder.getExtendedBounds() != null
+          && builder.getExtendedBounds().containsKey("min")
+          && builder.getExtendedBounds().containsKey("max")) {
+
+        LongBounds longBounds =
+            new LongBounds(
+                builder.getExtendedBounds().get("min"), builder.getExtendedBounds().get("max"));
+        dateHistogramAggregationBuilder.extendedBounds(longBounds);
+      } else {
+        // Minimum doc count _must_ be used with an extended bounds param
+        // As per
+        // https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-histogram-aggregation.html#search-aggregations-bucket-histogram-aggregation-extended-bounds
+        // "Using extended_bounds only makes sense when min_doc_count is 0 (the empty buckets will
+        // never be returned if min_doc_count is greater than 0)."
+        throw new IllegalArgumentException(
+            "Extended bounds must be provided if using a min doc count");
+      }
+    }
+
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      dateHistogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+    }
+
+    return dateHistogramAggregationBuilder;
   }
 }

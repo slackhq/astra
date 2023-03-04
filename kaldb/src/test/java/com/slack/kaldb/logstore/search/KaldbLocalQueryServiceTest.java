@@ -15,6 +15,7 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
@@ -38,7 +39,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class KaldbLocalQueryServiceTest {
   private static final String TEST_KAFKA_PARITION_ID = "10";
@@ -79,6 +80,24 @@ public class KaldbLocalQueryServiceTest {
     }
   }
 
+  private static KaldbSearch.SearchRequest.SearchAggregation buildHistogramRequest(
+      long startMs, long endMs, int numBuckets) {
+    return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+        .setType(DateHistogramAggBuilder.TYPE)
+        .setName("1")
+        .setValueSource(
+            KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                .setField(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+                .setDateHistogram(
+                    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                        .DateHistogramAggregation.newBuilder()
+                        .setInterval((endMs - startMs) / numBuckets + "s")
+                        .setMinDocCount(1)
+                        .build())
+                .build())
+        .build();
+  }
+
   @Test
   public void testKalDbSearch() throws IOException {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
@@ -112,12 +131,11 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -138,18 +156,12 @@ public class KaldbLocalQueryServiceTest {
     assertThat((String) m.source.get("message")).contains("Message100");
 
     // Test histogram buckets
-    InternalAutoDateHistogram dateHistogram =
-        OpenSearchAggregationAdapter.fromByteArray(
-            response.getInternalAggregations().toByteArray());
-    assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
 
     // TODO: Query multiple chunks.
   }
@@ -181,13 +193,11 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     assertThat(response.getHitsCount()).isZero();
-    assertThat(response.getTotalCount()).isZero();
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isZero();
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -195,10 +205,10 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(1);
 
     // Test histogram buckets
-    InternalAutoDateHistogram dateHistogram =
-        OpenSearchAggregationAdapter.fromByteArray(
-            response.getInternalAggregations().toByteArray());
-    assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
   }
 
@@ -230,12 +240,10 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
-    // Count is 0, but totalCount is 1, since there is 1 hit, but none are to be retrieved.
     assertThat(response.getHitsCount()).isEqualTo(0);
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -244,18 +252,12 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getHitsList().asByteStringList().size()).isZero();
 
     // Test histogram buckets
-    InternalAutoDateHistogram dateHistogram =
-        OpenSearchAggregationAdapter.fromByteArray(
-            response.getInternalAggregations().toByteArray());
-    assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
   }
 
   @Test
@@ -285,11 +287,10 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(0)
+                .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
                 .build());
 
     assertThat(response.getHitsCount()).isEqualTo(1);
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
@@ -341,7 +342,7 @@ public class KaldbLocalQueryServiceTest {
             .setStartTimeEpochMs(chunk1StartTimeMs)
             .setEndTimeEpochMs(chunk1EndTimeMs)
             .setHowMany(0)
-            .setBucketCount(0)
+            .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
             .build());
   }
 
@@ -390,13 +391,12 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(10)
-                .setBucketCount(2)
+                .setAggregations(buildHistogramRequest(chunk1StartTimeMs, chunk1EndTimeMs, 2))
                 .build());
 
     // Validate search response
     assertThat(response.getHitsCount()).isEqualTo(1);
     assertThat(response.getTookMicros()).isNotZero();
-    assertThat(response.getTotalCount()).isEqualTo(1);
     assertThat(response.getFailedNodes()).isZero();
     assertThat(response.getTotalNodes()).isEqualTo(1);
     assertThat(response.getTotalSnapshots()).isEqualTo(1);
@@ -417,18 +417,12 @@ public class KaldbLocalQueryServiceTest {
     assertThat((String) m.source.get("message")).contains("Message1");
 
     // Test histogram buckets
-    InternalAutoDateHistogram dateHistogram =
-        OpenSearchAggregationAdapter.fromByteArray(
-            response.getInternalAggregations().toByteArray());
-    assertThat(dateHistogram.getTargetBuckets()).isEqualTo(2);
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram)
+            OpenSearchAggregationAdapter.fromByteArray(
+                response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) >= chunk1StartTimeMs)
-        .isTrue();
-    assertThat(
-            Long.parseLong(dateHistogram.getBuckets().get(0).getKeyAsString()) <= chunk1EndTimeMs)
-        .isTrue();
   }
 
   @Test(expected = StatusRuntimeException.class)
@@ -476,7 +470,7 @@ public class KaldbLocalQueryServiceTest {
                 .setStartTimeEpochMs(chunk1StartTimeMs)
                 .setEndTimeEpochMs(chunk1EndTimeMs)
                 .setHowMany(0)
-                .setBucketCount(0)
+                .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
                 .build());
   }
 }

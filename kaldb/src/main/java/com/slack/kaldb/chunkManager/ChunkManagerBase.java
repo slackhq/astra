@@ -80,7 +80,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
    * We will not aggregate locally for future use-cases that have complex group by etc
    */
   public SearchResult<T> query(SearchQuery query, Duration queryTimeout) {
-    SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 0, 1, 0, null);
+    SearchResult<T> errorResult = new SearchResult<>(new ArrayList<>(), 0, 0, 0, 1, 0, null);
 
     CurrentTraceContext currentTraceContext = Tracing.current().currentTraceContext();
 
@@ -163,7 +163,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
       //noinspection unchecked
       SearchResult<T> aggregatedResults =
           ((SearchResultAggregator<T>) new SearchResultAggregatorImpl<>(query))
-              .aggregate(searchResults);
+              .aggregate(searchResults, false);
       return incrementNodeCount(aggregatedResults);
     } catch (Exception e) {
       LOG.error("Error searching across chunks ", e);
@@ -180,7 +180,6 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     return new SearchResult<>(
         searchResult.hits,
         searchResult.tookMicros,
-        searchResult.totalCount,
         searchResult.failedNodes,
         searchResult.totalNodes + 1,
         searchResult.totalSnapshots,

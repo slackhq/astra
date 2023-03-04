@@ -78,8 +78,7 @@ public class FieldConflictsTest {
                                 strictLogStore.logSearcher,
                                 MessageUtil.TEST_DATASET_NAME,
                                 queryByHost,
-                                1000,
-                                1)
+                                1000)
                             .size())
                     .isEqualTo(2));
 
@@ -89,8 +88,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumber,
-            1000,
-            1);
+            1000);
     assertThat(searchByInt.size()).isEqualTo(2);
 
     final String conflictingTypeExactMatch = conflictingFieldName + ":\"1\"";
@@ -99,8 +97,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeExactMatch,
-            1000,
-            1);
+            1000);
     assertThat(searchByNumber.size()).isEqualTo(2);
   }
 
@@ -174,8 +171,7 @@ public class FieldConflictsTest {
                                 strictLogStore.logSearcher,
                                 MessageUtil.TEST_DATASET_NAME,
                                 queryByHost,
-                                1000,
-                                1)
+                                1000)
                             .size())
                     .isEqualTo(3));
 
@@ -185,8 +181,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByString,
-            1000,
-            1);
+            1000);
     assertThat(searchByString.size()).isEqualTo(1);
 
     final String conflictingTypeByExactString = conflictingFieldName + ":\"1\"";
@@ -195,8 +190,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByExactString,
-            1000,
-            1);
+            1000);
     assertThat(searchByExactString.size()).isEqualTo(1);
 
     final String conflictingTypeByString1 = conflictingFieldName + ":one";
@@ -205,8 +199,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByString1,
-            1000,
-            1);
+            1000);
     assertThat(searchByString1.size()).isEqualTo(1);
 
     final String conflictingTypeByExactString1 = conflictingFieldName + ":\"one\"";
@@ -215,8 +208,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByExactString1,
-            1000,
-            1);
+            1000);
     assertThat(searchByExactString1.size()).isEqualTo(1);
 
     final String conflictingTypeByNumber = conflictingFieldName + ":200";
@@ -225,8 +217,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumber,
-            1000,
-            1);
+            1000);
     assertThat(searchByNumber.size()).isEqualTo(1);
 
     final String conflictingTypeByNumberString = conflictingFieldName + ":\"200\"";
@@ -235,8 +226,7 @@ public class FieldConflictsTest {
             strictLogStore.logSearcher,
             MessageUtil.TEST_DATASET_NAME,
             conflictingTypeByNumberString,
-            1000,
-            1);
+            1000);
     assertThat(searchByNumberString.size()).isEqualTo(1);
   }
 }

@@ -24,6 +24,7 @@ import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.File;
@@ -68,7 +69,7 @@ public class LuceneIndexStoreImplTest {
     public void testSimpleIndexAndQuery() {
       addMessages(logStore.logStore, 1, 100, true);
       Collection<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -99,17 +100,35 @@ public class LuceneIndexStoreImplTest {
 
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.key1:value1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.key1:value1",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result1.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result2 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "duplicateproperty:duplicate1", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "duplicateproperty:duplicate1",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result2.hits.size()).isEqualTo(1);
 
       SearchResult<LogMessage> result3 =
           logStore.logSearcher.search(
-              MessageUtil.TEST_DATASET_NAME, "nested.duplicateproperty:2", 0, MAX_TIME, 100, 1);
+              MessageUtil.TEST_DATASET_NAME,
+              "nested.duplicateproperty:2",
+              0,
+              MAX_TIME,
+              100,
+              new DateHistogramAggBuilder(
+                  "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
       assertThat(result3.hits.size()).isEqualTo(1);
     }
 
@@ -117,8 +136,7 @@ public class LuceneIndexStoreImplTest {
     public void testQueryReturnsMultipleHits() {
       addMessages(logStore.logStore, 1, 100, true);
       Collection<LogMessage> results =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
       assertThat(results.size()).isEqualTo(100);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -130,7 +148,7 @@ public class LuceneIndexStoreImplTest {
     public void testTimestampOrdering() {
       List<LogMessage> msgs = addMessages(logStore.logStore, 1, 100, true);
       List<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -146,8 +164,7 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
       assertThat(results.size()).isEqualTo(100);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -162,8 +179,7 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
       assertThat(results.size()).isEqualTo(100);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -190,8 +206,7 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
       assertThat(results.size()).isEqualTo(100);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
@@ -206,8 +221,7 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "identifier", 1000);
       assertThat(results.size()).isEqualTo(99);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
@@ -252,7 +266,7 @@ public class LuceneIndexStoreImplTest {
       Thread.sleep(1000);
 
       Collection<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo", 1000, 1);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo", 1000);
       assertThat(results.size()).isEqualTo(1);
 
       Collection<LogMessage> results2 =
@@ -260,38 +274,37 @@ public class LuceneIndexStoreImplTest {
               logStore.logSearcher,
               MessageUtil.TEST_DATASET_NAME,
               "hostname:host1-dc2.abc.com",
-              1000,
-              1);
+              1000);
       assertThat(results2.size()).isEqualTo(1);
 
       Collection<LogMessage> results3 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:xyz", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:xyz", 1000);
       assertThat(results3.size()).isEqualTo(0);
 
       Collection<LogMessage> results4 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:host2", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:host2", 1000);
       assertThat(results4.size()).isEqualTo(0);
 
       Collection<LogMessage> results5 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc", 1000);
       assertThat(results5.size()).isEqualTo(0);
 
       Collection<LogMessage> results6 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc.com", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc.com", 1000);
       assertThat(results6.size()).isEqualTo(1);
 
       Collection<LogMessage> results7 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:host1-dc2", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:host1-dc2", 1000);
       assertThat(results7.size()).isEqualTo(1);
 
       Collection<LogMessage> results8 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:com.abc", 1000, 1);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:com.abc", 1000);
       assertThat(results8.size()).isEqualTo(0);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
@@ -314,8 +327,7 @@ public class LuceneIndexStoreImplTest {
       testLogStore.logStore.close();
       testLogStore.logStore = null;
       Collection<LogMessage> results =
-          findAllMessages(
-              testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+          findAllMessages(testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
@@ -350,7 +362,7 @@ public class LuceneIndexStoreImplTest {
       addMessages(logStore, 1, 100, true);
       Collection<LogMessage> results =
           findAllMessages(
-              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
@@ -401,7 +413,7 @@ public class LuceneIndexStoreImplTest {
               LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
               logStore.getSchema());
       Collection<LogMessage> newResults =
-          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(newResults.size()).isEqualTo(1);
 
       // Clean up
@@ -416,7 +428,7 @@ public class LuceneIndexStoreImplTest {
       addMessages(logStore, 1, 100, true);
       Collection<LogMessage> results =
           findAllMessages(
-              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
@@ -445,7 +457,7 @@ public class LuceneIndexStoreImplTest {
               logStore.getSchema());
 
       Collection<LogMessage> newResults =
-          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+          findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(newResults.size()).isEqualTo(1);
       logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
@@ -464,7 +476,7 @@ public class LuceneIndexStoreImplTest {
       addMessages(strictLogStore.logStore, 1, 100, true);
       Collection<LogMessage> results =
           findAllMessages(
-              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100, 1);
+              strictLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(results.size()).isEqualTo(1);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry))
           .isEqualTo(100);
@@ -507,8 +519,7 @@ public class LuceneIndexStoreImplTest {
 
       Thread.sleep(2 * commitDuration.toMillis());
       Collection<LogMessage> results =
-          findAllMessages(
-              testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10, 1);
+          findAllMessages(testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10);
       assertThat(results.size()).isEqualTo(1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);

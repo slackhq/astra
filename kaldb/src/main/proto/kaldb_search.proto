@@ -14,11 +14,52 @@ message SearchRequest {
   int64 start_time_epoch_ms = 4;
   int64 end_time_epoch_ms = 5;
   int32 how_many = 6;
-  int32 bucket_count = 7;
+
+  // Only a single top-level aggregation is currently supported
+  SearchAggregation aggregations = 7;
+
+  message SearchAggregation {
+    // The type of aggregation (ie, avg, date_histogram, etc)
+    string type = 1;
+    // A unique name for this aggregation request, to allow correlating
+    // responses when multiple sibling aggregations are requested (ie, "1", "foo", etc)
+    string name = 2;
+    // Optional metadata
+    map<string, Value> metadata = 3;
+    // Any nested aggregations to perform. These may contain additonal nested aggregations themselves,
+    // and have sibling aggregations
+    repeated SearchAggregation sub_aggregations = 4;
+
+    // For aggregations operating on a field
+    ValueSourceAggregation value_source = 5;
+
+    message ValueSourceAggregation {
+      // Field name to use in aggregation
+      string field = 1;
+
+      oneof type {
+        DateHistogramAggregation date_histogram = 11;
+      }
+
+      // Unique fields specific to the date histogram aggregation request
+      message DateHistogramAggregation {
+        // String representing the bucket size (ie, 10s, 1m)
+        string interval = 1;
+        // Minimum documents per bucket required
+        int64 min_doc_count = 2;
+        // String offset of the results. Should be less than the size of the requestd bucket (ie, 5s)
+        string offset = 3;
+        // Extended bounds - this is required when using a minimum document count of 0, otherwise
+        // it is expected to be unused
+        map<string, int64> extended_bounds = 4;
+        // Format for the resulting buckets timestamps
+        string format = 5;
+      }
+    }
+  }
 }
 
 message SearchResult {
-  int64 total_count = 2;
   repeated string hits = 3;
   bytes internal_aggregations = 4;
   int64 took_micros = 5;
@@ -27,6 +68,28 @@ message SearchResult {
   int32 total_nodes = 7;
   int32 total_snapshots = 8;
   int32 snapshots_with_replicas = 9;
+}
+
+// Based off of https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/struct.proto
+// This allows for better support for a Map<String, Object> in Java
+message Value {
+  oneof kind {
+    int32 int_value = 1;
+    int64 long_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+    bool bool_value = 5;
+    Struct struct_value = 6;
+    ListValue list_value = 7;
+  }
+}
+
+message Struct {
+  map<string, Value> fields = 1;
+}
+
+message ListValue {
+  repeated Value values = 1;
 }
 
 service KaldbService {
