@@ -68,6 +68,36 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testUniqueCount() throws Exception {
+    String rawRequest = getRawQueryString("unique_count");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation uniqueCountAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+
+    assertThat(uniqueCountAggBuilder.getType()).isEqualTo("cardinality");
+    assertThat(uniqueCountAggBuilder.getName()).isEqualTo("1");
+    assertThat(uniqueCountAggBuilder.getValueSource().getField()).isEqualTo("service_name");
+    assertThat(uniqueCountAggBuilder.getValueSource().getMissing().hasNullValue()).isTrue();
+    assertThat(
+            uniqueCountAggBuilder
+                .getValueSource()
+                .getUniqueCount()
+                .getPrecisionThreshold()
+                .getLongValue())
+        .isEqualTo(1);
+  }
+
+  @Test
   public void testHistogramWithNestedAvg() throws Exception {
     String rawRequest = getRawQueryString("nested_datehistogram_avg");
 

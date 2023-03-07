@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.ByteArrayInputStream;
@@ -73,7 +74,9 @@ import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.terms.UnmappedTerms;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
+import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
@@ -117,6 +120,14 @@ public class OpenSearchAggregationAdapter {
                   AggregationBuilder.class, AvgAggregationBuilder.NAME, AvgAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
                   InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  CardinalityAggregationBuilder.NAME,
+                  CardinalityAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  CardinalityAggregationBuilder.NAME,
+                  InternalCardinality::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   ValueCountAggregationBuilder.NAME,
@@ -304,6 +315,7 @@ public class OpenSearchAggregationAdapter {
     DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     return valuesSourceRegistryBuilder.build();
@@ -428,6 +440,8 @@ public class OpenSearchAggregationAdapter {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(UniqueCountAggBuilder.TYPE)) {
+      return getUniqueCountAggregationBuilder((UniqueCountAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
@@ -452,6 +466,27 @@ public class OpenSearchAggregationAdapter {
     }
 
     return avgAggregationBuilder;
+  }
+
+  /**
+   * Given a UniqueCountAggBuilder, returns a CardinalityAggregationBuilder (aka UniqueCount) to be
+   * used in building aggregation tree
+   */
+  protected static CardinalityAggregationBuilder getUniqueCountAggregationBuilder(
+      UniqueCountAggBuilder builder) {
+
+    CardinalityAggregationBuilder uniqueCountAggregationBuilder =
+        new CardinalityAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getPrecisionThreshold() != null) {
+      uniqueCountAggregationBuilder.precisionThreshold(builder.getPrecisionThreshold());
+    }
+
+    if (builder.getMissing() != null) {
+      uniqueCountAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return uniqueCountAggregationBuilder;
   }
 
   /**

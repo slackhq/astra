@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -62,6 +63,19 @@ public class SearchResultUtilsTest {
         (TermsAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(termsAggBuilder1).isEqualTo(termsAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertUniqueCountToFromProto() {
+    UniqueCountAggBuilder uniqueCountAggBuilder1 =
+        new UniqueCountAggBuilder("foo", "service_name", "2", 1L);
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(uniqueCountAggBuilder1);
+    UniqueCountAggBuilder uniqueCountAggBuilder2 =
+        (UniqueCountAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(uniqueCountAggBuilder1).isEqualTo(uniqueCountAggBuilder2);
   }
 
   @Test
