@@ -6,11 +6,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
@@ -110,7 +113,7 @@ public class OpenSearchRequest {
                               .setValueSource(
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
-                                      .setField(getDateHistogramField(dateHistogram))
+                                      .setField(getFieldName(dateHistogram))
                                       .setDateHistogram(
                                           KaldbSearch.SearchRequest.SearchAggregation
                                               .ValueSourceAggregation.DateHistogramAggregation
@@ -124,6 +127,23 @@ public class OpenSearchRequest {
                                               .setOffset(getDateHistogramOffset(dateHistogram))
                                               .build())
                                       .build());
+                        } else if (aggregationObject.equals(TermsAggBuilder.TYPE)) {
+                          JsonNode terms = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(TermsAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(terms))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(terms)))
+                                      .setTerms(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.TermsAggregation.newBuilder()
+                                              .setSize(getSize(terms))
+                                              .putAllOrder(getTermsOrder(terms))
+                                              .build())
+                                      .build());
                         } else if (aggregationObject.equals(AvgAggBuilder.TYPE)) {
                           JsonNode avg = aggs.get(aggregationName).get(aggregationObject);
                           aggBuilder
@@ -132,7 +152,9 @@ public class OpenSearchRequest {
                               .setValueSource(
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
-                                      .setField(getAvgField(avg)));
+                                      .setField(getFieldName(avg))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
+                                      .build());
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -153,8 +175,17 @@ public class OpenSearchRequest {
     return dateHistogram.get("interval").asText();
   }
 
-  private static String getDateHistogramField(JsonNode dateHistogram) {
-    return dateHistogram.get("field").asText();
+  private static String getFieldName(JsonNode agg) {
+    return agg.get("field").asText();
+  }
+
+  private static Object getMissing(JsonNode agg) {
+    // we can return any object here and it will correctly serialize, but Grafana only ever seems to
+    // issue these as strings
+    if (agg.has("missing")) {
+      return agg.get("missing").asText();
+    }
+    return null;
   }
 
   private static long getDateHistogramMinDocCount(JsonNode dateHistogram) {
@@ -184,7 +215,16 @@ public class OpenSearchRequest {
     return "";
   }
 
-  private static String getAvgField(JsonNode avg) {
-    return avg.get("field").asText();
+  private static int getSize(JsonNode agg) {
+    return agg.get("size").asInt();
+  }
+
+  private static Map<String, String> getTermsOrder(JsonNode terms) {
+    Map<String, String> orderMap = new HashMap<>();
+    JsonNode order = terms.get("order");
+    order
+        .fieldNames()
+        .forEachRemaining(fieldName -> orderMap.put(fieldName, order.get(fieldName).asText()));
+    return orderMap;
   }
 }

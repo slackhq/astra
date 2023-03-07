@@ -1,9 +1,12 @@
 package com.slack.kaldb.logstore.search;
 
+import static com.slack.kaldb.logstore.search.SearchResultUtils.fromValueProto;
+import static com.slack.kaldb.logstore.search.SearchResultUtils.toValueProto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -15,7 +18,7 @@ public class SearchResultUtilsTest {
 
   @Test
   public void shouldConvertAvgAggToFromProto() {
-    AvgAggBuilder avgAggBuilder1 = new AvgAggBuilder("1", "@timestamp");
+    AvgAggBuilder avgAggBuilder1 = new AvgAggBuilder("1", "@timestamp", "3");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(avgAggBuilder1);
@@ -49,10 +52,23 @@ public class SearchResultUtilsTest {
   }
 
   @Test
+  public void shouldConvertTermsAggToFromProto() {
+    TermsAggBuilder termsAggBuilder1 =
+        new TermsAggBuilder("foo", List.of(), "@timestamp", 3, 100, 0, Map.of("_term", "asc"));
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(termsAggBuilder1);
+    TermsAggBuilder termsAggBuilder2 =
+        (TermsAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(termsAggBuilder1).isEqualTo(termsAggBuilder2);
+  }
+
+  @Test
   public void shouldConvertNestedAggregations() {
     // this is not representative of a real or reasonable query, but we should be able to convert it
     // just the same
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("1", "@timestamp");
+    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("1", "@timestamp", null);
 
     DateHistogramAggBuilder dateHistogramAggBuilderInner =
         new DateHistogramAggBuilder(
@@ -88,5 +104,19 @@ public class SearchResultUtilsTest {
     assertThat(dateHistogramAggBuilder1).isEqualTo(dateHistogramAggBuilder2);
     assertThat(dateHistogramAggBuilder1.getSubAggregations())
         .isEqualTo(dateHistogramAggBuilder2.getSubAggregations());
+  }
+
+  @Test
+  public void shouldConvertValueToFromProto() {
+    assertThat(fromValueProto(toValueProto(null))).isEqualTo(null);
+    assertThat(fromValueProto(toValueProto(1))).isEqualTo(1);
+    assertThat(fromValueProto(toValueProto(2L))).isEqualTo(2L);
+    assertThat(fromValueProto(toValueProto(3D))).isEqualTo(3D);
+    assertThat(fromValueProto(toValueProto("4"))).isEqualTo("4");
+    assertThat(fromValueProto(toValueProto(false))).isEqualTo(false);
+    assertThat(fromValueProto(toValueProto(Map.of("1", 2, "3", false))))
+        .isEqualTo(Map.of("1", 2, "3", false));
+    assertThat(fromValueProto(toValueProto(List.of("1", 2, 3D, false))))
+        .isEqualTo(List.of("1", 2, 3D, false));
   }
 }

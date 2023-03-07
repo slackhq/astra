@@ -37,8 +37,12 @@ message SearchRequest {
       // Field name to use in aggregation
       string field = 1;
 
+      // Value to substitute if no value is calculated
+      Value missing = 2;
+
       oneof type {
         DateHistogramAggregation date_histogram = 11;
+        TermsAggregation terms = 12;
       }
 
       // Unique fields specific to the date histogram aggregation request
@@ -54,6 +58,18 @@ message SearchRequest {
         map<string, int64> extended_bounds = 4;
         // Format for the resulting buckets timestamps
         string format = 5;
+      }
+
+      // Unique fields specific to the terms aggregation request
+      message TermsAggregation {
+        // max number of terms to return
+        int32 size = 1;
+
+        // sort order, where key is an agg name or built-in (_terms, _count, etc) and value is direction (asc, desc)
+        map<string, string> order = 2;
+
+        // Minimum documents per bucket required
+        int64 min_doc_count = 3;
       }
     }
   }

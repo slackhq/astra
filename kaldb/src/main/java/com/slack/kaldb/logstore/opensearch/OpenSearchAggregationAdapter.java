@@ -6,8 +6,10 @@ import static java.util.Collections.singletonMap;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.ByteArrayInputStream;
@@ -20,8 +22,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
+import org.apache.lucene.search.IndexSearcher;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -55,6 +59,7 @@ import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
+import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
@@ -62,6 +67,11 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregat
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
+import org.opensearch.search.aggregations.bucket.terms.DoubleTerms;
+import org.opensearch.search.aggregations.bucket.terms.LongTerms;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.UnmappedTerms;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
@@ -91,6 +101,18 @@ public class OpenSearchAggregationAdapter {
                   InternalAggregation.class,
                   DateHistogramAggregationBuilder.NAME,
                   InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  TermsAggregationBuilder.NAME,
+                  TermsAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, StringTerms.NAME, StringTerms::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, UnmappedTerms.NAME, UnmappedTerms::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, LongTerms.NAME, LongTerms::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, DoubleTerms.NAME, DoubleTerms::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class, AvgAggregationBuilder.NAME, AvgAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
@@ -137,7 +159,6 @@ public class OpenSearchAggregationAdapter {
                   in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
 
   private final QueryShardContext queryShardContext;
-  private final SearchContext searchContext;
 
   public OpenSearchAggregationAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
@@ -147,22 +168,23 @@ public class OpenSearchAggregationAdapter {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
-      if (entry.getValue().fieldType == FieldType.LONG) {
-        try {
+      try {
+        if (entry.getValue().fieldType == FieldType.LONG) {
           registerField(
               mapperService,
               entry.getValue().name,
               b -> b.field("type", entry.getValue().fieldType.name));
-        } catch (Exception e) {
-          LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        } else if (entry.getValue().fieldType == FieldType.STRING) {
+          registerField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
         }
+      } catch (Exception e) {
+        LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
       }
     }
 
     this.queryShardContext =
         buildQueryShardContext(
             KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
-    this.searchContext = new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext);
   }
 
   /** Serializes InternalAggregation to byte array for transport */
@@ -229,11 +251,11 @@ public class OpenSearchAggregationAdapter {
 
   /** Builds a CollectorManager for use in the Lucene aggregation step */
   public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      AggBuilder aggBuilder) {
+      AggBuilder aggBuilder, IndexSearcher indexSearcher) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder);
+        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder, indexSearcher);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -280,6 +302,7 @@ public class OpenSearchAggregationAdapter {
 
     // todo - add additional aggregations as needed
     DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
@@ -381,7 +404,11 @@ public class OpenSearchAggregationAdapter {
    * Given an aggBuilder, will use the previously initialized queryShardContext and searchContext to
    * return an OpenSearch aggregator / Lucene Collector
    */
-  public Aggregator buildAggregatorUsingContext(AggBuilder builder) throws IOException {
+  public Aggregator buildAggregatorUsingContext(AggBuilder builder, IndexSearcher indexSearcher)
+      throws IOException {
+    SearchContext searchContext =
+        new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext, indexSearcher);
+
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)
         .create(searchContext, null, CardinalityUpperBound.ONE);
@@ -397,6 +424,8 @@ public class OpenSearchAggregationAdapter {
       throws IOException {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
+      return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
     } else {
@@ -415,7 +444,73 @@ public class OpenSearchAggregationAdapter {
       fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
     }
 
-    return new AvgAggregationBuilder(builder.getName()).field(fieldname);
+    AvgAggregationBuilder avgAggregationBuilder =
+        new AvgAggregationBuilder(builder.getName()).field(fieldname);
+
+    if (builder.getMissing() != null) {
+      avgAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return avgAggregationBuilder;
+  }
+
+  /**
+   * Given an TermsAggBuilder returns a TermsAggregationBuilder to be used in building aggregation
+   * tree
+   */
+  protected static TermsAggregationBuilder getTermsAggregationBuilder(TermsAggBuilder builder)
+      throws IOException {
+
+    List<String> subAggNames =
+        builder
+            .getSubAggregations()
+            .stream()
+            .map(subagg -> ((AggBuilderBase) subagg).getName())
+            .collect(Collectors.toList());
+
+    List<BucketOrder> order =
+        builder
+            .getOrder()
+            .entrySet()
+            .stream()
+            .map(
+                (entry) -> {
+                  // todo - this potentially needs BucketOrder.compound support
+                  boolean asc = !entry.getValue().equals("desc");
+                  if (entry.getKey().equals("_count") || !subAggNames.contains(entry.getKey())) {
+                    // we check to see if the requested key is in the sub-aggs; if not default to
+                    // the count this is because when the Grafana plugin issues a request for
+                    // Count agg (not Doc Count) it comes through as an agg request when the
+                    // aggs are empty. This is fixed in later versions of the plugin, and will
+                    // need to be ported to our fork as well.
+                    return BucketOrder.count(asc);
+                  } else if (entry.getKey().equals("_key") || entry.getKey().equals("_term")) {
+                    // this is due to the fact that the kaldb plugin thinks this is ES < 6
+                    // https://github.com/slackhq/slack-kaldb-app/blob/95b091184d5de1682c97586e271cbf2bbd7cc92a/src/datasource/QueryBuilder.ts#L55
+                    return BucketOrder.key(asc);
+                  } else {
+                    return BucketOrder.aggregation(entry.getKey(), asc);
+                  }
+                })
+            .collect(Collectors.toList());
+
+    TermsAggregationBuilder termsAggregationBuilder =
+        new TermsAggregationBuilder(builder.getName())
+            .field(builder.getField())
+            .executionHint("map")
+            .minDocCount(builder.getMinDocCount())
+            .size(builder.getSize())
+            .order(order);
+
+    if (builder.getMissing() != null) {
+      termsAggregationBuilder.missing(builder.getMissing());
+    }
+
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      termsAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+    }
+
+    return termsAggregationBuilder;
   }
 
   /**

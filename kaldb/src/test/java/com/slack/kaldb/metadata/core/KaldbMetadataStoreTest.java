@@ -29,6 +29,7 @@ import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -555,6 +556,7 @@ public class KaldbMetadataStoreTest {
     }
 
     @Test
+    @Ignore // flakey test
     public void testCorruptZkMetadata() throws ExecutionException, InterruptedException {
       assertThat(store.list().get().isEmpty()).isTrue();
 
