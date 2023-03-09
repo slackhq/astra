@@ -4,6 +4,7 @@ package slack.proto.kaldb;
 
 option java_package = "com.slack.kaldb.proto.metadata";
 
+// Type of index used to store the data.
 enum IndexType {
   LOGS_LUCENE9 = 0;
 };
@@ -29,6 +30,9 @@ message CacheSlotMetadata {
 
   // Last updated timestamp
   int64 updated_time_epoch_ms = 4;
+
+  // Index types supported by cache slot.
+  repeated IndexType supported_index_types = 5;
 }
 
 message ReplicaMetadata {
@@ -102,6 +106,9 @@ message RecoveryNodeMetadata {
 
   // Last updated timestamp
   int64 updated_time_epoch_ms = 4;
+
+  // Index types supported by the recovery node.
+  repeated IndexType supported_index_types = 8;
 }
 
 message RecoveryTaskMetadata {
@@ -119,6 +126,9 @@ message RecoveryTaskMetadata {
 
   // Created timestamp
   int64 created_time_epoch_ms = 5;
+
+  // Index type to be used when indexing the metadata.
+  IndexType index_type = 8;
 }
 
 // Describes ownership, throughput, and partition mapping for a given dataset
