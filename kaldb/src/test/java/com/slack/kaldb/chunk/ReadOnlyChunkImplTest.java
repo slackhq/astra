@@ -565,4 +565,6 @@ public class ReadOnlyChunkImplTest {
         .setS3Config(s3Config)
         .build();
   }
+
+  // TODO: Add a test ensuring the supported index types is preserved on update.
 }
