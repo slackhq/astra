@@ -465,7 +465,8 @@ public class ReadOnlyChunkImplTest {
             readOnlyChunk.slotName,
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaId,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            List.of(LOGS_LUCENE9));
     cacheSlotMetadataStore.update(updatedCacheSlotMetadata);
   }
 

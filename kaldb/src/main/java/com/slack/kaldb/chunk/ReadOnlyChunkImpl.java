@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -103,7 +104,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             slotName,
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            List.of(Metadata.IndexType.LOGS_LUCENE9));
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
     CacheSlotMetadataStore cacheSlotListenerMetadataStore =
@@ -285,7 +287,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
                 ? ""
                 : chunkMetadata.replicaId,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            List.of(Metadata.IndexType.LOGS_LUCENE9));
     try {
       cacheSlotMetadataStore.update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
