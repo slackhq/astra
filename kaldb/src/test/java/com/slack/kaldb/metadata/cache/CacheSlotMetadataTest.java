@@ -12,8 +12,7 @@ import org.junit.Test;
 
 public class CacheSlotMetadataTest {
 
-  private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES =
-      List.of(LOGS_LUCENE9);
+  private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
 
   @Test
   public void testCacheSlotMetadata() {
