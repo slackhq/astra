@@ -181,7 +181,8 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // mark the chunk for eviction
-    readOnlyChunk.setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
+    cacheSlotMetadataStore.setChunkMetadataState(
+        readOnlyChunk.slotName, Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
 
     // ensure that the evicted chunk was released
     await()
