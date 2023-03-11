@@ -288,7 +288,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                 ? ""
                 : chunkMetadata.replicaId,
             Instant.now().toEpochMilli(),
-            List.of(Metadata.IndexType.LOGS_LUCENE9));
+            chunkMetadata.supportedIndexTypes);
     try {
       cacheSlotMetadataStore.update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
