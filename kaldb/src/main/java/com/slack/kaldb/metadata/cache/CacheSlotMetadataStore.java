@@ -46,7 +46,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
         LOG);
   }
 
-  public boolean setChunkMetadataState(
+  public boolean setChunkMetadataStateSync(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
     CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
     CacheSlotMetadata updatedChunkMetadata =
