@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.cache;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -48,7 +49,18 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
 
   public boolean setChunkMetadataStateSync(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
-    CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
+    try {
+      CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
+      setChunkMetadataState(chunkMetadata, newChunkState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      return true;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Error setting chunk metadata state");
+      return false;
+    }
+  }
+
+  public ListenableFuture<?> setChunkMetadataState(
+      CacheSlotMetadata chunkMetadata, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
     CacheSlotMetadata updatedChunkMetadata =
         new CacheSlotMetadata(
             chunkMetadata.name,
@@ -58,12 +70,8 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
                 : chunkMetadata.replicaId,
             Instant.now().toEpochMilli(),
             chunkMetadata.supportedIndexTypes);
-    try {
-      update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      return true;
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Error setting chunk metadata state");
-      return false;
-    }
+    return update(updatedChunkMetadata);
   }
+
+  // TODO: Add unit tests in CacheSlotMetadataStore setChunkMetadata state.
 }
