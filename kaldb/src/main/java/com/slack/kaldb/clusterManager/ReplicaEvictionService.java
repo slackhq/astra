@@ -126,7 +126,8 @@ public class ReplicaEvictionService extends AbstractScheduledService {
                               cacheSlotMetadata.name,
                               Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
                               cacheSlotMetadata.replicaId,
-                              Instant.now().toEpochMilli()));
+                              Instant.now().toEpochMilli(),
+                              cacheSlotMetadata.supportedIndexTypes));
 
                   addCallback(
                       future,

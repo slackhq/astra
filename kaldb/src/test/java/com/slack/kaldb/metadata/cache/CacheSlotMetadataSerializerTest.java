@@ -1,11 +1,13 @@
 package com.slack.kaldb.metadata.cache;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
+import java.util.List;
 import org.junit.Test;
 
 public class CacheSlotMetadataSerializerTest {
@@ -18,9 +20,11 @@ public class CacheSlotMetadataSerializerTest {
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
     String replicaId = "123";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
+    List<Metadata.IndexType> supportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
 
     CacheSlotMetadata cacheSlotMetadata =
-        new CacheSlotMetadata(name, cacheSlotState, replicaId, updatedTimeEpochMs);
+        new CacheSlotMetadata(
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, supportedIndexTypes);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(cacheSlotMetadata);
     assertThat(serializedCacheSlotMetadata).isNotEmpty();
@@ -33,6 +37,8 @@ public class CacheSlotMetadataSerializerTest {
     assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
+    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes).containsAll(supportedIndexTypes);
+    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes.size()).isEqualTo(2);
   }
 
   @Test

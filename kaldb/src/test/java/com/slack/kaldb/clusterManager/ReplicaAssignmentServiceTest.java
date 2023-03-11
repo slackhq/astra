@@ -37,6 +37,8 @@ import org.junit.Test;
 
 public class ReplicaAssignmentServiceTest {
 
+  private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
+
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -227,7 +229,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
@@ -294,7 +297,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
               replicaMetadataList.get(i).name,
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
@@ -305,7 +309,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
@@ -372,7 +377,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(0).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotWithAssignment);
     cacheSlotMetadataStore.create(cacheSlotWithAssignment);
 
@@ -381,7 +387,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataList.get(1).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotLive);
     cacheSlotMetadataStore.create(cacheSlotLive);
 
@@ -390,7 +397,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(2).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotEvicting);
     cacheSlotMetadataStore.create(cacheSlotEvicting);
 
@@ -399,7 +407,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotFree);
 
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 4);
@@ -476,7 +485,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
               replicaMetadataList.get(i).name,
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
@@ -567,7 +577,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -661,7 +672,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -785,7 +797,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -884,7 +897,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -959,7 +973,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -1076,7 +1091,8 @@ public class ReplicaAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -1160,7 +1176,8 @@ public class ReplicaAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
 
     cacheSlotMetadataStore.create(cacheSlotMetadata);
     await()
@@ -1174,5 +1191,75 @@ public class ReplicaAssignmentServiceTest {
 
     List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSync();
     assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
+    assertThat(assignedCacheSlot.get(0).supportedIndexTypes).containsAll(SUPPORTED_INDEX_TYPES);
+  }
+
+  @Test
+  public void assignmentPreservesSupportedIndexTypes() throws Exception {
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+            .setSchedulePeriodMins(1)
+            .build();
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(1)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
+            .build();
+
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
+            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+
+    Instant now = Instant.now();
+    ReplicaMetadata olderReplicaMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.create(olderReplicaMetadata);
+
+    ReplicaMetadata newerReplicaMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            now.toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.create(newerReplicaMetadata);
+
+    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    final List<Metadata.IndexType> suppportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
+    CacheSlotMetadata cacheSlotMetadata =
+        new CacheSlotMetadata(
+            UUID.randomUUID().toString(),
+            Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+            "",
+            Instant.now().toEpochMilli(),
+            suppportedIndexTypes);
+
+    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    await()
+        .until(
+            () -> {
+              List<CacheSlotMetadata> cacheSlotMetadataList = cacheSlotMetadataStore.getCached();
+              return cacheSlotMetadataList.size() == 1
+                  && cacheSlotMetadataList.get(0).cacheSlotState
+                      == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
+            });
+
+    List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSync();
+    assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
+    assertThat(assignedCacheSlot.get(0).supportedIndexTypes).containsAll(suppportedIndexTypes);
+    assertThat(assignedCacheSlot.size()).isEqualTo(1);
+    assertThat(assignedCacheSlot.get(0).supportedIndexTypes.size()).isEqualTo(2);
   }
 }
