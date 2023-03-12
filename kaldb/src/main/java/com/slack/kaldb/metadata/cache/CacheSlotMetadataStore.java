@@ -51,7 +51,12 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
     try {
       CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
-      setChunkMetadataState(chunkMetadata, newChunkState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      String replicaId =
+          newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+              ? ""
+              : chunkMetadata.replicaId;
+      setChunkMetadataStateWithReplicaId(chunkMetadata, newChunkState, replicaId)
+          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state");
@@ -59,15 +64,15 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     }
   }
 
-  public ListenableFuture<?> setChunkMetadataState(
-      CacheSlotMetadata chunkMetadata, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
+  public ListenableFuture<?> setChunkMetadataStateWithReplicaId(
+      final CacheSlotMetadata chunkMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState newChunkState,
+      final String replicaId) {
     CacheSlotMetadata updatedChunkMetadata =
         new CacheSlotMetadata(
             chunkMetadata.name,
             newChunkState,
-            newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
-                ? ""
-                : chunkMetadata.replicaId,
+            replicaId,
             Instant.now().toEpochMilli(),
             chunkMetadata.supportedIndexTypes);
     return update(updatedChunkMetadata);
