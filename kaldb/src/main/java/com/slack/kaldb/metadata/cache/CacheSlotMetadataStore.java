@@ -51,17 +51,22 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
     try {
       CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
-      String replicaId =
-          newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
-              ? ""
-              : chunkMetadata.replicaId;
-      setChunkMetadataStateWithReplicaId(chunkMetadata, newChunkState, replicaId)
-          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      setChunkMetadataState(chunkMetadata, newChunkState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state");
       return false;
     }
+  }
+
+  public ListenableFuture<?> setChunkMetadataState(
+      final CacheSlotMetadata chunkMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
+    String replicaId =
+        newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+            ? ""
+            : chunkMetadata.replicaId;
+    return setChunkMetadataStateWithReplicaId(chunkMetadata, newChunkState, replicaId);
   }
 
   public ListenableFuture<?> setChunkMetadataStateWithReplicaId(

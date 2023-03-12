@@ -244,7 +244,7 @@ public class ReplicaEvictionServiceTest {
     replicaMetadataStore.create(replicaMetadata);
 
     // TODO: Update list with different index types when we have more types.
-    final List supportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
+    final List<Metadata.IndexType> supportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
