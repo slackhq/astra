@@ -47,11 +47,11 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
         LOG);
   }
 
-  public boolean setChunkMetadataStateSync(
-      String slotName, Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
+  public boolean setCacheSlotStateSync(
+      String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
     try {
-      CacheSlotMetadata chunkMetadata = getNodeSync(slotName);
-      setChunkMetadataState(chunkMetadata, newChunkState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
+      setCacheSlotState(cacheSlotMetadata, slotState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state");
@@ -59,27 +59,27 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     }
   }
 
-  public ListenableFuture<?> setChunkMetadataState(
-      final CacheSlotMetadata chunkMetadata,
-      final Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
+  public ListenableFuture<?> setCacheSlotState(
+      final CacheSlotMetadata cacheSlotMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState slotState) {
     String replicaId =
-        newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+        slotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
             ? ""
-            : chunkMetadata.replicaId;
-    return setChunkMetadataStateWithReplicaId(chunkMetadata, newChunkState, replicaId);
+            : cacheSlotMetadata.replicaId;
+    return setCacheSlotStateStateWithReplicaId(cacheSlotMetadata, slotState, replicaId);
   }
 
-  public ListenableFuture<?> setChunkMetadataStateWithReplicaId(
-      final CacheSlotMetadata chunkMetadata,
-      final Metadata.CacheSlotMetadata.CacheSlotState newChunkState,
+  public ListenableFuture<?> setCacheSlotStateStateWithReplicaId(
+      final CacheSlotMetadata cacheSlotMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState newState,
       final String replicaId) {
     CacheSlotMetadata updatedChunkMetadata =
         new CacheSlotMetadata(
-            chunkMetadata.name,
-            newChunkState,
+            cacheSlotMetadata.name,
+            newState,
             replicaId,
             Instant.now().toEpochMilli(),
-            chunkMetadata.supportedIndexTypes);
+            cacheSlotMetadata.supportedIndexTypes);
     return update(updatedChunkMetadata);
   }
 
