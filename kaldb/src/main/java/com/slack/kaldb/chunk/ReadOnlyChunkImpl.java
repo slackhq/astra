@@ -175,7 +175,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     try {
-      if (!cacheSlotMetadataStore.setChunkMetadataStateSync(
+      if (!cacheSlotMetadataStore.setCacheSlotStateSync(
           slotName, Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
@@ -210,7 +210,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
-      if (!cacheSlotMetadataStore.setChunkMetadataStateSync(
+      if (!cacheSlotMetadataStore.setCacheSlotStateSync(
           slotName, Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
@@ -221,7 +221,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
-      cacheSlotMetadataStore.setChunkMetadataStateSync(
+      cacheSlotMetadataStore.setCacheSlotStateSync(
           slotName, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
       LOG.error("Error handling chunk assignment", e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
@@ -242,7 +242,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private synchronized void handleChunkEviction() {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
     try {
-      if (!cacheSlotMetadataStore.setChunkMetadataStateSync(
+      if (!cacheSlotMetadataStore.setCacheSlotStateSync(
           slotName, Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
       }
@@ -258,7 +258,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       logSearcher = null;
 
       cleanDirectory();
-      if (!cacheSlotMetadataStore.setChunkMetadataStateSync(
+      if (!cacheSlotMetadataStore.setCacheSlotStateSync(
           slotName, Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
         throw new InterruptedException("Failed to set chunk metadata state to free");
       }
