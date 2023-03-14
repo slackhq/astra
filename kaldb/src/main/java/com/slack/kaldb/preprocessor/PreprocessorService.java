@@ -158,7 +158,8 @@ public class PreprocessorService extends AbstractService {
                 upstreamTopics,
                 downstreamTopic,
                 dataTransformer,
-                kafkaPartitionStickyTimeoutMs);
+                kafkaPartitionStickyTimeoutMs,
+                meterRegistry);
         kafkaStreams = new KafkaStreams(topology, kafkaProperties);
         kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
         kafkaStreamsMetrics.bindTo(meterRegistry);
@@ -185,7 +186,8 @@ public class PreprocessorService extends AbstractService {
       List<String> upstreamTopics,
       String downstreamTopic,
       String dataTransformer,
-      int kafkaPartitionStickyTimeoutMs) {
+      int kafkaPartitionStickyTimeoutMs,
+      MeterRegistry meterRegistry) {
     checkArgument(!datasetMetadataList.isEmpty(), "dataset metadata list must not be empty");
     checkArgument(upstreamTopics.size() > 0, "upstream topic list must not be empty");
     checkArgument(!downstreamTopic.isEmpty(), "downstream topic must not be empty");
@@ -195,7 +197,7 @@ public class PreprocessorService extends AbstractService {
     StreamsBuilder builder = new StreamsBuilder();
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer);
+        PreprocessorValueMapper.byteArrayToTraceSpans(dataTransformer, meterRegistry);
 
     StreamPartitioner<String, Trace.Span> streamPartitioner =
         new PreprocessorPartitioner<>(datasetMetadataList, kafkaPartitionStickyTimeoutMs);

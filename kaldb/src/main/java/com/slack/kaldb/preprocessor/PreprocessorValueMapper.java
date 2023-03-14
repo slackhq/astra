@@ -7,6 +7,8 @@ import com.slack.kaldb.writer.MurronLogFormatter;
 import com.slack.kaldb.writer.SpanFormatter;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,12 @@ public class PreprocessorValueMapper {
 
   private static Deserializer<Murron.MurronMessage> murronMessageDeserializer =
       KaldbSerdes.MurronMurronMessage().deserializer();
+
+  private static Counter incomingBytesCounter;
+  private static Counter outgoingBytesCounter;
+
+  private static Counter incomingMessagesCounter;
+  private static Counter outgoingMessagesCounter;
 
   @FunctionalInterface
   private interface MessageTransformer {
@@ -50,8 +58,17 @@ public class PreprocessorValueMapper {
   // A single trace record consists of a list of spans wrapped in a murron message.
   public static final MessageTransformer spanTransformer =
       record -> {
+        if (incomingBytesCounter != null) {
+          incomingBytesCounter.increment(record.length);
+          incomingMessagesCounter.increment();
+        }
         Murron.MurronMessage murronMsg = murronMessageDeserializer.deserialize("", record);
-        return SpanFormatter.fromMurronMessage(murronMsg).getSpansList();
+        List<Trace.Span> spans = SpanFormatter.fromMurronMessage(murronMsg).getSpansList();
+        if (outgoingBytesCounter != null) {
+          outgoingMessagesCounter.increment(spans.size());
+          spans.forEach(span -> outgoingBytesCounter.increment(span.toByteArray().length));
+        }
+        return spans;
       };
 
   // todo - add a json blob transformer, ie LogMessageWriterImpl.jsonLogMessageTransformer
@@ -86,7 +103,13 @@ public class PreprocessorValueMapper {
 
   /** KafkaStream ValueMapper for transforming upstream sources to target Trace.ListOfSpans */
   public static ValueMapper<byte[], Iterable<Trace.Span>> byteArrayToTraceSpans(
-      String dataTransformer) {
+      String dataTransformer, MeterRegistry meterRegistry) {
+    if (meterRegistry != null) {
+      incomingBytesCounter = meterRegistry.counter("trace_span_incoming_bytes");
+      outgoingBytesCounter = meterRegistry.counter("trace_span_outgoing_bytes");
+      incomingMessagesCounter = meterRegistry.counter("trace_span_incoming_messages");
+      outgoingMessagesCounter = meterRegistry.counter("trace_span_outgoing_messages");
+    }
     Preconditions.checkArgument(
         PRE_PROCESSOR_DATA_TRANSFORMER_MAP.containsKey(dataTransformer),
         "Invalid data transformer provided, must be one of %s",
