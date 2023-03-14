@@ -47,7 +47,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
         LOG);
   }
 
-  // Fetch the node given a slotName and update the slot state.
+  /** Fetch the node given a slotName and update the slot state. */
   public boolean getAndUpdateNonFreeCacheSlotStateSync(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
     try {
@@ -61,7 +61,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     }
   }
 
-  // Update the cache slot state, if the slot is not FREE.
+  /** Update the cache slot state, if the slot is not FREE. */
   public ListenableFuture<?> updateNonFreeCacheSlotState(
       final CacheSlotMetadata cacheSlotMetadata,
       final Metadata.CacheSlotMetadata.CacheSlotState slotState) {
@@ -76,7 +76,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     return updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, slotState, replicaId);
   }
 
-  // Update CacheSlotState and replicaId fields while keeping the remaining fields the same.
+  /** Update CacheSlotState and replicaId fields while keeping the remaining fields the same. */
   public ListenableFuture<?> updateCacheSlotStateStateWithReplicaId(
       final CacheSlotMetadata cacheSlotMetadata,
       final Metadata.CacheSlotMetadata.CacheSlotState newState,
@@ -90,6 +90,4 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
             cacheSlotMetadata.supportedIndexTypes);
     return update(updatedChunkMetadata);
   }
-
-  // TODO: Add unit tests in CacheSlotMetadataStore setChunkMetadata state.
 }
