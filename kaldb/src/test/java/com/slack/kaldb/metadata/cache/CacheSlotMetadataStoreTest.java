@@ -1,7 +1,9 @@
 package com.slack.kaldb.metadata.cache;
 
+import static com.slack.kaldb.proto.metadata.Metadata.CacheSlotMetadata.CacheSlotState;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.metadata.Metadata;
@@ -17,13 +19,9 @@ import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class CacheSlotMetadataStoreTest {
   private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
-
-  private static final Logger LOG = LoggerFactory.getLogger(CacheSlotMetadataStoreTest.class);
 
   private TestingServer testingServer;
   private ZookeeperMetadataStoreImpl zkMetadataStore;
@@ -58,6 +56,63 @@ public class CacheSlotMetadataStoreTest {
   }
 
   @Test
+  public void testNonFreeCacheSlotState() throws Exception {
+    final String name = "slot1";
+    Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
+    final String replicaId = "3456";
+    long updatedTimeEpochMs = Instant.now().toEpochMilli();
+
+    final CacheSlotMetadata cacheSlotMetadata =
+        new CacheSlotMetadata(
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+    assertThat(cacheSlotMetadata.name).isEqualTo(name);
+    assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
+    assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
+    assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
+    assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store.createSync(cacheSlotMetadata);
+    assertThat(store.listSync().size()).isEqualTo(1);
+
+    store
+        .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
+        .get(1, TimeUnit.SECONDS);
+    assertThat(store.listSync().size()).isEqualTo(1);
+    final CacheSlotMetadata liveNode = store.getNodeSync(name);
+    assertThat(liveNode.name).isEqualTo(name);
+    assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
+    assertThat(liveNode.replicaId).isEqualTo(replicaId);
+    assertThat(liveNode.updatedTimeEpochMs).isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
+    assertThat(liveNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store.updateNonFreeCacheSlotState(liveNode, CacheSlotState.EVICT).get(1, TimeUnit.SECONDS);
+    assertThat(store.listSync().size()).isEqualTo(1);
+    final CacheSlotMetadata evictNode = store.getNodeSync(name);
+    assertThat(evictNode.name).isEqualTo(name);
+    assertThat(evictNode.cacheSlotState).isEqualTo(CacheSlotState.EVICT);
+    assertThat(evictNode.replicaId).isEqualTo(replicaId);
+    assertThat(evictNode.updatedTimeEpochMs).isGreaterThan(liveNode.updatedTimeEpochMs);
+    assertThat(evictNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store.updateNonFreeCacheSlotState(evictNode, CacheSlotState.FREE).get(1, TimeUnit.SECONDS);
+    assertThat(store.listSync().size()).isEqualTo(1);
+    final CacheSlotMetadata freeNode = store.getNodeSync(name);
+    assertThat(freeNode.name).isEqualTo(name);
+    assertThat(freeNode.cacheSlotState).isEqualTo(CacheSlotState.FREE);
+    assertThat(freeNode.replicaId).isEmpty();
+    assertThat(freeNode.updatedTimeEpochMs).isGreaterThan(evictNode.updatedTimeEpochMs);
+    assertThat(freeNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    // Only non-free states can be set.
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                store
+                    .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
+                    .get(1, TimeUnit.SECONDS));
+  }
+
+  @Test
   public void testCacheSlotStateWithReplica() throws Exception {
     String name = "slot1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
@@ -78,7 +133,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(store.listSync().size()).isEqualTo(1);
 
     store
-        .setCacheSlotStateStateWithReplicaId(cacheSlotMetadata, cacheSlotState, "")
+        .updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, cacheSlotState, "")
         .get(1, TimeUnit.SECONDS);
     assertThat(store.listSync().size()).isEqualTo(1);
     final CacheSlotMetadata freeNode = store.getNodeSync(name);
@@ -90,7 +145,7 @@ public class CacheSlotMetadataStoreTest {
 
     final String replicaId = "1234";
     store
-        .setCacheSlotStateStateWithReplicaId(
+        .updateCacheSlotStateStateWithReplicaId(
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED, replicaId)
         .get(1, TimeUnit.SECONDS);
     assertThat(store.listSync().size()).isEqualTo(1);
@@ -103,7 +158,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(assignedNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     store
-        .setCacheSlotStateStateWithReplicaId(
+        .updateCacheSlotStateStateWithReplicaId(
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT, replicaId)
         .get(1, TimeUnit.SECONDS);
     assertThat(store.listSync().size()).isEqualTo(1);

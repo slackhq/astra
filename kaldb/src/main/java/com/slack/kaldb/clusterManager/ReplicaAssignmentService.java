@@ -198,7 +198,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                 availableCacheSlots.stream(),
                 (replicaId, availableCacheSlot) -> {
                   ListenableFuture<?> future =
-                      cacheSlotMetadataStore.setCacheSlotStateStateWithReplicaId(
+                      cacheSlotMetadataStore.updateCacheSlotStateStateWithReplicaId(
                           availableCacheSlot,
                           Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
                           replicaId);
