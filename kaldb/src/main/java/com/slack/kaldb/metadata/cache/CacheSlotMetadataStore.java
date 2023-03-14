@@ -48,7 +48,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
   }
 
   // Fetch the node given a slotName and update the slot state.
-  public boolean updateNonFreeCacheSlotStateSync(
+  public boolean getAndUpdateNonFreeCacheSlotStateSync(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
     try {
       CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
