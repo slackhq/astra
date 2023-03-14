@@ -47,11 +47,13 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
         LOG);
   }
 
-  public boolean setCacheSlotStateSync(
+  // Fetch the node given a slotName and update the slot state.
+  public boolean updateNonFreeCacheSlotStateSync(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
     try {
       CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
-      setCacheSlotState(cacheSlotMetadata, slotState).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      updateNonFreeCacheSlotState(cacheSlotMetadata, slotState)
+          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       LOG.error("Error setting chunk metadata state");
@@ -59,17 +61,23 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
     }
   }
 
-  public ListenableFuture<?> setCacheSlotState(
+  // Update the cache slot state, if the slot is not FREE.
+  public ListenableFuture<?> updateNonFreeCacheSlotState(
       final CacheSlotMetadata cacheSlotMetadata,
       final Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+    if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+      throw new IllegalArgumentException(
+          "Current state of slot can't be free: " + cacheSlotMetadata.name);
+    }
     String replicaId =
         slotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
             ? ""
             : cacheSlotMetadata.replicaId;
-    return setCacheSlotStateStateWithReplicaId(cacheSlotMetadata, slotState, replicaId);
+    return updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, slotState, replicaId);
   }
 
-  public ListenableFuture<?> setCacheSlotStateStateWithReplicaId(
+  // Update CacheSlotState and replicaId fields while keeping the remaining fields the same.
+  public ListenableFuture<?> updateCacheSlotStateStateWithReplicaId(
       final CacheSlotMetadata cacheSlotMetadata,
       final Metadata.CacheSlotMetadata.CacheSlotState newState,
       final String replicaId) {

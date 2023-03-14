@@ -7,6 +7,10 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.List;
 
+/**
+ * TODO: Currently, application code directly manipulates cache slot states which is error prone.
+ * Make transitions more controlled via a state machine like API.
+ */
 public class CacheSlotMetadata extends KaldbMetadata {
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
