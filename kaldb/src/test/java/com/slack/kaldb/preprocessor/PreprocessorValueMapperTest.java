@@ -31,7 +31,7 @@ public class PreprocessorValueMapperTest {
             .build();
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceSpans("api_log");
+        PreprocessorValueMapper.byteArrayToTraceSpans("api_log", null);
     byte[] inputBytes =
         KaldbSerdes.MurronMurronMessage().serializer().serialize(indexName, testMurronMsg);
 
@@ -98,7 +98,7 @@ public class PreprocessorValueMapperTest {
             .build();
 
     ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
-        PreprocessorValueMapper.byteArrayToTraceSpans("spans");
+        PreprocessorValueMapper.byteArrayToTraceSpans("spans", null);
     byte[] inputBytes =
         KaldbSerdes.MurronMurronMessage().serializer().serialize(serviceName, murronMessage);
 
@@ -143,7 +143,7 @@ public class PreprocessorValueMapperTest {
         .isThrownBy(
             () -> {
               ValueMapper<byte[], Iterable<Trace.Span>> valueMapper =
-                  PreprocessorValueMapper.byteArrayToTraceSpans("invalid");
+                  PreprocessorValueMapper.byteArrayToTraceSpans("invalid", null);
             });
   }
 
