@@ -213,8 +213,6 @@ public class ReplicaEvictionServiceTest {
         .isEqualTo(1);
   }
 
-  // TODO: Eviction is independent of supported index types?
-
   @Test
   public void shouldPreserveSupportedIndexTypesOnEviction() {
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
