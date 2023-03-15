@@ -585,8 +585,7 @@ public class OpenSearchAggregationAdapter {
       movAvgPipelineAggregationBuilder.predict(builder.getPredict());
     }
 
-    // todo?
-    movAvgPipelineAggregationBuilder.gapPolicy(BucketHelpers.GapPolicy.INSERT_ZEROS);
+    movAvgPipelineAggregationBuilder.gapPolicy(BucketHelpers.GapPolicy.SKIP);
 
     //noinspection IfCanBeSwitch
     if (builder.getModel().equals("simple")) {

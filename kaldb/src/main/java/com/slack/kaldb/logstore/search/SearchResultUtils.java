@@ -121,13 +121,18 @@ public class SearchResultUtils {
           fromValueProto(searchAggregation.getValueSource().getMissing()),
           searchAggregation.getValueSource().getPercentiles().getPercentilesList());
     } else if (searchAggregation.getType().equals(MovingAvgAggBuilder.TYPE)) {
-      // todo
       return new MovingAvgAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getPipeline().getBucketsPath(),
-          "simple",
-          5,
-          1);
+          searchAggregation.getPipeline().getMovingAverage().getModel(),
+          searchAggregation.getPipeline().getMovingAverage().getWindow(),
+          searchAggregation.getPipeline().getMovingAverage().getPredict(),
+          searchAggregation.getPipeline().getMovingAverage().getAlpha(),
+          searchAggregation.getPipeline().getMovingAverage().getBeta(),
+          searchAggregation.getPipeline().getMovingAverage().getGamma(),
+          searchAggregation.getPipeline().getMovingAverage().getPeriod(),
+          searchAggregation.getPipeline().getMovingAverage().getPad(),
+          searchAggregation.getPipeline().getMovingAverage().getMinimize());
     } else if (searchAggregation.getType().equals(TermsAggBuilder.TYPE)) {
       return new TermsAggBuilder(
           searchAggregation.getName(),
@@ -220,6 +225,19 @@ public class SearchResultUtils {
           .setPipeline(
               KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.newBuilder()
                   .setBucketsPath(movingAvgAggBuilder.getBucketsPath())
+                  .setMovingAverage(
+                      KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                          .MovingAverageAggregation.newBuilder()
+                          .setModel(movingAvgAggBuilder.getModel())
+                          .setWindow(movingAvgAggBuilder.getWindow())
+                          .setPredict(movingAvgAggBuilder.getPredict())
+                          .setAlpha(movingAvgAggBuilder.getAlpha())
+                          .setBeta(movingAvgAggBuilder.getBeta())
+                          .setGamma(movingAvgAggBuilder.getGamma())
+                          .setPeriod(movingAvgAggBuilder.getPeriod())
+                          .setPad(movingAvgAggBuilder.isPad())
+                          .setMinimize(movingAvgAggBuilder.isMinimize())
+                          .build())
                   .build())
           .build();
     } else if (aggBuilder instanceof TermsAggBuilder) {

@@ -92,6 +92,40 @@ message SearchRequest {
     message PipelineAggregation {
       // Bucket path to use for pipeline aggregation
       string buckets_path = 1;
+
+      oneof type {
+        MovingAverageAggregation moving_average = 11;
+      }
+
+      message MovingAverageAggregation {
+        // Moving average model, one of simple/linear/ewma/holt/holt_winters
+        string model = 1;
+
+        // Moving average window, applies to all models
+        int32 window = 2;
+
+        // Number of predictions to return. applies to all models
+        int32 predict = 3;
+
+        // Applies to ewma/holt/holt_winters
+        double alpha = 4;
+
+        // Applies to holt/holt_winters
+        double beta = 5;
+
+        // Applies only to holt_winters
+        double gamma = 6;
+
+        // Applies only to holt_winters
+        int32 period = 7;
+
+        // Indicates if model should be fit to data using cost minimization
+        // Applies to ewma/holt/holt_winters
+        bool minimize = 8;
+
+        // Applies only to holt_winters
+        bool pad = 9;
+      }
     }
   }
 }
