@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.search.aggregations;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Provides common functionality for all aggregations. All aggregations are expected to extend this
@@ -43,20 +44,20 @@ public abstract class AggBuilderBase implements AggBuilder {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof AggBuilderBase)) return false;
 
     AggBuilderBase that = (AggBuilderBase) o;
 
     if (!name.equals(that.name)) return false;
-    if (!metadata.equals(that.metadata)) return false;
-    return subAggregations.equals(that.subAggregations);
+    if (!Objects.equals(metadata, that.metadata)) return false;
+    return Objects.equals(subAggregations, that.subAggregations);
   }
 
   @Override
   public int hashCode() {
     int result = name.hashCode();
-    result = 31 * result + metadata.hashCode();
-    result = 31 * result + subAggregations.hashCode();
+    result = 31 * result + (metadata != null ? metadata.hashCode() : 0);
+    result = 31 * result + (subAggregations != null ? subAggregations.hashCode() : 0);
     return result;
   }
 

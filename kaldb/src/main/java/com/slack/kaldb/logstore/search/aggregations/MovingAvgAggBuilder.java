@@ -119,7 +119,6 @@ public class MovingAvgAggBuilder extends PipelineAggBuilder {
 
     MovingAvgAggBuilder that = (MovingAvgAggBuilder) o;
 
-    // MovingAvgAggBuilder
     if (pad != that.pad) return false;
     if (minimize != that.minimize) return false;
     if (!model.equals(that.model)) return false;
