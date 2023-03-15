@@ -40,7 +40,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-@SuppressWarnings("UnstableApiUsage")
 public class RecoveryTaskCreatorTest {
   private static final long TEST_MAX_MESSAGES_PER_RECOVERY_TASK = 10000;
   private SimpleMeterRegistry meterRegistry;
@@ -519,6 +518,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     final RecoveryTaskMetadata recoveryTask11 =
         new RecoveryTaskMetadata(
@@ -526,6 +526,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset * 2 + 1,
             recoveryStartOffset * 3,
+            LOGS_LUCENE9,
             createdTimeUtc);
     final RecoveryTaskMetadata recoveryTask21 =
         new RecoveryTaskMetadata(
@@ -533,6 +534,7 @@ public class RecoveryTaskCreatorTest {
             partitionId2,
             recoveryStartOffset * 5 + 1,
             recoveryStartOffset * 6,
+            LOGS_LUCENE9,
             createdTimeUtc);
     final RecoveryTaskMetadata recoveryTask22 =
         new RecoveryTaskMetadata(
@@ -540,6 +542,7 @@ public class RecoveryTaskCreatorTest {
             partitionId2,
             recoveryStartOffset * 6 + 1,
             recoveryStartOffset * 7,
+            LOGS_LUCENE9,
             createdTimeUtc);
 
     assertThat(
@@ -703,6 +706,7 @@ public class RecoveryTaskCreatorTest {
             "2",
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
@@ -735,6 +739,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
@@ -749,6 +754,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset * 2 + 1,
             recoveryStartOffset * 3,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
@@ -788,6 +794,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
@@ -832,6 +839,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     final RecoveryTaskMetadata recoveryTask11 =
@@ -840,6 +848,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset * 2 + 1,
             recoveryStartOffset * 3,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
     assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
@@ -885,6 +894,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset,
             recoveryStartOffset * 2,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
     final RecoveryTaskMetadata recoveryTask11 =
@@ -893,6 +903,7 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             recoveryStartOffset * 2 + 1,
             recoveryStartOffset * 3,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
     final RecoveryTaskMetadata recoveryTask2 =
@@ -901,11 +912,17 @@ public class RecoveryTaskCreatorTest {
             "2",
             recoveryStartOffset * 3 + 1,
             recoveryStartOffset * 4,
+            LOGS_LUCENE9,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask2);
     final RecoveryTaskMetadata recoveryTask21 =
         new RecoveryTaskMetadata(
-            recoveryTaskName + "21", "2", recoveryStartOffset * 4 + 1, 50000, createdTimeUtc);
+            recoveryTaskName + "21",
+            "2",
+            recoveryStartOffset * 4 + 1,
+            50000,
+            LOGS_LUCENE9,
+            createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask21);
     assertThat(recoveryTaskStore.listSync())
         .contains(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21);
@@ -1221,7 +1238,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(snapshotMetadataStore.listSync())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
     final RecoveryTaskMetadata recoveryTaskPartition2 =
-        new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, 1000);
+        new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, LOGS_LUCENE9, 1000);
     recoveryTaskStore.createSync(recoveryTaskPartition2);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1650));
