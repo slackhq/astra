@@ -6,10 +6,14 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +84,25 @@ public class OpenSearchAggregationAdapterTest {
   }
 
   @Test
+  public void canSerializeDeserializeInternalPercentiles() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+
+    PercentilesAggBuilder percentilesAggBuilder =
+        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D));
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAggregationAdapter.getCollectorManager(
+            percentilesAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+    InternalAggregation internalAggregation1 =
+        collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
+
+    byte[] serialize = OpenSearchAggregationAdapter.toByteArray(internalAggregation1);
+    InternalAggregation internalAggregation2 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize);
+    assertThat(internalAggregation1).isEqualTo(internalAggregation2);
+  }
+
+  @Test
   public void canSerializeDeserializeInternalUniqueCount() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
@@ -109,6 +132,41 @@ public class OpenSearchAggregationAdapterTest {
         OpenSearchAggregationAdapter.fromByteArray(serialize2);
 
     assertThat(internalAggregation3.toString()).isEqualTo(internalAggregation4.toString());
+  }
+
+  // todo - this may not be needed?
+  @Test
+  public void canSerializeDeserializeMovAverage() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+
+    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+    MovingAvgAggBuilder movingAvgAggBuilder1 =
+        new MovingAvgAggBuilder("2", "_count", "simple", 1, null);
+    DateHistogramAggBuilder dateHistogramAggBuilder1 =
+        new DateHistogramAggBuilder(
+            "1",
+            "service_name",
+            "10s",
+            null,
+            0,
+            "epoch_ms",
+            Map.of(
+                "min",
+                Instant.now().toEpochMilli(),
+                "max",
+                Instant.now().plus(1, ChronoUnit.MINUTES).toEpochMilli()),
+            List.of(movingAvgAggBuilder1));
+
+    CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
+        openSearchAggregationAdapter.getCollectorManager(dateHistogramAggBuilder1, indexSearcher);
+    InternalAggregation internalAggregation1 =
+        collectorManager1.reduce(Collections.singleton(collectorManager1.newCollector()));
+    byte[] serialize = OpenSearchAggregationAdapter.toByteArray(internalAggregation1);
+    InternalAggregation internalAggregation2 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize);
+
+    assertThat(internalAggregation1.toString()).isEqualTo(internalAggregation2.toString());
   }
 
   @Test(expected = IllegalArgumentException.class)

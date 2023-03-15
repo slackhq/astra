@@ -10,6 +10,8 @@ import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -112,6 +114,20 @@ public class SearchResultUtils {
           (Long)
               fromValueProto(
                   searchAggregation.getValueSource().getUniqueCount().getPrecisionThreshold()));
+    } else if (searchAggregation.getType().equals(PercentilesAggBuilder.TYPE)) {
+      return new PercentilesAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
+          searchAggregation.getValueSource().getPercentiles().getPercentilesList());
+    } else if (searchAggregation.getType().equals(MovingAvgAggBuilder.TYPE)) {
+      // todo
+      return new MovingAvgAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getPipeline().getBucketsPath(),
+          "simple",
+          5,
+          1);
     } else if (searchAggregation.getType().equals(TermsAggBuilder.TYPE)) {
       return new TermsAggBuilder(
           searchAggregation.getName(),
@@ -176,6 +192,34 @@ public class SearchResultUtils {
                           .setPrecisionThreshold(
                               toValueProto(uniqueCountAggBuilder.getPrecisionThreshold()))
                           .build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof PercentilesAggBuilder) {
+      PercentilesAggBuilder percentilesAggBuilder = (PercentilesAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(PercentilesAggBuilder.TYPE)
+          .setName(percentilesAggBuilder.getName())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(percentilesAggBuilder.getField())
+                  .setMissing(toValueProto(percentilesAggBuilder.getMissing()))
+                  .setPercentiles(
+                      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                          .PercentilesAggregation.newBuilder()
+                          .addAllPercentiles(percentilesAggBuilder.getPercentiles())
+                          .build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof MovingAvgAggBuilder) {
+      MovingAvgAggBuilder movingAvgAggBuilder = (MovingAvgAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(MovingAvgAggBuilder.TYPE)
+          .setName(movingAvgAggBuilder.getName())
+          .setPipeline(
+              KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.newBuilder()
+                  .setBucketsPath(movingAvgAggBuilder.getBucketsPath())
                   .build())
           .build();
     } else if (aggBuilder instanceof TermsAggBuilder) {

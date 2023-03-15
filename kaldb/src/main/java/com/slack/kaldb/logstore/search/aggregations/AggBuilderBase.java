@@ -39,4 +39,37 @@ public abstract class AggBuilderBase implements AggBuilder {
   public Map<String, Object> getMetadata() {
     return metadata;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    AggBuilderBase that = (AggBuilderBase) o;
+
+    if (!name.equals(that.name)) return false;
+    if (!metadata.equals(that.metadata)) return false;
+    return subAggregations.equals(that.subAggregations);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = name.hashCode();
+    result = 31 * result + metadata.hashCode();
+    result = 31 * result + subAggregations.hashCode();
+    return result;
+  }
+
+  @Override
+  public String toString() {
+    return "AggBuilderBase{"
+        + "name='"
+        + name
+        + '\''
+        + ", metadata="
+        + metadata
+        + ", subAggregations="
+        + subAggregations
+        + '}';
+  }
 }

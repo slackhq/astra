@@ -9,6 +9,8 @@ import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -177,7 +179,35 @@ public class OpenSearchRequest {
                                                       getPrecisionThreshold(uniqueCount)))
                                               .build())
                                       .build());
-
+                        } else if (aggregationObject.equals(PercentilesAggBuilder.TYPE)) {
+                          JsonNode percentiles = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(PercentilesAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(percentiles))
+                                      .setMissing(
+                                          SearchResultUtils.toValueProto(getMissing(percentiles)))
+                                      .setPercentiles(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.PercentilesAggregation
+                                              .newBuilder()
+                                              .addAllPercentiles(getPercentiles(percentiles))
+                                              .build())
+                                      .build());
+                        } else if (aggregationObject.equals(MovingAvgAggBuilder.TYPE)) {
+                          JsonNode movAvg = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(MovingAvgAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(movAvg))
+                                      .build());
+                          // todo - model, window, etc.
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -202,6 +232,10 @@ public class OpenSearchRequest {
     return agg.get("field").asText();
   }
 
+  private static String getBucketsPath(JsonNode pipelineAgg) {
+    return pipelineAgg.get("buckets_path").asText();
+  }
+
   private static Object getMissing(JsonNode agg) {
     // we can return any object here and it will correctly serialize, but Grafana only ever seems to
     // issue these as strings
@@ -216,6 +250,12 @@ public class OpenSearchRequest {
       return uniqueCount.get("precision_threshold").asLong();
     }
     return null;
+  }
+
+  private static List<Double> getPercentiles(JsonNode percentiles) {
+    List<Double> percentileList = new ArrayList<>();
+    percentiles.get("percents").forEach(percentile -> percentileList.add(percentile.asDouble()));
+    return percentileList;
   }
 
   private static long getDateHistogramMinDocCount(JsonNode dateHistogram) {

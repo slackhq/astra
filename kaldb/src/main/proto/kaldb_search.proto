@@ -33,6 +33,9 @@ message SearchRequest {
     // For aggregations operating on a field
     ValueSourceAggregation value_source = 5;
 
+    // For aggregations operating on another bucket path
+    PipelineAggregation pipeline = 6;
+
     message ValueSourceAggregation {
       // Field name to use in aggregation
       string field = 1;
@@ -44,6 +47,7 @@ message SearchRequest {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
         UniqueCountAggregation unique_count = 16;
+        PercentilesAggregation percentiles = 17;
       }
 
       // Unique fields specific to the date histogram aggregation request
@@ -78,6 +82,16 @@ message SearchRequest {
         // Precision threshold for cardinality
         Value precision_threshold = 1;
       }
+
+      // Unique fields specific to the percentiles aggregation request
+      message PercentilesAggregation {
+        repeated double percentiles = 1;
+      }
+    }
+
+    message PipelineAggregation {
+      // Bucket path to use for pipeline aggregation
+      string buckets_path = 1;
     }
   }
 }
