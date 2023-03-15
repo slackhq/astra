@@ -494,6 +494,11 @@ public class OpenSearchAggregationAdapter {
     }
   }
 
+  /**
+   * Given an AggBuilder, will invoke the appropriate pipeline aggregation builder method to return
+   * the abstract pipeline aggregation builder. This method is expected to be invoked from within
+   * the bucket aggregation builders to compose a nested aggregation tree.@return
+   */
   protected static AbstractPipelineAggregationBuilder<?> getPipelineAggregationBuilder(
       AggBuilder aggBuilder) {
     if (aggBuilder.getType().equals(MovingAvgAggBuilder.TYPE)) {
@@ -504,6 +509,10 @@ public class OpenSearchAggregationAdapter {
     }
   }
 
+  /**
+   * Determines if a given aggregation is of pipeline type, to allow for calling the appropriate
+   * subAggregation builder step
+   */
   protected static boolean isPipelineAggregation(AggBuilder aggBuilder) {
     List<String> pipelineAggregators = List.of(MovingAvgAggBuilder.TYPE);
     return pipelineAggregators.contains(aggBuilder.getType());
