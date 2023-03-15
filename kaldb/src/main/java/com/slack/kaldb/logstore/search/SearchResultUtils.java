@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -35,7 +36,9 @@ public class SearchResultUtils {
   }
 
   public static Object fromValueProto(KaldbSearch.Value value) {
-    if (value.hasIntValue()) {
+    if (value.hasNullValue()) {
+      return null;
+    } else if (value.hasIntValue()) {
       return value.getIntValue();
     } else if (value.hasLongValue()) {
       return value.getLongValue();
@@ -63,7 +66,7 @@ public class SearchResultUtils {
     KaldbSearch.Value.Builder valueBuilder = KaldbSearch.Value.newBuilder();
 
     if (object == null) {
-      // return an empty valueBuilder
+      valueBuilder.setNullValue(KaldbSearch.NullValue.NULL_VALUE);
     } else if (object instanceof Integer) {
       valueBuilder.setIntValue((Integer) object);
     } else if (object instanceof Long) {
@@ -101,6 +104,14 @@ public class SearchResultUtils {
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()));
+    } else if (searchAggregation.getType().equals(UniqueCountAggBuilder.TYPE)) {
+      return new UniqueCountAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
+          (Long)
+              fromValueProto(
+                  searchAggregation.getValueSource().getUniqueCount().getPrecisionThreshold()));
     } else if (searchAggregation.getType().equals(TermsAggBuilder.TYPE)) {
       return new TermsAggBuilder(
           searchAggregation.getName(),
@@ -139,24 +150,33 @@ public class SearchResultUtils {
     if (aggBuilder instanceof AvgAggBuilder) {
       AvgAggBuilder avgAggregation = (AvgAggBuilder) aggBuilder;
 
-      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
-          valueSourceAggregationBuilder =
-              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
-                  .setField(avgAggregation.getField());
-      if (avgAggregation.getMissing() != null) {
-        valueSourceAggregationBuilder.setMissing(toValueProto(avgAggregation.getMissing()));
-      }
-
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(AvgAggBuilder.TYPE)
           .setName(avgAggregation.getName())
-          .addAllSubAggregations(
-              avgAggregation
-                  .getSubAggregations()
-                  .stream()
-                  .map(SearchResultUtils::toSearchAggregationProto)
-                  .collect(Collectors.toList()))
-          .setValueSource(valueSourceAggregationBuilder.build())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(avgAggregation.getField())
+                  .setMissing(toValueProto(avgAggregation.getMissing()))
+                  .build())
+          .build();
+
+    } else if (aggBuilder instanceof UniqueCountAggBuilder) {
+      UniqueCountAggBuilder uniqueCountAggBuilder = (UniqueCountAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(UniqueCountAggBuilder.TYPE)
+          .setName(uniqueCountAggBuilder.getName())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(uniqueCountAggBuilder.getField())
+                  .setMissing(toValueProto(uniqueCountAggBuilder.getMissing()))
+                  .setUniqueCount(
+                      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                          .UniqueCountAggregation.newBuilder()
+                          .setPrecisionThreshold(
+                              toValueProto(uniqueCountAggBuilder.getPrecisionThreshold()))
+                          .build())
+                  .build())
           .build();
     } else if (aggBuilder instanceof TermsAggBuilder) {
       TermsAggBuilder termsAggBuilder = (TermsAggBuilder) aggBuilder;

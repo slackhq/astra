@@ -43,6 +43,7 @@ message SearchRequest {
       oneof type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
+        UniqueCountAggregation unique_count = 16;
       }
 
       // Unique fields specific to the date histogram aggregation request
@@ -71,6 +72,12 @@ message SearchRequest {
         // Minimum documents per bucket required
         int64 min_doc_count = 3;
       }
+
+      // Unique fields specific to the unique count (cardinality) aggregation request
+      message UniqueCountAggregation {
+        // Precision threshold for cardinality
+        Value precision_threshold = 1;
+      }
     }
   }
 }
@@ -97,6 +104,7 @@ message Value {
     bool bool_value = 5;
     Struct struct_value = 6;
     ListValue list_value = 7;
+    NullValue null_value = 8;
   }
 }
 
@@ -107,6 +115,11 @@ message Struct {
 message ListValue {
   repeated Value values = 1;
 }
+
+enum NullValue {
+  NULL_VALUE = 0;
+}
+
 
 service KaldbService {
   rpc Search (SearchRequest) returns (SearchResult) {}

@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -155,6 +156,28 @@ public class OpenSearchRequest {
                                       .setField(getFieldName(avg))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
                                       .build());
+                        } else if (aggregationObject.equals(UniqueCountAggBuilder.TYPE)) {
+                          JsonNode uniqueCount = aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(UniqueCountAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(uniqueCount))
+                                      .setMissing(
+                                          SearchResultUtils.toValueProto(getMissing(uniqueCount)))
+                                      .setUniqueCount(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.UniqueCountAggregation
+                                              .newBuilder()
+                                              .setPrecisionThreshold(
+                                                  SearchResultUtils.toValueProto(
+                                                      getPrecisionThreshold(uniqueCount)))
+                                              .build())
+                                      .build());
+
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -184,6 +207,13 @@ public class OpenSearchRequest {
     // issue these as strings
     if (agg.has("missing")) {
       return agg.get("missing").asText();
+    }
+    return null;
+  }
+
+  private static Long getPrecisionThreshold(JsonNode uniqueCount) {
+    if (uniqueCount.has("precision_threshold")) {
+      return uniqueCount.get("precision_threshold").asLong();
     }
     return null;
   }

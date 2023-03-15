@@ -7,18 +7,21 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
+import org.apache.lucene.search.IndexSearcher;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
+import org.opensearch.search.aggregations.metrics.InternalCardinality;
 
 public class OpenSearchAggregationAdapterTest {
 
@@ -76,6 +79,38 @@ public class OpenSearchAggregationAdapterTest {
     assertThat(internalAggregation1).isEqualTo(internalAggregation2);
   }
 
+  @Test
+  public void canSerializeDeserializeInternalUniqueCount() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+
+    IndexSearcher indexSearcher = logStoreAndSearcherRule.logStore.getSearcherManager().acquire();
+
+    UniqueCountAggBuilder uniqueCountAggBuilder1 =
+        new UniqueCountAggBuilder("1", "service_name", "3", null);
+    CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
+        openSearchAggregationAdapter.getCollectorManager(uniqueCountAggBuilder1, indexSearcher);
+    InternalAggregation internalAggregation1 =
+        collectorManager1.reduce(Collections.singleton(collectorManager1.newCollector()));
+    byte[] serialize = OpenSearchAggregationAdapter.toByteArray(internalAggregation1);
+    InternalAggregation internalAggregation2 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize);
+
+    assertThat(internalAggregation1.toString()).isEqualTo(internalAggregation2.toString());
+
+    UniqueCountAggBuilder uniqueCountAggBuilder3 =
+        new UniqueCountAggBuilder("1", "service_name", "3", 3L);
+    CollectorManager<Aggregator, InternalAggregation> collectorManager3 =
+        openSearchAggregationAdapter.getCollectorManager(uniqueCountAggBuilder3, indexSearcher);
+    InternalAggregation internalAggregation3 =
+        collectorManager3.reduce(Collections.singleton(collectorManager3.newCollector()));
+    byte[] serialize2 = OpenSearchAggregationAdapter.toByteArray(internalAggregation3);
+    InternalAggregation internalAggregation4 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize2);
+
+    assertThat(internalAggregation3.toString()).isEqualTo(internalAggregation4.toString());
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void safelyHandlesUnknownAggregations() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
@@ -131,6 +166,26 @@ public class OpenSearchAggregationAdapterTest {
     InternalAvg internalAvg = (InternalAvg) avgAggregator.buildTopLevel();
 
     assertThat(internalAvg.getName()).isEqualTo("foo");
+
+    // todo - we don't have access to the package local methods for extra asserts - use reflection?
+  }
+
+  @Test
+  public void canBuildValidUniqueCountAggregation() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+    UniqueCountAggBuilder uniqueCountAggBuilder =
+        new UniqueCountAggBuilder("foo", "service_name", "1", 0L);
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAggregationAdapter.getCollectorManager(
+            uniqueCountAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+
+    Aggregator uniqueCountAggregator = collectorManager.newCollector();
+    InternalCardinality internalUniqueCount =
+        (InternalCardinality) uniqueCountAggregator.buildTopLevel();
+
+    assertThat(internalUniqueCount.getName()).isEqualTo("foo");
+    assertThat(internalUniqueCount.getValue()).isEqualTo(0);
 
     // todo - we don't have access to the package local methods for extra asserts - use reflection?
   }
