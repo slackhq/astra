@@ -24,6 +24,7 @@ public class MessageUtil {
   public static final String TEST_SOURCE_LONG_PROPERTY = "longproperty";
   public static final String TEST_SOURCE_DOUBLE_PROPERTY = "doubleproperty";
   public static final String TEST_SOURCE_FLOAT_PROPERTY = "floatproperty";
+  public static final String TEST_SOURCE_STRING_PROPERTY = "stringproperty";
 
   public static String getCurrentLogDate() {
     return Instant.now().toString();
@@ -53,6 +54,7 @@ public class MessageUtil {
     sourceFieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     sourceFieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     sourceFieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
+    sourceFieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
     fieldMap.put("source", sourceFieldMap);
 
     return JsonUtil.writeAsString(fieldMap);
@@ -68,6 +70,7 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
+    fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
     return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
   }
 
@@ -80,6 +83,7 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
+    fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
 
     LogWireMessage wireMsg =
         new LogWireMessage(indexName, TEST_MESSAGE_TYPE, Integer.toString(i), fieldMap);

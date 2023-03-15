@@ -43,8 +43,8 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(19);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(21);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
@@ -99,8 +99,8 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(18);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(20);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
