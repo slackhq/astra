@@ -1,5 +1,6 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -19,7 +20,8 @@ public class RecoveryTaskMetadataSerializerTest {
     long createdTimeEpochMs = Instant.now().toEpochMilli();
 
     RecoveryTaskMetadata recoveryTaskMetadata =
-        new RecoveryTaskMetadata(name, partitionId, startOffset, endOffset, createdTimeEpochMs);
+        new RecoveryTaskMetadata(
+            name, partitionId, startOffset, endOffset, LOGS_LUCENE9, createdTimeEpochMs);
 
     String serializedRecoveryTaskMetadata = serDe.toJsonStr(recoveryTaskMetadata);
     assertThat(serializedRecoveryTaskMetadata).isNotEmpty();
@@ -32,6 +34,7 @@ public class RecoveryTaskMetadataSerializerTest {
     assertThat(deserializedRecoveryTaskMetadata.partitionId).isEqualTo(partitionId);
     assertThat(deserializedRecoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(deserializedRecoveryTaskMetadata.endOffset).isEqualTo(endOffset);
+    assertThat(deserializedRecoveryTaskMetadata.indexType).isEqualTo(LOGS_LUCENE9);
     assertThat(deserializedRecoveryTaskMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
   }
 

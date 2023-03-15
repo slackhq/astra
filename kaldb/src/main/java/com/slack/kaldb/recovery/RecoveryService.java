@@ -261,6 +261,7 @@ public class RecoveryService extends AbstractIdleService {
               recoveryTaskMetadata.partitionId,
               partitionOffsets.startOffset,
               partitionOffsets.endOffset,
+              recoveryTaskMetadata.indexType,
               recoveryTaskMetadata.createdTimeEpochMs);
 
       if (partitionOffsets.startOffset != recoveryTaskMetadata.startOffset

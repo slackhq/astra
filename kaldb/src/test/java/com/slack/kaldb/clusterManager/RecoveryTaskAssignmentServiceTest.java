@@ -1,5 +1,6 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -177,7 +178,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -228,7 +229,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     recoveryNodeMetadataStore.create(
@@ -370,7 +371,7 @@ public class RecoveryTaskAssignmentServiceTest {
 
     RecoveryTaskMetadata newTask =
         new RecoveryTaskMetadata(
-            UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli());
+            UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.create(newTask);
 
     RecoveryTaskMetadata oldTask =
@@ -379,6 +380,7 @@ public class RecoveryTaskAssignmentServiceTest {
             "1",
             0,
             1,
+            LOGS_LUCENE9,
             Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
     recoveryTaskMetadataStore.create(oldTask);
 
@@ -451,7 +453,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -556,7 +558,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -652,7 +654,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     doCallRealMethod()
@@ -752,7 +754,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
@@ -857,7 +859,7 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(), "1", 0, 1, LOGS_LUCENE9, Instant.now().toEpochMilli()));
     }
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
 
