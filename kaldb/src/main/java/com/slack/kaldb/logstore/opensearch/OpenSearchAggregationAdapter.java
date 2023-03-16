@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -68,7 +69,9 @@ import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.bucket.terms.DoubleTerms;
 import org.opensearch.search.aggregations.bucket.terms.LongTerms;
@@ -119,6 +122,14 @@ public class OpenSearchAggregationAdapter {
                   InternalAggregation.class,
                   DateHistogramAggregationBuilder.NAME,
                   InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  HistogramAggregationBuilder.NAME,
+                  HistogramAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  HistogramAggregationBuilder.NAME,
+                  InternalHistogram::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   TermsAggregationBuilder.NAME,
@@ -356,6 +367,7 @@ public class OpenSearchAggregationAdapter {
 
     // todo - add additional aggregations as needed
     DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -479,6 +491,8 @@ public class OpenSearchAggregationAdapter {
   public static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder) {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(HistogramAggBuilder.TYPE)) {
+      return getHistogramAggregationBuilder((HistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
@@ -765,5 +779,35 @@ public class OpenSearchAggregationAdapter {
     }
 
     return dateHistogramAggregationBuilder;
+  }
+
+  /**
+   * Given an HistogramAggBuilder returns a HistogramAggregationBuilder to be used in building
+   * aggregation tree
+   */
+  protected static HistogramAggregationBuilder getHistogramAggregationBuilder(
+      HistogramAggBuilder builder) {
+
+    // todo - this is due to incorrect schema issues
+    String fieldname = builder.getField();
+    if (fieldname.equals("@timestamp")) {
+      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
+    }
+
+    HistogramAggregationBuilder histogramAggregationBuilder =
+        new HistogramAggregationBuilder(builder.getName())
+            .field(fieldname)
+            .minDocCount(builder.getMinDocCount())
+            .interval(builder.getIntervalDouble());
+
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      if (isPipelineAggregation(subAggregation)) {
+        histogramAggregationBuilder.subAggregation(getPipelineAggregationBuilder(subAggregation));
+      } else {
+        histogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      }
+    }
+
+    return histogramAggregationBuilder;
   }
 }
