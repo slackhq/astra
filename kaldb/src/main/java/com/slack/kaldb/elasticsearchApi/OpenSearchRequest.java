@@ -9,6 +9,7 @@ import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -128,6 +129,25 @@ public class OpenSearchRequest {
                                                   getDateHistogramExtendedBounds(dateHistogram))
                                               .setFormat(getDateHistogramFormat(dateHistogram))
                                               .setOffset(getDateHistogramOffset(dateHistogram))
+                                              .build())
+                                      .build());
+                        } else if (aggregationObject.equals(HistogramAggBuilder.TYPE)) {
+                          JsonNode histogram = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(HistogramAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(histogram))
+                                      .setHistogram(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.HistogramAggregation
+                                              .newBuilder()
+                                              // Using the getters from DateHistogram
+                                              .setMinDocCount(
+                                                  getDateHistogramMinDocCount(histogram))
+                                              .setInterval(getDateHistogramInterval(histogram))
                                               .build())
                                       .build());
                         } else if (aggregationObject.equals(TermsAggBuilder.TYPE)) {
