@@ -26,6 +26,7 @@ public class RecoveryTaskMetadataTest {
     assertThat(recoveryTaskMetadata.startOffset).isEqualTo(startOffset);
     assertThat(recoveryTaskMetadata.endOffset).isEqualTo(endOffset);
     assertThat(recoveryTaskMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
+    assertThat(recoveryTaskMetadata.indexType).isEqualTo(IndexType.LOGS_LUCENE9);
   }
 
   @Test
@@ -56,6 +57,9 @@ public class RecoveryTaskMetadataTest {
     RecoveryTaskMetadata recoveryTaskMetadataE =
         new RecoveryTaskMetadata(
             name, partitionId, startOffset, 8, IndexType.LOGS_LUCENE9, createdTimeEpochMs);
+    RecoveryTaskMetadata recoveryTaskMetadataF =
+            new RecoveryTaskMetadata(
+                    name, partitionId, startOffset, 8, IndexType.UNRECOGNIZED, createdTimeEpochMs);
 
     // TODO: Add checks with different index type
 
@@ -63,11 +67,13 @@ public class RecoveryTaskMetadataTest {
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataC);
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataD);
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataE);
+    assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataF);
 
     assertThat(recoveryTaskMetadataA.hashCode()).isEqualTo(recoveryTaskMetadataB.hashCode());
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataC.hashCode());
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataD.hashCode());
     assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataE.hashCode());
+    assertThat(recoveryTaskMetadataA.hashCode()).isNotEqualTo(recoveryTaskMetadataF.hashCode());
   }
 
   @Test
@@ -108,7 +114,15 @@ public class RecoveryTaskMetadataTest {
                     Instant.now().toEpochMilli() - 10,
                     IndexType.LOGS_LUCENE9,
                     Instant.now().toEpochMilli()));
-
-    // TODO: add additional checks for index type.
+    assertThatIllegalArgumentException()
+            .isThrownBy(
+                    () ->
+                            new RecoveryTaskMetadata(
+                                    "name",
+                                    "partitionId",
+                                    Instant.now().toEpochMilli() + 10,
+                                    Instant.now().toEpochMilli() - 10,
+                                    null,
+                                    Instant.now().toEpochMilli()));
   }
 }
