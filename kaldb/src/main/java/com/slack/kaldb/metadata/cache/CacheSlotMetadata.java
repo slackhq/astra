@@ -2,9 +2,9 @@ package com.slack.kaldb.metadata.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -42,25 +42,31 @@ public class CacheSlotMetadata extends KaldbMetadata {
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
     this.updatedTimeEpochMs = updatedTimeEpochMs;
-    this.supportedIndexTypes = supportedIndexTypes;
+    this.supportedIndexTypes = Collections.unmodifiableList(supportedIndexTypes);
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof CacheSlotMetadata)) return false;
     if (!super.equals(o)) return false;
+
     CacheSlotMetadata that = (CacheSlotMetadata) o;
-    return updatedTimeEpochMs == that.updatedTimeEpochMs
-        && cacheSlotState == that.cacheSlotState
-        && Objects.equal(replicaId, that.replicaId)
-        && Objects.equal(supportedIndexTypes, that.supportedIndexTypes);
+
+    if (updatedTimeEpochMs != that.updatedTimeEpochMs) return false;
+    if (cacheSlotState != that.cacheSlotState) return false;
+    if (!replicaId.equals(that.replicaId)) return false;
+    return supportedIndexTypes.equals(that.supportedIndexTypes);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
-        super.hashCode(), cacheSlotState, replicaId, updatedTimeEpochMs, supportedIndexTypes);
+    int result = super.hashCode();
+    result = 31 * result + cacheSlotState.hashCode();
+    result = 31 * result + replicaId.hashCode();
+    result = 31 * result + (int) (updatedTimeEpochMs ^ (updatedTimeEpochMs >>> 32));
+    result = 31 * result + supportedIndexTypes.hashCode();
+    return result;
   }
 
   @Override
