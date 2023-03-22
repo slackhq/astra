@@ -106,9 +106,6 @@ message RecoveryNodeMetadata {
 
   // Last updated timestamp
   int64 updated_time_epoch_ms = 4;
-
-  // Index types supported by the recovery node.
-  repeated IndexType supported_index_types = 5;
 }
 
 message RecoveryTaskMetadata {
