@@ -58,8 +58,8 @@ public class RecoveryTaskMetadataTest {
         new RecoveryTaskMetadata(
             name, partitionId, startOffset, 8, IndexType.LOGS_LUCENE9, createdTimeEpochMs);
     RecoveryTaskMetadata recoveryTaskMetadataF =
-            new RecoveryTaskMetadata(
-                    name, partitionId, startOffset, 8, IndexType.UNRECOGNIZED, createdTimeEpochMs);
+        new RecoveryTaskMetadata(
+            name, partitionId, startOffset, 8, IndexType.UNRECOGNIZED, createdTimeEpochMs);
 
     // TODO: Add checks with different index type
 
@@ -115,14 +115,14 @@ public class RecoveryTaskMetadataTest {
                     IndexType.LOGS_LUCENE9,
                     Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
-            .isThrownBy(
-                    () ->
-                            new RecoveryTaskMetadata(
-                                    "name",
-                                    "partitionId",
-                                    Instant.now().toEpochMilli() + 10,
-                                    Instant.now().toEpochMilli() - 10,
-                                    null,
-                                    Instant.now().toEpochMilli()));
+        .isThrownBy(
+            () ->
+                new RecoveryTaskMetadata(
+                    "name",
+                    "partitionId",
+                    Instant.now().toEpochMilli() + 10,
+                    Instant.now().toEpochMilli() - 10,
+                    null,
+                    Instant.now().toEpochMilli()));
   }
 }
