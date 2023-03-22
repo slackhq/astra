@@ -2,9 +2,9 @@ package com.slack.kaldb.metadata.recovery;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.base.Objects;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
+import java.util.Objects;
 
 /**
  * The recovery task metadata contains all information required to back-fill messages that have been
@@ -49,20 +49,27 @@ public class RecoveryTaskMetadata extends KaldbMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof RecoveryTaskMetadata)) return false;
     if (!super.equals(o)) return false;
+
     RecoveryTaskMetadata that = (RecoveryTaskMetadata) o;
-    return startOffset == that.startOffset
-        && endOffset == that.endOffset
-        && createdTimeEpochMs == that.createdTimeEpochMs
-        && Objects.equal(partitionId, that.partitionId)
-        && indexType == that.indexType;
+
+    if (startOffset != that.startOffset) return false;
+    if (endOffset != that.endOffset) return false;
+    if (createdTimeEpochMs != that.createdTimeEpochMs) return false;
+    if (!Objects.equals(partitionId, that.partitionId)) return false;
+    return indexType == that.indexType;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
-        super.hashCode(), partitionId, startOffset, endOffset, createdTimeEpochMs, indexType);
+    int result = super.hashCode();
+    result = 31 * result + (partitionId != null ? partitionId.hashCode() : 0);
+    result = 31 * result + (int) (startOffset ^ (startOffset >>> 32));
+    result = 31 * result + (int) (endOffset ^ (endOffset >>> 32));
+    result = 31 * result + (int) (createdTimeEpochMs ^ (createdTimeEpochMs >>> 32));
+    result = 31 * result + (indexType != null ? indexType.hashCode() : 0);
+    return result;
   }
 
   @Override
