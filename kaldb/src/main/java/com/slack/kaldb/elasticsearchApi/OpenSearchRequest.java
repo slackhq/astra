@@ -9,6 +9,8 @@ import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -177,7 +179,69 @@ public class OpenSearchRequest {
                                                       getPrecisionThreshold(uniqueCount)))
                                               .build())
                                       .build());
+                        } else if (aggregationObject.equals(PercentilesAggBuilder.TYPE)) {
+                          JsonNode percentiles = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(PercentilesAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(percentiles))
+                                      .setMissing(
+                                          SearchResultUtils.toValueProto(getMissing(percentiles)))
+                                      .setPercentiles(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.PercentilesAggregation
+                                              .newBuilder()
+                                              .addAllPercentiles(getPercentiles(percentiles))
+                                              .build())
+                                      .build());
+                        } else if (aggregationObject.equals(MovingAvgAggBuilder.TYPE)) {
+                          JsonNode movAvg = aggs.get(aggregationName).get(aggregationObject);
+                          KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                  .MovingAverageAggregation.Builder
+                              movingAvgAggBuilder =
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .MovingAverageAggregation.newBuilder()
+                                      .setModel(getMovAvgModel(movAvg))
+                                      .setMinimize(getMovAvgMinimize(movAvg))
+                                      .setPad(getMovAvgPad(movAvg));
 
+                          Integer window = getMovAvgWindow(movAvg);
+                          if (window != null) {
+                            movingAvgAggBuilder.setWindow(window);
+                          }
+                          Integer predict = getMovAvgPredict(movAvg);
+                          if (predict != null) {
+                            movingAvgAggBuilder.setPredict(predict);
+                          }
+                          Double alpha = getMovAvgAlpha(movAvg);
+                          if (alpha != null) {
+                            movingAvgAggBuilder.setAlpha(alpha);
+                          }
+                          Double beta = getMovAvgBeta(movAvg);
+                          if (beta != null) {
+                            movingAvgAggBuilder.setBeta(beta);
+                          }
+                          Double gamma = getMovAvgGamma(movAvg);
+                          if (gamma != null) {
+                            movingAvgAggBuilder.setGamma(gamma);
+                          }
+                          Integer period = getMovAvgPeriod(movAvg);
+                          if (period != null) {
+                            movingAvgAggBuilder.setPeriod(period);
+                          }
+
+                          aggBuilder
+                              .setType(MovingAvgAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(movAvg))
+                                      .setMovingAverage(movingAvgAggBuilder.build())
+                                      .build());
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -202,6 +266,10 @@ public class OpenSearchRequest {
     return agg.get("field").asText();
   }
 
+  private static String getBucketsPath(JsonNode pipelineAgg) {
+    return pipelineAgg.get("buckets_path").asText();
+  }
+
   private static Object getMissing(JsonNode agg) {
     // we can return any object here and it will correctly serialize, but Grafana only ever seems to
     // issue these as strings
@@ -216,6 +284,12 @@ public class OpenSearchRequest {
       return uniqueCount.get("precision_threshold").asLong();
     }
     return null;
+  }
+
+  private static List<Double> getPercentiles(JsonNode percentiles) {
+    List<Double> percentileList = new ArrayList<>();
+    percentiles.get("percents").forEach(percentile -> percentileList.add(percentile.asDouble()));
+    return percentileList;
   }
 
   private static long getDateHistogramMinDocCount(JsonNode dateHistogram) {
@@ -243,6 +317,66 @@ public class OpenSearchRequest {
       return dateHistogram.get("offset").asText();
     }
     return "";
+  }
+
+  private static String getMovAvgModel(JsonNode movingAverage) {
+    return movingAverage.get("model").asText();
+  }
+
+  private static Integer getMovAvgWindow(JsonNode movingAverage) {
+    if (movingAverage.has("window")) {
+      return movingAverage.get("window").asInt();
+    }
+    return null;
+  }
+
+  private static Integer getMovAvgPredict(JsonNode movingAverage) {
+    if (movingAverage.has("predict")) {
+      return movingAverage.get("predict").asInt();
+    }
+    return null;
+  }
+
+  private static Double getMovAvgAlpha(JsonNode movingAverage) {
+    if (movingAverage.has("settings") && movingAverage.get("settings").has("alpha")) {
+      return movingAverage.get("settings").get("alpha").asDouble();
+    }
+    return null;
+  }
+
+  private static Double getMovAvgBeta(JsonNode movingAverage) {
+    if (movingAverage.has("settings") && movingAverage.get("settings").has("beta")) {
+      return movingAverage.get("settings").get("beta").asDouble();
+    }
+    return null;
+  }
+
+  private static Double getMovAvgGamma(JsonNode movingAverage) {
+    if (movingAverage.has("settings") && movingAverage.get("settings").has("gamma")) {
+      return movingAverage.get("settings").get("gamma").asDouble();
+    }
+    return null;
+  }
+
+  private static Integer getMovAvgPeriod(JsonNode movingAverage) {
+    if (movingAverage.has("settings") && movingAverage.get("settings").has("period")) {
+      return movingAverage.get("settings").get("period").asInt();
+    }
+    return null;
+  }
+
+  private static boolean getMovAvgMinimize(JsonNode movingAverage) {
+    if (movingAverage.has("minimize")) {
+      return movingAverage.get("minimize").asBoolean();
+    }
+    return false;
+  }
+
+  private static boolean getMovAvgPad(JsonNode movingAverage) {
+    if (movingAverage.has("settings") && movingAverage.get("settings").has("pad")) {
+      return movingAverage.get("settings").get("pad").asBoolean();
+    }
+    return false;
   }
 
   private static int getSize(JsonNode agg) {

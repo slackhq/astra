@@ -98,6 +98,30 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testPercentiles() throws Exception {
+    String rawRequest = getRawQueryString("percentiles");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation percentileAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(percentileAggBuilder.getType()).isEqualTo("percentiles");
+    assertThat(percentileAggBuilder.getName()).isEqualTo("5");
+    assertThat(percentileAggBuilder.getValueSource().getField()).isEqualTo("service_name");
+    assertThat(percentileAggBuilder.getValueSource().getMissing().hasNullValue()).isTrue();
+    assertThat(percentileAggBuilder.getValueSource().getPercentiles().getPercentilesList())
+        .containsExactly(25D, 50D, 75D, 95D, 99D);
+  }
+
+  @Test
   public void testHistogramWithNestedAvg() throws Exception {
     String rawRequest = getRawQueryString("nested_datehistogram_avg");
 
@@ -128,5 +152,29 @@ public class OpenSearchRequestTest {
         parsedRequestList.get(0).getAggregations().getSubAggregations(0);
     assertThat(avgAggBuilder.getName()).isEqualTo("3");
     assertThat(avgAggBuilder.getValueSource().getField()).isEqualTo("duration_ms");
+  }
+
+  @Test
+  public void testDateHistogramWithNestedMovingAvg() throws IOException {
+    String rawRequest = getRawQueryString("datehistogram_movavg");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+
+    // todo - more asserts
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+    KaldbSearch.SearchRequest.SearchAggregation movAvgAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(movAvgAggBuilder.getName()).isEqualTo("3");
+    assertThat(movAvgAggBuilder.getType()).isEqualTo("moving_avg");
+    assertThat(movAvgAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
   }
 }

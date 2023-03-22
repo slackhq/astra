@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -76,6 +77,19 @@ public class SearchResultUtilsTest {
         (UniqueCountAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(uniqueCountAggBuilder1).isEqualTo(uniqueCountAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertPercentilesToFromProto() {
+    PercentilesAggBuilder percentilesAggBuilder1 =
+        new PercentilesAggBuilder("foo", "service_name", "2", List.of(99D, 100D));
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(percentilesAggBuilder1);
+    PercentilesAggBuilder percentilesAggBuilder2 =
+        (PercentilesAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(percentilesAggBuilder1).isEqualTo(percentilesAggBuilder2);
   }
 
   @Test

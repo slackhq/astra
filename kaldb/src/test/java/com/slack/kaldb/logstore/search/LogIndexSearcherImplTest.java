@@ -15,7 +15,9 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -32,6 +34,7 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
@@ -453,6 +456,93 @@ public class LogIndexSearcherImplTest {
     assertThat(bucketKeys.contains("String-3")).isTrue();
     assertThat(bucketKeys.contains("String-4")).isTrue();
     assertThat(bucketKeys.contains("String-5")).isTrue();
+  }
+
+  @Test
+  public void testPipelineAggregation() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchQuery query =
+        new SearchQuery(
+            TEST_DATASET_NAME,
+            "",
+            1593365471000L,
+            1593365471000L + 5000L,
+            1000,
+            new DateHistogramAggBuilder(
+                "histo",
+                "@timestamp",
+                "1s",
+                null,
+                0,
+                "epoch_ms",
+                Map.of("min", 1593365471000L, "max", 1593365471000L + 5000L),
+                List.of(
+                    new AvgAggBuilder("avgTimestamp", "@timestamp", null),
+                    new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
+            List.of());
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            query.dataset,
+            query.queryStr,
+            query.startTimeEpochMs,
+            query.endTimeEpochMs,
+            query.howMany,
+            query.aggBuilder);
+
+    SearchResultAggregatorImpl<LogMessage> aggregator = new SearchResultAggregatorImpl<>(query);
+    SearchResult<LogMessage> allIndexItemsFinal =
+        aggregator.aggregate(List.of(allIndexItems), true);
+    InternalDateHistogram dateHistogram =
+        (InternalDateHistogram) allIndexItemsFinal.internalAggregation;
+
+    assertThat(dateHistogram.getBuckets().size()).isEqualTo(8);
+    // we collect to a set here, because opensearch doubles up the pipeline aggregators for some
+    // reason
+    assertThat(
+            dateHistogram
+                .getBuckets()
+                .get(0)
+                .getAggregations()
+                .asList()
+                .stream()
+                .map(Aggregation::getName)
+                .collect(Collectors.toSet()))
+        .containsExactly("avgTimestamp");
+    for (int i = 1; i < 6; i++) {
+      assertThat(
+              dateHistogram
+                  .getBuckets()
+                  .get(i)
+                  .getAggregations()
+                  .asList()
+                  .stream()
+                  .map(Aggregation::getName)
+                  .collect(Collectors.toSet()))
+          .containsExactly("avgTimestamp", "movAvgCount");
+    }
+    assertThat(
+            dateHistogram
+                .getBuckets()
+                .get(6)
+                .getAggregations()
+                .asList()
+                .stream()
+                .map(Aggregation::getName)
+                .collect(Collectors.toSet()))
+        .containsExactly("movAvgCount");
+    assertThat(
+            dateHistogram
+                .getBuckets()
+                .get(7)
+                .getAggregations()
+                .asList()
+                .stream()
+                .map(Aggregation::getName)
+                .collect(Collectors.toSet()))
+        .containsExactly("movAvgCount");
   }
 
   @Test

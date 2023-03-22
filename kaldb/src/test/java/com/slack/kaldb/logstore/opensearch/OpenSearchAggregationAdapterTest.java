@@ -6,6 +6,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
@@ -76,6 +77,25 @@ public class OpenSearchAggregationAdapterTest {
     InternalAggregation internalAggregation2 =
         OpenSearchAggregationAdapter.fromByteArray(serialize);
 
+    assertThat(internalAggregation1).isEqualTo(internalAggregation2);
+  }
+
+  @Test
+  public void canSerializeDeserializeInternalPercentiles() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+
+    PercentilesAggBuilder percentilesAggBuilder =
+        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D));
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAggregationAdapter.getCollectorManager(
+            percentilesAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+    InternalAggregation internalAggregation1 =
+        collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
+
+    byte[] serialize = OpenSearchAggregationAdapter.toByteArray(internalAggregation1);
+    InternalAggregation internalAggregation2 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize);
     assertThat(internalAggregation1).isEqualTo(internalAggregation2);
   }
 

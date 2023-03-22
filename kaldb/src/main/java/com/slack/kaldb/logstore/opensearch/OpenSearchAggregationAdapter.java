@@ -9,6 +9,8 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -24,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
@@ -77,8 +80,21 @@ import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
+import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.BucketHelpers;
+import org.opensearch.search.aggregations.pipeline.EwmaModel;
+import org.opensearch.search.aggregations.pipeline.HoltLinearModel;
+import org.opensearch.search.aggregations.pipeline.HoltWintersModel;
+import org.opensearch.search.aggregations.pipeline.InternalSimpleValue;
+import org.opensearch.search.aggregations.pipeline.LinearModel;
+import org.opensearch.search.aggregations.pipeline.MovAvgModel;
+import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.SimpleModel;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
 import org.opensearch.search.internal.SearchContext;
 import org.slf4j.Logger;
@@ -128,6 +144,32 @@ public class OpenSearchAggregationAdapter {
                   InternalAggregation.class,
                   CardinalityAggregationBuilder.NAME,
                   InternalCardinality::new),
+              new NamedWriteableRegistry.Entry(
+                  MovAvgModel.class, SimpleModel.NAME, SimpleModel::new),
+              new NamedWriteableRegistry.Entry(
+                  MovAvgModel.class, LinearModel.NAME, LinearModel::new),
+              new NamedWriteableRegistry.Entry(MovAvgModel.class, EwmaModel.NAME, EwmaModel::new),
+              new NamedWriteableRegistry.Entry(
+                  MovAvgModel.class, HoltLinearModel.NAME, HoltLinearModel::new),
+              new NamedWriteableRegistry.Entry(
+                  MovAvgModel.class, HoltWintersModel.NAME, HoltWintersModel::new),
+              new NamedWriteableRegistry.Entry(
+                  MovAvgPipelineAggregationBuilder.class,
+                  MovAvgPipelineAggregationBuilder.NAME,
+                  MovAvgPipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalSimpleValue.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
+              // todo - rest of registerPipelineAggregation
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  PercentilesAggregationBuilder.NAME,
+                  PercentilesAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  InternalTDigestPercentiles.NAME,
+                  InternalTDigestPercentiles::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   ValueCountAggregationBuilder.NAME,
@@ -297,7 +339,9 @@ public class OpenSearchAggregationAdapter {
               .reduce(
                   internalAggregationList,
                   InternalAggregation.ReduceContext.forPartialReduction(
-                      KaldbBigArrays.getInstance(), null, null));
+                      KaldbBigArrays.getInstance(),
+                      null,
+                      () -> PipelineAggregator.PipelineTree.EMPTY));
         }
       }
     };
@@ -316,6 +360,7 @@ public class OpenSearchAggregationAdapter {
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
     return valuesSourceRegistryBuilder.build();
@@ -432,20 +477,45 @@ public class OpenSearchAggregationAdapter {
    * builders to compose a nested aggregation tree.
    */
   @SuppressWarnings("rawtypes")
-  protected static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder)
-      throws IOException {
+  public static AbstractAggregationBuilder getAggregationBuilder(AggBuilder aggBuilder) {
     if (aggBuilder.getType().equals(DateHistogramAggBuilder.TYPE)) {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(PercentilesAggBuilder.TYPE)) {
+      return getPercentilesAggregationBuilder((PercentilesAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(UniqueCountAggBuilder.TYPE)) {
       return getUniqueCountAggregationBuilder((UniqueCountAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
     }
+  }
+
+  /**
+   * Given an AggBuilder, will invoke the appropriate pipeline aggregation builder method to return
+   * the abstract pipeline aggregation builder. This method is expected to be invoked from within
+   * the bucket aggregation builders to compose a nested aggregation tree.@return
+   */
+  protected static AbstractPipelineAggregationBuilder<?> getPipelineAggregationBuilder(
+      AggBuilder aggBuilder) {
+    if (aggBuilder.getType().equals(MovingAvgAggBuilder.TYPE)) {
+      return getMovingAverageAggregationBuilder((MovingAvgAggBuilder) aggBuilder);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("PipelineAggregation type %s not yet supported", aggBuilder.getType()));
+    }
+  }
+
+  /**
+   * Determines if a given aggregation is of pipeline type, to allow for calling the appropriate
+   * subAggregation builder step
+   */
+  protected static boolean isPipelineAggregation(AggBuilder aggBuilder) {
+    List<String> pipelineAggregators = List.of(MovingAvgAggBuilder.TYPE);
+    return pipelineAggregators.contains(aggBuilder.getType());
   }
 
   /**
@@ -490,12 +560,110 @@ public class OpenSearchAggregationAdapter {
   }
 
   /**
+   * Given a PercentilesAggBuilder, returns a PercentilesAggregationBuilder to be used in building
+   * aggregation tree
+   */
+  protected static PercentilesAggregationBuilder getPercentilesAggregationBuilder(
+      PercentilesAggBuilder builder) {
+    PercentilesAggregationBuilder percentilesAggregationBuilder =
+        new PercentilesAggregationBuilder(builder.getName())
+            .field(builder.getField())
+            .percentiles(builder.getPercentilesArray());
+
+    if (builder.getMissing() != null) {
+      percentilesAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return percentilesAggregationBuilder;
+  }
+
+  /**
+   * Given a MovingAvgAggBuilder, returns a MovAvgAggPipelineAggregation to be used in building the
+   * aggregation tree.
+   */
+  protected static MovAvgPipelineAggregationBuilder getMovingAverageAggregationBuilder(
+      MovingAvgAggBuilder builder) {
+    MovAvgPipelineAggregationBuilder movAvgPipelineAggregationBuilder =
+        new MovAvgPipelineAggregationBuilder(builder.getName(), builder.getBucketsPath());
+
+    if (builder.getWindow() != null) {
+      movAvgPipelineAggregationBuilder.window(builder.getWindow());
+    }
+
+    if (builder.getPredict() != null) {
+      movAvgPipelineAggregationBuilder.predict(builder.getPredict());
+    }
+
+    movAvgPipelineAggregationBuilder.gapPolicy(BucketHelpers.GapPolicy.SKIP);
+
+    //noinspection IfCanBeSwitch
+    if (builder.getModel().equals("simple")) {
+      movAvgPipelineAggregationBuilder.model(new SimpleModel());
+    } else if (builder.getModel().equals("linear")) {
+      movAvgPipelineAggregationBuilder.model(new LinearModel());
+    } else if (builder.getModel().equals("ewma")) {
+      MovAvgModel model = new EwmaModel();
+      if (builder.getAlpha() != null) {
+        model = new EwmaModel(builder.getAlpha());
+      }
+      movAvgPipelineAggregationBuilder.model(model);
+      movAvgPipelineAggregationBuilder.minimize(builder.isMinimize());
+    } else if (builder.getModel().equals("holt")) {
+      MovAvgModel model = new HoltLinearModel();
+      if (ObjectUtils.allNotNull(builder.getAlpha(), builder.getBeta())) {
+        // both are non-null, use values provided instead of default
+        model = new HoltLinearModel(builder.getAlpha(), builder.getBeta());
+      } else if (ObjectUtils.anyNotNull(builder.getAlpha(), builder.getBeta())) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Both alpha and beta must be provided for HoltLinearMovingAvg if not using the default values [alpha:%s, beta:%s]",
+                builder.getAlpha(), builder.getBeta()));
+      }
+      movAvgPipelineAggregationBuilder.model(model);
+      movAvgPipelineAggregationBuilder.minimize(builder.isMinimize());
+    } else if (builder.getModel().equals("holt_winters")) {
+      // default as listed in the HoltWintersModel.java class
+      // todo - this cannot be currently configured via Grafana, but may need to be an option?
+      HoltWintersModel.SeasonalityType defaultSeasonalityType =
+          HoltWintersModel.SeasonalityType.ADDITIVE;
+      MovAvgModel model = new HoltWintersModel();
+      if (ObjectUtils.allNotNull(
+          builder.getAlpha(), builder.getBeta(), builder.getGamma(), builder.getPeriod())) {
+        model =
+            new HoltWintersModel(
+                builder.getAlpha(),
+                builder.getBeta(),
+                builder.getGamma(),
+                builder.getPeriod(),
+                defaultSeasonalityType,
+                builder.isPad());
+      } else if (ObjectUtils.anyNotNull()) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Alpha, beta, gamma, period, and pad must be provided for HoltWintersMovingAvg if not using the default values [alpha:%s, beta:%s, gamma:%s, period:%s, pad:%s]",
+                builder.getAlpha(),
+                builder.getBeta(),
+                builder.getGamma(),
+                builder.getPeriod(),
+                builder.isPad()));
+      }
+      movAvgPipelineAggregationBuilder.model(model);
+      movAvgPipelineAggregationBuilder.minimize(builder.isMinimize());
+    } else {
+      throw new IllegalArgumentException(
+          String.format(
+              "Model type of '%s' is not valid moving average model, must be one of ['simple', 'linear', 'ewma', 'holt', holt_winters']",
+              builder.getModel()));
+    }
+
+    return movAvgPipelineAggregationBuilder;
+  }
+
+  /**
    * Given an TermsAggBuilder returns a TermsAggregationBuilder to be used in building aggregation
    * tree
    */
-  protected static TermsAggregationBuilder getTermsAggregationBuilder(TermsAggBuilder builder)
-      throws IOException {
-
+  protected static TermsAggregationBuilder getTermsAggregationBuilder(TermsAggBuilder builder) {
     List<String> subAggNames =
         builder
             .getSubAggregations()
@@ -542,7 +710,11 @@ public class OpenSearchAggregationAdapter {
     }
 
     for (AggBuilder subAggregation : builder.getSubAggregations()) {
-      termsAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      if (isPipelineAggregation(subAggregation)) {
+        termsAggregationBuilder.subAggregation(getPipelineAggregationBuilder(subAggregation));
+      } else {
+        termsAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      }
     }
 
     return termsAggregationBuilder;
@@ -553,7 +725,7 @@ public class OpenSearchAggregationAdapter {
    * building aggregation tree
    */
   protected static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
-      DateHistogramAggBuilder builder) throws IOException {
+      DateHistogramAggBuilder builder) {
 
     // todo - this is due to incorrect schema issues
     String fieldname = builder.getField();
@@ -597,7 +769,12 @@ public class OpenSearchAggregationAdapter {
     }
 
     for (AggBuilder subAggregation : builder.getSubAggregations()) {
-      dateHistogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      if (isPipelineAggregation(subAggregation)) {
+        dateHistogramAggregationBuilder.subAggregation(
+            getPipelineAggregationBuilder(subAggregation));
+      } else {
+        dateHistogramAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      }
     }
 
     return dateHistogramAggregationBuilder;

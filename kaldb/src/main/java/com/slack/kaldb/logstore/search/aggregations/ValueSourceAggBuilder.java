@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.search.aggregations;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Provides common functionality for aggregations requiring operations that reference a field. This
@@ -44,5 +45,25 @@ public abstract class ValueSourceAggBuilder extends AggBuilderBase {
 
   public Object getMissing() {
     return missing;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof ValueSourceAggBuilder)) return false;
+    if (!super.equals(o)) return false;
+
+    ValueSourceAggBuilder that = (ValueSourceAggBuilder) o;
+
+    if (!field.equals(that.field)) return false;
+    return Objects.equals(missing, that.missing);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = super.hashCode();
+    result = 31 * result + field.hashCode();
+    result = 31 * result + (missing != null ? missing.hashCode() : 0);
+    return result;
   }
 }
