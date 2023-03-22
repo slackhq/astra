@@ -32,6 +32,8 @@ public class HistogramAggBuilder extends ValueSourceAggBuilder {
     return interval;
   }
 
+  // Unlike DateHistogramAggregationBuilder, HistogramAggregationBuilder takes a double for the
+  // interval
   public double getIntervalDouble() {
     return Double.parseDouble(interval);
   }

@@ -53,7 +53,7 @@ message SearchRequest {
 
       // Unique fields specific to the histogram aggregation request
       message HistogramAggregation {
-        // "10000" is how grafana
+        // "10000" is how grafana sends the request
         string interval = 1;
         // Minimum documents per bucket required
         int64 min_doc_count = 2;

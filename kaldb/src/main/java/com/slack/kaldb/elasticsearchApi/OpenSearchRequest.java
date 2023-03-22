@@ -145,9 +145,8 @@ public class OpenSearchRequest {
                                               .ValueSourceAggregation.HistogramAggregation
                                               .newBuilder()
                                               // Using the getters from DateHistogram
-                                              .setMinDocCount(
-                                                  getDateHistogramMinDocCount(histogram))
-                                              .setInterval(getDateHistogramInterval(histogram))
+                                              .setMinDocCount(getHistogramMinDocCount(histogram))
+                                              .setInterval(getHistogramInterval(histogram))
                                               .build())
                                       .build());
                         } else if (aggregationObject.equals(TermsAggBuilder.TYPE)) {
@@ -282,6 +281,10 @@ public class OpenSearchRequest {
     return dateHistogram.get("interval").asText();
   }
 
+  private static String getHistogramInterval(JsonNode dateHistogram) {
+    return dateHistogram.get("interval").asText();
+  }
+
   private static String getFieldName(JsonNode agg) {
     return agg.get("field").asText();
   }
@@ -313,6 +316,11 @@ public class OpenSearchRequest {
   }
 
   private static long getDateHistogramMinDocCount(JsonNode dateHistogram) {
+    // min_doc_count is provided as a string in the json payload
+    return Long.parseLong(dateHistogram.get("min_doc_count").asText());
+  }
+
+  private static long getHistogramMinDocCount(JsonNode dateHistogram) {
     // min_doc_count is provided as a string in the json payload
     return Long.parseLong(dateHistogram.get("min_doc_count").asText());
   }
