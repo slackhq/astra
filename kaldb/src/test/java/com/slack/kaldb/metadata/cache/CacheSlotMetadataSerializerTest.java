@@ -37,8 +37,8 @@ public class CacheSlotMetadataSerializerTest {
     assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
-    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes).containsAll(supportedIndexTypes);
-    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes.size()).isEqualTo(2);
+    assertThat(deserializedCacheSlotMetadata.supportedIndexTypes)
+        .containsExactlyInAnyOrderElementsOf(supportedIndexTypes);
   }
 
   @Test
