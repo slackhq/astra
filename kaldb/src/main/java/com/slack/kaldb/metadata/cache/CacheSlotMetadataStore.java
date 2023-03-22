@@ -56,7 +56,7 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
           .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Error setting chunk metadata state");
+      LOG.error("Error setting chunk metadata state", e);
       return false;
     }
   }
