@@ -279,8 +279,7 @@ public class ReplicaEvictionServiceTest {
     assertThat(updatedCacheSlot.name).isEqualTo(cacheSlotMetadata.name);
     assertThat(updatedCacheSlot.replicaId).isEqualTo(cacheSlotMetadata.replicaId);
     assertThat(updatedCacheSlot.supportedIndexTypes)
-        .containsAll(cacheSlotMetadata.supportedIndexTypes);
-    assertThat(updatedCacheSlot.supportedIndexTypes.size()).isEqualTo(2);
+        .containsExactlyInAnyOrderElementsOf(cacheSlotMetadata.supportedIndexTypes);
 
     assertThat(
             MetricsUtil.getCount(

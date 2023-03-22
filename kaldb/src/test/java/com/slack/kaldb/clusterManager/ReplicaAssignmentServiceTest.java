@@ -1258,8 +1258,8 @@ public class ReplicaAssignmentServiceTest {
 
     List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSync();
     assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
-    assertThat(assignedCacheSlot.get(0).supportedIndexTypes).containsAll(suppportedIndexTypes);
+    assertThat(assignedCacheSlot.get(0).supportedIndexTypes)
+        .containsExactlyInAnyOrderElementsOf(suppportedIndexTypes);
     assertThat(assignedCacheSlot.size()).isEqualTo(1);
-    assertThat(assignedCacheSlot.get(0).supportedIndexTypes.size()).isEqualTo(2);
   }
 }
