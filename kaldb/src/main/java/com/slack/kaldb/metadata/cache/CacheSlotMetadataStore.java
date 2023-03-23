@@ -5,15 +5,10 @@ import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheSlotMetadata> {
-  private static final int TIMEOUT_MS = 5000;
-
   private static final Logger LOG = LoggerFactory.getLogger(CacheSlotMetadataStore.class);
   public static final String CACHE_SLOT_ZK_PATH = "/cacheSlot";
 
@@ -48,17 +43,10 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
   }
 
   /** Fetch the node given a slotName and update the slot state. */
-  public boolean getAndUpdateNonFreeCacheSlotStateSync(
+  public ListenableFuture<?> getAndUpdateNonFreeCacheSlotState(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
-    try {
-      CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
-      updateNonFreeCacheSlotState(cacheSlotMetadata, slotState)
-          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      return true;
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Error setting chunk metadata state", e);
-      return false;
-    }
+    CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
+    return updateNonFreeCacheSlotState(cacheSlotMetadata, slotState);
   }
 
   /** Update the cache slot state, if the slot is not FREE. */
