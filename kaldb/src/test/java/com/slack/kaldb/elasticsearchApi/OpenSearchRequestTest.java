@@ -83,7 +83,8 @@ public class OpenSearchRequestTest {
         parsedRequestList.get(0).getAggregations();
 
     assertThat(histogramAggBuilder.getName()).isEqualTo("2");
-    assertThat(histogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+    assertThat(histogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
     assertThat(histogramAggBuilder.getSubAggregationsCount()).isEqualTo(0);
 
     KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.HistogramAggregation

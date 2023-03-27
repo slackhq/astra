@@ -1,2 +1,2 @@
 {"search_type":"query_then_fetch","ignore_unavailable":true,"index":"_all"}
-{"size":1,"query":{"bool":{"filter":[{"range":{"@timestamp":{"gte":1676498801027,"lte":1676500240688,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}},"aggs":{"2":{"histogram":{"interval":"1000","field":"@timestamp","min_doc_count":"1"},"aggs":{}}}}
+{"size":1,"query":{"bool":{"filter":[{"range":{"@timestamp":{"gte":1676498801027,"lte":1676500240688,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}},"aggs":{"2":{"histogram":{"interval":"1000","field":"_timesinceepoch","min_doc_count":"1"},"aggs":{}}}}

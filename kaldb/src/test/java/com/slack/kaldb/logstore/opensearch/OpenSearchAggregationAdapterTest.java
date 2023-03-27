@@ -69,7 +69,8 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "3");
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
     HistogramAggBuilder histogramAggBuilder =
         new HistogramAggBuilder("foo", "duration_ms", "1000", 1, List.of(avgAggBuilder));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
@@ -276,7 +277,8 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
     HistogramAggBuilder histogramAggBuilder =
-        new HistogramAggBuilder("foo", "@timestamp", "1000", 1, List.of());
+        new HistogramAggBuilder(
+            "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1000", 1, List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             histogramAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());

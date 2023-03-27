@@ -788,15 +788,9 @@ public class OpenSearchAggregationAdapter {
   protected static HistogramAggregationBuilder getHistogramAggregationBuilder(
       HistogramAggBuilder builder) {
 
-    // todo - this is due to incorrect schema issues
-    String fieldname = builder.getField();
-    if (fieldname.equals("@timestamp")) {
-      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
-    }
-
     HistogramAggregationBuilder histogramAggregationBuilder =
         new HistogramAggregationBuilder(builder.getName())
-            .field(fieldname)
+            .field(builder.getField())
             .minDocCount(builder.getMinDocCount())
             .interval(builder.getIntervalDouble());
 
