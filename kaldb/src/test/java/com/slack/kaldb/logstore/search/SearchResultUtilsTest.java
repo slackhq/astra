@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
@@ -53,6 +54,19 @@ public class SearchResultUtilsTest {
         (DateHistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(dateHistogramAggBuilder1).isEqualTo(dateHistogramAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertHistogramAggToFromProto() {
+    HistogramAggBuilder histogramAggBuilder1 =
+        new HistogramAggBuilder("1", "@timestamp", "1000", 1, List.of());
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(histogramAggBuilder1);
+    HistogramAggBuilder histogramAggBuilder2 =
+        (HistogramAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(histogramAggBuilder1).isEqualTo(histogramAggBuilder2);
   }
 
   @Test
