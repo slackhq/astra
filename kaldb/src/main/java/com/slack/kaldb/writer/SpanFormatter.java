@@ -124,6 +124,22 @@ public class SpanFormatter {
     return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
+  public static boolean isValidTimestamp(long timestamp) {
+    if (timestamp <= 0) {
+      return false;
+    }
+    Instant ts = Instant.ofEpochMilli(timestamp / (1000));
+    // cannot be in the future by more than 1 hour
+    if (ts.plus(1, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
+      return false;
+    }
+    // cannot be more than 12 hours in the past
+    if (ts.minus(12, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
+      return false;
+    }
+    return true;
+  }
+
   // TODO: Make this function more memory efficient?
   public static LogMessage toLogMessage(Trace.Span span) {
     if (span == null) return null;
@@ -141,7 +157,7 @@ public class SpanFormatter {
         Duration.of(span.getDuration(), ChronoUnit.MICROS).toMillis());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
-    if (span.getTimestamp() <= 0) {
+    if (!isValidTimestamp(span.getTimestamp())) {
       throw new IllegalStateException(
           "span id=" + id + " has incorrect timestamp=" + span.getTimestamp());
     }
