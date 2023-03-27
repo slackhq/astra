@@ -72,21 +72,13 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof DateHistogramAggBuilder)) return false;
+    if (!super.equals(o)) return false;
 
     DateHistogramAggBuilder that = (DateHistogramAggBuilder) o;
 
-    // AggBuilderBase
-    if (!Objects.equals(super.name, that.name)) return false;
-    if (!Objects.equals(super.metadata, that.metadata)) return false;
-    if (!Objects.equals(super.subAggregations, that.subAggregations)) return false;
-
-    // ValueSourceAggBuilder
-    if (!Objects.equals(super.field, that.field)) return false;
-
-    // DateHistogramAggBuilder
     if (minDocCount != that.minDocCount) return false;
-    if (!Objects.equals(interval, that.interval)) return false;
+    if (!interval.equals(that.interval)) return false;
     if (!Objects.equals(offset, that.offset)) return false;
     if (!Objects.equals(format, that.format)) return false;
     return Objects.equals(extendedBounds, that.extendedBounds);
@@ -94,21 +86,12 @@ public class DateHistogramAggBuilder extends ValueSourceAggBuilder {
 
   @Override
   public int hashCode() {
-    // DateHistogramAggBuilder
-    int result = interval != null ? interval.hashCode() : 0;
+    int result = super.hashCode();
+    result = 31 * result + interval.hashCode();
     result = 31 * result + (offset != null ? offset.hashCode() : 0);
     result = 31 * result + (int) (minDocCount ^ (minDocCount >>> 32));
     result = 31 * result + (format != null ? format.hashCode() : 0);
     result = 31 * result + (extendedBounds != null ? extendedBounds.hashCode() : 0);
-
-    // ValueSourceAggBuilder
-    result = 31 * result + (field != null ? field.hashCode() : 0);
-
-    // AggBuilderBase
-    result = 31 * result + (name != null ? name.hashCode() : 0);
-    result = 31 * result + (metadata != null ? metadata.hashCode() : 0);
-    result = 31 * result + (subAggregations != null ? subAggregations.hashCode() : 0);
-
     return result;
   }
 
