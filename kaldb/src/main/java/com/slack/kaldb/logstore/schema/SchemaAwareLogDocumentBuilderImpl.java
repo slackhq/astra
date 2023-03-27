@@ -38,20 +38,17 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   // TODO: In future, make this value configurable.
   private static final int MAX_NESTING_DEPTH = 3;
 
-  private static void addTextField(
-      ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder,
-      String fieldName,
-      boolean isStored,
-      boolean isIndexed) {
-    fieldDefBuilder.put(
-        fieldName, new LuceneFieldDef(fieldName, FieldType.TEXT.name, isStored, isIndexed, false));
-  }
-
   // TODO: Move this definition to the config file.
   private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
-    addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
-    addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.SystemField.SOURCE.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.SOURCE.fieldName, FieldType.TEXT.name, true, false, false));
+    fieldDefBuilder.put(
+        LogMessage.SystemField.ALL.fieldName,
+        new LuceneFieldDef(
+            LogMessage.SystemField.ALL.fieldName, FieldType.TEXT.name, false, true, false));
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -69,19 +66,44 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
             false,
             true,
             true));
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TIMESTAMP.fieldName, false, true);
+
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.TIMESTAMP.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.TIMESTAMP.fieldName, FieldType.TEXT.name, false, true, false));
     fieldDefBuilder.put(
         LogMessage.ReservedField.TYPE.fieldName,
         new LuceneFieldDef(
             LogMessage.ReservedField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
 
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TAG.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.USERNAME.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PAYLOAD.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.NAME.fieldName, false, true);
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.HOSTNAME.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.HOSTNAME.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.PACKAGE.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.PACKAGE.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.MESSAGE.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.MESSAGE.fieldName, FieldType.TEXT.name, false, true, false));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.TAG.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.TAG.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.USERNAME.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.USERNAME.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.PAYLOAD.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.PAYLOAD.fieldName, FieldType.STRING.name, false, true, true));
+    fieldDefBuilder.put(
+        LogMessage.ReservedField.NAME.fieldName,
+        new LuceneFieldDef(
+            LogMessage.ReservedField.NAME.fieldName, FieldType.STRING.name, false, true, true));
     fieldDefBuilder.put(
         LogMessage.ReservedField.SERVICE_NAME.fieldName,
         new LuceneFieldDef(
