@@ -145,8 +145,7 @@ public class SpanFormatter {
       throw new IllegalStateException(
           "span id=" + id + " has incorrect timestamp=" + span.getTimestamp());
     }
-    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / (1000));
-    jsonMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp.toString());
+    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;
@@ -201,7 +200,8 @@ public class SpanFormatter {
     //    }
 
     // Drop the type field from LogMessage since with spans it doesn't make sense.
-    return LogMessage.fromWireMessage(new LogWireMessage(indexName, msgType, id, jsonMap));
+    return LogMessage.fromWireMessage(
+        new LogWireMessage(indexName, msgType, id, timestamp, jsonMap));
   }
 
   // TODO: For now assuming that the tags in ListOfSpans is empty. Handle this case in future.

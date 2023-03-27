@@ -209,11 +209,10 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String stringFieldName, String fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     if (stringFieldName != null) {
       fieldMap.put(stringFieldName, fieldValue);
     }
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 
@@ -221,9 +220,8 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Long fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 
@@ -231,9 +229,8 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Integer fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 
@@ -241,9 +238,8 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Float fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 
@@ -251,9 +247,8 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Double fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 
@@ -261,9 +256,8 @@ public class KaldbQueryParserTest {
   private static LogMessage makeMessageForExistsSearch(
       String indexName, String id, String intFieldName, Boolean fieldValue, Instant ts) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts.toString());
     fieldMap.put(intFieldName, fieldValue);
-    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, fieldMap);
+    LogWireMessage wireMsg = new LogWireMessage(indexName, TEST_MESSAGE_TYPE, id, ts, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
   }
 }

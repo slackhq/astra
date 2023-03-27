@@ -93,9 +93,9 @@ public class TestKafkaServer {
 
   public static Murron.MurronMessage fromLogMessage(LogMessage message, int offset)
       throws JsonProcessingException {
-    String jsonStr = JsonUtil.writeAsString(message.source);
+    String jsonStr = JsonUtil.writeAsString(message.getSource());
     return Murron.MurronMessage.newBuilder()
-        .setTimestamp(message.timeSinceEpochMilli * 1000 * 1000)
+        .setTimestamp(message.getTimestamp().toEpochMilli() * 1000 * 1000)
         .setType(MessageUtil.TEST_DATASET_NAME)
         .setHost("localhost")
         .setPid(100)

@@ -152,7 +152,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // TODO: This type conversion is a temporary hack, fix it by adding timestamp field to the
       // message.
       if (message instanceof LogMessage) {
-        chunkInfo.updateDataTimeRange(((LogMessage) message).timeSinceEpochMilli);
+        chunkInfo.updateDataTimeRange(((LogMessage) message).getTimestamp().toEpochMilli());
         chunkInfo.updateMaxOffset(offset);
       }
     } else {

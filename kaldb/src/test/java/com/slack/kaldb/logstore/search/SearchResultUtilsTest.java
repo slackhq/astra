@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.search.SearchResultUtils.fromValueProto;
 import static com.slack.kaldb.logstore.search.SearchResultUtils.toValueProto;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
@@ -20,7 +21,8 @@ public class SearchResultUtilsTest {
 
   @Test
   public void shouldConvertAvgAggToFromProto() {
-    AvgAggBuilder avgAggBuilder1 = new AvgAggBuilder("1", "@timestamp", "3");
+    AvgAggBuilder avgAggBuilder1 =
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(avgAggBuilder1);
@@ -35,7 +37,7 @@ public class SearchResultUtilsTest {
     DateHistogramAggBuilder dateHistogramAggBuilder1 =
         new DateHistogramAggBuilder(
             "1",
-            "@timestamp",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
             10000,
@@ -56,7 +58,14 @@ public class SearchResultUtilsTest {
   @Test
   public void shouldConvertTermsAggToFromProto() {
     TermsAggBuilder termsAggBuilder1 =
-        new TermsAggBuilder("foo", List.of(), "@timestamp", 3, 100, 0, Map.of("_term", "asc"));
+        new TermsAggBuilder(
+            "foo",
+            List.of(),
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            3,
+            100,
+            0,
+            Map.of("_term", "asc"));
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(termsAggBuilder1);
@@ -96,12 +105,13 @@ public class SearchResultUtilsTest {
   public void shouldConvertNestedAggregations() {
     // this is not representative of a real or reasonable query, but we should be able to convert it
     // just the same
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("1", "@timestamp", null);
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null);
 
     DateHistogramAggBuilder dateHistogramAggBuilderInner =
         new DateHistogramAggBuilder(
             "1",
-            "@timestamp",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
             "5s",
             "2s",
             10000,

@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.opensearch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
@@ -37,7 +38,8 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "3");
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
             "foo", "epoch_ms", "10s", "5s", 10, "epoch_ms", Map.of(), List.of(avgAggBuilder));
@@ -152,8 +154,10 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder1 = new AvgAggBuilder("foo", "@timestamp", "2");
-    AvgAggBuilder avgAggBuilder2 = new AvgAggBuilder("bar", "@timestamp", "2");
+    AvgAggBuilder avgAggBuilder1 =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+    AvgAggBuilder avgAggBuilder2 =
+        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAggregationAdapter.getCollectorManager(
             avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
@@ -177,7 +181,8 @@ public class OpenSearchAggregationAdapterTest {
   public void canBuildValidAvgAggregator() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "1");
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
@@ -216,7 +221,14 @@ public class OpenSearchAggregationAdapterTest {
         new OpenSearchAggregationAdapter(Map.of());
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
-            "foo", "@timestamp", "5s", "2s", 100, "epoch_ms", Map.of(), List.of());
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             dateHistogramAggBuilder,
@@ -239,7 +251,14 @@ public class OpenSearchAggregationAdapterTest {
     // when using minDocCount the extended bounds must be set
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
-            "foo", "@timestamp", "5s", "2s", 0, "epoch_ms", Map.of(), List.of());
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            0,
+            "epoch_ms",
+            Map.of(),
+            List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             dateHistogramAggBuilder,

@@ -278,7 +278,7 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexerMeterRegistry)
-                    == 23);
+                    == 22);
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli(), "3650d");
@@ -439,7 +439,7 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexer1MeterRegistry)
-                    == 23);
+                    == 22);
 
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
@@ -465,7 +465,7 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexer2MeterRegistry)
-                    == 23);
+                    == 22);
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L, "3650d");

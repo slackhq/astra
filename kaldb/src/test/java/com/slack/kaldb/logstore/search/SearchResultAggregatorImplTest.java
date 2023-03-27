@@ -88,9 +88,8 @@ public class SearchResultAggregatorImplTest {
     assertThat(aggSearchResult.totalSnapshots).isEqualTo(2);
 
     LogMessage hit = aggSearchResult.hits.get(0);
-    assertThat(hit.id).contains("Message20");
-    assertThat(hit.timeSinceEpochMilli)
-        .isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES).toEpochMilli());
+    assertThat(hit.getId()).contains("Message20");
+    assertThat(hit.getTimestamp()).isEqualTo(startTime2.plus(9, ChronoUnit.MINUTES));
 
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);

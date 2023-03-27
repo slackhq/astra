@@ -15,7 +15,7 @@ public class JsonUtilTest {
     LogMessage message = MessageUtil.makeMessage(1);
     String serializedMsg = JsonUtil.writeAsString(message.toWireMessage());
     LogWireMessage newMsg = JsonUtil.read(serializedMsg, LogWireMessage.class);
-    assertThat(newMsg.id).isEqualTo(message.id);
+    assertThat(newMsg.getId()).isEqualTo(message.getId());
     assertThat(newMsg.getIndex()).isEqualTo(message.getIndex());
     assertThat(newMsg.getType()).isEqualTo(message.getType());
   }

@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
@@ -196,8 +197,10 @@ public class RecoveryChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
-    assertThat(chunkInfo.getDataStartTimeEpochMs()).isEqualTo(messages.get(0).timeSinceEpochMilli);
-    assertThat(chunkInfo.getDataEndTimeEpochMs()).isEqualTo(messages.get(99).timeSinceEpochMilli);
+    assertThat(chunkInfo.getDataStartTimeEpochMs())
+        .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
+    assertThat(chunkInfo.getDataEndTimeEpochMs())
+        .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
     // Add a message with a very high offset.
     final int veryHighOffset = 1000;
@@ -277,9 +280,10 @@ public class RecoveryChunkManagerTest {
     assertThat(searchMetadataStore.listSync()).isEmpty();
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.get(0).startTimeEpochMs).isEqualTo(messages.get(0).timeSinceEpochMilli);
+    assertThat(snapshots.get(0).startTimeEpochMs)
+        .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
     assertThat(snapshots.get(0).endTimeEpochMs)
-        .isGreaterThanOrEqualTo(messages.get(99).timeSinceEpochMilli);
+        .isGreaterThanOrEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
     // Can't add messages to current chunk after roll over.
     assertThatThrownBy(
@@ -328,8 +332,8 @@ public class RecoveryChunkManagerTest {
     offset++;
 
     // Add an invalid message
-    LogMessage msg100 = MessageUtil.makeMessage(100);
-    MessageUtil.addFieldToMessage(msg100, LogMessage.ReservedField.HOSTNAME.fieldName, 20000);
+    LogMessage msg100 =
+        MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName, 20000));
     chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     //noinspection UnusedAssignment
     offset++;
