@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -333,7 +334,7 @@ public class ConvertFieldValueAndDuplicateTest {
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
         .isEqualTo(4);
-    assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("false");
+    assertThat(msg2Doc.getField(conflictingFieldName).binaryValue()).isEqualTo(new BytesRef("F"));
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("random");
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
@@ -397,7 +398,8 @@ public class ConvertFieldValueAndDuplicateTest {
                 .count())
         .isEqualTo(4);
     assertThat(msg3Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
-    assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).stringValue()).isEqualTo("true");
+    assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).binaryValue())
+        .isEqualTo(new BytesRef("T"));
     assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(21);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName, additionalCreatedBoolFieldName);
