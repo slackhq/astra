@@ -83,7 +83,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         searchResults
             .stream()
             .flatMap(r -> r.hits.stream())
-            .sorted(Comparator.comparing((T m) -> m.timeSinceEpochMilli, Comparator.reverseOrder()))
+            .sorted(
+                Comparator.comparing(
+                    (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder()))
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 

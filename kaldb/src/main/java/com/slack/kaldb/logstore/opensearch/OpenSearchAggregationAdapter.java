@@ -4,7 +4,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
@@ -522,14 +521,8 @@ public class OpenSearchAggregationAdapter {
    * Given an AvgAggBuilder returns a AvgAggregationBuilder to be used in building aggregation tree
    */
   protected static AvgAggregationBuilder getAvgAggregationBuilder(AvgAggBuilder builder) {
-    // todo - this is due to incorrect schema issues
-    String fieldname = builder.getField();
-    if (fieldname.equals("@timestamp")) {
-      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
-    }
-
     AvgAggregationBuilder avgAggregationBuilder =
-        new AvgAggregationBuilder(builder.getName()).field(fieldname);
+        new AvgAggregationBuilder(builder.getName()).field(builder.getField());
 
     if (builder.getMissing() != null) {
       avgAggregationBuilder.missing(builder.getMissing());
@@ -727,15 +720,9 @@ public class OpenSearchAggregationAdapter {
   protected static DateHistogramAggregationBuilder getDateHistogramAggregationBuilder(
       DateHistogramAggBuilder builder) {
 
-    // todo - this is due to incorrect schema issues
-    String fieldname = builder.getField();
-    if (fieldname.equals("@timestamp")) {
-      fieldname = LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName;
-    }
-
     DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
         new DateHistogramAggregationBuilder(builder.getName())
-            .field(fieldname)
+            .field(builder.getField())
             .minDocCount(builder.getMinDocCount())
             .fixedInterval(new DateHistogramInterval(builder.getInterval()));
 

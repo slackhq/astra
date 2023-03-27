@@ -40,12 +40,12 @@ public class SpanFormatterTest {
             SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    assertThat(logMsg.timeSinceEpochMilli).isEqualTo(timestampMicros / 1000);
-    assertThat(logMsg.id).isEqualTo(id);
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestampMicros / 1000);
+    assertThat(logMsg.getId()).isEqualTo(id);
     assertThat(logMsg.getType()).isEqualTo("INFO");
     assertThat(logMsg.getIndex()).isEqualTo(serviceName);
 
-    Map<String, Object> source = logMsg.source;
+    Map<String, Object> source = logMsg.getSource();
     assertThat(source.get(LogMessage.ReservedField.PARENT_ID.fieldName)).isEqualTo(parentId);
     assertThat(source.get(LogMessage.ReservedField.TRACE_ID.fieldName)).isEqualTo(traceId);
     assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName)).isEqualTo(serviceName);
@@ -78,12 +78,12 @@ public class SpanFormatterTest {
             traceId, id, "", timestampMicros, durationMicros, name, serviceName, msgType);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    assertThat(logMsg.timeSinceEpochMilli).isEqualTo(timestampMicros / 1000);
-    assertThat(logMsg.id).isEqualTo(id);
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestampMicros / 1000);
+    assertThat(logMsg.getId()).isEqualTo(id);
     assertThat(logMsg.getType()).isEqualTo(msgType);
     assertThat(logMsg.getIndex()).isEqualTo(serviceName);
 
-    Map<String, Object> source = logMsg.source;
+    Map<String, Object> source = logMsg.getSource();
     assertThat((String) source.get(LogMessage.ReservedField.PARENT_ID.fieldName)).isEmpty();
     assertThat(source.get(LogMessage.ReservedField.TRACE_ID.fieldName)).isEqualTo(traceId);
     assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName)).isEqualTo(serviceName);
@@ -153,12 +153,12 @@ public class SpanFormatterTest {
     assertThat(logMessages.size()).isEqualTo(2);
 
     for (LogMessage logMsg : logMessages) {
-      assertThat(logMsg.timeSinceEpochMilli)
+      assertThat(logMsg.getTimestamp().toEpochMilli())
           .isIn(timestampMicros / 1000, (timestampMicros + 1000) / 1000);
-      assertThat(logMsg.id).isIn(id, id2);
+      assertThat(logMsg.getId()).isIn(id, id2);
       assertThat(logMsg.getType()).isEqualTo("INFO");
       assertThat(logMsg.getIndex()).isEqualTo(serviceName);
-      Map<String, Object> source = logMsg.source;
+      Map<String, Object> source = logMsg.getSource();
       assertThat(source.get(LogMessage.ReservedField.PARENT_ID.fieldName)).isIn(id, "");
       assertThat(source.get(LogMessage.ReservedField.TRACE_ID.fieldName)).isEqualTo(traceId);
       assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName))
@@ -195,12 +195,12 @@ public class SpanFormatterTest {
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
     // we convert any time by 1000 in SpanFormatter#toLogMessage
-    assertThat(logMsg.timeSinceEpochMilli).isEqualTo(ts / 1000);
-    assertThat(logMsg.id).isEmpty();
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(ts / 1000);
+    assertThat(logMsg.getId()).isEmpty();
     assertThat(logMsg.getType()).isEqualTo("INFO");
     assertThat(logMsg.getIndex()).isEqualTo(SpanFormatter.DEFAULT_INDEX_NAME);
 
-    Map<String, Object> source = logMsg.source;
+    Map<String, Object> source = logMsg.getSource();
     assertThat((String) source.get(LogMessage.ReservedField.PARENT_ID.fieldName)).isEmpty();
     assertThat((String) source.get(LogMessage.ReservedField.TRACE_ID.fieldName)).isEmpty();
     assertThat(source.get(LogMessage.ReservedField.SERVICE_NAME.fieldName))

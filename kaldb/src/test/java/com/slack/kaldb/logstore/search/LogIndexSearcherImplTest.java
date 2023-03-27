@@ -264,7 +264,7 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(apples.hits.stream().map(m -> m.id).collect(Collectors.toList()))
+    assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
 
@@ -298,7 +298,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(baby.hits.size()).isEqualTo(1);
-    assertThat(baby.hits.get(0).id).isEqualTo("2");
+    assertThat(baby.hits.get(0).getId()).isEqualTo("2");
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(2);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, strictLogStore.metricsRegistry)).isEqualTo(0);
     assertThat(getTimerCount(REFRESHES_TIMER, strictLogStore.metricsRegistry)).isEqualTo(1);
@@ -381,7 +381,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.hits.stream().map(m -> m.id).collect(Collectors.toList()))
+    assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("4", "2"));
 
     // Commit now
@@ -472,14 +472,15 @@ public class LogIndexSearcherImplTest {
             1000,
             new DateHistogramAggBuilder(
                 "histo",
-                "@timestamp",
+                LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
                 "1s",
                 null,
                 0,
                 "epoch_ms",
                 Map.of("min", 1593365471000L, "max", 1593365471000L + 5000L),
                 List.of(
-                    new AvgAggBuilder("avgTimestamp", "@timestamp", null),
+                    new AvgAggBuilder(
+                        "avgTimestamp", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null),
                     new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
             List.of());
 
@@ -571,8 +572,8 @@ public class LogIndexSearcherImplTest {
   public void testFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     final LogMessage msg1 =
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time.plusSeconds(4));
-    msg1.addProperty("field1", "1234");
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
     strictLogStore.logStore.addMessage(msg1);
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
@@ -636,8 +637,8 @@ public class LogIndexSearcherImplTest {
         .isEqualTo(1);
 
     final LogMessage msg2 =
-        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4));
-    msg2.addProperty("field2", "1234");
+        makeMessageWithIndexAndTimestamp(
+            2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
     strictLogStore.logStore.addMessage(msg2);
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
@@ -879,13 +880,13 @@ public class LogIndexSearcherImplTest {
   public void testDisabledFullTextSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     final LogMessage msg1 =
-        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time.plusSeconds(4));
-    msg1.addProperty("field1", "1234");
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field1", "1234"));
     strictLogStoreWithoutFts.logStore.addMessage(msg1);
 
     final LogMessage msg2 =
-        makeMessageWithIndexAndTimestamp(2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4));
-    msg2.addProperty("field2", "1234");
+        makeMessageWithIndexAndTimestamp(
+            2, "apple baby", TEST_DATASET_NAME, time.plusSeconds(4), Map.of("field2", "1234"));
     strictLogStoreWithoutFts.logStore.addMessage(msg2);
 
     final LogMessage msg3 =

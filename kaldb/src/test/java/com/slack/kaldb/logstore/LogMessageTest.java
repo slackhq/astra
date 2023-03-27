@@ -27,14 +27,11 @@ public class LogMessageTest {
 
   @Test
   public void testReservedField() {
-    assertThat(ReservedField.values().length).isEqualTo(13);
-    assertThat(ReservedField.reservedFieldNames.size()).isEqualTo(13);
+    assertThat(ReservedField.values().length).isEqualTo(12);
+    assertThat(ReservedField.reservedFieldNames.size()).isEqualTo(12);
     assertThat(ReservedField.isReservedField("hostname")).isTrue();
-    assertThat(ReservedField.TIMESTAMP.fieldName).isEqualTo("@timestamp");
     for (LogMessage.ReservedField f : LogMessage.ReservedField.values()) {
-      if (!f.equals(LogMessage.ReservedField.TIMESTAMP)) {
-        assertThat(f.name().toLowerCase()).isEqualTo(f.fieldName);
-      }
+      assertThat(f.name().toLowerCase()).isEqualTo(f.fieldName);
     }
     assertThat(LogMessage.ReservedField.isReservedField("test")).isFalse();
   }

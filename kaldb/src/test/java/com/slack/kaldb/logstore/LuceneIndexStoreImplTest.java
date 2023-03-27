@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
@@ -84,9 +85,8 @@ public class LuceneIndexStoreImplTest {
               MessageUtil.TEST_DATASET_NAME,
               "INFO",
               "1",
+              Instant.now(),
               Map.of(
-                  ReservedField.TIMESTAMP.fieldName,
-                  MessageUtil.getCurrentLogDate(),
                   ReservedField.MESSAGE.fieldName,
                   "Test message",
                   "duplicateproperty",
@@ -154,13 +154,13 @@ public class LuceneIndexStoreImplTest {
       assertThat(getCount(MESSAGES_FAILED_COUNTER, logStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, logStore.metricsRegistry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, logStore.metricsRegistry)).isEqualTo(1);
-      assertThat(results.get(0).id).isEqualTo(msgs.get(msgs.size() - 1).id);
+      assertThat(results.get(0).getId()).isEqualTo(msgs.get(msgs.size() - 1).getId());
     }
 
     @Test
     public void testIndexDocsWithUnsupportedPropertyTypes() {
-      LogMessage msg = MessageUtil.makeMessage(100);
-      MessageUtil.addFieldToMessage(msg, "unsupportedProperty", Collections.emptyList());
+      LogMessage msg =
+          MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
@@ -174,8 +174,7 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void testIndexDocsWithTypeMismatchErrors() {
-      LogMessage msg = MessageUtil.makeMessage(100);
-      MessageUtil.addFieldToMessage(msg, ReservedField.HOSTNAME.fieldName, 1);
+      LogMessage msg = MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 1));
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
@@ -201,8 +200,8 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void failIndexingDocsWithListFieldType() {
-      LogMessage msg = MessageUtil.makeMessage(100);
-      MessageUtil.addFieldToMessage(msg, "unsupportedProperty", Collections.emptyList());
+      LogMessage msg =
+          MessageUtil.makeMessage(100, Map.of("unsupportedProperty", Collections.emptyList()));
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
@@ -216,8 +215,8 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void failIndexingDocsWithMismatchedTypeErrors() {
-      LogMessage msg = MessageUtil.makeMessage(100);
-      MessageUtil.addFieldToMessage(msg, ReservedField.HOSTNAME.fieldName, 20000);
+      LogMessage msg =
+          MessageUtil.makeMessage(100, Map.of(ReservedField.HOSTNAME.fieldName, 20000));
       logStore.logStore.addMessage(msg);
       addMessages(logStore.logStore, 1, 99, true);
       Collection<LogMessage> results =
@@ -231,10 +230,9 @@ public class LuceneIndexStoreImplTest {
 
     @Test
     public void indexLongUnbreakableField() {
-      LogMessage msg = MessageUtil.makeMessage(1);
       String hugeField =
           IntStream.range(1, 10000).boxed().map(String::valueOf).collect(Collectors.joining(""));
-      MessageUtil.addFieldToMessage(msg, "hugefield", hugeField);
+      LogMessage msg = MessageUtil.makeMessage(1, Map.of("hugefield", hugeField));
       logStore.logStore.addMessage(msg);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);
       // UTF8 encoding is longer than the max length 32766
@@ -251,9 +249,8 @@ public class LuceneIndexStoreImplTest {
               MessageUtil.TEST_DATASET_NAME,
               "INFO",
               "1",
+              Instant.now(),
               Map.of(
-                  ReservedField.TIMESTAMP.fieldName,
-                  MessageUtil.getCurrentLogDate(),
                   ReservedField.MESSAGE.fieldName,
                   "Test message",
                   ReservedField.TAG.fieldName,

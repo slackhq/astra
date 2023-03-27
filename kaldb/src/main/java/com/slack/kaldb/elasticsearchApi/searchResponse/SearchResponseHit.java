@@ -7,6 +7,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,9 @@ public class SearchResponseHit {
   @JsonProperty("_score")
   private final String score;
 
+  @JsonProperty("_timesinceepoch")
+  private final Instant timestamp;
+
   @JsonProperty("_source")
   private final Map<String, Object> source;
 
@@ -37,12 +41,14 @@ public class SearchResponseHit {
       String type,
       String id,
       String score,
+      Instant timestamp,
       Map<String, Object> source,
       List<Long> sort) {
     this.index = index;
     this.type = type;
     this.id = id;
     this.score = score;
+    this.timestamp = timestamp;
     this.source = source;
     this.sort = sort;
   }
@@ -63,6 +69,10 @@ public class SearchResponseHit {
     return score;
   }
 
+  public Instant getTimestamp() {
+    return timestamp;
+  }
+
   public Map<String, Object> getSource() {
     return source;
   }
@@ -75,6 +85,7 @@ public class SearchResponseHit {
     private String index;
     private String type;
     private String id;
+    private Instant timestamp;
     private String score;
     private Map<String, Object> source = new HashMap<>();
     private List<Long> sort = new ArrayList<>();
@@ -91,6 +102,11 @@ public class SearchResponseHit {
 
     public Builder id(String id) {
       this.id = id;
+      return this;
+    }
+
+    public Builder timestamp(Instant timestamp) {
+      this.timestamp = timestamp;
       return this;
     }
 
@@ -111,7 +127,7 @@ public class SearchResponseHit {
 
     public SearchResponseHit build() {
       return new SearchResponseHit(
-          this.index, this.type, this.id, this.score, this.source, this.sort);
+          this.index, this.type, this.id, this.score, this.timestamp, this.source, this.sort);
     }
   }
 
@@ -122,9 +138,10 @@ public class SearchResponseHit {
     return new Builder()
         .index(message.getIndex())
         .type("_doc")
-        .id(message.id)
+        .id(message.getId())
+        .timestamp(message.getTimestamp())
         .source(message.getSource())
-        .sort(ImmutableList.of(message.getMillisecondsSinceEpoch()))
+        .sort(ImmutableList.of(message.getTimestamp().toEpochMilli()))
         .build();
   }
 }

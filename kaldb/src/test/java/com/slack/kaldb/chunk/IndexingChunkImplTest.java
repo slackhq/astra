@@ -43,6 +43,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -207,7 +208,7 @@ public class IndexingChunkImplTest {
           LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
       final List<LogMessage> messages =
           MessageUtil.makeMessagesWithTimeDifference(1, 100, 1000, startTime);
-      final long messageStartTimeMs = messages.get(0).timeSinceEpochMilli;
+      final long messageStartTimeMs = messages.get(0).getTimestamp().toEpochMilli();
       int offset = 1;
       for (LogMessage m : messages) {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
@@ -249,7 +250,7 @@ public class IndexingChunkImplTest {
       final List<LogMessage> newMessages =
           MessageUtil.makeMessagesWithTimeDifference(
               1, 100, 1000, startTime.plus(2, ChronoUnit.DAYS));
-      final long newMessageStartTimeEpochMs = newMessages.get(0).timeSinceEpochMilli;
+      final long newMessageStartTimeEpochMs = newMessages.get(0).getTimestamp().toEpochMilli();
       for (LogMessage m : newMessages) {
         chunk.addMessage(m, TEST_KAFKA_PARTITION_ID, offset);
         offset++;
@@ -482,8 +483,7 @@ public class IndexingChunkImplTest {
 
     @Test
     public void testAddInvalidMessagesToChunk() {
-      LogMessage testMessage = MessageUtil.makeMessage(0);
-      testMessage.addProperty("username", 0);
+      LogMessage testMessage = MessageUtil.makeMessage(0, Map.of("username", 0));
 
       // An Invalid message is dropped but failure counter is incremented.
       chunk.addMessage(testMessage, TEST_KAFKA_PARTITION_ID, 1);

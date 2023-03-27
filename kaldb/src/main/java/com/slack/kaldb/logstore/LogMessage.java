@@ -1,15 +1,11 @@
 package com.slack.kaldb.logstore;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * LogMessage class represents a well formed log message that can indexed by the Lucene indexer.
@@ -19,7 +15,6 @@ import org.slf4j.LoggerFactory;
  */
 public class LogMessage extends LogWireMessage {
 
-  private static final Logger LOG = LoggerFactory.getLogger(LogMessage.class);
   static final Pattern INDEX_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_./:]*$");
 
   // SystemFields are lucene fields created for internal use of KalDB.
@@ -57,7 +52,6 @@ public class LogMessage extends LogWireMessage {
     PACKAGE("package"),
     MESSAGE("message"),
     TAG("tag"),
-    TIMESTAMP("@timestamp"),
     USERNAME("username"),
     PAYLOAD("payload"),
     NAME("name"),
@@ -98,77 +92,40 @@ public class LogMessage extends LogWireMessage {
     return new LogMessage(
         computedIndexName(wireMessage.getIndex()),
         wireMessage.getType(),
-        wireMessage.id,
-        wireMessage.source);
+        wireMessage.getId(),
+        wireMessage.getTimestamp(),
+        wireMessage.getSource());
   }
 
   private boolean isValid() {
     return (getIndex() != null
         && getType() != null
-        && id != null
-        && source != null
+        && getId() != null
+        && getSource() != null
         && INDEX_NAME_PATTERN.matcher(getIndex()).matches());
   }
 
   private BadMessageFormatException raiseException(Throwable t) {
     throw new BadMessageFormatException(
-        String.format("Index:%s, Type: %s, Id: %s, Source: %s", getIndex(), getType(), id, source),
+        String.format(
+            "Index:%s, Type: %s, Id: %s, Source: %s", getIndex(), getType(), getId(), getSource()),
         t);
   }
 
-  // TODO: Use timestamp in micros
-  public final long timeSinceEpochMilli;
-
-  public LogMessage(String index, String type, String messageId, Map<String, Object> source) {
-    super(index, type, messageId, source);
+  public LogMessage(
+      String index, String type, String messageId, Instant timestamp, Map<String, Object> source) {
+    super(index, type, messageId, timestamp, source);
     if (!isValid()) {
       throw new BadMessageFormatException(
-          String.format("Index:%s, Type: %s, Id: %s, Source: %s", index, type, id, source));
+          String.format("Index:%s, Type: %s, Id: %s, Source: %s", index, type, getId(), source));
     }
-    this.timeSinceEpochMilli = getMillisecondsSinceEpoch();
-  }
-
-  public Long getMillisecondsSinceEpoch() {
-    String s = (String) source.get(ReservedField.TIMESTAMP.fieldName);
-    if (s != null) {
-      return getTime(s);
-    }
-    throw raiseException(
-        new Throwable("Parse failure for message id=" + id + " with timestamp=" + s));
-  }
-
-  public Map<String, Object> getSource() {
-    return ImmutableMap.copyOf(source);
   }
 
   private Long getTime(String dateStr) {
     return Instant.parse(dateStr).toEpochMilli();
   }
 
-  public void addProperty(String key, Object value) {
-    source.put(key, value);
-  }
-
   public LogWireMessage toWireMessage() {
-    return new LogWireMessage(getIndex(), getType(), id, source);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    LogMessage that = (LogMessage) o;
-    if (id == null || that.id == null) {
-      LOG.warn("id missing - equals comparison won't be accurate");
-    }
-    return timeSinceEpochMilli == that.timeSinceEpochMilli
-        && Objects.equal(getIndex(), that.getIndex())
-        && Objects.equal(getType(), that.getType())
-        && Objects.equal(id, that.id);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(timeSinceEpochMilli, getIndex(), getMillisecondsSinceEpoch(), id);
+    return new LogWireMessage(getIndex(), getType(), getId(), getTimestamp(), getSource());
   }
 }

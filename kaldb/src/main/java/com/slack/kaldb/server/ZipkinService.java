@@ -50,7 +50,7 @@ public class ZipkinService {
       throws InvalidProtocolBufferException {
     List<String> traces = new ArrayList<>(messages.size());
     for (LogWireMessage message : messages) {
-      if (message.id == null) {
+      if (message.getId() == null) {
         LOG.warn("Document={} cannot have missing id ", message);
         continue;
       }
@@ -59,12 +59,12 @@ public class ZipkinService {
       String parentId = null;
       String name = null;
       String serviceName = null;
-      String timestamp = null;
+      String timestamp = String.valueOf(message.getTimestamp().toEpochMilli());
       long duration = Long.MIN_VALUE;
       Map<String, String> messageTags = new HashMap<>();
 
-      for (String k : message.source.keySet()) {
-        Object value = message.source.get(k);
+      for (String k : message.getSource().keySet()) {
+        Object value = message.getSource().get(k);
         if (LogMessage.ReservedField.TRACE_ID.fieldName.equals(k)) {
           messageTraceId = (String) value;
         } else if (LogMessage.ReservedField.PARENT_ID.fieldName.equals(k)) {
@@ -73,8 +73,6 @@ public class ZipkinService {
           name = (String) value;
         } else if (LogMessage.ReservedField.SERVICE_NAME.fieldName.equals(k)) {
           serviceName = (String) value;
-        } else if (LogMessage.ReservedField.TIMESTAMP.fieldName.equals(k)) {
-          timestamp = (String) value;
         } else if (LogMessage.ReservedField.DURATION_MS.fieldName.equals(k)) {
           duration = ((Number) value).longValue();
         } else {
@@ -84,20 +82,23 @@ public class ZipkinService {
       // these are some mandatory fields without which the grafana zipkin plugin fails to display
       // the span
       if (messageTraceId == null) {
-        messageTraceId = message.id;
+        messageTraceId = message.getId();
       }
       if (timestamp == null) {
-        LOG.warn("Document id={} missing @timestamp", message);
+        LOG.warn(
+            "Document id={} missing {}",
+            message,
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
         continue;
       }
 
-      final long messageConvertedTimestamp = convertToMicroSeconds(Instant.parse(timestamp));
+      final long messageConvertedTimestamp = convertToMicroSeconds(message.getTimestamp());
 
       final Span span =
           makeSpan(
               messageTraceId,
               Optional.ofNullable(parentId),
-              message.id,
+              message.getId(),
               Optional.ofNullable(name),
               Optional.ofNullable(serviceName),
               messageConvertedTimestamp,
