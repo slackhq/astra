@@ -69,7 +69,7 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "missing");
+    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "3");
     HistogramAggBuilder histogramAggBuilder =
         new HistogramAggBuilder("foo", "duration_ms", "1000", 1, List.of(avgAggBuilder));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
