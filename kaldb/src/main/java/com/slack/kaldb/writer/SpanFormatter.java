@@ -124,20 +124,21 @@ public class SpanFormatter {
     return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
-  public static boolean isValidTimestamp(long timestamp) {
-    if (timestamp <= 0) {
-      return false;
+  public static void validateTimestamp(String id, Instant timestamp) {
+    if (timestamp.toEpochMilli() <= 0) {
+      throw new IllegalStateException(
+          "span id=" + id + " has incorrect timestamp=" + timestamp.toEpochMilli());
     }
-    Instant ts = Instant.ofEpochMilli(timestamp / (1000));
     // cannot be in the future by more than 1 hour
-    if (ts.plus(1, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
-      return false;
+    if (timestamp.plus(1, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
+      throw new IllegalStateException(
+          "span id=" + id + " is more than 1 hour ahead timestamp=" + timestamp.toEpochMilli());
     }
     // cannot be more than 12 hours in the past
-    if (ts.minus(12, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
-      return false;
+    if (timestamp.minus(12, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
+      throw new IllegalStateException(
+          "span id=" + id + " is more than 12 hours behind timestamp=" + timestamp.toEpochMilli());
     }
-    return true;
   }
 
   // TODO: Make this function more memory efficient?
@@ -157,11 +158,8 @@ public class SpanFormatter {
         Duration.of(span.getDuration(), ChronoUnit.MICROS).toMillis());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
-    if (!isValidTimestamp(span.getTimestamp())) {
-      throw new IllegalStateException(
-          "span id=" + id + " has incorrect timestamp=" + span.getTimestamp());
-    }
     Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
+    validateTimestamp(id, timestamp);
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;
