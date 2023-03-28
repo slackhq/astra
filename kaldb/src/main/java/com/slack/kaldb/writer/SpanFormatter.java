@@ -124,19 +124,21 @@ public class SpanFormatter {
     return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
-  public static void validateTimestamp(String id, Instant timestamp) {
+  public static void validateTimestamp(String id, Instant timestamp, Instant currentTime) {
     if (timestamp.toEpochMilli() <= 0) {
-      throw new IllegalStateException(
+      throw new IllegalArgumentException(
           "span id=" + id + " has incorrect timestamp=" + timestamp.toEpochMilli());
     }
     // cannot be in the future by more than 1 hour
-    if (timestamp.plus(1, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
-      throw new IllegalStateException(
+    if (timestamp.isAfter(currentTime)
+        && timestamp.minus(1, ChronoUnit.HOURS).isAfter(currentTime)) {
+      throw new IllegalArgumentException(
           "span id=" + id + " is more than 1 hour ahead timestamp=" + timestamp.toEpochMilli());
     }
     // cannot be more than 12 hours in the past
-    if (timestamp.minus(12, ChronoUnit.HOURS).toEpochMilli() > Instant.now().toEpochMilli()) {
-      throw new IllegalStateException(
+    if (timestamp.isBefore(currentTime)
+        && timestamp.plus(12, ChronoUnit.HOURS).isBefore(currentTime)) {
+      throw new IllegalArgumentException(
           "span id=" + id + " is more than 12 hours behind timestamp=" + timestamp.toEpochMilli());
     }
   }
@@ -159,7 +161,7 @@ public class SpanFormatter {
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
     Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
-    validateTimestamp(id, timestamp);
+    validateTimestamp(id, timestamp, Instant.now());
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;

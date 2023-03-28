@@ -3,6 +3,8 @@ package com.slack.kaldb.writer;
 import static com.slack.kaldb.testlib.SpanUtil.BINARY_TAG_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
@@ -217,5 +219,46 @@ public class SpanFormatterTest {
         .isEqualTo(SpanFormatter.encodeBinaryTagValue(ByteString.copyFromUtf8(BINARY_TAG_VALUE)));
     assertThat(new String(Base64.getDecoder().decode(binaryTagValue), StandardCharsets.UTF_8))
         .isEqualTo(BINARY_TAG_VALUE);
+  }
+
+  @Test
+  public void testValidateTimestamp() {
+    Instant currentTime = Instant.now();
+
+    assertThatThrownBy(
+            () -> SpanFormatter.validateTimestamp("1", Instant.ofEpochMilli(0), currentTime))
+        .isInstanceOf(IllegalArgumentException.class);
+
+    assertThatThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.plus(61, ChronoUnit.MINUTES), currentTime))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.plus(60, ChronoUnit.MINUTES), currentTime));
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.plus(59, ChronoUnit.MINUTES), currentTime));
+
+    assertThatThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.minus(721, ChronoUnit.MINUTES), currentTime))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.minus(720, ChronoUnit.MINUTES), currentTime));
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                SpanFormatter.validateTimestamp(
+                    "1", currentTime.minus(719, ChronoUnit.MINUTES), currentTime));
   }
 }
