@@ -11,7 +11,7 @@ import com.google.common.base.Stopwatch;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogMessage.SystemField;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.queryparser.KaldbQueryParser;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
@@ -58,7 +58,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
   private final ConcurrentHashMap<String, LuceneFieldDef> chunkSchema;
 
-  private final OpenSearchAggregationAdapter openSearchAggregationAdapter;
+  private final OpenSearchAdapter openSearchAdapter;
 
   @VisibleForTesting
   public static SearcherManager searcherManagerFromPath(Path path) throws IOException {
@@ -67,11 +67,13 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   public LogIndexSearcherImpl(
-      SearcherManager searcherManager, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
+      SearcherManager searcherManager,
+      ConcurrentHashMap<String, LuceneFieldDef> chunkSchema,
+      boolean schemaRefresh) {
     this.searcherManager = searcherManager;
     this.analyzer = new StandardAnalyzer();
     this.chunkSchema = chunkSchema;
-    this.openSearchAggregationAdapter = new OpenSearchAggregationAdapter(chunkSchema);
+    this.openSearchAdapter = new OpenSearchAdapter(chunkSchema, schemaRefresh);
   }
 
   // Lucene's query parsers are not thread safe. So, create a new one for every request.
@@ -120,8 +122,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           if (aggBuilder != null) {
             collectorManager =
                 new MultiCollectorManager(
-                    topFieldCollector,
-                    openSearchAggregationAdapter.getCollectorManager(aggBuilder, searcher));
+                    topFieldCollector, openSearchAdapter.getCollectorManager(aggBuilder, searcher));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -138,8 +139,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         } else {
           results = Collections.emptyList();
           internalAggregation =
-              searcher.search(
-                  query, openSearchAggregationAdapter.getCollectorManager(aggBuilder, searcher));
+              searcher.search(query, openSearchAdapter.getCollectorManager(aggBuilder, searcher));
         }
 
         elapsedTime.stop();
@@ -220,6 +220,7 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   @Override
   public void close() {
     try {
+      openSearchAdapter.close();
       searcherManager.close();
     } catch (IOException e) {
       LOG.error("Encountered error closing searcher manager", e);

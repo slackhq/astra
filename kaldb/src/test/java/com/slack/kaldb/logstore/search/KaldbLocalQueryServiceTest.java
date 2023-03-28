@@ -14,7 +14,7 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
@@ -158,7 +158,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
@@ -207,7 +207,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
   }
@@ -254,7 +254,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
@@ -419,7 +419,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);

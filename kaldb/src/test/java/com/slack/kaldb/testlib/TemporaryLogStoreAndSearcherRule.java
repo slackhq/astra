@@ -93,7 +93,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
         TEST_SOURCE_STRING_PROPERTY,
         new LuceneFieldDef(TEST_SOURCE_STRING_PROPERTY, FieldType.STRING.name, false, true, true));
 
-    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), schema);
+    logSearcher = new LogIndexSearcherImpl(logStore.getSearcherManager(), schema, false);
   }
 
   public static LuceneIndexStoreConfig getIndexStoreConfig(

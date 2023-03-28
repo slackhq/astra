@@ -4,6 +4,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
@@ -15,16 +16,18 @@ import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -36,12 +39,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.compress.CompressedXContent;
-import org.opensearch.common.io.stream.InputStreamStreamInput;
-import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.common.io.stream.OutputStreamStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -53,37 +50,25 @@ import org.opensearch.index.analysis.IndexAnalyzers;
 import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.fielddata.IndexFieldDataService;
+import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
-import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
-import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
-import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
-import org.opensearch.search.aggregations.bucket.terms.DoubleTerms;
-import org.opensearch.search.aggregations.bucket.terms.LongTerms;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.terms.UnmappedTerms;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.InternalAvg;
-import org.opensearch.search.aggregations.metrics.InternalCardinality;
-import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
-import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
@@ -91,7 +76,6 @@ import org.opensearch.search.aggregations.pipeline.BucketHelpers;
 import org.opensearch.search.aggregations.pipeline.EwmaModel;
 import org.opensearch.search.aggregations.pipeline.HoltLinearModel;
 import org.opensearch.search.aggregations.pipeline.HoltWintersModel;
-import org.opensearch.search.aggregations.pipeline.InternalSimpleValue;
 import org.opensearch.search.aggregations.pipeline.LinearModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuilder;
@@ -103,194 +87,78 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Utility class to allow using OpenSearch aggregations from within Kaldb. This class should
- * ultimately act as an adapter where OpenSearch code is not needed external to this class. <br>
+ * Utility class to allow using OpenSearch aggregations and query parsing from within Kaldb. This
+ * class should ultimately act as an adapter where OpenSearch code is not needed external to this
+ * class. <br>
  * TODO - implement a custom InternalAggregation and return these instead of the OpenSearch
  * InternalAggregation classes
  */
-public class OpenSearchAggregationAdapter {
-  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAggregationAdapter.class);
-  private static final NamedWriteableRegistry NAMED_WRITEABLE_REGISTRY =
-      new NamedWriteableRegistry(
-          Arrays.asList(
-              // todo - add additional aggregations as needed
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  DateHistogramAggregationBuilder.NAME,
-                  DateHistogramAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class,
-                  DateHistogramAggregationBuilder.NAME,
-                  InternalDateHistogram::new),
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  HistogramAggregationBuilder.NAME,
-                  HistogramAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class,
-                  HistogramAggregationBuilder.NAME,
-                  InternalHistogram::new),
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  TermsAggregationBuilder.NAME,
-                  TermsAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, StringTerms.NAME, StringTerms::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, UnmappedTerms.NAME, UnmappedTerms::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, LongTerms.NAME, LongTerms::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, DoubleTerms.NAME, DoubleTerms::new),
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class, AvgAggregationBuilder.NAME, AvgAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, AvgAggregationBuilder.NAME, InternalAvg::new),
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  CardinalityAggregationBuilder.NAME,
-                  CardinalityAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class,
-                  CardinalityAggregationBuilder.NAME,
-                  InternalCardinality::new),
-              new NamedWriteableRegistry.Entry(
-                  MovAvgModel.class, SimpleModel.NAME, SimpleModel::new),
-              new NamedWriteableRegistry.Entry(
-                  MovAvgModel.class, LinearModel.NAME, LinearModel::new),
-              new NamedWriteableRegistry.Entry(MovAvgModel.class, EwmaModel.NAME, EwmaModel::new),
-              new NamedWriteableRegistry.Entry(
-                  MovAvgModel.class, HoltLinearModel.NAME, HoltLinearModel::new),
-              new NamedWriteableRegistry.Entry(
-                  MovAvgModel.class, HoltWintersModel.NAME, HoltWintersModel::new),
-              new NamedWriteableRegistry.Entry(
-                  MovAvgPipelineAggregationBuilder.class,
-                  MovAvgPipelineAggregationBuilder.NAME,
-                  MovAvgPipelineAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalSimpleValue.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
-              // todo - rest of registerPipelineAggregation
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  PercentilesAggregationBuilder.NAME,
-                  PercentilesAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class,
-                  InternalTDigestPercentiles.NAME,
-                  InternalTDigestPercentiles::new),
-              new NamedWriteableRegistry.Entry(
-                  AggregationBuilder.class,
-                  ValueCountAggregationBuilder.NAME,
-                  ValueCountAggregationBuilder::new),
-              new NamedWriteableRegistry.Entry(
-                  InternalAggregation.class,
-                  ValueCountAggregationBuilder.NAME,
-                  InternalValueCount::new),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.BOOLEAN.getWriteableName(),
-                  in -> DocValueFormat.BOOLEAN),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class, DocValueFormat.DateTime.NAME, DocValueFormat.DateTime::new),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class, DocValueFormat.Decimal.NAME, DocValueFormat.Decimal::new),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.GEOHASH.getWriteableName(),
-                  in -> DocValueFormat.GEOHASH),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.GEOTILE.getWriteableName(),
-                  in -> DocValueFormat.GEOTILE),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.IP.getWriteableName(),
-                  in -> DocValueFormat.IP),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.RAW.getWriteableName(),
-                  in -> DocValueFormat.RAW),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.BINARY.getWriteableName(),
-                  in -> DocValueFormat.BINARY),
-              new NamedWriteableRegistry.Entry(
-                  DocValueFormat.class,
-                  DocValueFormat.UNSIGNED_LONG_SHIFTED.getWriteableName(),
-                  in -> DocValueFormat.UNSIGNED_LONG_SHIFTED)));
+public class OpenSearchAdapter implements Closeable {
+  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
   private final QueryShardContext queryShardContext;
 
-  public OpenSearchAggregationAdapter(Map<String, LuceneFieldDef> chunkSchema) {
+  private final MapperService mapperService;
+
+  // This refresh is how often the Opensearch mapping will attempt to update with the Kaldb mapping
+  // This can be reasonably high, but newly emergent fields may be delayed from use in aggregation/
+  // query up to this duration.
+  protected static final Duration MAP_REFRESH = Duration.of(30, ChronoUnit.SECONDS);
+
+  private final ScheduledExecutorService executor =
+      Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder()
+              .setUncaughtExceptionHandler(
+                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
+              .setNameFormat("open-search-adapter-%d")
+              .build());
+
+  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema, boolean schemaRefresh) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
-    MapperService mapperService = buildMapperService(indexSettings, similarityService);
+    this.mapperService = buildMapperService(indexSettings, similarityService);
+    this.queryShardContext =
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
 
+    if (schemaRefresh) {
+      this.executor.scheduleAtFixedRate(
+          () -> updateSchema(chunkSchema), 0, MAP_REFRESH.toMillis(), TimeUnit.MILLISECONDS);
+    } else {
+      updateSchema(chunkSchema);
+    }
+  }
+
+  /** For each defined field in the chunk schema, this will check if */
+  private void updateSchema(Map<String, LuceneFieldDef> chunkSchema) {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
       try {
-        if (entry.getValue().fieldType == FieldType.LONG) {
-          registerField(
-              mapperService,
-              entry.getValue().name,
-              b -> b.field("type", entry.getValue().fieldType.name));
+        if (entry.getValue().fieldType == FieldType.TEXT) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
         } else if (entry.getValue().fieldType == FieldType.STRING) {
-          registerField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
+        } else if (entry.getValue().fieldType == FieldType.INTEGER) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "integer"));
+        } else if (entry.getValue().fieldType == FieldType.LONG) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "long"));
+        } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "double"));
+        } else if (entry.getValue().fieldType == FieldType.FLOAT) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "float"));
+        } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "boolean"));
+        } else {
+          LOG.warn(
+              "Field type '{}' is not yet currently supported for field '{}'",
+              entry.getValue().fieldType,
+              entry.getValue().name);
         }
       } catch (Exception e) {
         LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
       }
     }
-
-    this.queryShardContext =
-        buildQueryShardContext(
-            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
-  }
-
-  /** Serializes InternalAggregation to byte array for transport */
-  public static byte[] toByteArray(InternalAggregation internalAggregation) {
-    if (internalAggregation == null) {
-      return new byte[] {};
-    }
-
-    byte[] returnBytes;
-    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-      try (StreamOutput streamOutput = new OutputStreamStreamOutput(byteArrayOutputStream)) {
-        InternalAggregations internalAggregations =
-            new InternalAggregations(List.of(internalAggregation), null);
-        internalAggregations.writeTo(streamOutput);
-      }
-      returnBytes = byteArrayOutputStream.toByteArray();
-    } catch (IOException e) {
-      LOG.error("Error writing internal agg to byte array", e);
-      throw new RuntimeException(e);
-    }
-    return returnBytes;
-  }
-
-  /** Deserializes a bytearray into an InternalAggregation */
-  public static InternalAggregation fromByteArray(byte[] bytes) throws IOException {
-    if (bytes.length == 0) {
-      return null;
-    }
-
-    InternalAggregation internalAggregation;
-    try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-      try (StreamInput streamInput = new InputStreamStreamInput(inputStream)) {
-        try (NamedWriteableAwareStreamInput namedWriteableAwareStreamInput =
-            new NamedWriteableAwareStreamInput(streamInput, NAMED_WRITEABLE_REGISTRY)) {
-          // the use of this InternalAggregations wrapper lightly follows OpenSearch
-          // See OpenSearch InternalAggregationsTest.writeToAndReadFrom() for more details
-          InternalAggregations internalAggregations =
-              InternalAggregations.readFrom(namedWriteableAwareStreamInput);
-          internalAggregation = internalAggregations.copyResults().get(0);
-        }
-      }
-    }
-    return internalAggregation;
   }
 
   protected static XContentBuilder mapping(
@@ -456,16 +324,32 @@ public class OpenSearchAggregationAdapter {
    * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
    * "long"));
    */
-  private static void registerField(
+  private static boolean tryRegisterField(
       MapperService mapperService,
       String fieldName,
-      CheckedConsumer<XContentBuilder, IOException> buildField)
-      throws IOException {
-    XContentBuilder mapping = fieldMapping(fieldName, buildField);
-    mapperService.merge(
-        "_doc",
-        new CompressedXContent(BytesReference.bytes(mapping)),
-        MapperService.MergeReason.MAPPING_UPDATE);
+      CheckedConsumer<XContentBuilder, IOException> buildField) {
+    MappedFieldType fieldType = mapperService.fieldType(fieldName);
+    if (mapperService.isMetadataField(fieldName)) {
+      LOG.debug("Skipping metadata field '{}'", fieldName);
+      return false;
+    } else if (fieldType != null) {
+      LOG.debug(
+          "Field '{}' already exists as typeName '{}', skipping query mapping update",
+          fieldType.name(),
+          fieldType.familyTypeName());
+      return false;
+    } else {
+      try {
+        XContentBuilder mapping = fieldMapping(fieldName, buildField);
+        mapperService.merge(
+            "_doc",
+            new CompressedXContent(BytesReference.bytes(mapping)),
+            MapperService.MergeReason.MAPPING_UPDATE);
+      } catch (Exception e) {
+        LOG.error("Error doing map update", e);
+      }
+      return true;
+    }
   }
 
   /**
@@ -803,5 +687,10 @@ public class OpenSearchAggregationAdapter {
     }
 
     return histogramAggregationBuilder;
+  }
+
+  @Override
+  public void close() throws IOException {
+    executor.shutdown();
   }
 }
