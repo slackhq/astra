@@ -188,8 +188,7 @@ public class KaldbKafkaConsumerTest {
     public void testConsumeMessagesBetweenOffsets() throws Exception {
       EphemeralKafkaBroker broker = kafkaServer.getBroker();
       assertThat(broker.isRunning()).isTrue();
-      final Instant startTime =
-          LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+      final Instant startTime = Instant.now();
 
       assertThat(kafkaServer.getConnectedConsumerGroups()).isEqualTo(0);
 

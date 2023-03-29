@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 public class SpanFormatterTest {
@@ -26,7 +27,7 @@ public class SpanFormatterTest {
     final String traceId = "t1";
     final String id = "i2";
     final String parentId = "p2";
-    final long timestampMicros = 1612550512340953L;
+    final Instant timestamp = Instant.now();
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
@@ -35,14 +36,14 @@ public class SpanFormatterTest {
             traceId,
             id,
             parentId,
-            timestampMicros,
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS),
             durationMicros,
             name,
             serviceName,
             SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestampMicros / 1000);
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestamp.toEpochMilli());
     assertThat(logMsg.getId()).isEqualTo(id);
     assertThat(logMsg.getType()).isEqualTo("INFO");
     assertThat(logMsg.getIndex()).isEqualTo(serviceName);
@@ -70,17 +71,24 @@ public class SpanFormatterTest {
   public void testRootSpanToLogMessage() {
     final String traceId = "traceid1";
     final String id = "1";
-    final long timestampMicros = 1612550512340953L;
+    final Instant timestamp = Instant.now();
     final String msgType = "test_message_type";
     final long durationMicros = 5000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
     final Trace.Span span =
         SpanUtil.makeSpan(
-            traceId, id, "", timestampMicros, durationMicros, name, serviceName, msgType);
+            traceId,
+            id,
+            "",
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS),
+            durationMicros,
+            name,
+            serviceName,
+            msgType);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
-    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestampMicros / 1000);
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestamp.toEpochMilli());
     assertThat(logMsg.getId()).isEqualTo(id);
     assertThat(logMsg.getType()).isEqualTo(msgType);
     assertThat(logMsg.getIndex()).isEqualTo(serviceName);
@@ -109,7 +117,7 @@ public class SpanFormatterTest {
     final String traceId = "t1";
     final String id = "i1";
     final String id2 = "i2";
-    final long timestampMicros = 1612550512340953L;
+    final Instant timestamp = Instant.now();
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
@@ -118,7 +126,7 @@ public class SpanFormatterTest {
             traceId,
             id,
             "",
-            timestampMicros,
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS),
             durationMicros,
             name,
             serviceName,
@@ -128,7 +136,7 @@ public class SpanFormatterTest {
             traceId,
             id2,
             id,
-            timestampMicros + 1000,
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli() + 1000, TimeUnit.MILLISECONDS),
             durationMicros,
             name + "2",
             serviceName,
@@ -156,7 +164,7 @@ public class SpanFormatterTest {
 
     for (LogMessage logMsg : logMessages) {
       assertThat(logMsg.getTimestamp().toEpochMilli())
-          .isIn(timestampMicros / 1000, (timestampMicros + 1000) / 1000);
+          .isIn(timestamp.toEpochMilli(), timestamp.toEpochMilli() + 1000);
       assertThat(logMsg.getId()).isIn(id, id2);
       assertThat(logMsg.getType()).isEqualTo("INFO");
       assertThat(logMsg.getIndex()).isEqualTo(serviceName);
@@ -185,19 +193,27 @@ public class SpanFormatterTest {
   public void testEmptyTimestamp() {
     final Trace.Span span =
         SpanUtil.makeSpan("", "", "", 0, 0, "", "", SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
-    assertThatExceptionOfType(IllegalStateException.class)
+    assertThatExceptionOfType(IllegalArgumentException.class)
         .isThrownBy(() -> SpanFormatter.toLogMessage(span));
   }
 
   @Test
   public void testSpanWithoutKeyFieldsToLogMessage() {
-    long ts = Instant.now().toEpochMilli();
+    Instant timestamp = Instant.now();
     final Trace.Span span =
-        SpanUtil.makeSpan("", "", "", ts, 0, "", "", SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
+        SpanUtil.makeSpan(
+            "",
+            "",
+            "",
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS),
+            0,
+            "",
+            "",
+            SpanFormatter.DEFAULT_LOG_MESSAGE_TYPE);
 
     LogMessage logMsg = SpanFormatter.toLogMessage(span);
     // we convert any time by 1000 in SpanFormatter#toLogMessage
-    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(ts / 1000);
+    assertThat(logMsg.getTimestamp().toEpochMilli()).isEqualTo(timestamp.toEpochMilli());
     assertThat(logMsg.getId()).isEmpty();
     assertThat(logMsg.getType()).isEqualTo("INFO");
     assertThat(logMsg.getIndex()).isEqualTo(SpanFormatter.DEFAULT_INDEX_NAME);
