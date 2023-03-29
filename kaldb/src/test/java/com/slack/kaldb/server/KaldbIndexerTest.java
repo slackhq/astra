@@ -43,8 +43,6 @@ import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
@@ -74,8 +72,7 @@ public class KaldbIndexerTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private static final Instant startTime =
-      LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+  private static final Instant startTime = Instant.now();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private KaldbIndexer kaldbIndexer;
