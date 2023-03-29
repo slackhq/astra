@@ -4,7 +4,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
@@ -16,23 +16,18 @@ import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
-import java.io.Closeable;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -53,6 +48,7 @@ import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
@@ -93,44 +89,84 @@ import org.slf4j.LoggerFactory;
  * TODO - implement a custom InternalAggregation and return these instead of the OpenSearch
  * InternalAggregation classes
  */
-public class OpenSearchAdapter implements Closeable {
+public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
   private final QueryShardContext queryShardContext;
 
   private final MapperService mapperService;
 
-  // This refresh is how often the Opensearch mapping will attempt to update with the Kaldb mapping
-  // This can be reasonably high, but newly emergent fields may be delayed from use in aggregation/
-  // query up to this duration.
-  protected static final Duration MAP_REFRESH = Duration.of(30, ChronoUnit.SECONDS);
+  private final Map<String, LuceneFieldDef> chunkSchema;
 
-  private final ScheduledExecutorService executor =
-      Executors.newSingleThreadScheduledExecutor(
-          new ThreadFactoryBuilder()
-              .setUncaughtExceptionHandler(
-                  (t, e) -> LOG.error("Exception on thread {}: {}", t.getName(), e))
-              .setNameFormat("open-search-adapter-%d")
-              .build());
-
-  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema, boolean schemaRefresh) {
+  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
     this.queryShardContext =
         buildQueryShardContext(
             KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
+    this.chunkSchema = chunkSchema;
+  }
 
-    if (schemaRefresh) {
-      this.executor.scheduleAtFixedRate(
-          () -> updateSchema(chunkSchema), 0, MAP_REFRESH.toMillis(), TimeUnit.MILLISECONDS);
-    } else {
-      updateSchema(chunkSchema);
+  /**
+   * Builds a Lucene query using the provided arguments, and the currently loaded schema. Uses the
+   * Opensearch Query String builder. TODO - use the dataset param in building query
+   *
+   * @see https://opensearch.org/docs/latest/query-dsl/full-text/query-string/
+   * @see
+   *     https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+   */
+  public Query buildQuery(
+      String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
+      throws IOException {
+    LOG.trace("Query raw input string: '{}'", queryStr);
+    try {
+      Query query;
+      if (queryStr != null
+          && !queryStr.isEmpty()
+          && !queryStr.equals("*:*")
+          && !queryStr.equals("*")) {
+        QueryStringQueryBuilder queryStringQueryBuilder =
+            new QueryStringQueryBuilder(
+                String.format(
+                    "(%s) AND (%s:[%s TO %s])",
+                    queryStr,
+                    LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                    startTimeMsEpoch,
+                    endTimeMsEpoch));
+
+        // the field to use when none are provided, otherwise will OR all fields in the registry (up
+        // to a configurable field limit)
+        queryStringQueryBuilder.defaultField("_all");
+
+        // If true, format-based errors, such as providing a text value for a numeric field, are
+        // ignored. Defaults to false.
+        queryStringQueryBuilder.lenient(false);
+        queryStringQueryBuilder.analyzeWildcard(true);
+
+        query = queryStringQueryBuilder.toQuery(queryShardContext);
+      } else {
+        QueryStringQueryBuilder queryStringQueryBuilder =
+            new QueryStringQueryBuilder(
+                String.format(
+                    "%s:[%s TO %s]",
+                    LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                    startTimeMsEpoch,
+                    endTimeMsEpoch));
+        query = queryStringQueryBuilder.toQuery(queryShardContext);
+      }
+      return query;
+    } catch (Exception e) {
+      LOG.error("Query parse exception", e);
+      throw new IllegalArgumentException(e);
     }
   }
 
-  /** For each defined field in the chunk schema, this will check if */
-  private void updateSchema(Map<String, LuceneFieldDef> chunkSchema) {
+  /**
+   * For each defined field in the chunk schema, this will check if the field is already registered,
+   * and if not attempt to register it with the mapper service
+   */
+  public void reloadSchema() {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
@@ -314,7 +350,7 @@ public class OpenSearchAdapter implements Closeable {
         () -> Instant.now().toEpochMilli(),
         null,
         s -> false,
-        null,
+        () -> true,
         valuesSourceRegistry);
   }
 
@@ -330,10 +366,10 @@ public class OpenSearchAdapter implements Closeable {
       CheckedConsumer<XContentBuilder, IOException> buildField) {
     MappedFieldType fieldType = mapperService.fieldType(fieldName);
     if (mapperService.isMetadataField(fieldName)) {
-      LOG.debug("Skipping metadata field '{}'", fieldName);
+      LOG.trace("Skipping metadata field '{}'", fieldName);
       return false;
     } else if (fieldType != null) {
-      LOG.debug(
+      LOG.trace(
           "Field '{}' already exists as typeName '{}', skipping query mapping update",
           fieldType.name(),
           fieldType.familyTypeName());
@@ -687,10 +723,5 @@ public class OpenSearchAdapter implements Closeable {
     }
 
     return histogramAggregationBuilder;
-  }
-
-  @Override
-  public void close() throws IOException {
-    executor.shutdown();
   }
 }

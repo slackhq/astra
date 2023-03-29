@@ -490,7 +490,7 @@ public class SearchResultAggregatorImplTest {
     LogStore<LogMessage> logStore =
         new LuceneIndexStoreImpl(indexStoreCfg, documentBuilder, metricsRegistry);
     LogIndexSearcherImpl logSearcher =
-        new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema(), false);
+        new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
 
     for (LogMessage logMessage : logMessages) {
       logStore.addMessage(logMessage);

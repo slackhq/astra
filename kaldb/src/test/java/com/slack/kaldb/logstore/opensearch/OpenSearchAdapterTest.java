@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
@@ -30,14 +29,9 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherRule logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherRule(false);
 
-  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of(), false);
+  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 
   public OpenSearchAdapterTest() throws IOException {}
-
-  @After
-  public void tearDown() throws Exception {
-    openSearchAdapter.close();
-  }
 
   @Test(expected = IllegalArgumentException.class)
   public void safelyHandlesUnknownAggregations() throws IOException {

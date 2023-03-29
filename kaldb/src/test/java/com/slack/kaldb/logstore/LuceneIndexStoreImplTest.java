@@ -408,8 +408,7 @@ public class LuceneIndexStoreImplTest {
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
               LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
-              logStore.getSchema(),
-              false);
+              logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
       assertThat(newResults.size()).isEqualTo(1);
@@ -452,8 +451,7 @@ public class LuceneIndexStoreImplTest {
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
               LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
-              logStore.getSchema(),
-              false);
+              logStore.getSchema());
 
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);

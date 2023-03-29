@@ -11,7 +11,6 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
@@ -248,6 +247,142 @@ public class LogIndexSearcherImplTest {
         (InternalDateHistogram) Objects.requireNonNull(babies.internalAggregation);
     assertThat(histogram.getBuckets().size()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testExistsQuery() throws InterruptedException {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> exists =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "_exists_:customField",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(exists.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> notexists =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "_exists_:foo",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(notexists.hits.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testRangeQuery() throws InterruptedException {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time, Map.of("val", 1)));
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(2, "bear", TEST_DATASET_NAME, time, Map.of("val", 2)));
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(3, "car", TEST_DATASET_NAME, time, Map.of("val", 3)));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> rangeBoundInclusive =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "val:[1 TO 3]",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(rangeBoundInclusive.hits.size()).isEqualTo(3);
+
+    SearchResult<LogMessage> rangeBoundExclusive =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "val:{1 TO 3}",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(rangeBoundExclusive.hits.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testQueryParsingFieldTypes() throws InterruptedException {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(
+            1,
+            "apple",
+            TEST_DATASET_NAME,
+            time,
+            Map.of("boolval", true, "intval", 1, "longval", 2L, "floatval", 3F, "doubleval", 4D)));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> boolquery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "boolval:true",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(boolquery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> intquery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "intval:1",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(intquery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> longquery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "longval:2",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(longquery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> floatquery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "floatval:3",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(floatquery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> doublequery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "doubleval:4",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(doublequery.hits.size()).isEqualTo(1);
   }
 
   @Test
@@ -797,37 +932,6 @@ public class LogIndexSearcherImplTest {
                 .size())
         .isEqualTo(2);
 
-    assertThat(
-            strictLogStore
-                .logSearcher
-                .search(
-                    TEST_DATASET_NAME,
-                    ".*",
-                    0,
-                    MAX_TIME,
-                    1000,
-                    new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                .hits
-                .size())
-        .isEqualTo(0);
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
-                    .search(
-                        TEST_DATASET_NAME,
-                        "?",
-                        0,
-                        MAX_TIME,
-                        1000,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                    .hits
-                    .size());
-
     // Returns baby or car, 2 messages.
     assertThat(
             strictLogStore
@@ -987,37 +1091,6 @@ public class LogIndexSearcherImplTest {
                 .hits
                 .size())
         .isZero();
-
-    assertThat(
-            strictLogStore
-                .logSearcher
-                .search(
-                    TEST_DATASET_NAME,
-                    ".*",
-                    0,
-                    MAX_TIME,
-                    1000,
-                    new DateHistogramAggBuilder(
-                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                .hits
-                .size())
-        .isEqualTo(0);
-
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                strictLogStore
-                    .logSearcher
-                    .search(
-                        TEST_DATASET_NAME,
-                        "?",
-                        0,
-                        MAX_TIME,
-                        1000,
-                        new DateHistogramAggBuilder(
-                            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
-                    .hits
-                    .size());
 
     // Returns baby or car, 2 messages.
     assertThat(

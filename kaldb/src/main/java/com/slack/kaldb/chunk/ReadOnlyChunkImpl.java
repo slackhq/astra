@@ -204,8 +204,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
                   LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
-                  chunkSchema.fieldDefMap,
-                  false);
+                  chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
