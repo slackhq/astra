@@ -250,8 +250,8 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
-  public void testExistsQuery() throws InterruptedException {
-    Instant time = Instant.ofEpochSecond(1593365471);
+  public void testExistsQuery() {
+    Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(
             1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
@@ -282,8 +282,8 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
-  public void testRangeQuery() throws InterruptedException {
-    Instant time = Instant.ofEpochSecond(1593365471);
+  public void testRangeQuery() {
+    Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(1, "apple", TEST_DATASET_NAME, time, Map.of("val", 1)));
     strictLogStore.logStore.addMessage(
@@ -317,8 +317,8 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
-  public void testQueryParsingFieldTypes() throws InterruptedException {
-    Instant time = Instant.ofEpochSecond(1593365471);
+  public void testQueryParsingFieldTypes() {
+    Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(
             1,

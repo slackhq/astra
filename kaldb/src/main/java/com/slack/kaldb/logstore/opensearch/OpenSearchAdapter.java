@@ -47,8 +47,10 @@ import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.fielddata.IndexFieldDataService;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryStringQueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
@@ -121,19 +123,24 @@ public class OpenSearchAdapter {
       throws IOException {
     LOG.trace("Query raw input string: '{}'", queryStr);
     try {
-      Query query;
+      BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+
+      RangeQueryBuilder rangeQueryBuilder =
+          new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+              .gte(startTimeMsEpoch)
+              .lte(endTimeMsEpoch);
+      boolQueryBuilder.must(rangeQueryBuilder);
+
+      // todo - dataset?
+
+      // Only add the query string clause if this is not attempting to fetch all records
+      // Since we do analyze the wildcard this can cause unexpected behavior if only a wildcard is
+      // provided
       if (queryStr != null
           && !queryStr.isEmpty()
           && !queryStr.equals("*:*")
           && !queryStr.equals("*")) {
-        QueryStringQueryBuilder queryStringQueryBuilder =
-            new QueryStringQueryBuilder(
-                String.format(
-                    "(%s) AND (%s:[%s TO %s])",
-                    queryStr,
-                    LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                    startTimeMsEpoch,
-                    endTimeMsEpoch));
+        QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
 
         // the field to use when none are provided, otherwise will OR all fields in the registry (up
         // to a configurable field limit)
@@ -144,18 +151,10 @@ public class OpenSearchAdapter {
         queryStringQueryBuilder.lenient(false);
         queryStringQueryBuilder.analyzeWildcard(true);
 
-        query = queryStringQueryBuilder.toQuery(queryShardContext);
-      } else {
-        QueryStringQueryBuilder queryStringQueryBuilder =
-            new QueryStringQueryBuilder(
-                String.format(
-                    "%s:[%s TO %s]",
-                    LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                    startTimeMsEpoch,
-                    endTimeMsEpoch));
-        query = queryStringQueryBuilder.toQuery(queryShardContext);
+        boolQueryBuilder.must(queryStringQueryBuilder);
       }
-      return query;
+
+      return boolQueryBuilder.toQuery(queryShardContext);
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
       throw new IllegalArgumentException(e);
