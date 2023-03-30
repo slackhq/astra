@@ -156,8 +156,7 @@ public class RecoveryServiceTest {
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Populate data in  Kafka so we can recover from it.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
@@ -284,8 +283,7 @@ public class RecoveryServiceTest {
 
     final KaldbKafkaConsumer localTestConsumer =
         new KaldbKafkaConsumer(kafkaConfig, components.logMessageWriter, components.meterRegistry);
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     final long msgsToProduce = 100;
     TestKafkaServer.produceMessagesToKafka(
         components.testKafkaServer.getBroker(),
@@ -359,8 +357,7 @@ public class RecoveryServiceTest {
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Populate data in  Kafka so we can recover from it.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
@@ -398,8 +395,7 @@ public class RecoveryServiceTest {
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Populate data in  Kafka so we can recover data from Kafka.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
@@ -475,8 +471,7 @@ public class RecoveryServiceTest {
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
     // Populate data in  Kafka so we can recover data from Kafka.
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     // fakeS3Bucket is not present.
