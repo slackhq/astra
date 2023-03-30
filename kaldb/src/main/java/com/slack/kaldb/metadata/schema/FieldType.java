@@ -20,6 +20,7 @@ import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
@@ -181,18 +182,21 @@ public enum FieldType {
     }
   },
   BOOLEAN("boolean") {
+    final BytesRef TRUE = new BytesRef("T");
+    final BytesRef FALSE = new BytesRef("F");
+
     @Override
     public void addField(Document doc, String name, Object value, LuceneFieldDef fieldDef) {
-      // Lucene has no native support for Booleans so store that field as text.
-      String valueStr = String.valueOf((boolean) value);
+      // Lucene has no native support for Booleans so store that field as a bytes ref.
+      boolean valueBool = (boolean) value;
       if (fieldDef.isIndexed) {
-        doc.add(new StringField(name, valueStr, getStoreEnum(fieldDef.isStored)));
+        doc.add(new StringField(name, valueBool ? TRUE : FALSE, getStoreEnum(fieldDef.isStored)));
       }
       if (fieldDef.isStored) {
-        doc.add(new StoredField(name, valueStr));
+        doc.add(new StoredField(name, valueBool ? TRUE : FALSE));
       }
       if (fieldDef.storeDocValue) {
-        doc.add(new SortedDocValuesField(name, new BytesRef(valueStr)));
+        doc.add(new SortedNumericDocValuesField(name, valueBool ? 1 : 0));
       }
     }
 

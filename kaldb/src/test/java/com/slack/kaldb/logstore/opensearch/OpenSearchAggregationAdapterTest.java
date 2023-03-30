@@ -2,10 +2,12 @@ package com.slack.kaldb.logstore.opensearch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
@@ -21,6 +23,7 @@ import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 
@@ -33,11 +36,12 @@ public class OpenSearchAggregationAdapterTest {
   public OpenSearchAggregationAdapterTest() throws IOException {}
 
   @Test
-  public void canSerializeDeserializeInternalAggregation() throws IOException {
+  public void canSerializeDeserializeInternalDateHistogramAggregation() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "3");
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
             "foo", "epoch_ms", "10s", "5s", 10, "epoch_ms", Map.of(), List.of(avgAggBuilder));
@@ -45,6 +49,33 @@ public class OpenSearchAggregationAdapterTest {
         openSearchAggregationAdapter.getCollectorManager(
             dateHistogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+    InternalAggregation internalAggregation1 =
+        collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
+
+    byte[] serialize = OpenSearchAggregationAdapter.toByteArray(internalAggregation1);
+    InternalAggregation internalAggregation2 =
+        OpenSearchAggregationAdapter.fromByteArray(serialize);
+
+    // todo - this is pending a PR to OpenSearch to address specific to histograms
+    // https://github.com/opensearch-project/OpenSearch/pull/6357
+    // this is because DocValueFormat.DateTime in OpenSearch does not implement a proper equals
+    // method
+    // As such the DocValueFormat.parser are never equal to each other
+    assertThat(internalAggregation1.toString()).isEqualTo(internalAggregation2.toString());
+  }
+
+  @Test
+  public void canSerializeDeserializeInternalHistogramAggregation() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+    HistogramAggBuilder histogramAggBuilder =
+        new HistogramAggBuilder("foo", "duration_ms", "1000", 1, List.of(avgAggBuilder));
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAggregationAdapter.getCollectorManager(
+            histogramAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -152,8 +183,10 @@ public class OpenSearchAggregationAdapterTest {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
 
-    AvgAggBuilder avgAggBuilder1 = new AvgAggBuilder("foo", "@timestamp", "2");
-    AvgAggBuilder avgAggBuilder2 = new AvgAggBuilder("bar", "@timestamp", "2");
+    AvgAggBuilder avgAggBuilder1 =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+    AvgAggBuilder avgAggBuilder2 =
+        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAggregationAdapter.getCollectorManager(
             avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
@@ -177,7 +210,8 @@ public class OpenSearchAggregationAdapterTest {
   public void canBuildValidAvgAggregator() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
         new OpenSearchAggregationAdapter(Map.of());
-    AvgAggBuilder avgAggBuilder = new AvgAggBuilder("foo", "@timestamp", "1");
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
@@ -216,7 +250,14 @@ public class OpenSearchAggregationAdapterTest {
         new OpenSearchAggregationAdapter(Map.of());
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
-            "foo", "@timestamp", "5s", "2s", 100, "epoch_ms", Map.of(), List.of());
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             dateHistogramAggBuilder,
@@ -231,6 +272,24 @@ public class OpenSearchAggregationAdapterTest {
     // todo - we don't have access to the package local methods for extra asserts - use reflection?
   }
 
+  @Test
+  public void canBuildValidHistogram() throws IOException {
+    OpenSearchAggregationAdapter openSearchAggregationAdapter =
+        new OpenSearchAggregationAdapter(Map.of());
+    HistogramAggBuilder histogramAggBuilder =
+        new HistogramAggBuilder(
+            "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1000", 1, List.of());
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAggregationAdapter.getCollectorManager(
+            histogramAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+
+    Aggregator histogramAggregator = collectorManager.newCollector();
+    InternalHistogram internalDateHistogram =
+        (InternalHistogram) histogramAggregator.buildTopLevel();
+
+    assertThat(internalDateHistogram.getName()).isEqualTo("foo");
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void handlesDateHistogramExtendedBoundsMinDocEdgeCases() throws IOException {
     OpenSearchAggregationAdapter openSearchAggregationAdapter =
@@ -239,7 +298,14 @@ public class OpenSearchAggregationAdapterTest {
     // when using minDocCount the extended bounds must be set
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
-            "foo", "@timestamp", "5s", "2s", 0, "epoch_ms", Map.of(), List.of());
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            0,
+            "epoch_ms",
+            Map.of(),
+            List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAggregationAdapter.getCollectorManager(
             dateHistogramAggBuilder,

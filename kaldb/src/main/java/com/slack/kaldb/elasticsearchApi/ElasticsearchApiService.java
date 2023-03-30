@@ -22,6 +22,7 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.EsSearchResponse;
 import com.slack.kaldb.elasticsearchApi.searchResponse.HitsMetadata;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
@@ -192,6 +193,8 @@ public class ElasticsearchApiService {
                     "mappings",
                     ImmutableMap.of(
                         "properties",
-                        ImmutableMap.of("@timestamp", ImmutableMap.of("type", "date")))))));
+                        ImmutableMap.of(
+                            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                            ImmutableMap.of("type", "date")))))));
   }
 }

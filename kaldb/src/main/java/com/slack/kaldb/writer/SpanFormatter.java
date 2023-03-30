@@ -124,6 +124,25 @@ public class SpanFormatter {
     return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
+  public static void validateTimestamp(String id, Instant timestamp, Instant currentTime) {
+    if (timestamp.toEpochMilli() <= 0) {
+      throw new IllegalArgumentException(
+          "span id=" + id + " has incorrect timestamp=" + timestamp.toEpochMilli());
+    }
+    // cannot be in the future by more than 1 hour
+    if (timestamp.isAfter(currentTime)
+        && timestamp.minus(1, ChronoUnit.HOURS).isAfter(currentTime)) {
+      throw new IllegalArgumentException(
+          "span id=" + id + " is more than 1 hour ahead timestamp=" + timestamp.toEpochMilli());
+    }
+    // cannot be more than 12 hours in the past
+    if (timestamp.isBefore(currentTime)
+        && timestamp.plus(12, ChronoUnit.HOURS).isBefore(currentTime)) {
+      throw new IllegalArgumentException(
+          "span id=" + id + " is more than 12 hours behind timestamp=" + timestamp.toEpochMilli());
+    }
+  }
+
   // TODO: Make this function more memory efficient?
   public static LogMessage toLogMessage(Trace.Span span) {
     if (span == null) return null;
@@ -141,12 +160,8 @@ public class SpanFormatter {
         Duration.of(span.getDuration(), ChronoUnit.MICROS).toMillis());
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
-    if (span.getTimestamp() <= 0) {
-      throw new IllegalStateException(
-          "span id=" + id + " has incorrect timestamp=" + span.getTimestamp());
-    }
-    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / (1000));
-    jsonMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timestamp.toString());
+    Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
+    validateTimestamp(id, timestamp, Instant.now());
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;
@@ -201,7 +216,8 @@ public class SpanFormatter {
     //    }
 
     // Drop the type field from LogMessage since with spans it doesn't make sense.
-    return LogMessage.fromWireMessage(new LogWireMessage(indexName, msgType, id, jsonMap));
+    return LogMessage.fromWireMessage(
+        new LogWireMessage(indexName, msgType, id, timestamp, jsonMap));
   }
 
   // TODO: For now assuming that the tags in ListOfSpans is empty. Handle this case in future.

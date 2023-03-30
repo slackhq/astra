@@ -65,6 +65,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -262,8 +263,10 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs()).isGreaterThan(0);
     assertThat(chunkInfo.chunkId).startsWith(CHUNK_DATA_PREFIX);
     assertThat(chunkInfo.getMaxOffset()).isEqualTo(offset - 1);
-    assertThat(chunkInfo.getDataStartTimeEpochMs()).isEqualTo(messages.get(0).timeSinceEpochMilli);
-    assertThat(chunkInfo.getDataEndTimeEpochMs()).isEqualTo(messages.get(99).timeSinceEpochMilli);
+    assertThat(chunkInfo.getDataStartTimeEpochMs())
+        .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
+    assertThat(chunkInfo.getDataEndTimeEpochMs())
+        .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
@@ -571,8 +574,8 @@ public class IndexingChunkManagerTest {
     offset++;
 
     // Add an invalid message
-    LogMessage msg100 = MessageUtil.makeMessage(100);
-    MessageUtil.addFieldToMessage(msg100, LogMessage.ReservedField.HOSTNAME.fieldName, 20000);
+    LogMessage msg100 =
+        MessageUtil.makeMessage(100, Map.of(LogMessage.ReservedField.HOSTNAME.fieldName, 20000));
     chunkManager.addMessage(msg100, msg100.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
     offset++;
 
@@ -935,7 +938,7 @@ public class IndexingChunkManagerTest {
     checkMetadata(7, 4, 3, 4, 1);
     // TODO: Test commit and refresh count
 
-    final long messagesStartTimeMs = messages.get(0).timeSinceEpochMilli;
+    final long messagesStartTimeMs = messages.get(0).getTimestamp().toEpochMilli();
 
     // Search all messages
     for (int i = 1; i <= 35; i++) {

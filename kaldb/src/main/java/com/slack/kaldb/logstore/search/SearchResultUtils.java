@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -160,6 +161,17 @@ public class SearchResultUtils {
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()));
+    } else if (searchAggregation.getType().equals(HistogramAggBuilder.TYPE)) {
+      return new HistogramAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          searchAggregation.getValueSource().getHistogram().getInterval(),
+          searchAggregation.getValueSource().getHistogram().getMinDocCount(),
+          searchAggregation
+              .getSubAggregationsList()
+              .stream()
+              .map(SearchResultUtils::fromSearchAggregations)
+              .collect(Collectors.toList()));
     }
 
     throw new NotImplementedException(
@@ -304,6 +316,32 @@ public class SearchResultUtils {
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())
                   .setDateHistogram(dateHistogramAggregationBuilder.build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof HistogramAggBuilder) {
+      HistogramAggBuilder histogramAggBuilder = (HistogramAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.HistogramAggregation
+              .Builder
+          histogramAggregationBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                  .HistogramAggregation.newBuilder()
+                  .setInterval(histogramAggBuilder.getInterval())
+                  .setMinDocCount(histogramAggBuilder.getMinDocCount());
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(HistogramAggBuilder.TYPE)
+          .setName(histogramAggBuilder.getName())
+          .addAllSubAggregations(
+              histogramAggBuilder
+                  .getSubAggregations()
+                  .stream()
+                  .map(SearchResultUtils::toSearchAggregationProto)
+                  .collect(Collectors.toList()))
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(histogramAggBuilder.getField())
+                  .setHistogram(histogramAggregationBuilder.build())
                   .build())
           .build();
     } else {

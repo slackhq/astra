@@ -26,20 +26,16 @@ public class MessageUtil {
   public static final String TEST_SOURCE_FLOAT_PROPERTY = "floatproperty";
   public static final String TEST_SOURCE_STRING_PROPERTY = "stringproperty";
 
-  public static String getCurrentLogDate() {
-    return Instant.now().toString();
-  }
-
   // TODO: Convert message to a Span object.
   public static LogWireMessage makeWireMessage(int i) {
-    return makeWireMessage(i, getCurrentLogDate());
+    return makeWireMessage(i, Instant.now(), Map.of());
   }
 
-  public static String makeLogMessageJSON(int i) throws JsonProcessingException {
-    return makeLogMessageJSON(i, getCurrentLogDate());
+  public static LogWireMessage makeWireMessage(int i, Map<String, Object> properties) {
+    return makeWireMessage(i, Instant.now(), properties);
   }
 
-  public static String makeLogMessageJSON(int i, String ts) throws JsonProcessingException {
+  public static String makeLogMessageJSON(int i, Instant timeStamp) throws JsonProcessingException {
     String id = DEFAULT_MESSAGE_PREFIX + i;
     Map<String, Object> fieldMap = new HashMap<>();
     fieldMap.put("type", TEST_MESSAGE_TYPE);
@@ -47,7 +43,7 @@ public class MessageUtil {
     fieldMap.put("id", id);
 
     Map<String, Object> sourceFieldMap = new HashMap<>();
-    sourceFieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts);
+    sourceFieldMap.put(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, timeStamp.toEpochMilli());
     String message = String.format("The identifier in this message is %s", id);
     sourceFieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
     sourceFieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
@@ -60,10 +56,10 @@ public class MessageUtil {
     return JsonUtil.writeAsString(fieldMap);
   }
 
-  public static LogWireMessage makeWireMessage(int i, String ts) {
+  public static LogWireMessage makeWireMessage(
+      int i, Instant timeStamp, Map<String, Object> properties) {
     String id = DEFAULT_MESSAGE_PREFIX + i;
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts);
     String message = String.format("The identifier in this message is %s", id);
     fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, message);
     fieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
@@ -71,13 +67,15 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_DOUBLE_PROPERTY, (double) i);
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
-    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
+
+    fieldMap.putAll(properties);
+
+    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, timeStamp, fieldMap);
   }
 
   public static LogMessage makeMessageWithIndexAndTimestamp(
-      int i, String msgStr, String indexName, Instant timeStamp) {
+      int i, String msgStr, String indexName, Instant timeStamp, Map<String, Object> properties) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, timeStamp.toString());
     fieldMap.put(LogMessage.ReservedField.MESSAGE.fieldName, msgStr);
     fieldMap.put(TEST_SOURCE_INT_PROPERTY, i);
     fieldMap.put(TEST_SOURCE_LONG_PROPERTY, (long) i);
@@ -85,21 +83,32 @@ public class MessageUtil {
     fieldMap.put(TEST_SOURCE_FLOAT_PROPERTY, (float) i);
     fieldMap.put(TEST_SOURCE_STRING_PROPERTY, String.format("String-%s", i));
 
+    fieldMap.putAll(properties);
+
     LogWireMessage wireMsg =
-        new LogWireMessage(indexName, TEST_MESSAGE_TYPE, Integer.toString(i), fieldMap);
+        new LogWireMessage(indexName, TEST_MESSAGE_TYPE, Integer.toString(i), timeStamp, fieldMap);
     return LogMessage.fromWireMessage(wireMsg);
+  }
+
+  public static LogMessage makeMessageWithIndexAndTimestamp(
+      int i, String msgStr, String indexName, Instant timeStamp) {
+    return makeMessageWithIndexAndTimestamp(i, msgStr, indexName, timeStamp, Map.of());
   }
 
   public static LogMessage makeMessage(int i) {
     return LogMessage.fromWireMessage(makeWireMessage(i));
   }
 
-  public static LogMessage makeMessage(int i, String ts) {
-    return LogMessage.fromWireMessage(makeWireMessage(i, ts));
+  public static LogMessage makeMessage(int i, Map<String, Object> properties) {
+    return LogMessage.fromWireMessage(makeWireMessage(i, properties));
   }
 
-  public static void addFieldToMessage(LogMessage msg, String key, Object value) {
-    msg.source.put(key, value);
+  public static LogMessage makeMessage(int i, Instant timestamp) {
+    return LogMessage.fromWireMessage(makeWireMessage(i, timestamp, Map.of()));
+  }
+
+  public static LogMessage makeMessage(int i, Instant timestamp, Map<String, Object> properties) {
+    return LogMessage.fromWireMessage(makeWireMessage(i, timestamp, properties));
   }
 
   public static String makeSerializedMessage(int i) {
@@ -111,7 +120,8 @@ public class MessageUtil {
   }
 
   public static String makeSerializedBadMessage(int i) {
-    LogWireMessage msg = new LogWireMessage(TEST_DATASET_NAME, null, "Message" + i, null);
+    LogWireMessage msg =
+        new LogWireMessage(TEST_DATASET_NAME, null, "Message" + i, Instant.now(), null);
     try {
       return JsonUtil.writeAsString(msg);
     } catch (JsonProcessingException e) {
@@ -154,8 +164,7 @@ public class MessageUtil {
     List<LogMessage> result = new ArrayList<>();
     for (int i = 0; i <= (high - low); i++) {
       result.add(
-          MessageUtil.makeMessage(
-              low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i).toString()));
+          MessageUtil.makeMessage(low + i, start.plusNanos(1000 * 1000 * timeDeltaMills * i)));
     }
     return result;
   }

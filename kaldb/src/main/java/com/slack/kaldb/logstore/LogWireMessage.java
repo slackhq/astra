@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore;
 
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -35,11 +36,12 @@ public class LogWireMessage extends Message {
   }
 
   public LogWireMessage() {
-    super("", Collections.emptyMap());
+    super("", Instant.now(), Collections.emptyMap());
   }
 
-  public LogWireMessage(String index, String type, String id, Map<String, Object> source) {
-    super(id, source);
+  public LogWireMessage(
+      String index, String type, String id, Instant timestamp, Map<String, Object> source) {
+    super(id, timestamp, source);
     this.index = index;
     this.type = type;
   }
@@ -50,5 +52,23 @@ public class LogWireMessage extends Message {
 
   public String getType() {
     return type;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof LogWireMessage)) return false;
+
+    LogWireMessage that = (LogWireMessage) o;
+
+    if (!index.equals(that.index)) return false;
+    return type.equals(that.type);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = index.hashCode();
+    result = 31 * result + type.hashCode();
+    return result;
   }
 }

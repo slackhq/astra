@@ -166,7 +166,11 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
       s = searcher.doc(hit.doc).get(SystemField.SOURCE.fieldName);
       LogWireMessage wireMessage = JsonUtil.read(s, LogWireMessage.class);
       return new LogMessage(
-          wireMessage.getIndex(), wireMessage.getType(), wireMessage.id, wireMessage.source);
+          wireMessage.getIndex(),
+          wireMessage.getType(),
+          wireMessage.getId(),
+          wireMessage.getTimestamp(),
+          wireMessage.getSource());
     } catch (Exception e) {
       throw new IllegalStateException("Error fetching and parsing a result from index: " + s, e);
     }

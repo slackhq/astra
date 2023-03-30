@@ -3,6 +3,7 @@ package com.slack.kaldb.elasticsearchApi;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.io.Resources;
+import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -51,7 +52,8 @@ public class OpenSearchRequestTest {
         parsedRequestList.get(0).getAggregations();
 
     assertThat(dateHistogramAggBuilder.getName()).isEqualTo("2");
-    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
     assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(0);
 
     KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.DateHistogramAggregation
@@ -65,6 +67,30 @@ public class OpenSearchRequestTest {
                 "max", 1676500240688L));
     assertThat(dateHistogramAggregation.getFormat()).isEqualTo("epoch_millis");
     assertThat(dateHistogramAggregation.getOffset()).isEqualTo("5s");
+  }
+
+  @Test
+  public void testHistogram() throws Exception {
+    String rawRequest = getRawQueryString("histogram");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation histogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+
+    assertThat(histogramAggBuilder.getName()).isEqualTo("2");
+    assertThat(histogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    assertThat(histogramAggBuilder.getSubAggregationsCount()).isEqualTo(0);
+
+    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.HistogramAggregation
+        histogramAggregation = histogramAggBuilder.getValueSource().getHistogram();
+    assertThat(histogramAggregation.getInterval()).isEqualTo("1000");
+    assertThat(histogramAggregation.getMinDocCount()).isEqualTo(1);
   }
 
   @Test
@@ -133,7 +159,8 @@ public class OpenSearchRequestTest {
 
     KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
         parsedRequestList.get(0).getAggregations();
-    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
     KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.DateHistogramAggregation
         dateHistogramAggregation = dateHistogramAggBuilder.getValueSource().getDateHistogram();
@@ -166,7 +193,8 @@ public class OpenSearchRequestTest {
 
     KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
         parsedRequestList.get(0).getAggregations();
-    assertThat(dateHistogramAggBuilder.getValueSource().getField()).isEqualTo("@timestamp");
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
 
     // todo - more asserts
     assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
