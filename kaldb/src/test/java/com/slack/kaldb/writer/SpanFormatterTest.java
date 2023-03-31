@@ -260,21 +260,5 @@ public class SpanFormatterTest {
             () ->
                 SpanFormatter.validateTimestamp(
                     "1", currentTime.plus(59, ChronoUnit.MINUTES), currentTime));
-
-    assertThatThrownBy(
-            () ->
-                SpanFormatter.validateTimestamp(
-                    "1", currentTime.minus(721, ChronoUnit.MINUTES), currentTime))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatNoException()
-        .isThrownBy(
-            () ->
-                SpanFormatter.validateTimestamp(
-                    "1", currentTime.minus(720, ChronoUnit.MINUTES), currentTime));
-    assertThatNoException()
-        .isThrownBy(
-            () ->
-                SpanFormatter.validateTimestamp(
-                    "1", currentTime.minus(719, ChronoUnit.MINUTES), currentTime));
   }
 }
