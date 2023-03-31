@@ -177,7 +177,37 @@ enum NullValue {
   NULL_VALUE = 0;
 }
 
+message SchemaRequest {
+  // Data sets or chunk_ids to be searched
+  string dataset = 1;
+  repeated string chunk_ids = 2;
+  int64 start_time_epoch_ms = 3;
+  int64 end_time_epoch_ms = 4;
+}
+
+message SchemaResult {
+  // Map of field name, to field definition
+  map<string, SchemaDefinition> field_definition = 1;
+}
+
+enum FieldType {
+  TEXT = 0;
+  STRING = 1;
+  INTEGER = 2;
+  LONG = 3;
+  FLOAT = 4;
+  BOOLEAN = 5;
+  DOUBLE = 6;
+}
+
+message SchemaDefinition {
+  // Field type as defined by KalDB
+  FieldType type = 1;
+  // Any field-specific metadata to be included
+  // map<string, Value> metadata = 2;
+}
 
 service KaldbService {
   rpc Search (SearchRequest) returns (SearchResult) {}
+  rpc Schema (SchemaRequest) returns (SchemaResult) {}
 }
