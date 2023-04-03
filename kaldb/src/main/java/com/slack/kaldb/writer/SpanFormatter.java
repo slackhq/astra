@@ -135,12 +135,6 @@ public class SpanFormatter {
       throw new IllegalArgumentException(
           "span id=" + id + " is more than 1 hour ahead timestamp=" + timestamp.toEpochMilli());
     }
-    // cannot be more than 12 hours in the past
-    if (timestamp.isBefore(currentTime)
-        && timestamp.plus(12, ChronoUnit.HOURS).isBefore(currentTime)) {
-      throw new IllegalArgumentException(
-          "span id=" + id + " is more than 12 hours behind timestamp=" + timestamp.toEpochMilli());
-    }
   }
 
   // TODO: Make this function more memory efficient?

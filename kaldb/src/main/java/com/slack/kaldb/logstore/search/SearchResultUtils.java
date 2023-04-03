@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
@@ -386,7 +386,7 @@ public class SearchResultUtils {
         protoSearchResult.getTotalNodes(),
         protoSearchResult.getTotalSnapshots(),
         protoSearchResult.getSnapshotsWithReplicas(),
-        OpenSearchAggregationAdapter.fromByteArray(
+        OpenSearchInternalAggregation.fromByteArray(
             protoSearchResult.getInternalAggregations().toByteArray()));
   }
 
@@ -420,7 +420,7 @@ public class SearchResultUtils {
 
     ByteString bytes =
         ByteString.copyFrom(
-            OpenSearchAggregationAdapter.toByteArray(searchResult.internalAggregation));
+            OpenSearchInternalAggregation.toByteArray(searchResult.internalAggregation));
     searchResultBuilder.setInternalAggregations(bytes);
     span.finish();
     return searchResultBuilder.build();
