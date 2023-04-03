@@ -81,6 +81,7 @@ public class RecoveryTaskCreator {
   // Get the highest offset for which data is durable for a partition.
   @VisibleForTesting
   public static long getHighestDurableOffsetForPartition(
+      long beginningOffSetForPartition,
       List<SnapshotMetadata> snapshots,
       List<RecoveryTaskMetadata> recoveryTasks,
       String partitionId) {
@@ -91,7 +92,7 @@ public class RecoveryTaskCreator {
             .filter(snapshot -> snapshot.partitionId.equals(partitionId))
             .mapToLong(snapshot -> snapshot.maxOffset)
             .max()
-            .orElse(-1);
+            .orElse(beginningOffSetForPartition);
 
     long maxRecoveryOffset =
         recoveryTasks
@@ -99,7 +100,7 @@ public class RecoveryTaskCreator {
             .filter(recoveryTaskMetadata -> recoveryTaskMetadata.partitionId.equals(partitionId))
             .mapToLong(recoveryTaskMetadata -> recoveryTaskMetadata.endOffset)
             .max()
-            .orElse(-1);
+            .orElse(beginningOffSetForPartition);
 
     return Math.max(maxRecoveryOffset, maxSnapshotOffset);
   }
@@ -146,7 +147,8 @@ public class RecoveryTaskCreator {
    * <p>When there is no offset data for a partition, return -1. In that case, the consumer would
    * have to start indexing the data from the earliest offset.
    */
-  public long determineStartingOffset(long currentHeadOffsetForPartition) {
+  public long determineStartingOffset(
+      long beginningOffSetForPartition, long currentHeadOffsetForPartition) {
     // Filter stale snapshots for partition.
     if (partitionId == null) {
       LOG.warn("PartitionId can't be null.");
@@ -180,7 +182,7 @@ public class RecoveryTaskCreator {
     List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
     long highestDurableOffsetForPartition =
         getHighestDurableOffsetForPartition(
-            nonLiveSnapshotsForPartition, recoveryTasks, partitionId);
+            beginningOffSetForPartition, nonLiveSnapshotsForPartition, recoveryTasks, partitionId);
     LOG.info(
         "The highest durable offset for partition {} is {}",
         partitionId,
@@ -189,6 +191,16 @@ public class RecoveryTaskCreator {
     if (highestDurableOffsetForPartition <= 0) {
       LOG.info("There is no prior offset for this partition {}.", partitionId);
       return highestDurableOffsetForPartition;
+      //      LOG.info(
+      //              "No metadatada found. Recovery task needed to index from {} to {}",
+      //              highestDurableOffsetForPartition,
+      //              currentHeadOffsetForPartition);
+      //      createRecoveryTasks(
+      //              partitionId,
+      //              highestDurableOffsetForPartition,
+      //              currentHeadOffsetForPartition - 1,
+      //              maxMessagesPerRecoveryTask);
+      //      return currentHeadOffsetForPartition;
     }
 
     // The current head offset shouldn't be lower than the highest durable offset. If it is it

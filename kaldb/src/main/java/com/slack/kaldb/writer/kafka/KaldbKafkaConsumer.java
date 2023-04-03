@@ -195,8 +195,18 @@ public class KaldbKafkaConsumer {
     return getEndOffSetForPartition(topicPartition);
   }
 
+  public long getBeginningOffSetForPartition() {
+    return getBeginningOffSetForPartition(topicPartition);
+  }
+
   public long getEndOffSetForPartition(TopicPartition topicPartition) {
     return kafkaConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+  }
+
+  public long getBeginningOffSetForPartition(TopicPartition topicPartition) {
+    return kafkaConsumer
+        .beginningOffsets(Collections.singletonList(topicPartition))
+        .get(topicPartition);
   }
 
   public long getConsumerPositionForPartition() {

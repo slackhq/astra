@@ -110,7 +110,10 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
             meterRegistry);
 
     long currentHeadOffsetForPartition = kafkaConsumer.getEndOffSetForPartition();
-    long startOffset = recoveryTaskCreator.determineStartingOffset(currentHeadOffsetForPartition);
+    long beginningOffSetForPartition = kafkaConsumer.getBeginningOffSetForPartition();
+    long startOffset =
+        recoveryTaskCreator.determineStartingOffset(
+            beginningOffSetForPartition, currentHeadOffsetForPartition);
 
     // Close these stores since we don't need them after preStart.
     snapshotMetadataStore.close();
