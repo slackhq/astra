@@ -20,6 +20,25 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testNoAggs() throws Exception {
+    String rawRequest = getRawQueryString("noaggs");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(500);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+  }
+
+  @Test
   public void testGeneralFields() throws Exception {
     String rawRequest = getRawQueryString("datehistogram");
 
