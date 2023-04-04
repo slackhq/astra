@@ -90,6 +90,9 @@ public class OpenSearchRequest {
   }
 
   private static KaldbSearch.SearchRequest.SearchAggregation getAggregations(JsonNode body) {
+    if (body.get("aggs") == null) {
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build();
+    }
     if (Iterators.size(body.get("aggs").fieldNames()) != 1) {
       throw new NotImplementedException(
           "Only exactly one top level aggregators is currently supported");
