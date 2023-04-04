@@ -44,7 +44,7 @@ public class SearchResultTest {
       LogMessage logMessage = MessageUtil.makeMessage(i);
       logMessages.add(logMessage);
     }
-    OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
+    OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of(), false);
 
     Aggregator dateHistogramAggregation =
         openSearchAdapter.buildAggregatorUsingContext(

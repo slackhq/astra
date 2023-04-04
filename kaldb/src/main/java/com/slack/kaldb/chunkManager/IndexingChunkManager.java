@@ -266,7 +266,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
               searchMetadataStore,
               snapshotMetadataStore,
               searchContext,
-              kafkaPartitionId);
+              kafkaPartitionId,
+              indexerConfig.getLuceneConfig().getEnableFullTextSearch());
       chunkList.add(newChunk);
       // Register the chunk, so we can search it.
       newChunk.postCreate();

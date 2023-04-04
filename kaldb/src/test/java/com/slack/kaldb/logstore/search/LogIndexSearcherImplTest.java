@@ -250,11 +250,100 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testAllQueryWithFullTextSearchEnabled() {
+    Instant time = Instant.now();
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+    strictLogStore.logStore.commit();
+    strictLogStore.logStore.refresh();
+
+    SearchResult<LogMessage> termQuery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "customField:value",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(termQuery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> noTermStrQuery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "value",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> noTermNumericQuery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "1",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void testAllQueryWithFullTextSearchDisabled() {
+    Instant time = Instant.now();
+    strictLogStoreWithoutFts.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+    strictLogStoreWithoutFts.logStore.commit();
+    strictLogStoreWithoutFts.logStore.refresh();
+
+    SearchResult<LogMessage> termQuery =
+        strictLogStoreWithoutFts.logSearcher.search(
+            TEST_DATASET_NAME,
+            "customField:value",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(termQuery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> noTermStrQuery =
+        strictLogStoreWithoutFts.logSearcher.search(
+            TEST_DATASET_NAME,
+            "value",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(noTermStrQuery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> noTermNumericQuery =
+        strictLogStoreWithoutFts.logSearcher.search(
+            TEST_DATASET_NAME,
+            "1",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(noTermNumericQuery.hits.size()).isEqualTo(1);
+  }
+
+  @Test
   public void testExistsQuery() {
     Instant time = Instant.now();
     strictLogStore.logStore.addMessage(
         makeMessageWithIndexAndTimestamp(
             1, "apple", TEST_DATASET_NAME, time, Map.of("customField", "value")));
+    strictLogStore.logStore.addMessage(
+        makeMessageWithIndexAndTimestamp(
+            1, "apple", TEST_DATASET_NAME, time, Map.of("customField1", "value")));
     strictLogStore.logStore.commit();
     strictLogStore.logStore.refresh();
 
@@ -269,7 +358,18 @@ public class LogIndexSearcherImplTest {
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(exists.hits.size()).isEqualTo(1);
 
-    SearchResult<LogMessage> notexists =
+    SearchResult<LogMessage> termQuery =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "customField:value",
+            time.toEpochMilli(),
+            time.plusSeconds(2).toEpochMilli(),
+            10,
+            new DateHistogramAggBuilder(
+                "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThat(termQuery.hits.size()).isEqualTo(1);
+
+    SearchResult<LogMessage> notExists =
         strictLogStore.logSearcher.search(
             TEST_DATASET_NAME,
             "_exists_:foo",
@@ -278,7 +378,7 @@ public class LogIndexSearcherImplTest {
             10,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(notexists.hits.size()).isEqualTo(0);
+    assertThat(notExists.hits.size()).isEqualTo(0);
   }
 
   @Test
@@ -1044,7 +1144,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
                 .hits
                 .size())
-        .isZero();
+        .isEqualTo(2);
 
     assertThat(
             strictLogStoreWithoutFts
@@ -1059,7 +1159,7 @@ public class LogIndexSearcherImplTest {
                         "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"))
                 .hits
                 .size())
-        .isZero();
+        .isEqualTo(3);
 
     // empty string
     assertThat(

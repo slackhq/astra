@@ -99,8 +99,9 @@ public class OpenSearchAdapter {
   private final MapperService mapperService;
 
   private final Map<String, LuceneFieldDef> chunkSchema;
+  private final boolean enableFullTextSearch;
 
-  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
+  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema, boolean enableFullTextSearch) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
@@ -108,15 +109,18 @@ public class OpenSearchAdapter {
         buildQueryShardContext(
             KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
     this.chunkSchema = chunkSchema;
+    this.enableFullTextSearch = enableFullTextSearch;
   }
 
   /**
    * Builds a Lucene query using the provided arguments, and the currently loaded schema. Uses the
    * Opensearch Query String builder. TODO - use the dataset param in building query
    *
-   * @see https://opensearch.org/docs/latest/query-dsl/full-text/query-string/
-   * @see
-   *     https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+   * @see <a href="https://opensearch.org/docs/latest/query-dsl/full-text/query-string/">Query
+   *     parsing OpenSearch docs</a>
+   * @see <a
+   *     href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Query
+   *     parsing ES docs</a>
    */
   public Query buildQuery(
       String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
@@ -142,13 +146,21 @@ public class OpenSearchAdapter {
           && !queryStr.equals("*")) {
         QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
 
-        // the field to use when none are provided, otherwise will OR all fields in the registry (up
-        // to a configurable field limit)
-        queryStringQueryBuilder.defaultField("_all");
+        if (enableFullTextSearch) {
+          // the field to use when none are provided, otherwise will OR all fields in the registry
+          // (up
+          // to a configurable field limit)
+          queryStringQueryBuilder.defaultField("_all");
 
-        // If true, format-based errors, such as providing a text value for a numeric field, are
-        // ignored. Defaults to false.
-        queryStringQueryBuilder.lenient(false);
+          // If true, format-based errors, such as providing a text value for a numeric field, are
+          // ignored. Defaults to false.
+          queryStringQueryBuilder.lenient(false);
+        } else {
+          // setting lenient=true will not throw error when the query fails to parse against numeric
+          // fields
+          queryStringQueryBuilder.lenient(true);
+        }
+
         queryStringQueryBuilder.analyzeWildcard(true);
 
         boolQueryBuilder.must(queryStringQueryBuilder);

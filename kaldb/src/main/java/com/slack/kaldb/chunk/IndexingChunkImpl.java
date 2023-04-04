@@ -47,7 +47,8 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
       SearchMetadataStore searchMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
       SearchContext searchContext,
-      String kafkaPartitionId) {
+      String kafkaPartitionId,
+      boolean enableFullTextSearch) {
     super(
         logStore,
         chunkDataPrefix,
@@ -56,7 +57,8 @@ public class IndexingChunkImpl<T> extends ReadWriteChunk<T> {
         snapshotMetadataStore,
         searchContext,
         kafkaPartitionId,
-        LOG);
+        LOG,
+        enableFullTextSearch);
   }
 
   @Override

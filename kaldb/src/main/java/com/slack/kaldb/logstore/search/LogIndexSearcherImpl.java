@@ -59,8 +59,10 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
   }
 
   public LogIndexSearcherImpl(
-      SearcherManager searcherManager, ConcurrentHashMap<String, LuceneFieldDef> chunkSchema) {
-    this.openSearchAdapter = new OpenSearchAdapter(chunkSchema);
+      SearcherManager searcherManager,
+      ConcurrentHashMap<String, LuceneFieldDef> chunkSchema,
+      boolean enableFullTextSearch) {
+    this.openSearchAdapter = new OpenSearchAdapter(chunkSchema, enableFullTextSearch);
     this.refreshListener =
         new ReferenceManager.RefreshListener() {
           @Override
