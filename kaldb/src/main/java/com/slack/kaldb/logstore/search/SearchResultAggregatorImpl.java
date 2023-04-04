@@ -2,7 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -51,8 +51,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
       // some final pass "destructive" actions, such as applying min doc count or extended bounds.
       if (finalAggregation) {
         pipelineTree =
-            OpenSearchAggregationAdapter.getAggregationBuilder(searchQuery.aggBuilder)
-                .buildPipelineTree();
+            OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
         reduceContext =
             InternalAggregation.ReduceContext.forFinalReduction(
                 KaldbBigArrays.getInstance(), null, (s) -> {}, pipelineTree);
@@ -83,7 +82,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         searchResults
             .stream()
             .flatMap(r -> r.hits.stream())
-            .sorted(Comparator.comparing((T m) -> m.timeSinceEpochMilli, Comparator.reverseOrder()))
+            .sorted(
+                Comparator.comparing(
+                    (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder()))
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 

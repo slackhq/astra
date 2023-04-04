@@ -15,6 +15,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,21 +40,15 @@ public class DropPolicyTest {
   public void testBasicDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(21);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+    assertThat(testDocument.getFields().size()).isEqualTo(20);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
-            List.of(
-                "longproperty",
-                "floatproperty",
-                "@timestamp",
-                "intproperty",
-                "message",
-                "doubleproperty"));
+            List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -95,21 +90,15 @@ public class DropPolicyTest {
   public void testBasicDocumentCreationWithoutFullTextSearch() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(20);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+    assertThat(testDocument.getFields().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
-            List.of(
-                "longproperty",
-                "floatproperty",
-                "@timestamp",
-                "intproperty",
-                "message",
-                "doubleproperty"));
+            List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -151,7 +140,7 @@ public class DropPolicyTest {
   public void testNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
@@ -159,9 +148,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -172,16 +160,11 @@ public class DropPolicyTest {
                 Map.of("nested1", "value1", "nested2", 2)));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(19);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
-            List.of(
-                "duplicateproperty",
-                "@timestamp",
-                "nested.nested1",
-                "nested.nested2",
-                "booleanproperty"));
+            List.of("duplicateproperty", "nested.nested1", "nested.nested2", "booleanproperty"));
     assertThat(docBuilder.getSchema().get("booleanproperty").fieldType)
         .isEqualTo(FieldType.BOOLEAN);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -201,16 +184,15 @@ public class DropPolicyTest {
   public void testMaxRecursionNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
 
     LogMessage message =
         new LogMessage(
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -231,13 +213,12 @@ public class DropPolicyTest {
                         Map.of("nested31", 31, "nested32", Map.of("nested41", 41))))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(25);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(25);
+    assertThat(testDocument.getFields().size()).isEqualTo(24);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(24);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 "nested.nested1",
                 "nested.nested11",
                 "nested.nested12.nested21",
@@ -268,7 +249,7 @@ public class DropPolicyTest {
   public void testMultiLevelNestedDocumentCreation() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
@@ -276,9 +257,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -287,13 +267,12 @@ public class DropPolicyTest {
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(19);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
@@ -314,7 +293,7 @@ public class DropPolicyTest {
   public void testMultiLevelNestedDocumentCreationWithoutFulltTextSearch() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
@@ -322,9 +301,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -333,13 +311,12 @@ public class DropPolicyTest {
                 Map.of("leaf1", "value1", "nested", Map.of("leaf2", "value2", "leaf21", 3))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(18);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 "nested.leaf1",
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
@@ -359,7 +336,7 @@ public class DropPolicyTest {
   @Test
   public void testDroppingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
 
@@ -368,9 +345,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -381,7 +357,7 @@ public class DropPolicyTest {
                 "1"));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -389,7 +365,7 @@ public class DropPolicyTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -402,9 +378,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -414,7 +389,7 @@ public class DropPolicyTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = docBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(13);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(12);
     // Conflicting field is dropped.
     assertThat(
             msg2Doc
@@ -423,7 +398,7 @@ public class DropPolicyTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -437,7 +412,7 @@ public class DropPolicyTest {
   public void testConversionUsingDropFieldBuilder() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     final String floatStrConflictField = "floatStrConflictField";
@@ -446,9 +421,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -463,9 +437,9 @@ public class DropPolicyTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    final int expectedFieldsInDocumentAfterMesssage = 23;
+    final int expectedFieldsInDocumentAfterMesssage = 22;
     assertThat(testDocument.getFields().size()).isEqualTo(expectedFieldsInDocumentAfterMesssage);
-    final int fieldCountAfterIndexingFirstDocument = 24;
+    final int fieldCountAfterIndexingFirstDocument = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(fieldCountAfterIndexingFirstDocument);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -473,7 +447,6 @@ public class DropPolicyTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 "nested.nested.nestedList",
                 "nested.leaf1",
@@ -488,9 +461,8 @@ public class DropPolicyTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -530,7 +502,6 @@ public class DropPolicyTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 "nested.nested.nestedList",
                 "nested.leaf1",

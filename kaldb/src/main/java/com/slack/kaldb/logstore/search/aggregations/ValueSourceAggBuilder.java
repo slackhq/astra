@@ -9,7 +9,7 @@ import java.util.Objects;
  * would include things like avg, or date histogram, but not raw data, logs, or filters.
  */
 public abstract class ValueSourceAggBuilder extends AggBuilderBase {
-  // The name of the field to perform aggregations on (ie, @timestamp, duration_ms)
+  // The name of the field to perform aggregations on (ie, duration_ms)
   protected final String field;
 
   // The value to use when no value is calculated

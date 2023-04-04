@@ -15,6 +15,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
@@ -37,7 +38,7 @@ public class ConvertFieldValueTest {
   public void testConvertingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
         build(CONVERT_FIELD_VALUE, true, meterRegistry);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
@@ -47,9 +48,8 @@ public class ConvertFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -60,7 +60,7 @@ public class ConvertFieldValueTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -68,7 +68,7 @@ public class ConvertFieldValueTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -81,9 +81,8 @@ public class ConvertFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -93,7 +92,7 @@ public class ConvertFieldValueTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(14);
     // Value is converted for conflicting field.
     assertThat(
             msg2Doc
@@ -103,7 +102,7 @@ public class ConvertFieldValueTest {
                 .findFirst())
         .isNotEmpty();
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("1");
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -132,7 +131,7 @@ public class ConvertFieldValueTest {
   public void testConversionUsingConvertField() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(CONVERT_FIELD_VALUE, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(CONVERT_FIELD_VALUE);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     final String floatStrConflictField = "floatStrConflictField";
@@ -141,9 +140,8 @@ public class ConvertFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -158,9 +156,9 @@ public class ConvertFieldValueTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 23;
+    final int expectedDocFieldsAfterMsg1 = 22;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
-    final int expectedFieldsAfterMsg1 = 24;
+    final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -168,7 +166,6 @@ public class ConvertFieldValueTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 "nested.nested.nestedList",
                 "nested.leaf1",
@@ -183,9 +180,8 @@ public class ConvertFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -223,7 +219,6 @@ public class ConvertFieldValueTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 "nested.nested.nestedList",
                 "nested.leaf1",

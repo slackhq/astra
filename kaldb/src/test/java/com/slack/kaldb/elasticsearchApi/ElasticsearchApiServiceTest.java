@@ -287,7 +287,9 @@ public class ElasticsearchApiServiceTest {
     assertThat(aggregatedRes.status().code()).isEqualTo(200);
 
     assertThat(jsonNode.findValue("foo")).isNotNull();
-    assertThat(jsonNode.findValue("foo").findValue("@timestamp")).isNotNull();
+    assertThat(
+            jsonNode.findValue("foo").findValue(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName))
+        .isNotNull();
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {

@@ -14,7 +14,7 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
-import com.slack.kaldb.logstore.opensearch.OpenSearchAggregationAdapter;
+import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.proto.service.KaldbServiceGrpc;
@@ -149,16 +149,16 @@ public class KaldbLocalQueryServiceTest {
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
     assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(100);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(100);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(100.0);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(100.0);
-    assertThat((String) m.source.get("message")).contains("Message100");
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(100);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(100);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(100.0);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(100.0);
+    assertThat((String) m.getSource().get("message")).contains("Message100");
 
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
@@ -207,7 +207,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(0);
   }
@@ -254,7 +254,7 @@ public class KaldbLocalQueryServiceTest {
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
@@ -306,11 +306,11 @@ public class KaldbLocalQueryServiceTest {
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
     assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(1.0);
-    assertThat((String) m.source.get("message")).contains("Message1");
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(1.0);
+    assertThat((String) m.getSource().get("message")).contains("Message1");
 
     // Test histogram buckets
     assertThat(response.getInternalAggregations().size()).isEqualTo(0);
@@ -410,16 +410,16 @@ public class KaldbLocalQueryServiceTest {
     LogMessage m = LogMessage.fromWireMessage(hit);
     assertThat(m.getType()).isEqualTo(MessageUtil.TEST_MESSAGE_TYPE);
     assertThat(m.getIndex()).isEqualTo(MessageUtil.TEST_DATASET_NAME);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
-    assertThat(m.source.get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(1.0);
-    assertThat((String) m.source.get("message")).contains("Message1");
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_LONG_PROPERTY)).isEqualTo(1);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_INT_PROPERTY)).isEqualTo(1);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_FLOAT_PROPERTY)).isEqualTo(1.0);
+    assertThat(m.getSource().get(MessageUtil.TEST_SOURCE_DOUBLE_PROPERTY)).isEqualTo(1.0);
+    assertThat((String) m.getSource().get("message")).contains("Message1");
 
     // Test histogram buckets
     InternalDateHistogram dateHistogram =
         (InternalDateHistogram)
-            OpenSearchAggregationAdapter.fromByteArray(
+            OpenSearchInternalAggregation.fromByteArray(
                 response.getInternalAggregations().toByteArray());
     assertThat(dateHistogram.getBuckets().size()).isEqualTo(1);
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
