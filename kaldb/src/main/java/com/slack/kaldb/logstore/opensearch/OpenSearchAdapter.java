@@ -146,11 +146,12 @@ public class OpenSearchAdapter {
 
         if (queryShardContext.getMapperService().fieldType("_all") != null) {
           queryStringQueryBuilder.defaultField("_all");
-          // setting lenient=true will not throw error when the query fails to parse against numeric
+          // setting lenient=false will not throw error when the query fails to parse against
+          // numeric
           // fields
-          queryStringQueryBuilder.lenient(true);
-        } else {
           queryStringQueryBuilder.lenient(false);
+        } else {
+          queryStringQueryBuilder.lenient(true);
         }
 
         queryStringQueryBuilder.analyzeWildcard(true);
