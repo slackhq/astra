@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -103,7 +104,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             slotName,
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            List.of(Metadata.IndexType.LOGS_LUCENE9));
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
     CacheSlotMetadataStore cacheSlotListenerMetadataStore =
@@ -173,7 +175,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     try {
-      if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
+      if (!setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
@@ -207,7 +209,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                   chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
-      if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+      if (!setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
@@ -217,7 +219,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
-      setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+      setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
       LOG.error("Error handling chunk assignment", e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     }
@@ -237,7 +239,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private synchronized void handleChunkEviction() {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
     try {
-      if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
+      if (!setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
       }
 
@@ -252,7 +254,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       logSearcher = null;
 
       cleanDirectory();
-      if (!setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+      if (!setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
         throw new InterruptedException("Failed to set chunk metadata state to free");
       }
 
@@ -265,6 +267,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
+  /** Fetch the node given a slotName and update the slot state. */
+  private boolean setChunkMetadataState(
+      String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+    try {
+      cacheSlotMetadataStore
+          .getAndUpdateNonFreeCacheSlotState(slotName, slotState)
+          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      return true;
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      LOG.error("Error setting chunk metadata state", e);
+      return false;
+    }
+  }
+
   private void cleanDirectory() {
     if (dataDirectory != null) {
       try {
@@ -272,26 +288,6 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       } catch (Exception e) {
         LOG.info("Error removing files {}", dataDirectory.toString(), e);
       }
-    }
-  }
-
-  @VisibleForTesting
-  public boolean setChunkMetadataState(Metadata.CacheSlotMetadata.CacheSlotState newChunkState) {
-    CacheSlotMetadata chunkMetadata = cacheSlotMetadataStore.getNodeSync(slotName);
-    CacheSlotMetadata updatedChunkMetadata =
-        new CacheSlotMetadata(
-            chunkMetadata.name,
-            newChunkState,
-            newChunkState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
-                ? ""
-                : chunkMetadata.replicaId,
-            Instant.now().toEpochMilli());
-    try {
-      cacheSlotMetadataStore.update(updatedChunkMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      return true;
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      LOG.error("Error setting chunk metadata state");
-      return false;
     }
   }
 
