@@ -37,8 +37,7 @@ public class JsonLogFormatter {
             String.valueOf(
                 jsonMsgMap.getOrDefault(LogMessage.ReservedField.DURATION_MS.fieldName, "1")));
 
-    String dateStr =
-        (String) jsonMsgMap.getOrDefault(LogMessage.ReservedField.TIMESTAMP.fieldName, "");
+    String dateStr = (String) jsonMsgMap.getOrDefault("@timestamp", "");
     if (dateStr == null || dateStr.isEmpty()) {
       throw new IllegalArgumentException("Document must contain timestamp key");
     }

@@ -15,6 +15,7 @@ import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Instant;
 import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.junit.Before;
@@ -34,7 +35,7 @@ public class RaiseErrorFieldValueTest {
   @Test
   public void testRaiseErrorOnConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, true, meterRegistry);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
 
@@ -43,9 +44,8 @@ public class RaiseErrorFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -56,7 +56,7 @@ public class RaiseErrorFieldValueTest {
                 1));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -64,7 +64,7 @@ public class RaiseErrorFieldValueTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
@@ -77,9 +77,8 @@ public class RaiseErrorFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -94,7 +93,7 @@ public class RaiseErrorFieldValueTest {
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
     // So, the fieldMap may contain an additional item than before.
-    assertThat(docBuilder.getSchema().size()).isGreaterThanOrEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isGreaterThanOrEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
@@ -104,9 +103,8 @@ public class RaiseErrorFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -119,7 +117,7 @@ public class RaiseErrorFieldValueTest {
         .isInstanceOf(FieldDefMismatchException.class);
     // NOTE: When a document indexing fails, we still register the types of the fields in this doc.
     // So, the fieldMap may contain an additional item than before.
-    assertThat(docBuilder.getSchema().size()).isGreaterThanOrEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isGreaterThanOrEqualTo(18);
     assertThat(docBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
@@ -142,7 +140,7 @@ public class RaiseErrorFieldValueTest {
   @Test
   public void testRaiseErrorOnConflictingReservedField() {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, true, meterRegistry);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
@@ -153,9 +151,8 @@ public class RaiseErrorFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -165,7 +162,7 @@ public class RaiseErrorFieldValueTest {
 
     assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
         .isInstanceOf(FieldDefMismatchException.class);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
@@ -177,7 +174,7 @@ public class RaiseErrorFieldValueTest {
   @Test
   public void testRaiseErrorOnConflictingReservedFieldWithoutFullTextSearch() {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, false, meterRegistry);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
@@ -188,9 +185,8 @@ public class RaiseErrorFieldValueTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -200,7 +196,7 @@ public class RaiseErrorFieldValueTest {
 
     assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
         .isInstanceOf(FieldDefMismatchException.class);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();

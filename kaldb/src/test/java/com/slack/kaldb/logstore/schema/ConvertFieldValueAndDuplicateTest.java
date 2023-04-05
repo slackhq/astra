@@ -17,11 +17,13 @@ import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -43,7 +45,7 @@ public class ConvertFieldValueAndDuplicateTest {
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy())
         .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
@@ -51,9 +53,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -68,13 +69,12 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(23);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(24);
+    assertThat(testDocument.getFields().size()).isEqualTo(22);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 "listType",
                 "nested.nested.nestedList",
                 "nested.leaf1",
@@ -102,7 +102,7 @@ public class ConvertFieldValueAndDuplicateTest {
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy())
         .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
@@ -110,9 +110,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -127,13 +126,12 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(22);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(24);
+    assertThat(testDocument.getFields().size()).isEqualTo(21);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 "listType",
                 "nested.nested.nestedList",
                 "nested.leaf1",
@@ -159,7 +157,7 @@ public class ConvertFieldValueAndDuplicateTest {
   public void testConvertingAndDuplicatingConflictingField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
@@ -169,9 +167,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -182,7 +179,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -190,7 +187,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -203,9 +200,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -215,7 +211,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
@@ -231,7 +227,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("1");
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isNull();
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
@@ -264,7 +260,7 @@ public class ConvertFieldValueAndDuplicateTest {
   public void testConvertingAndDuplicatingConflictingBooleanField() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
@@ -274,9 +270,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -287,7 +282,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 true));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -295,7 +290,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.BOOLEAN);
@@ -308,9 +303,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -320,7 +314,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "random"));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.STRING);
     // Value converted and new field is added.
     assertThat(
@@ -333,10 +327,10 @@ public class ConvertFieldValueAndDuplicateTest {
                             || f.name().equals(additionalCreatedFieldName))
                 .count())
         .isEqualTo(4);
-    assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("false");
+    assertThat(msg2Doc.getField(conflictingFieldName).binaryValue()).isEqualTo(new BytesRef("F"));
     // Field value is null since we don't store the int field anymore.
     assertThat(msg2Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("random");
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
@@ -373,9 +367,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -385,7 +378,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 additionalCreatedFieldName,
                 true));
     Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
-    assertThat(msg3Doc.getFields().size()).isEqualTo(17);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(16);
     assertThat(
             msg3Doc
                 .getFields()
@@ -397,8 +390,9 @@ public class ConvertFieldValueAndDuplicateTest {
                 .count())
         .isEqualTo(4);
     assertThat(msg3Doc.getField(additionalCreatedFieldName).stringValue()).isEqualTo("true");
-    assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).stringValue()).isEqualTo("true");
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(21);
+    assertThat(msg3Doc.getField(additionalCreatedBoolFieldName).binaryValue())
+        .isEqualTo(new BytesRef("T"));
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName, additionalCreatedBoolFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
@@ -419,7 +413,7 @@ public class ConvertFieldValueAndDuplicateTest {
   public void testValueTypeConversionWorksInDocument() throws JsonProcessingException {
     SchemaAwareLogDocumentBuilderImpl convertFieldBuilder =
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(17);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(LogMessage.SystemField.ALL.fieldName);
     String conflictingFieldName = "conflictingField";
@@ -429,9 +423,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -442,7 +435,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(15);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
             msg1Doc
                 .getFields()
@@ -450,7 +443,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(18);
     assertThat(convertFieldBuilder.getSchema().keySet()).contains(conflictingFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.STRING);
@@ -464,9 +457,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -476,7 +468,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 conflictingFloatValue));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
     assertThat(
@@ -492,7 +484,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(msg2Doc.getField(conflictingFieldName).stringValue()).isEqualTo("100.0");
     assertThat(msg2Doc.getField(additionalCreatedFieldName).numericValue().floatValue())
         .isEqualTo(conflictingFloatValue);
-    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(20);
+    assertThat(convertFieldBuilder.getSchema().size()).isEqualTo(19);
     assertThat(convertFieldBuilder.getSchema().keySet())
         .contains(conflictingFieldName, additionalCreatedFieldName);
     assertThat(convertFieldBuilder.getSchema().get(conflictingFieldName).fieldType)
@@ -527,7 +519,7 @@ public class ConvertFieldValueAndDuplicateTest {
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy())
         .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     final String floatStrConflictField = "floatStrConflictField";
@@ -536,9 +528,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -553,9 +544,9 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 23;
+    final int expectedDocFieldsAfterMsg1 = 22;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
-    final int expectedFieldsAfterMsg1 = 24;
+    final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().get(floatStrConflictField).fieldType)
         .isEqualTo(FieldType.FLOAT);
@@ -563,7 +554,6 @@ public class ConvertFieldValueAndDuplicateTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 "nested.nested.nestedList",
                 "nested.leaf1",
@@ -578,9 +568,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -605,7 +594,6 @@ public class ConvertFieldValueAndDuplicateTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 floatStrConflictField,
                 additionalCreatedFieldName,
                 "nested.nested.nestedList",
@@ -639,7 +627,7 @@ public class ConvertFieldValueAndDuplicateTest {
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, true, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy())
         .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
 
     // Set stringField is a String
@@ -648,16 +636,15 @@ public class ConvertFieldValueAndDuplicateTest {
         .getSchema()
         .put(
             stringField, new LuceneFieldDef(stringField, FieldType.STRING.name, false, true, true));
-    assertThat(docBuilder.getSchema().size()).isEqualTo(19);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(18);
 
     LogMessage msg1 =
         new LogMessage(
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 "duplicateproperty",
@@ -672,9 +659,9 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 23;
+    final int expectedDocFieldsAfterMsg1 = 22;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
-    final int expectedFieldsAfterMsg1 = 24;
+    final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
     assertThat(docBuilder.getSchema().get(stringField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(docBuilder.getSchema().keySet())
@@ -706,9 +693,8 @@ public class ConvertFieldValueAndDuplicateTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message2",
                 "duplicateproperty",
@@ -732,7 +718,6 @@ public class ConvertFieldValueAndDuplicateTest {
         .containsAll(
             List.of(
                 "duplicateproperty",
-                "@timestamp",
                 stringField,
                 nestedStringField,
                 "nested.nested.nestedList",

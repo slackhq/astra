@@ -117,20 +117,19 @@ public class ZipkinServiceTest {
 
   public static LogWireMessage makeWireMessageForSpans(
       String id,
-      String ts,
+      Instant ts,
       String traceId,
       Optional<String> parentId,
       long durationMs,
       String serviceName,
       String name) {
     Map<String, Object> fieldMap = new HashMap<>();
-    fieldMap.put(LogMessage.ReservedField.TIMESTAMP.fieldName, ts);
     fieldMap.put(LogMessage.ReservedField.TRACE_ID.fieldName, traceId);
     fieldMap.put(LogMessage.ReservedField.SERVICE_NAME.fieldName, serviceName);
     fieldMap.put(LogMessage.ReservedField.NAME.fieldName, name);
     parentId.ifPresent(s -> fieldMap.put(LogMessage.ReservedField.PARENT_ID.fieldName, s));
     fieldMap.put(LogMessage.ReservedField.DURATION_MS.fieldName, durationMs);
-    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, fieldMap);
+    return new LogWireMessage(TEST_DATASET_NAME, TEST_MESSAGE_TYPE, id, ts, fieldMap);
   }
 
   public static List<LogWireMessage> generateLogWireMessagesForOneTrace(
@@ -144,7 +143,7 @@ public class ZipkinServiceTest {
       messages.add(
           makeWireMessageForSpans(
               String.valueOf(i),
-              time.plusSeconds(i).toString(),
+              time.plusSeconds(i),
               traceId,
               Optional.ofNullable(parentId),
               i,

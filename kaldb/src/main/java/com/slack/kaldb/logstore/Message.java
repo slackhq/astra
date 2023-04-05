@@ -1,5 +1,7 @@
 package com.slack.kaldb.logstore;
 
+import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -8,12 +10,47 @@ import java.util.Map;
  * the indexing system more flexible to the evolving data needs.
  */
 public abstract class Message {
-  public final String id;
+  private final String id;
 
-  public final Map<String, Object> source;
+  private final Instant timestamp;
 
-  public Message(String id, Map<String, Object> source) {
+  private final Map<String, Object> source;
+
+  public Message(String id, Instant timestamp, Map<String, Object> source) {
     this.id = id;
-    this.source = source;
+    this.timestamp = timestamp;
+    this.source = Collections.unmodifiableMap(source);
+  }
+
+  public String getId() {
+    return id;
+  }
+
+  public Instant getTimestamp() {
+    return timestamp;
+  }
+
+  public Map<String, Object> getSource() {
+    return source;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Message)) return false;
+
+    Message message = (Message) o;
+
+    if (!id.equals(message.id)) return false;
+    if (!timestamp.equals(message.timestamp)) return false;
+    return source.equals(message.source);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = id.hashCode();
+    result = 31 * result + timestamp.hashCode();
+    result = 31 * result + source.hashCode();
+    return result;
   }
 }

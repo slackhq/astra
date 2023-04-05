@@ -8,6 +8,7 @@ import brave.Tracing;
 import com.slack.kaldb.testlib.MessageUtil;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import org.junit.BeforeClass;
@@ -35,9 +36,8 @@ public class FieldConflictsTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -53,9 +53,8 @@ public class FieldConflictsTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -110,9 +109,8 @@ public class FieldConflictsTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "0",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -128,9 +126,8 @@ public class FieldConflictsTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "1",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,
@@ -146,9 +143,8 @@ public class FieldConflictsTest {
             MessageUtil.TEST_DATASET_NAME,
             "INFO",
             "2",
+            Instant.now(),
             Map.of(
-                LogMessage.ReservedField.TIMESTAMP.fieldName,
-                MessageUtil.getCurrentLogDate(),
                 LogMessage.ReservedField.MESSAGE.fieldName,
                 "Test message",
                 LogMessage.ReservedField.TAG.fieldName,

@@ -33,6 +33,9 @@ message SearchRequest {
     // For aggregations operating on a field
     ValueSourceAggregation value_source = 5;
 
+    // For aggregations operating on another bucket path
+    PipelineAggregation pipeline = 6;
+
     message ValueSourceAggregation {
       // Field name to use in aggregation
       string field = 1;
@@ -43,6 +46,17 @@ message SearchRequest {
       oneof type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
+        HistogramAggregation histogram= 13;
+        UniqueCountAggregation unique_count = 16;
+        PercentilesAggregation percentiles = 17;
+      }
+
+      // Unique fields specific to the histogram aggregation request
+      message HistogramAggregation {
+        // "10000" is how grafana sends the request
+        string interval = 1;
+        // Minimum documents per bucket required
+        int64 min_doc_count = 2;
       }
 
       // Unique fields specific to the date histogram aggregation request
@@ -71,6 +85,56 @@ message SearchRequest {
         // Minimum documents per bucket required
         int64 min_doc_count = 3;
       }
+
+      // Unique fields specific to the unique count (cardinality) aggregation request
+      message UniqueCountAggregation {
+        // Precision threshold for cardinality
+        Value precision_threshold = 1;
+      }
+
+      // Unique fields specific to the percentiles aggregation request
+      message PercentilesAggregation {
+        repeated double percentiles = 1;
+      }
+    }
+
+    message PipelineAggregation {
+      // Bucket path to use for pipeline aggregation
+      string buckets_path = 1;
+
+      oneof type {
+        MovingAverageAggregation moving_average = 11;
+      }
+
+      message MovingAverageAggregation {
+        // Moving average model, one of simple/linear/ewma/holt/holt_winters
+        string model = 1;
+
+        // Moving average window, applies to all models
+        int32 window = 2;
+
+        // Number of predictions to return. applies to all models
+        int32 predict = 3;
+
+        // Applies to ewma/holt/holt_winters
+        double alpha = 4;
+
+        // Applies to holt/holt_winters
+        double beta = 5;
+
+        // Applies only to holt_winters
+        double gamma = 6;
+
+        // Applies only to holt_winters
+        int32 period = 7;
+
+        // Indicates if model should be fit to data using cost minimization
+        // Applies to ewma/holt/holt_winters
+        bool minimize = 8;
+
+        // Applies only to holt_winters
+        bool pad = 9;
+      }
     }
   }
 }
@@ -97,6 +161,7 @@ message Value {
     bool bool_value = 5;
     Struct struct_value = 6;
     ListValue list_value = 7;
+    NullValue null_value = 8;
   }
 }
 
@@ -107,6 +172,11 @@ message Struct {
 message ListValue {
   repeated Value values = 1;
 }
+
+enum NullValue {
+  NULL_VALUE = 0;
+}
+
 
 service KaldbService {
   rpc Search (SearchRequest) returns (SearchResult) {}

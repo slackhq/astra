@@ -30,8 +30,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -253,8 +251,7 @@ public class KaldbTest {
     LOG.info("Starting indexer service");
     int indexerPort = 10000;
 
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
     // if you look at the produceMessages code the last document for this chunk will be this
     // timestamp
     final Instant end1Time = startTime.plusNanos(1000 * 1000 * 1000L * 99);
@@ -278,7 +275,7 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexerMeterRegistry)
-                    == 23);
+                    == 22);
 
     KaldbSearch.SearchResult indexerSearchResponse =
         searchUsingGrpcApi("*:*", indexerPort, 0, end1Time.toEpochMilli(), "3650d");
@@ -289,15 +286,14 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L, "3650d");
+        searchUsingGrpcApi("*:*", queryServicePort, 0, end1Time.toEpochMilli(), "3650d");
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
     // add more docs and create one more chunk on the indexer
-    final Instant start2Time =
-        LocalDateTime.of(2022, 9, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant start2Time = Instant.now().plusSeconds(600);
     // if you look at the produceMessages code the last document for this chunk will be this
     // timestamp
     final Instant end2Time = start2Time.plusNanos(1000 * 1000 * 1000L * 99);
@@ -417,8 +413,8 @@ public class KaldbTest {
 
     LOG.info("Starting indexer service 1");
     int indexerPort = 10000;
-    final Instant startTime =
-        LocalDateTime.of(2020, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime = Instant.now();
+    final Instant endTime = startTime.plusNanos(1000 * 1000 * 1000L * 99);
     PrometheusMeterRegistry indexer1MeterRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer1 =
@@ -439,12 +435,12 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexer1MeterRegistry)
-                    == 23);
+                    == 22);
 
     LOG.info("Starting indexer service 2");
     int indexerPort2 = 11000;
-    final Instant startTime2 =
-        LocalDateTime.of(2021, 10, 1, 10, 10, 0).atZone(ZoneOffset.UTC).toInstant();
+    final Instant startTime2 = Instant.now().plusSeconds(600);
+    final Instant endTime2 = startTime2.plusNanos(1000 * 1000 * 1000L * 99);
     PrometheusMeterRegistry indexer2MeterRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     Kaldb indexer2 =
@@ -465,32 +461,34 @@ public class KaldbTest {
                 getCount(
                         SchemaAwareLogDocumentBuilderImpl.TOTAL_FIELDS_COUNTER,
                         indexer2MeterRegistry)
-                    == 23);
+                    == 22);
 
     KaldbSearch.SearchResult indexerSearchResponse =
-        searchUsingGrpcApi("*:*", indexerPort, 0L, 1601547099000L, "3650d");
+        searchUsingGrpcApi("*:*", indexerPort, 0L, endTime.toEpochMilli(), "3650d");
     assertThat(indexerSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexerSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexerSearchResponse.getHitsCount()).isEqualTo(100);
 
     KaldbSearch.SearchResult indexer2SearchResponse =
-        searchUsingGrpcApi("*:*", indexerPort2, 1633083000000L, 1633083099000L, "1h");
+        searchUsingGrpcApi(
+            "*:*", indexerPort2, startTime2.toEpochMilli(), endTime2.toEpochMilli(), "1h");
     assertThat(indexer2SearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(indexer2SearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(indexer2SearchResponse.getHitsCount()).isEqualTo(100);
 
     // Query from query service.
-    // When we query with a limited timeline (0,1601547099000) we will only query index 1
+    // When we query with a limited timeline we will only query index 2
     KaldbSearch.SearchResult queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, 1601547099000L, "3650d");
+        searchUsingGrpcApi(
+            "*:*", queryServicePort, startTime2.toEpochMilli(), endTime2.toEpochMilli(), "3650d");
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(1);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
     assertThat(queryServiceSearchResponse.getHitsCount()).isEqualTo(100);
 
-    // When we query with a limited timeline (0,MAX_VALUE) we will only query index 1 AND indexer 2
+    // When we query with a limited timeline (0,MAX_VALUE) we will query index 1 AND indexer 2
     queryServiceSearchResponse =
-        searchUsingGrpcApi("*:*", queryServicePort, 0, Long.MAX_VALUE, "3650d");
+        searchUsingGrpcApi("*:*", queryServicePort, 0L, Long.MAX_VALUE, "3650d");
 
     assertThat(queryServiceSearchResponse.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse.getFailedNodes()).isEqualTo(0);
@@ -498,7 +496,7 @@ public class KaldbTest {
 
     // Query from query service.
     KaldbSearch.SearchResult queryServiceSearchResponse2 =
-        searchUsingGrpcApi("Message100", queryServicePort, 0, Long.MAX_VALUE, "3650d");
+        searchUsingGrpcApi("Message100", queryServicePort, 0L, Long.MAX_VALUE, "3650d");
 
     assertThat(queryServiceSearchResponse2.getTotalNodes()).isEqualTo(2);
     assertThat(queryServiceSearchResponse2.getFailedNodes()).isEqualTo(0);

@@ -2,6 +2,7 @@ package com.slack.kaldb.logstore.search;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
+import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -45,25 +46,35 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
     InternalAggregation internalAggregation = null;
     if (internalAggregationList.size() > 0) {
       InternalAggregation.ReduceContext reduceContext;
+      PipelineAggregator.PipelineTree pipelineTree = null;
       // The last aggregation should be indicated using the final aggregation boolean. This performs
       // some final pass "destructive" actions, such as applying min doc count or extended bounds.
       if (finalAggregation) {
+        pipelineTree =
+            OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
         reduceContext =
             InternalAggregation.ReduceContext.forFinalReduction(
-                KaldbBigArrays.getInstance(),
-                null,
-                (s) -> {},
-                PipelineAggregator.PipelineTree.EMPTY);
+                KaldbBigArrays.getInstance(), null, (s) -> {}, pipelineTree);
       } else {
         reduceContext =
             InternalAggregation.ReduceContext.forPartialReduction(
-                KaldbBigArrays.getInstance(), null, null);
+                KaldbBigArrays.getInstance(), null, () -> PipelineAggregator.PipelineTree.EMPTY);
       }
       // Using the first element on the list as the basis for the reduce method is per OpenSearch
       // recommendations: "For best efficiency, when implementing, try reusing an existing instance
       // (typically the first in the given list) to save on redundant object construction."
       internalAggregation =
           internalAggregationList.get(0).reduce(internalAggregationList, reduceContext);
+
+      if (finalAggregation) {
+        // materialize any parent pipelines
+        internalAggregation =
+            internalAggregation.reducePipelines(internalAggregation, reduceContext, pipelineTree);
+        // materialize any sibling pipelines at top level
+        for (PipelineAggregator pipelineAggregator : pipelineTree.aggregators()) {
+          internalAggregation = pipelineAggregator.reduce(internalAggregation, reduceContext);
+        }
+      }
     }
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
@@ -71,7 +82,9 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
         searchResults
             .stream()
             .flatMap(r -> r.hits.stream())
-            .sorted(Comparator.comparing((T m) -> m.timeSinceEpochMilli, Comparator.reverseOrder()))
+            .sorted(
+                Comparator.comparing(
+                    (T m) -> m.getTimestamp().toEpochMilli(), Comparator.reverseOrder()))
             .limit(searchQuery.howMany)
             .collect(Collectors.toList());
 

@@ -197,14 +197,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                 replicaIdsToAssign.stream(),
                 availableCacheSlots.stream(),
                 (replicaId, availableCacheSlot) -> {
-                  CacheSlotMetadata assignedCacheSlot =
-                      new CacheSlotMetadata(
-                          availableCacheSlot.name,
+                  ListenableFuture<?> future =
+                      cacheSlotMetadataStore.updateCacheSlotStateStateWithReplicaId(
+                          availableCacheSlot,
                           Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
-                          replicaId,
-                          Instant.now().toEpochMilli());
-
-                  ListenableFuture<?> future = cacheSlotMetadataStore.update(assignedCacheSlot);
+                          replicaId);
                   addCallback(
                       future,
                       successCountingCallback(successCounter),

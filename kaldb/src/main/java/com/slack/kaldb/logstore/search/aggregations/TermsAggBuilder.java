@@ -50,20 +50,11 @@ public class TermsAggBuilder extends ValueSourceAggBuilder {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof TermsAggBuilder)) return false;
+    if (!super.equals(o)) return false;
 
     TermsAggBuilder that = (TermsAggBuilder) o;
 
-    // AggBuilderBase
-    if (!Objects.equals(super.name, that.name)) return false;
-    if (!Objects.equals(super.metadata, that.metadata)) return false;
-    if (!Objects.equals(super.subAggregations, that.subAggregations)) return false;
-
-    // ValueSourceAggBuilder
-    if (!Objects.equals(super.field, that.field)) return false;
-    if (!Objects.equals(super.missing, that.missing)) return false;
-
-    // TermsAggBuilder
     if (size != that.size) return false;
     if (minDocCount != that.minDocCount) return false;
     return Objects.equals(order, that.order);
@@ -71,20 +62,10 @@ public class TermsAggBuilder extends ValueSourceAggBuilder {
 
   @Override
   public int hashCode() {
-    // TermsAggBuilder
-    int result = size;
+    int result = super.hashCode();
+    result = 31 * result + size;
     result = 31 * result + (int) (minDocCount ^ (minDocCount >>> 32));
     result = 31 * result + (order != null ? order.hashCode() : 0);
-
-    // ValueSourceAggBuilder
-    result = 31 * result + (field != null ? field.hashCode() : 0);
-    result = 31 * result + (missing != null ? missing.hashCode() : 0);
-
-    // AggBuilderBase
-    result = 31 * result + (name != null ? name.hashCode() : 0);
-    result = 31 * result + (metadata != null ? metadata.hashCode() : 0);
-    result = 31 * result + (subAggregations != null ? subAggregations.hashCode() : 0);
-
     return result;
   }
 
