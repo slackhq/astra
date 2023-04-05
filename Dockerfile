@@ -1,4 +1,4 @@
-FROM maven:3.6.3-adoptopenjdk-11 as build
+FROM maven:3.8.3-adoptopenjdk-11 as build
 COPY . /work/
 RUN cd /work; mvn package -DskipTests
 

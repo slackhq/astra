@@ -46,8 +46,17 @@ message SearchRequest {
       oneof type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
+        HistogramAggregation histogram= 13;
         UniqueCountAggregation unique_count = 16;
         PercentilesAggregation percentiles = 17;
+      }
+
+      // Unique fields specific to the histogram aggregation request
+      message HistogramAggregation {
+        // "10000" is how grafana sends the request
+        string interval = 1;
+        // Minimum documents per bucket required
+        int64 min_doc_count = 2;
       }
 
       // Unique fields specific to the date histogram aggregation request

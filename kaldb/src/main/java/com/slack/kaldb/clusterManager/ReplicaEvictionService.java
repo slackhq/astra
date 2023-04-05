@@ -121,12 +121,8 @@ public class ReplicaEvictionService extends AbstractScheduledService {
             .map(
                 (cacheSlotMetadata) -> {
                   ListenableFuture<?> future =
-                      cacheSlotMetadataStore.update(
-                          new CacheSlotMetadata(
-                              cacheSlotMetadata.name,
-                              Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
-                              cacheSlotMetadata.replicaId,
-                              Instant.now().toEpochMilli()));
+                      cacheSlotMetadataStore.updateNonFreeCacheSlotState(
+                          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
 
                   addCallback(
                       future,

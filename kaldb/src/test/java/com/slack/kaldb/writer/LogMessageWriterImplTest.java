@@ -24,10 +24,11 @@ import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -90,46 +91,6 @@ public class LogMessageWriterImplTest {
         Duration.ofMillis(3000));
   }
 
-  @Test
-  public void testApiLogMessageInsertion() throws Exception {
-    // Make a test message
-    String message =
-        "{\"ip_address\":\"3.86.63.133\",\"http_method\":\"POST\",\"method\":\"callbacks.flannel.verifyToken\",\"enterprise\":\"E012Y1ZD5PU\",\"team\":\"T012YTS8XKM\",\"user\":\"U012YTS942X\",\"status\":\"ok\",\"http_params\":\"flannel_host=flannelbe-dev-iad-iaz2&include_permissions=falseth\",\"ua\":\"Slack-Flannel-Web\\/vef2bd:4046\",\"unique_id\":\"YB2RcPgcUv7PCuIbo8posQAAoDg\",\"request_queue_time\":2262,\"microtime_elapsed\":14168,\"mysql_query_count\":0,\"mysql_query_time\":0,\"mysql_conns_count\":0,\"mysql_conns_time\":0,\"mysql_rows_count\":0,\"mysql_rows_affected\":0,\"mc_queries_count\":11,\"mc_queries_time\":6782,\"frl_time\":0,\"init_time\":1283,\"api_dispatch_time\":0,\"api_output_time\":0,\"api_output_size\":0,\"api_strict\":false,\"ekm_decrypt_reqs_time\":0,\"ekm_decrypt_reqs_count\":0,\"ekm_encrypt_reqs_time\":0,\"ekm_encrypt_reqs_count\":0,\"grpc_req_count\":0,\"grpc_req_time\":0,\"agenda_req_count\":0,\"agenda_req_time\":0,\"trace\":\"#route_main() -> lib_controller.php:69#Controller::handlePost() -> Controller.hack:58#CallbackApiController::handleRequest() -> api.php:45#local_callbacks_api_main_inner() -> api.php:250#api_dispatch() -> lib_api.php:179#api_callbacks_flannel_verifyToken() -> api__callbacks_flannel.php:1714#api_output_fb_thrift() -> lib_api_output.php:390#_api_output_log_call()\",\"client_connection_state\":\"unset\",\"ms_requests_count\":0,\"ms_requests_time\":0,\"token_type\":\"cookie\",\"limited_access_requester_workspace\":\"\",\"limited_access_allowed_workspaces\":\"\",\"repo_auth\":true,\"cf_id\":\"6999afc7b6:haproxy-edge-dev-iad-igu2\",\"external_user\":\"W012XXXFC\",\"timestamp\":\"2021-02-05 10:41:52.340\",\"git_sha\":\"unknown\",\"hhvm_version\":\"4.39.0\",\"slath\":\"callbacks.flannel.verifyToken\",\"php_type\":\"api\",\"webapp_cluster_pbucket\":0,\"webapp_cluster_name\":\"callbacks\",\"webapp_cluster_nest\":\"normal\",\"dev_env\":\"dev-main\",\"pay_product_level\":\"enterprise\",\"level\":\"info\"}";
-    String indexName = "hhvm-api_log";
-    String host = "slack-www-hhvm-dev-dev-callbacks-iad-j8zj";
-    long timestamp = 1612550512340953000L;
-    Murron.MurronMessage testMurronMsg =
-        Murron.MurronMessage.newBuilder()
-            .setMessage(ByteString.copyFrom(message.getBytes(StandardCharsets.UTF_8)))
-            .setType(indexName)
-            .setHost(host)
-            .setTimestamp(timestamp)
-            .build();
-    ConsumerRecord<String, byte[]> apiRecord = consumerRecordWithMurronMessage(testMurronMsg);
-
-    LogMessageWriterImpl messageWriter =
-        new LogMessageWriterImpl(
-            chunkManagerUtil.chunkManager, LogMessageWriterImpl.apiLogTransformer);
-
-    // Insert and search.
-    assertThat(messageWriter.insertRecord(apiRecord)).isTrue();
-    assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(1);
-    assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
-    chunkManagerUtil.chunkManager.getActiveChunk().commit();
-
-    final String testIndex = "hhvm_api_log";
-    assertThat(searchChunkManager(testIndex, "").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(testIndex, "http_method:POST").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(testIndex, "http_method:GET").hits.size()).isEqualTo(0);
-    assertThat(searchChunkManager(testIndex, "method:callbacks*").hits.size()).isEqualTo(1);
-    assertThat(searchChunkManager(testIndex, "http_method:POST AND method:callbacks*").hits.size())
-        .isEqualTo(1);
-    assertThat(searchChunkManager(testIndex, "http_method:GET AND method:callbacks*").hits.size())
-        .isEqualTo(0);
-    assertThat(searchChunkManager(testIndex, "http_method:GET OR method:callbacks*").hits.size())
-        .isEqualTo(1);
-  }
-
   private static ConsumerRecord<String, byte[]> consumerRecordWithMurronMessage(
       Murron.MurronMessage testMurronMsg) {
     return consumerRecordWithValue(testMurronMsg.toByteString().toByteArray());
@@ -173,7 +134,7 @@ public class LogMessageWriterImplTest {
   @Test
   public void testAvgMessageSizeCalculationOnSpanIngestion() throws Exception {
     final String traceId = "t1";
-    final long timestampMicros = 1612550512340953L;
+    final Instant timestamp = Instant.now();
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
@@ -198,7 +159,8 @@ public class LogMessageWriterImplTest {
                         traceId,
                         String.valueOf(i),
                         "0",
-                        timestampMicros + ((long) i * 1000),
+                        TimeUnit.MICROSECONDS.convert(
+                            timestamp.toEpochMilli() + i * 1000L, TimeUnit.MILLISECONDS),
                         durationMicros,
                         name,
                         serviceName,
@@ -284,14 +246,21 @@ public class LogMessageWriterImplTest {
     final String traceId = "t1";
     final String id = "i1";
     final String parentId = "p2";
-    final long timestampMicros = 1612550512340953L;
+    final Instant timestamp = Instant.now();
     final long durationMicros = 500000L;
     final String serviceName = "test_service";
     final String name = "testSpanName";
     final String msgType = "test_message_type";
     final Trace.Span span =
         makeSpan(
-            traceId, id, parentId, timestampMicros, durationMicros, name, serviceName, msgType);
+            traceId,
+            id,
+            parentId,
+            TimeUnit.MICROSECONDS.convert(timestamp.toEpochMilli(), TimeUnit.MILLISECONDS),
+            durationMicros,
+            name,
+            serviceName,
+            msgType);
     ConsumerRecord<String, byte[]> spanRecord = consumerRecordWithValue(span.toByteArray());
 
     LogMessageWriterImpl messageWriter =

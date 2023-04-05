@@ -20,6 +20,25 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testNoAggs() throws Exception {
+    String rawRequest = getRawQueryString("noaggs");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest request = parsedRequestList.get(0);
+
+    assertThat(request.getDataset()).isEqualTo("_all");
+    assertThat(request.getHowMany()).isEqualTo(500);
+    assertThat(request.getQueryString()).isEqualTo("*:*");
+    assertThat(request.getStartTimeEpochMs()).isEqualTo(1680551083859L);
+    assertThat(request.getEndTimeEpochMs()).isEqualTo(1680554683859L);
+  }
+
+  @Test
   public void testGeneralFields() throws Exception {
     String rawRequest = getRawQueryString("datehistogram");
 
@@ -67,6 +86,30 @@ public class OpenSearchRequestTest {
                 "max", 1676500240688L));
     assertThat(dateHistogramAggregation.getFormat()).isEqualTo("epoch_millis");
     assertThat(dateHistogramAggregation.getOffset()).isEqualTo("5s");
+  }
+
+  @Test
+  public void testHistogram() throws Exception {
+    String rawRequest = getRawQueryString("histogram");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation histogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+
+    assertThat(histogramAggBuilder.getName()).isEqualTo("2");
+    assertThat(histogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    assertThat(histogramAggBuilder.getSubAggregationsCount()).isEqualTo(0);
+
+    KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.HistogramAggregation
+        histogramAggregation = histogramAggBuilder.getValueSource().getHistogram();
+    assertThat(histogramAggregation.getInterval()).isEqualTo("1000");
+    assertThat(histogramAggregation.getMinDocCount()).isEqualTo(1);
   }
 
   @Test
