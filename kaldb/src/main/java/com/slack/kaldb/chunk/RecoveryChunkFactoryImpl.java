@@ -61,8 +61,7 @@ public class RecoveryChunkFactoryImpl<T> implements ChunkFactory<T> {
         searchMetadataStore,
         snapshotMetadataStore,
         searchContext,
-        kafkaPartitionId,
-        indexerConfig.getLuceneConfig().getEnableFullTextSearch());
+        kafkaPartitionId);
   }
 
   @Override

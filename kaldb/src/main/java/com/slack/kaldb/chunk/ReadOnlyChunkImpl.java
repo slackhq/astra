@@ -2,7 +2,6 @@ package com.slack.kaldb.chunk;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.LogIndexSearcher;
 import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
@@ -202,17 +201,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       }
       ChunkSchema chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
-      // hack for now. I think we probably might get rid of the all field in the future
-      boolean enableFullTextSearch =
-          chunkSchema.fieldDefMap.containsKey(LogMessage.SystemField.ALL.fieldName);
-
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
       this.logSearcher =
           (LogIndexSearcher<T>)
               new LogIndexSearcherImpl(
                   LogIndexSearcherImpl.searcherManagerFromPath(dataDirectory),
-                  chunkSchema.fieldDefMap,
-                  enableFullTextSearch);
+                  chunkSchema.fieldDefMap);
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(slotName, Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {

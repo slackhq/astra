@@ -29,7 +29,7 @@ public class OpenSearchAdapterTest {
   public TemporaryLogStoreAndSearcherRule logStoreAndSearcherRule =
       new TemporaryLogStoreAndSearcherRule(false);
 
-  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of(), false);
+  private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 
   public OpenSearchAdapterTest() throws IOException {}
 

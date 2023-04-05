@@ -93,15 +93,13 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       SnapshotMetadataStore snapshotMetadataStore,
       SearchContext searchContext,
       String kafkaPartitionId,
-      Logger logger,
-      boolean enableFullTextSearch) {
+      Logger logger) {
     // TODO: Add checkArgument for the fields.
     this.logStore = logStore;
     String logStoreId = ((LuceneIndexStoreImpl) logStore).getId();
     this.logSearcher =
         (LogIndexSearcher<T>)
-            new LogIndexSearcherImpl(
-                logStore.getSearcherManager(), logStore.getSchema(), enableFullTextSearch);
+            new LogIndexSearcherImpl(logStore.getSearcherManager(), logStore.getSchema());
 
     // Create chunk metadata
     Instant chunkCreationTime = Instant.now();

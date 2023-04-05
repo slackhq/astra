@@ -111,8 +111,7 @@ public class RecoveryChunkImplTest {
               searchMetadataStore,
               snapshotMetadataStore,
               new SearchContext(TEST_HOST, TEST_PORT),
-              TEST_KAFKA_PARTITION_ID,
-              false);
+              TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
       assertThat(snapshotMetadataStore.listSync()).isEmpty();
@@ -453,8 +452,7 @@ public class RecoveryChunkImplTest {
               searchMetadataStore,
               snapshotMetadataStore,
               new SearchContext(TEST_HOST, TEST_PORT),
-              TEST_KAFKA_PARTITION_ID,
-              false);
+              TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
       assertThat(snapshotMetadataStore.listSync()).isEmpty();
@@ -539,8 +537,7 @@ public class RecoveryChunkImplTest {
               searchMetadataStore,
               snapshotMetadataStore,
               new SearchContext(TEST_HOST, TEST_PORT),
-              TEST_KAFKA_PARTITION_ID,
-              false);
+              TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
       assertThat(snapshotMetadataStore.listSync()).isEmpty();
       assertThat(searchMetadataStore.listSync()).isEmpty();

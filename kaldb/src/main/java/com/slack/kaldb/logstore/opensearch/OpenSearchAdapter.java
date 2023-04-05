@@ -99,9 +99,8 @@ public class OpenSearchAdapter {
   private final MapperService mapperService;
 
   private final Map<String, LuceneFieldDef> chunkSchema;
-  private final boolean enableFullTextSearch;
 
-  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema, boolean enableFullTextSearch) {
+  public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
@@ -109,7 +108,6 @@ public class OpenSearchAdapter {
         buildQueryShardContext(
             KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
     this.chunkSchema = chunkSchema;
-    this.enableFullTextSearch = enableFullTextSearch;
   }
 
   /**
@@ -146,19 +144,13 @@ public class OpenSearchAdapter {
           && !queryStr.equals("*")) {
         QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
 
-        if (enableFullTextSearch) {
-          // the field to use when none are provided, otherwise will OR all fields in the registry
-          // (up
-          // to a configurable field limit)
+        if (queryShardContext.getMapperService().fieldType("_all") != null) {
           queryStringQueryBuilder.defaultField("_all");
-
-          // If true, format-based errors, such as providing a text value for a numeric field, are
-          // ignored. Defaults to false.
-          queryStringQueryBuilder.lenient(false);
-        } else {
           // setting lenient=true will not throw error when the query fails to parse against numeric
           // fields
           queryStringQueryBuilder.lenient(true);
+        } else {
+          queryStringQueryBuilder.lenient(false);
         }
 
         queryStringQueryBuilder.analyzeWildcard(true);
