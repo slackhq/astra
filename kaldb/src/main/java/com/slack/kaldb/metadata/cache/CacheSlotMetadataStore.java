@@ -1,7 +1,10 @@
 package com.slack.kaldb.metadata.cache;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.proto.metadata.Metadata;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,5 +40,42 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
         metadataStore,
         new CacheSlotMetadataSerializer(),
         LOG);
+  }
+
+  /** Fetch the node given a slotName and update the slot state. */
+  public ListenableFuture<?> getAndUpdateNonFreeCacheSlotState(
+      String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+    CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
+    return updateNonFreeCacheSlotState(cacheSlotMetadata, slotState);
+  }
+
+  /** Update the cache slot state, if the slot is not FREE. */
+  public ListenableFuture<?> updateNonFreeCacheSlotState(
+      final CacheSlotMetadata cacheSlotMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+    if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+      throw new IllegalArgumentException(
+          "Current state of slot can't be free: " + cacheSlotMetadata.name);
+    }
+    String replicaId =
+        slotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+            ? ""
+            : cacheSlotMetadata.replicaId;
+    return updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, slotState, replicaId);
+  }
+
+  /** Update CacheSlotState and replicaId fields while keeping the remaining fields the same. */
+  public ListenableFuture<?> updateCacheSlotStateStateWithReplicaId(
+      final CacheSlotMetadata cacheSlotMetadata,
+      final Metadata.CacheSlotMetadata.CacheSlotState newState,
+      final String replicaId) {
+    CacheSlotMetadata updatedChunkMetadata =
+        new CacheSlotMetadata(
+            cacheSlotMetadata.name,
+            newState,
+            replicaId,
+            Instant.now().toEpochMilli(),
+            cacheSlotMetadata.supportedIndexTypes);
+    return update(updatedChunkMetadata);
   }
 }

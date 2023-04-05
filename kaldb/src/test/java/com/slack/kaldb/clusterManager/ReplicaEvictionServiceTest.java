@@ -37,7 +37,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class ReplicaEvictionServiceTest {
-
+  private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -166,7 +166,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicas.get(0).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlots.add(cacheSlotAssigned);
     cacheSlotMetadataStore.create(cacheSlotAssigned);
 
@@ -175,7 +176,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicas.get(1).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlots.add(cacheSlotLive);
     cacheSlotMetadataStore.create(cacheSlotLive);
 
@@ -184,7 +186,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
             replicas.get(2).name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlots.add(cacheSlotLoading);
     cacheSlotMetadataStore.create(cacheSlotLoading);
 
@@ -211,7 +214,7 @@ public class ReplicaEvictionServiceTest {
   }
 
   @Test
-  public void shouldEvictExpiredReplica() {
+  public void shouldPreserveSupportedIndexTypesOnEviction() {
     KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig replicaEvictionServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaEvictionServiceConfig.newBuilder()
             .setSchedulePeriodMins(10)
@@ -233,18 +236,22 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             Instant.now().toEpochMilli(),
-            Instant.now().minusSeconds(60).toEpochMilli(),
+            0,
             false,
             LOGS_LUCENE9);
     replicaMetadataStore.create(replicaMetadata);
 
+    // TODO: Update list with different index types when we have more types.
+    final List<Metadata.IndexType> supportedIndexTypes = List.of(LOGS_LUCENE9, LOGS_LUCENE9);
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            supportedIndexTypes);
     cacheSlotMetadataStore.create(cacheSlotMetadata);
+    assertThat(cacheSlotMetadata.supportedIndexTypes.size()).isEqualTo(2);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
@@ -271,6 +278,8 @@ public class ReplicaEvictionServiceTest {
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
     assertThat(updatedCacheSlot.name).isEqualTo(cacheSlotMetadata.name);
     assertThat(updatedCacheSlot.replicaId).isEqualTo(cacheSlotMetadata.replicaId);
+    assertThat(updatedCacheSlot.supportedIndexTypes)
+        .containsExactlyInAnyOrderElementsOf(cacheSlotMetadata.supportedIndexTypes);
 
     assertThat(
             MetricsUtil.getCount(
@@ -318,7 +327,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
@@ -393,7 +403,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
             replicaMetadata.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
@@ -451,7 +462,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
             replicaMetadata.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
@@ -509,7 +521,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadata.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 1);
@@ -615,7 +628,8 @@ public class ReplicaEvictionServiceTest {
               UUID.randomUUID().toString(),
               Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
               replicas.get(0).name,
-              Instant.now().toEpochMilli());
+              Instant.now().toEpochMilli(),
+              SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataStore.create(cacheSlotMetadata);
     }
 
@@ -742,7 +756,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataExpiredOne.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotReplicaExpiredOne);
 
     ReplicaMetadata replicaMetadataExpiredTwo =
@@ -759,7 +774,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
             replicaMetadataExpiredTwo.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotReplicaExpireTwo);
 
     ReplicaMetadata replicaMetadataUnexpiredOne =
@@ -776,7 +792,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataUnexpiredOne.name,
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotReplicaUnexpiredOne);
 
     ReplicaMetadata replicaMetadataUnexpiredTwo =
@@ -793,7 +810,8 @@ public class ReplicaEvictionServiceTest {
             UUID.randomUUID().toString(),
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
-            Instant.now().toEpochMilli());
+            Instant.now().toEpochMilli(),
+            SUPPORTED_INDEX_TYPES);
     cacheSlotMetadataStore.create(cacheSlotFree);
 
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
