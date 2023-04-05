@@ -70,14 +70,22 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           @Override
           public void afterRefresh(boolean didRefresh) {
-            openSearchAdapter.reloadSchema();
+            try {
+              openSearchAdapter.reloadSchema();
+            } catch (Exception e) {
+              LOG.error("Error reloading schema", e);
+            }
           }
         };
     this.searcherManager = searcherManager;
     this.searcherManager.addListener(refreshListener);
 
     // initialize the adapter with whatever the default schema is
-    openSearchAdapter.reloadSchema();
+    try {
+      openSearchAdapter.reloadSchema();
+    } catch (Exception e) {
+      LOG.error("Error reloading schema", e);
+    }
   }
 
   @Override

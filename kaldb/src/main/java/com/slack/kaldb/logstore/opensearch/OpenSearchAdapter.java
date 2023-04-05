@@ -4,6 +4,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
@@ -107,6 +108,11 @@ public class OpenSearchAdapter {
 
   private final Map<String, LuceneFieldDef> chunkSchema;
 
+  @VisibleForTesting
+  // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
+  // set this to a high number for now
+  public static int TOTAL_FIELDS_LIMIT = 5000;
+
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
@@ -177,7 +183,7 @@ public class OpenSearchAdapter {
    * For each defined field in the chunk schema, this will check if the field is already registered,
    * and if not attempt to register it with the mapper service
    */
-  public void reloadSchema() {
+  public void reloadSchema() throws Exception {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
@@ -203,7 +209,8 @@ public class OpenSearchAdapter {
               entry.getValue().name);
         }
       } catch (Exception e) {
-        LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        throw new IllegalStateException(
+            "Error parsing schema mapping for {}" + entry.getValue().toString(), e);
       }
     }
   }
@@ -300,6 +307,8 @@ public class OpenSearchAdapter {
             .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_3_0)
+            .put(
+                MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
             .build();
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
@@ -377,7 +386,8 @@ public class OpenSearchAdapter {
   private static boolean tryRegisterField(
       MapperService mapperService,
       String fieldName,
-      CheckedConsumer<XContentBuilder, IOException> buildField) {
+      CheckedConsumer<XContentBuilder, IOException> buildField)
+      throws IOException {
     MappedFieldType fieldType = mapperService.fieldType(fieldName);
     if (mapperService.isMetadataField(fieldName)) {
       LOG.trace("Skipping metadata field '{}'", fieldName);
@@ -389,15 +399,11 @@ public class OpenSearchAdapter {
           fieldType.familyTypeName());
       return false;
     } else {
-      try {
-        XContentBuilder mapping = fieldMapping(fieldName, buildField);
-        mapperService.merge(
-            "_doc",
-            new CompressedXContent(BytesReference.bytes(mapping)),
-            MapperService.MergeReason.MAPPING_UPDATE);
-      } catch (Exception e) {
-        LOG.error("Error doing map update", e);
-      }
+      XContentBuilder mapping = fieldMapping(fieldName, buildField);
+      mapperService.merge(
+          "_doc",
+          new CompressedXContent(BytesReference.bytes(mapping)),
+          MapperService.MergeReason.MAPPING_UPDATE);
       return true;
     }
   }
