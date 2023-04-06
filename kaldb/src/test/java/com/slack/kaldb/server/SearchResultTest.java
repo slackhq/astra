@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
@@ -50,7 +51,8 @@ public class SearchResultTest {
         openSearchAdapter.buildAggregatorUsingContext(
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            new MatchNoDocsQuery("testing"));
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1, 5, 7, 7, internalAggregation);
