@@ -90,12 +90,13 @@ public class DropPolicyTest {
   public void testBasicDocumentCreationWithoutFullTextSearch() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     final LogMessage message = MessageUtil.makeMessage(0);
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(19);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of("longproperty", "floatproperty", "intproperty", "message", "doubleproperty"));
@@ -122,7 +123,8 @@ public class DropPolicyTest {
                 .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
                 .count())
         .isZero();
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument
                 .getFields()
@@ -293,8 +295,9 @@ public class DropPolicyTest {
   public void testMultiLevelNestedDocumentCreationWithoutFulltTextSearch() throws IOException {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(DROP_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy()).isEqualTo(DROP_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
         new LogMessage(
@@ -312,7 +315,7 @@ public class DropPolicyTest {
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(17);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(21);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(20);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
@@ -323,7 +326,8 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument
                 .getFields()

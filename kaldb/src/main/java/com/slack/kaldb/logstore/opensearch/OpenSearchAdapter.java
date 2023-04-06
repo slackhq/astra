@@ -114,9 +114,11 @@ public class OpenSearchAdapter {
    * Builds a Lucene query using the provided arguments, and the currently loaded schema. Uses the
    * Opensearch Query String builder. TODO - use the dataset param in building query
    *
-   * @see https://opensearch.org/docs/latest/query-dsl/full-text/query-string/
-   * @see
-   *     https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+   * @see <a href="https://opensearch.org/docs/latest/query-dsl/full-text/query-string/">Query
+   *     parsing OpenSearch docs</a>
+   * @see <a
+   *     href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Query
+   *     parsing ES docs</a>
    */
   public Query buildQuery(
       String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
@@ -142,13 +144,16 @@ public class OpenSearchAdapter {
           && !queryStr.equals("*")) {
         QueryStringQueryBuilder queryStringQueryBuilder = new QueryStringQueryBuilder(queryStr);
 
-        // the field to use when none are provided, otherwise will OR all fields in the registry (up
-        // to a configurable field limit)
-        queryStringQueryBuilder.defaultField("_all");
+        if (queryShardContext.getMapperService().fieldType(LogMessage.SystemField.ALL.fieldName)
+            != null) {
+          queryStringQueryBuilder.defaultField(LogMessage.SystemField.ALL.fieldName);
+          // setting lenient=false will not throw error when the query fails to parse against
+          // numeric fields
+          queryStringQueryBuilder.lenient(false);
+        } else {
+          queryStringQueryBuilder.lenient(true);
+        }
 
-        // If true, format-based errors, such as providing a text value for a numeric field, are
-        // ignored. Defaults to false.
-        queryStringQueryBuilder.lenient(false);
         queryStringQueryBuilder.analyzeWildcard(true);
 
         boolQueryBuilder.must(queryStringQueryBuilder);

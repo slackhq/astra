@@ -174,8 +174,9 @@ public class RaiseErrorFieldValueTest {
   @Test
   public void testRaiseErrorOnConflictingReservedFieldWithoutFullTextSearch() {
     SchemaAwareLogDocumentBuilderImpl docBuilder = build(RAISE_ERROR, false, meterRegistry);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
@@ -196,12 +197,13 @@ public class RaiseErrorFieldValueTest {
 
     assertThatThrownBy(() -> docBuilder.fromMessage(msg1))
         .isInstanceOf(FieldDefMismatchException.class);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
     assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
   }
 }

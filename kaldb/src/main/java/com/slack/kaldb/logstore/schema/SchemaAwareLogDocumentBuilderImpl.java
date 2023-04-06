@@ -48,10 +48,13 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   }
 
   // TODO: Move this definition to the config file.
-  private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions() {
+  private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions(
+      boolean enableFullTextSearch) {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
     addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
-    addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
+    if (enableFullTextSearch) {
+      addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
+    }
     fieldDefBuilder.put(
         LogMessage.SystemField.ID.fieldName,
         new LuceneFieldDef(
@@ -323,7 +326,7 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
     // Add basic fields by default
     return new SchemaAwareLogDocumentBuilderImpl(
         fieldConflictPolicy,
-        getDefaultLuceneFieldDefinitions(),
+        getDefaultLuceneFieldDefinitions(enableFullTextSearch),
         enableFullTextSearch,
         meterRegistry);
   }

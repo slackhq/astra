@@ -102,8 +102,9 @@ public class ConvertFieldValueAndDuplicateTest {
         build(CONVERT_VALUE_AND_DUPLICATE_FIELD, false, meterRegistry);
     assertThat(docBuilder.getIndexFieldConflictPolicy())
         .isEqualTo(CONVERT_VALUE_AND_DUPLICATE_FIELD);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(17);
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(16);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
 
     LogMessage message =
         new LogMessage(
@@ -127,7 +128,7 @@ public class ConvertFieldValueAndDuplicateTest {
 
     Document testDocument = docBuilder.fromMessage(message);
     assertThat(testDocument.getFields().size()).isEqualTo(21);
-    assertThat(docBuilder.getSchema().size()).isEqualTo(23);
+    assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
             List.of(
@@ -143,7 +144,8 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
-    assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
+    assertThat(docBuilder.getSchema().keySet())
+        .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
             testDocument
                 .getFields()
