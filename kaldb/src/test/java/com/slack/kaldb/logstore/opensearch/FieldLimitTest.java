@@ -1,9 +1,7 @@
 package com.slack.kaldb.logstore.opensearch;
 
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,12 +25,11 @@ public class FieldLimitTest {
   public void checkIfMaxFieldLimitsIsEnforced() {
     OpenSearchAdapter.TOTAL_FIELDS_LIMIT = 1;
     OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(getChunkSchema(2));
-    assertThatExceptionOfType(IllegalStateException.class)
-        .isThrownBy(openSearchAdapter::reloadSchema);
+    assertThat(openSearchAdapter.reloadSchema()).isFalse();
 
     OpenSearchAdapter.TOTAL_FIELDS_LIMIT = 2;
     openSearchAdapter = new OpenSearchAdapter(getChunkSchema(2));
-    assertThatNoException().isThrownBy(openSearchAdapter::reloadSchema);
+    assertThat(openSearchAdapter.reloadSchema()).isTrue();
   }
 
   private Map<String, LuceneFieldDef> getChunkSchema(int nFields) {

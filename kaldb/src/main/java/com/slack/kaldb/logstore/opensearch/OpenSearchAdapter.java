@@ -111,7 +111,7 @@ public class OpenSearchAdapter {
   @VisibleForTesting
   // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
   // set this to a high number for now
-  public static int TOTAL_FIELDS_LIMIT = 5000;
+  protected static int TOTAL_FIELDS_LIMIT = 5000;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
@@ -183,25 +183,37 @@ public class OpenSearchAdapter {
    * For each defined field in the chunk schema, this will check if the field is already registered,
    * and if not attempt to register it with the mapper service
    */
-  public void reloadSchema() {
+  public boolean reloadSchema() {
+    boolean success = true;
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
       try {
         if (entry.getValue().fieldType == FieldType.TEXT) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
+          success =
+              tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
         } else if (entry.getValue().fieldType == FieldType.STRING) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
+          success =
+              tryRegisterField(
+                  mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
         } else if (entry.getValue().fieldType == FieldType.INTEGER) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "integer"));
+          success =
+              tryRegisterField(
+                  mapperService, entry.getValue().name, b -> b.field("type", "integer"));
         } else if (entry.getValue().fieldType == FieldType.LONG) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "long"));
+          success =
+              tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "long"));
         } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "double"));
+          success =
+              tryRegisterField(
+                  mapperService, entry.getValue().name, b -> b.field("type", "double"));
         } else if (entry.getValue().fieldType == FieldType.FLOAT) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "float"));
+          success =
+              tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "float"));
         } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "boolean"));
+          success =
+              tryRegisterField(
+                  mapperService, entry.getValue().name, b -> b.field("type", "boolean"));
         } else {
           LOG.warn(
               "Field type '{}' is not yet currently supported for field '{}'",
@@ -209,10 +221,11 @@ public class OpenSearchAdapter {
               entry.getValue().name);
         }
       } catch (Exception e) {
-        throw new IllegalStateException(
-            "Error parsing schema mapping for {}" + entry.getValue().toString(), e);
+        LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+        success = false;
       }
     }
+    return success;
   }
 
   protected static XContentBuilder mapping(
@@ -383,8 +396,7 @@ public class OpenSearchAdapter {
    * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
    * "long"));
    */
-  @VisibleForTesting
-  protected static boolean tryRegisterField(
+  private static boolean tryRegisterField(
       MapperService mapperService,
       String fieldName,
       CheckedConsumer<XContentBuilder, IOException> buildField) {
@@ -402,9 +414,9 @@ public class OpenSearchAdapter {
       try {
         XContentBuilder mapping = fieldMapping(fieldName, buildField);
         mapperService.merge(
-                "_doc",
-                new CompressedXContent(BytesReference.bytes(mapping)),
-                MapperService.MergeReason.MAPPING_UPDATE);
+            "_doc",
+            new CompressedXContent(BytesReference.bytes(mapping)),
+            MapperService.MergeReason.MAPPING_UPDATE);
       } catch (Exception e) {
         LOG.error("Error doing map update", e);
         return false;
