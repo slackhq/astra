@@ -1,4 +1,4 @@
-package com.slack.kaldb.logstore;
+package com.slack.kaldb.logstore.opensearch;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;

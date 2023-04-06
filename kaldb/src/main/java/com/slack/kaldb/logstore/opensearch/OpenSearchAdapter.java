@@ -183,7 +183,7 @@ public class OpenSearchAdapter {
    * For each defined field in the chunk schema, this will check if the field is already registered,
    * and if not attempt to register it with the mapper service
    */
-  public void reloadSchema() throws Exception {
+  public void reloadSchema() {
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
@@ -383,11 +383,11 @@ public class OpenSearchAdapter {
    * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
    * "long"));
    */
-  private static boolean tryRegisterField(
+  @VisibleForTesting
+  protected static boolean tryRegisterField(
       MapperService mapperService,
       String fieldName,
-      CheckedConsumer<XContentBuilder, IOException> buildField)
-      throws IOException {
+      CheckedConsumer<XContentBuilder, IOException> buildField) {
     MappedFieldType fieldType = mapperService.fieldType(fieldName);
     if (mapperService.isMetadataField(fieldName)) {
       LOG.trace("Skipping metadata field '{}'", fieldName);
@@ -399,13 +399,18 @@ public class OpenSearchAdapter {
           fieldType.familyTypeName());
       return false;
     } else {
-      XContentBuilder mapping = fieldMapping(fieldName, buildField);
-      mapperService.merge(
-          "_doc",
-          new CompressedXContent(BytesReference.bytes(mapping)),
-          MapperService.MergeReason.MAPPING_UPDATE);
-      return true;
+      try {
+        XContentBuilder mapping = fieldMapping(fieldName, buildField);
+        mapperService.merge(
+                "_doc",
+                new CompressedXContent(BytesReference.bytes(mapping)),
+                MapperService.MergeReason.MAPPING_UPDATE);
+      } catch (Exception e) {
+        LOG.error("Error doing map update", e);
+        return false;
+      }
     }
+    return true;
   }
 
   /**
