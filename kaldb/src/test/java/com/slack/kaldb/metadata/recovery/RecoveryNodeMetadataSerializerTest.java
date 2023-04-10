@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
+import java.util.List;
 import org.junit.Test;
 
 public class RecoveryNodeMetadataSerializerTest {
@@ -20,7 +21,12 @@ public class RecoveryNodeMetadataSerializerTest {
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     RecoveryNodeMetadata recoveryNodeMetadata =
-        new RecoveryNodeMetadata(name, recoveryNodeState, recoveryTaskName, updatedTimeEpochMs);
+        new RecoveryNodeMetadata(
+            name,
+            recoveryNodeState,
+            recoveryTaskName,
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
+            updatedTimeEpochMs);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(recoveryNodeMetadata);
     assertThat(serializedCacheSlotMetadata).isNotEmpty();
@@ -32,6 +38,8 @@ public class RecoveryNodeMetadataSerializerTest {
     assertThat(deserializedRecoveryNodeMetadata.name).isEqualTo(name);
     assertThat(deserializedRecoveryNodeMetadata.recoveryNodeState).isEqualTo(recoveryNodeState);
     assertThat(deserializedRecoveryNodeMetadata.recoveryTaskName).isEqualTo(recoveryTaskName);
+    assertThat(deserializedRecoveryNodeMetadata.supportedIndexTypes)
+        .containsExactlyInAnyOrderElementsOf(List.of(Metadata.IndexType.LOGS_LUCENE9));
     assertThat(deserializedRecoveryNodeMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
   }
 

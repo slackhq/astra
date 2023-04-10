@@ -190,6 +190,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                           recoveryNode.name,
                           Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
                           recoveryTask.name,
+                          recoveryNode.supportedIndexTypes,
                           Instant.now().toEpochMilli());
 
                   ListenableFuture<?> future =

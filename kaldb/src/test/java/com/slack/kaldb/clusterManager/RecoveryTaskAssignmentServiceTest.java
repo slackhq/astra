@@ -177,7 +177,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -228,7 +233,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     recoveryNodeMetadataStore.create(
@@ -236,6 +246,7 @@ public class RecoveryTaskAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
             "",
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli()));
 
     List<RecoveryNodeMetadata> ineligibleRecoveryNodes = new ArrayList<>();
@@ -244,6 +255,7 @@ public class RecoveryTaskAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
             "123",
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleAssigned);
     recoveryNodeMetadataStore.create(ineligibleAssigned);
@@ -253,6 +265,7 @@ public class RecoveryTaskAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
             "321",
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli());
     ineligibleRecoveryNodes.add(ineligibleRecovering);
     recoveryNodeMetadataStore.create(ineligibleRecovering);
@@ -320,6 +333,7 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli()));
     }
 
@@ -370,7 +384,12 @@ public class RecoveryTaskAssignmentServiceTest {
 
     RecoveryTaskMetadata newTask =
         new RecoveryTaskMetadata(
-            UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli());
+            UUID.randomUUID().toString(),
+            "1",
+            0,
+            1,
+            Metadata.IndexType.LOGS_LUCENE9,
+            Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.create(newTask);
 
     RecoveryTaskMetadata oldTask =
@@ -379,6 +398,7 @@ public class RecoveryTaskAssignmentServiceTest {
             "1",
             0,
             1,
+            Metadata.IndexType.LOGS_LUCENE9,
             Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
     recoveryTaskMetadataStore.create(oldTask);
 
@@ -387,6 +407,7 @@ public class RecoveryTaskAssignmentServiceTest {
             UUID.randomUUID().toString(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
             "",
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli()));
 
     await().until(() -> recoveryNodeMetadataStore.getCached().size() == 1);
@@ -445,13 +466,19 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli()));
     }
 
     for (int i = 0; i < 3; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 3);
@@ -549,6 +576,7 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
     }
@@ -556,7 +584,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -645,6 +678,7 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli());
       recoveryNodeMetadataStore.create(recoveryNodeMetadata);
     }
@@ -652,7 +686,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 2; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     doCallRealMethod()
@@ -732,6 +771,7 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli()));
     }
 
@@ -752,7 +792,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
 
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
@@ -779,6 +824,7 @@ public class RecoveryTaskAssignmentServiceTest {
                       recoveryNodeMetadata.name,
                       Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
                       recoveryNodeMetadata.recoveryTaskName,
+                      List.of(Metadata.IndexType.LOGS_LUCENE9),
                       Instant.now().toEpochMilli());
               recoveryNodeMetadataStore.update(updatedRecoveryNode);
             });
@@ -810,6 +856,7 @@ public class RecoveryTaskAssignmentServiceTest {
                       recoveryNodeMetadata.name,
                       Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
                       "",
+                      List.of(Metadata.IndexType.LOGS_LUCENE9),
                       Instant.now().toEpochMilli());
               recoveryNodeMetadataStore.update(updatedRecoveryNode);
             });
@@ -857,7 +904,12 @@ public class RecoveryTaskAssignmentServiceTest {
     for (int i = 0; i < 10; i++) {
       recoveryTaskMetadataStore.create(
           new RecoveryTaskMetadata(
-              UUID.randomUUID().toString(), "1", 0, 1, Instant.now().toEpochMilli()));
+              UUID.randomUUID().toString(),
+              "1",
+              0,
+              1,
+              Metadata.IndexType.LOGS_LUCENE9,
+              Instant.now().toEpochMilli()));
     }
     await().until(() -> recoveryTaskMetadataStore.getCached().size() == 10);
 
@@ -867,6 +919,7 @@ public class RecoveryTaskAssignmentServiceTest {
               UUID.randomUUID().toString(),
               Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
               "",
+              List.of(Metadata.IndexType.LOGS_LUCENE9),
               Instant.now().toEpochMilli()));
     }
     await().until(() -> recoveryNodeMetadataStore.getCached().size() == 3);
@@ -894,6 +947,7 @@ public class RecoveryTaskAssignmentServiceTest {
                       recoveryNodeMetadata.name,
                       Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING,
                       recoveryNodeMetadata.recoveryTaskName,
+                      List.of(Metadata.IndexType.LOGS_LUCENE9),
                       Instant.now().toEpochMilli());
               recoveryNodeMetadataStore.update(updatedRecoveryNode);
             });
@@ -925,6 +979,7 @@ public class RecoveryTaskAssignmentServiceTest {
                       recoveryNodeMetadata.name,
                       Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
                       "",
+                      List.of(Metadata.IndexType.LOGS_LUCENE9),
                       Instant.now().toEpochMilli());
               recoveryNodeMetadataStore.update(updatedRecoveryNode);
             });

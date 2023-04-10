@@ -5,6 +5,7 @@ import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
 import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.recovery.RecoveryService.RECORDS_NO_LONGER_AVAILABLE;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_FAILED;
 import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_RECEIVED;
@@ -118,7 +119,6 @@ public class RecoveryServiceTest {
     }
   }
 
-  @SuppressWarnings("OptionalGetWithoutIsPresent")
   private KaldbConfigs.KaldbConfig makeKaldbConfig(String testS3Bucket) {
     return makeKaldbConfig(kafkaServer, testS3Bucket, RecoveryServiceTest.TEST_KAFKA_TOPIC_1);
   }
@@ -163,7 +163,8 @@ public class RecoveryServiceTest {
     assertThat(snapshotMetadataStore.listSync().size()).isZero();
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
-        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+        new RecoveryTaskMetadata(
+            "testRecoveryTask", "0", 30, 60, LOGS_LUCENE9, Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     assertThat(snapshots.size()).isEqualTo(1);
@@ -245,6 +246,7 @@ public class RecoveryServiceTest {
             Integer.toString(topicPartition.partition()),
             startOffset,
             endOffset,
+            LOGS_LUCENE9,
             Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
@@ -327,6 +329,7 @@ public class RecoveryServiceTest {
             Integer.toString(topicPartition.partition()),
             startOffset,
             endOffset,
+            LOGS_LUCENE9,
             Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry)).isEqualTo(50);
@@ -368,7 +371,8 @@ public class RecoveryServiceTest {
 
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
-        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+        new RecoveryTaskMetadata(
+            "testRecoveryTask", "0", 30, 60, LOGS_LUCENE9, Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isFalse();
 
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
@@ -409,7 +413,8 @@ public class RecoveryServiceTest {
         new RecoveryTaskMetadataStore(metadataStore, false);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
     RecoveryTaskMetadata recoveryTask =
-        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+        new RecoveryTaskMetadata(
+            "testRecoveryTask", "0", 30, 60, LOGS_LUCENE9, Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.createSync(recoveryTask);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
     assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
@@ -427,6 +432,7 @@ public class RecoveryServiceTest {
             recoveryNodeMetadata.getName(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
             recoveryTask.getName(),
+            List.of(LOGS_LUCENE9),
             Instant.now().toEpochMilli()));
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
 
@@ -486,7 +492,8 @@ public class RecoveryServiceTest {
         new RecoveryTaskMetadataStore(metadataStore, false);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
     RecoveryTaskMetadata recoveryTask =
-        new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
+        new RecoveryTaskMetadata(
+            "testRecoveryTask", "0", 30, 60, LOGS_LUCENE9, Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.createSync(recoveryTask);
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
     assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
@@ -504,6 +511,7 @@ public class RecoveryServiceTest {
             recoveryNodeMetadata.getName(),
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
             recoveryTask.getName(),
+            List.of(LOGS_LUCENE9),
             Instant.now().toEpochMilli()));
     assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
 
@@ -545,7 +553,8 @@ public class RecoveryServiceTest {
     RecoveryService.PartitionOffsets offsets =
         RecoveryService.validateKafkaOffsets(
             getAdminClient(kafkaStartOffset, kafkaEndOffset),
-            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            new RecoveryTaskMetadata(
+                "foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, LOGS_LUCENE9, 1),
             topic);
 
     assertThat(offsets.startOffset).isEqualTo(recoveryTaskStartOffset);
@@ -563,7 +572,8 @@ public class RecoveryServiceTest {
     RecoveryService.PartitionOffsets offsets =
         RecoveryService.validateKafkaOffsets(
             getAdminClient(kafkaStartOffset, kafkaEndOffset),
-            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            new RecoveryTaskMetadata(
+                "foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, LOGS_LUCENE9, 1),
             topic);
 
     assertThat(offsets.startOffset).isEqualTo(kafkaStartOffset);
@@ -581,7 +591,8 @@ public class RecoveryServiceTest {
     RecoveryService.PartitionOffsets offsets =
         RecoveryService.validateKafkaOffsets(
             getAdminClient(kafkaStartOffset, kafkaEndOffset),
-            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            new RecoveryTaskMetadata(
+                "foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, LOGS_LUCENE9, 1),
             topic);
 
     assertThat(offsets).isNull();
@@ -598,7 +609,8 @@ public class RecoveryServiceTest {
     RecoveryService.PartitionOffsets offsets =
         RecoveryService.validateKafkaOffsets(
             getAdminClient(kafkaStartOffset, kafkaEndOffset),
-            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            new RecoveryTaskMetadata(
+                "foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, LOGS_LUCENE9, 1),
             topic);
 
     assertThat(offsets).isNull();
@@ -615,7 +627,8 @@ public class RecoveryServiceTest {
     RecoveryService.PartitionOffsets offsets =
         RecoveryService.validateKafkaOffsets(
             getAdminClient(kafkaStartOffset, kafkaEndOffset),
-            new RecoveryTaskMetadata("foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, 1),
+            new RecoveryTaskMetadata(
+                "foo", "1", recoveryTaskStartOffset, recoveryTaskEndOffset, LOGS_LUCENE9, 1),
             topic);
 
     assertThat(offsets.startOffset).isEqualTo(recoveryTaskStartOffset);

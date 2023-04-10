@@ -106,6 +106,9 @@ message RecoveryNodeMetadata {
 
   // Last updated timestamp
   int64 updated_time_epoch_ms = 4;
+
+  // Index types supported by recovery node.
+  repeated IndexType supported_index_types = 5;
 }
 
 message RecoveryTaskMetadata {
@@ -123,6 +126,9 @@ message RecoveryTaskMetadata {
 
   // Created timestamp
   int64 created_time_epoch_ms = 5;
+
+  // Index type used to store the data.
+  IndexType index_type = 6;
 }
 
 // Describes ownership, throughput, and partition mapping for a given dataset

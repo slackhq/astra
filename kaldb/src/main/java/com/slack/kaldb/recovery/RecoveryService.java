@@ -32,6 +32,7 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -144,6 +145,7 @@ public class RecoveryService extends AbstractIdleService {
             searchContext.hostname,
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE,
             "",
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli()));
     recoveryNodeLastKnownState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
 
@@ -261,6 +263,7 @@ public class RecoveryService extends AbstractIdleService {
               recoveryTaskMetadata.partitionId,
               partitionOffsets.startOffset,
               partitionOffsets.endOffset,
+              recoveryTaskMetadata.indexType,
               recoveryTaskMetadata.createdTimeEpochMs);
 
       if (partitionOffsets.startOffset != recoveryTaskMetadata.startOffset
@@ -355,6 +358,7 @@ public class RecoveryService extends AbstractIdleService {
             newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
                 ? ""
                 : recoveryNodeMetadata.recoveryTaskName,
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
             Instant.now().toEpochMilli());
     recoveryNodeMetadataStore.updateSync(updatedRecoveryNodeMetadata);
   }
