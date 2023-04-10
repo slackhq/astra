@@ -38,7 +38,7 @@ public class RecoveryNodeMetadata extends KaldbMetadata {
           "Recovery task name must not be empty if state is not FREE");
     }
     checkArgument(
-        supportedIndexTypes == null || supportedIndexTypes.isEmpty(),
+        supportedIndexTypes != null && !supportedIndexTypes.isEmpty(),
         "supportedIndexTypes can't be null or empty");
     this.recoveryNodeState = recoveryNodeState;
     this.recoveryTaskName = recoveryTaskName;
