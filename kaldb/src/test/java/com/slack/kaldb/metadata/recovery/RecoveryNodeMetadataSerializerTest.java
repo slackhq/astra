@@ -25,7 +25,7 @@ public class RecoveryNodeMetadataSerializerTest {
             name,
             recoveryNodeState,
             recoveryTaskName,
-            List.of(Metadata.IndexType.LOGS_LUCENE9),
+            List.of(Metadata.IndexType.LOGS_LUCENE9, Metadata.IndexType.LOGS_LUCENE9),
             updatedTimeEpochMs);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(recoveryNodeMetadata);
@@ -39,7 +39,9 @@ public class RecoveryNodeMetadataSerializerTest {
     assertThat(deserializedRecoveryNodeMetadata.recoveryNodeState).isEqualTo(recoveryNodeState);
     assertThat(deserializedRecoveryNodeMetadata.recoveryTaskName).isEqualTo(recoveryTaskName);
     assertThat(deserializedRecoveryNodeMetadata.supportedIndexTypes)
-        .containsExactlyInAnyOrderElementsOf(List.of(Metadata.IndexType.LOGS_LUCENE9));
+        .containsExactlyInAnyOrderElementsOf(
+            List.of(Metadata.IndexType.LOGS_LUCENE9, Metadata.IndexType.LOGS_LUCENE9));
+    assertThat(deserializedRecoveryNodeMetadata.supportedIndexTypes.size()).isEqualTo(2);
     assertThat(deserializedRecoveryNodeMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
   }
 
