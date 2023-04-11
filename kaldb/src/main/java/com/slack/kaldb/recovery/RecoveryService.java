@@ -347,6 +347,7 @@ public class RecoveryService extends AbstractIdleService {
     return builder.build();
   }
 
+  // TODO: Refactor into a method on RecoveryNodeMetadataStore
   private void setRecoveryNodeMetadataState(
       Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
     RecoveryNodeMetadata recoveryNodeMetadata =
@@ -358,7 +359,7 @@ public class RecoveryService extends AbstractIdleService {
             newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
                 ? ""
                 : recoveryNodeMetadata.recoveryTaskName,
-            List.of(Metadata.IndexType.LOGS_LUCENE9),
+            recoveryNodeMetadata.supportedIndexTypes,
             Instant.now().toEpochMilli());
     recoveryNodeMetadataStore.updateSync(updatedRecoveryNodeMetadata);
   }
