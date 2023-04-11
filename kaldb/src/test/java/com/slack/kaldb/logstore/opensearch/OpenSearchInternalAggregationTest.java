@@ -34,7 +34,7 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalDateHistogramAggregation() throws IOException {
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", null);
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
             "foo", "epoch_ms", "10s", "5s", 10, "epoch_ms", Map.of(), List.of(avgAggBuilder));
@@ -61,7 +61,7 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalHistogramAggregation() throws IOException {
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", null);
     HistogramAggBuilder histogramAggBuilder =
         new HistogramAggBuilder("foo", "duration_ms", "1000", 1, List.of(avgAggBuilder));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
@@ -104,7 +104,7 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalPercentiles() throws IOException {
     PercentilesAggBuilder percentilesAggBuilder =
-        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D));
+        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D), "return 8;");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             percentilesAggBuilder,

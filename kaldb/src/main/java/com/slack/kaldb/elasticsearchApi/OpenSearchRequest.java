@@ -179,6 +179,7 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(avg))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(avg)))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
                                       .build());
                         } else if (aggregationObject.equals(MinAggBuilder.TYPE)) {
@@ -222,6 +223,8 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(percentiles))
+                                      .setScript(
+                                          SearchResultUtils.toValueProto(getScript(percentiles)))
                                       .setMissing(
                                           SearchResultUtils.toValueProto(getMissing(percentiles)))
                                       .setPercentiles(
@@ -302,6 +305,13 @@ public class OpenSearchRequest {
 
   private static String getFieldName(JsonNode agg) {
     return agg.get("field").asText();
+  }
+
+  private static String getScript(JsonNode agg) {
+    if (agg.has("script")) {
+      return agg.get("script").asText();
+    }
+    return "";
   }
 
   private static String getBucketsPath(JsonNode pipelineAgg) {

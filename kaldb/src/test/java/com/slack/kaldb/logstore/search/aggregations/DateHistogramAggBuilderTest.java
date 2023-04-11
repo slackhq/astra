@@ -19,7 +19,7 @@ public class DateHistogramAggBuilderTest {
                 0,
                 "epoch_ms",
                 Map.of("max", 1L, "min", 0L),
-                List.of(new AvgAggBuilder("name", "field", null))))
+                List.of(new AvgAggBuilder("name", "field", null, null))))
         .isEqualTo(
             new DateHistogramAggBuilder(
                 "name",
@@ -29,7 +29,7 @@ public class DateHistogramAggBuilderTest {
                 0,
                 "epoch_ms",
                 Map.of("max", 1L, "min", 0L),
-                List.of(new AvgAggBuilder("name", "field", null))));
+                List.of(new AvgAggBuilder("name", "field", null, null))));
     assertThat(
             new DateHistogramAggBuilder(
                     "name",
@@ -39,7 +39,7 @@ public class DateHistogramAggBuilderTest {
                     0,
                     "epoch_ms",
                     Map.of("max", 1L, "min", 0L),
-                    List.of(new AvgAggBuilder("name", "field", null)))
+                    List.of(new AvgAggBuilder("name", "field", null, null)))
                 .hashCode())
         .isEqualTo(
             new DateHistogramAggBuilder(
@@ -50,7 +50,7 @@ public class DateHistogramAggBuilderTest {
                     0,
                     "epoch_ms",
                     Map.of("max", 1L, "min", 0L),
-                    List.of(new AvgAggBuilder("name", "field", null)))
+                    List.of(new AvgAggBuilder("name", "field", null, null)))
                 .hashCode());
 
     assertThat(
@@ -62,7 +62,7 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field", null))))
+                List.of(new AvgAggBuilder("name", "field", null, null))))
         .isEqualTo(
             new DateHistogramAggBuilder(
                 "name",
@@ -72,7 +72,7 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field", null))));
+                List.of(new AvgAggBuilder("name", "field", null, null))));
 
     assertThat(
             new DateHistogramAggBuilder(
@@ -83,7 +83,7 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field", null))))
+                List.of(new AvgAggBuilder("name", "field", null, null))))
         .isNotEqualTo(
             new DateHistogramAggBuilder(
                 "name",
@@ -93,7 +93,7 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field", null))));
+                List.of(new AvgAggBuilder("name", "field", null, null))));
 
     assertThat(
             new DateHistogramAggBuilder(
@@ -111,7 +111,7 @@ public class DateHistogramAggBuilderTest {
                 0,
                 "epoch_ms",
                 Map.of("max", 1L, "min", 0L),
-                List.of(new AvgAggBuilder("name", "field", null))))
+                List.of(new AvgAggBuilder("name", "field", null, null))))
         .isNotEqualTo(
             new DateHistogramAggBuilder(
                 "name",
@@ -121,7 +121,7 @@ public class DateHistogramAggBuilderTest {
                 0,
                 "epoch_ms",
                 Map.of("max", 1L, "min", 1L),
-                List.of(new AvgAggBuilder("name", "field", null))));
+                List.of(new AvgAggBuilder("name", "field", null, null))));
 
     assertThat(
             new DateHistogramAggBuilder(
@@ -132,7 +132,7 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field1", null))))
+                List.of(new AvgAggBuilder("name", "field1", null, null))))
         .isNotEqualTo(
             new DateHistogramAggBuilder(
                 "name",
@@ -142,6 +142,6 @@ public class DateHistogramAggBuilderTest {
                 1,
                 "epoch_ms",
                 Map.of(),
-                List.of(new AvgAggBuilder("name", "field2", null))));
+                List.of(new AvgAggBuilder("name", "field2", null, null))));
   }
 }
