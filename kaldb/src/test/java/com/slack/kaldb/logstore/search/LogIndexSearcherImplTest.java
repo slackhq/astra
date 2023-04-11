@@ -1,5 +1,34 @@
 package com.slack.kaldb.logstore.search;
 
+import brave.Tracing;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.metrics.InternalMin;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
@@ -11,32 +40,6 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
-
-import brave.Tracing;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
-import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
-import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
-import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
-import java.io.IOException;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.opensearch.search.aggregations.Aggregation;
-import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
-import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 
 public class LogIndexSearcherImplTest {
 
@@ -653,6 +656,30 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(2).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(3).getDocCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testFullIndexSearchForMinAgg() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+            strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "",
+                    0,
+                    MAX_TIME,
+                    1000,
+                    new MinAggBuilder(
+                            "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0"));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    InternalMin internalMin =
+            (InternalMin) Objects.requireNonNull(allIndexItems.internalAggregation);
+
+    // NOTE: 1.593365471E12 is the epoch seconds above but in milliseconds and in scientific notation
+    assertThat(internalMin.getValue()).isEqualTo(Double.parseDouble("1.593365471E12"));
   }
 
   @Test
