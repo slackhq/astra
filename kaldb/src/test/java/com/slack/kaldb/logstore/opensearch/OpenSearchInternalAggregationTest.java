@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MatchNoDocsQuery;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
@@ -91,9 +90,7 @@ public class OpenSearchInternalAggregationTest {
         new TermsAggBuilder("1", List.of(), "service_name", "2", 10, 0, Map.of("_count", "asc"));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            termsAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            null);
+            termsAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -129,8 +126,7 @@ public class OpenSearchInternalAggregationTest {
     UniqueCountAggBuilder uniqueCountAggBuilder1 =
         new UniqueCountAggBuilder("1", "service_name", "3", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
-        openSearchAdapter.getCollectorManager(
-            uniqueCountAggBuilder1, indexSearcher, null);
+        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder1, indexSearcher, null);
     InternalAggregation internalAggregation1 =
         collectorManager1.reduce(Collections.singleton(collectorManager1.newCollector()));
     byte[] serialize = OpenSearchInternalAggregation.toByteArray(internalAggregation1);
@@ -142,8 +138,7 @@ public class OpenSearchInternalAggregationTest {
     UniqueCountAggBuilder uniqueCountAggBuilder3 =
         new UniqueCountAggBuilder("1", "service_name", "3", 3L);
     CollectorManager<Aggregator, InternalAggregation> collectorManager3 =
-        openSearchAdapter.getCollectorManager(
-            uniqueCountAggBuilder3, indexSearcher, null);
+        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder3, indexSearcher, null);
     InternalAggregation internalAggregation3 =
         collectorManager3.reduce(Collections.singleton(collectorManager3.newCollector()));
     byte[] serialize2 = OpenSearchInternalAggregation.toByteArray(internalAggregation3);

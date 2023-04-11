@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
-import org.apache.lucene.search.MatchNoDocsQuery;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opensearch.search.aggregations.Aggregator;
@@ -47,9 +46,7 @@ public class OpenSearchAdapterTest {
         };
 
     openSearchAdapter.buildAggregatorUsingContext(
-        unknownAgg,
-        logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-        null);
+        unknownAgg, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
   }
 
   @Test
@@ -60,14 +57,10 @@ public class OpenSearchAdapterTest {
         new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder1,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            null);
+            avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder2,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            null);
+            avgAggBuilder2, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
 
     Aggregator collector1 = collectorManager1.newCollector();
     Aggregator collector2 = collectorManager2.newCollector();
@@ -87,9 +80,7 @@ public class OpenSearchAdapterTest {
         new MinAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            minAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            null);
+            minAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
 
     try (Aggregator minAggregator = collectorManager.newCollector()) {
       InternalMin internalMin = (InternalMin) minAggregator.buildTopLevel();
@@ -107,9 +98,7 @@ public class OpenSearchAdapterTest {
         new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            null);
+            avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
 
     try (Aggregator avgAggregator = collectorManager.newCollector()) {
       InternalAvg internalAvg = (InternalAvg) avgAggregator.buildTopLevel();
