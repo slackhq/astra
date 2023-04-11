@@ -52,7 +52,7 @@ public class SearchResultTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1, 5, 7, 7, internalAggregation);

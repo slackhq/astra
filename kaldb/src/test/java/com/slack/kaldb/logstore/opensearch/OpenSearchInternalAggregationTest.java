@@ -43,7 +43,7 @@ public class OpenSearchInternalAggregationTest {
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -69,7 +69,7 @@ public class OpenSearchInternalAggregationTest {
         openSearchAdapter.getCollectorManager(
             histogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -93,7 +93,7 @@ public class OpenSearchInternalAggregationTest {
         openSearchAdapter.getCollectorManager(
             termsAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -112,7 +112,7 @@ public class OpenSearchInternalAggregationTest {
         openSearchAdapter.getCollectorManager(
             percentilesAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -130,7 +130,7 @@ public class OpenSearchInternalAggregationTest {
         new UniqueCountAggBuilder("1", "service_name", "3", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapter.getCollectorManager(
-            uniqueCountAggBuilder1, indexSearcher, new MatchNoDocsQuery("testing"));
+            uniqueCountAggBuilder1, indexSearcher, null);
     InternalAggregation internalAggregation1 =
         collectorManager1.reduce(Collections.singleton(collectorManager1.newCollector()));
     byte[] serialize = OpenSearchInternalAggregation.toByteArray(internalAggregation1);
@@ -143,7 +143,7 @@ public class OpenSearchInternalAggregationTest {
         new UniqueCountAggBuilder("1", "service_name", "3", 3L);
     CollectorManager<Aggregator, InternalAggregation> collectorManager3 =
         openSearchAdapter.getCollectorManager(
-            uniqueCountAggBuilder3, indexSearcher, new MatchNoDocsQuery("testing"));
+            uniqueCountAggBuilder3, indexSearcher, null);
     InternalAggregation internalAggregation3 =
         collectorManager3.reduce(Collections.singleton(collectorManager3.newCollector()));
     byte[] serialize2 = OpenSearchInternalAggregation.toByteArray(internalAggregation3);

@@ -49,7 +49,7 @@ public class OpenSearchAdapterTest {
     openSearchAdapter.buildAggregatorUsingContext(
         unknownAgg,
         logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-        new MatchNoDocsQuery("testing"));
+        null);
   }
 
   @Test
@@ -62,12 +62,12 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             avgAggBuilder1,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
             avgAggBuilder2,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     Aggregator collector1 = collectorManager1.newCollector();
     Aggregator collector2 = collectorManager2.newCollector();
@@ -89,7 +89,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             minAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator minAggregator = collectorManager.newCollector()) {
       InternalMin internalMin = (InternalMin) minAggregator.buildTopLevel();
@@ -109,7 +109,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             avgAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator avgAggregator = collectorManager.newCollector()) {
       InternalAvg internalAvg = (InternalAvg) avgAggregator.buildTopLevel();
@@ -129,7 +129,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             uniqueCountAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator uniqueCountAggregator = collectorManager.newCollector()) {
       InternalCardinality internalUniqueCount =
@@ -159,7 +159,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator dateHistogramAggregator = collectorManager.newCollector()) {
       InternalDateHistogram internalDateHistogram =
@@ -181,7 +181,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             histogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator histogramAggregator = collectorManager.newCollector()) {
       InternalHistogram internalDateHistogram =
@@ -207,7 +207,7 @@ public class OpenSearchAdapterTest {
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
-            new MatchNoDocsQuery("testing"));
+            null);
 
     try (Aggregator dateHistogramExtendedBounds = collectorManager.newCollector()) {
       InternalHistogram internalDateHistogram =
