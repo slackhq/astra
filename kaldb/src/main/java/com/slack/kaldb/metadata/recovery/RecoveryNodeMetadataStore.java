@@ -2,6 +2,8 @@ package com.slack.kaldb.metadata.recovery;
 
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.proto.metadata.Metadata;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,5 +40,20 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
         metadataStore,
         new RecoveryNodeMetadataSerializer(),
         LOG);
+  }
+
+  public void getAndUpdateRecoveryNodeState(
+      String slotName, Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
+    RecoveryNodeMetadata recoveryNodeMetadata = getNodeSync(slotName);
+    RecoveryNodeMetadata updatedRecoveryNodeMetadata =
+        new RecoveryNodeMetadata(
+            recoveryNodeMetadata.name,
+            newRecoveryNodeState,
+            newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
+                ? ""
+                : recoveryNodeMetadata.recoveryTaskName,
+            recoveryNodeMetadata.supportedIndexTypes,
+            Instant.now().toEpochMilli());
+    updateSync(updatedRecoveryNodeMetadata);
   }
 }

@@ -235,6 +235,11 @@ public class RecoveryService extends AbstractIdleService {
     }
   }
 
+  private void setRecoveryNodeMetadataState(
+      Metadata.RecoveryNodeMetadata.RecoveryNodeState nodeState) {
+    recoveryNodeMetadataStore.getAndUpdateRecoveryNodeState(searchContext.hostname, nodeState);
+  }
+
   /**
    * This method does the recovery work from a recovery task. A recovery task indicates the start
    * and end offset of a kafka partition to index. To do the recovery work, we create a recovery
@@ -345,23 +350,6 @@ public class RecoveryService extends AbstractIdleService {
     TextFormat.merge(kafkaConfig.toString(), builder);
     builder.setKafkaTopicPartition(partitionId);
     return builder.build();
-  }
-
-  // TODO: Refactor into a method on RecoveryNodeMetadataStore
-  private void setRecoveryNodeMetadataState(
-      Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
-    RecoveryNodeMetadata recoveryNodeMetadata =
-        recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
-    RecoveryNodeMetadata updatedRecoveryNodeMetadata =
-        new RecoveryNodeMetadata(
-            recoveryNodeMetadata.name,
-            newRecoveryNodeState,
-            newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
-                ? ""
-                : recoveryNodeMetadata.recoveryTaskName,
-            recoveryNodeMetadata.supportedIndexTypes,
-            Instant.now().toEpochMilli());
-    recoveryNodeMetadataStore.updateSync(updatedRecoveryNodeMetadata);
   }
 
   /**
