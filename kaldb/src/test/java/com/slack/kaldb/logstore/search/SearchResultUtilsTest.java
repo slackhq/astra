@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
@@ -19,6 +20,19 @@ import java.util.Map;
 import org.junit.Test;
 
 public class SearchResultUtilsTest {
+
+  @Test
+  public void shouldConvertMinAggToFromProto() {
+    MinAggBuilder minAggBuilder =
+        new MinAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(minAggBuilder);
+    MinAggBuilder otherMinAggBuilder =
+        (MinAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(minAggBuilder).isEqualTo(otherMinAggBuilder);
+  }
 
   @Test
   public void shouldConvertAvgAggToFromProto() {

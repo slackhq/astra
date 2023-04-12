@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -67,6 +68,7 @@ import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
@@ -222,11 +224,11 @@ public class OpenSearchAdapter {
 
   /** Builds a CollectorManager for use in the Lucene aggregation step */
   public CollectorManager<Aggregator, InternalAggregation> getCollectorManager(
-      AggBuilder aggBuilder, IndexSearcher indexSearcher) {
+      AggBuilder aggBuilder, IndexSearcher indexSearcher, Query query) {
     return new CollectorManager<>() {
       @Override
       public Aggregator newCollector() throws IOException {
-        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder, indexSearcher);
+        Aggregator aggregator = buildAggregatorUsingContext(aggBuilder, indexSearcher, query);
         // preCollection must be invoked prior to using aggregations
         aggregator.preCollection();
         return aggregator;
@@ -278,6 +280,7 @@ public class OpenSearchAdapter {
     HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    MinAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -396,10 +399,11 @@ public class OpenSearchAdapter {
    * Given an aggBuilder, will use the previously initialized queryShardContext and searchContext to
    * return an OpenSearch aggregator / Lucene Collector
    */
-  public Aggregator buildAggregatorUsingContext(AggBuilder builder, IndexSearcher indexSearcher)
-      throws IOException {
+  public Aggregator buildAggregatorUsingContext(
+      AggBuilder builder, IndexSearcher indexSearcher, Query query) throws IOException {
     SearchContext searchContext =
-        new KaldbSearchContext(KaldbBigArrays.getInstance(), queryShardContext, indexSearcher);
+        new KaldbSearchContext(
+            KaldbBigArrays.getInstance(), queryShardContext, indexSearcher, query);
 
     return getAggregationBuilder(builder)
         .build(queryShardContext, null)
@@ -421,6 +425,8 @@ public class OpenSearchAdapter {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(MinAggBuilder.TYPE)) {
+      return getMinAggregationBuilder((MinAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(PercentilesAggBuilder.TYPE)) {
       return getPercentilesAggregationBuilder((PercentilesAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(UniqueCountAggBuilder.TYPE)) {
@@ -467,6 +473,20 @@ public class OpenSearchAdapter {
     }
 
     return avgAggregationBuilder;
+  }
+
+  /**
+   * Given an MinAggBuilder returns a MinAggregationBuilder to be used in building aggregation tree
+   */
+  protected static MinAggregationBuilder getMinAggregationBuilder(MinAggBuilder builder) {
+    MinAggregationBuilder minAggregationBuilder =
+        new MinAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getMissing() != null) {
+      minAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return minAggregationBuilder;
   }
 
   /**

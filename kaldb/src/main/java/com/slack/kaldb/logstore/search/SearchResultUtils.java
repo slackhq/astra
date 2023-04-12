@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -107,6 +108,11 @@ public class SearchResultUtils {
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()));
+    } else if (searchAggregation.getType().equals(MinAggBuilder.TYPE)) {
+      return new MinAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto((searchAggregation.getValueSource().getMissing())));
     } else if (searchAggregation.getType().equals(UniqueCountAggBuilder.TYPE)) {
       return new UniqueCountAggBuilder(
           searchAggregation.getName(),
@@ -190,6 +196,19 @@ public class SearchResultUtils {
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(avgAggregation.getField())
                   .setMissing(toValueProto(avgAggregation.getMissing()))
+                  .build())
+          .build();
+
+    } else if (aggBuilder instanceof MinAggBuilder) {
+      MinAggBuilder minAggBuilder = (MinAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(MinAggBuilder.TYPE)
+          .setName(minAggBuilder.getName())
+          .setValueSource(
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(minAggBuilder.getField())
+                  .setMissing(toValueProto(minAggBuilder.getMissing()))
                   .build())
           .build();
 

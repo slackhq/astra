@@ -124,7 +124,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
           if (aggBuilder != null) {
             collectorManager =
                 new MultiCollectorManager(
-                    topFieldCollector, openSearchAdapter.getCollectorManager(aggBuilder, searcher));
+                    topFieldCollector,
+                    openSearchAdapter.getCollectorManager(aggBuilder, searcher, query));
           } else {
             collectorManager = new MultiCollectorManager(topFieldCollector);
           }
@@ -141,7 +142,8 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
         } else {
           results = Collections.emptyList();
           internalAggregation =
-              searcher.search(query, openSearchAdapter.getCollectorManager(aggBuilder, searcher));
+              searcher.search(
+                  query, openSearchAdapter.getCollectorManager(aggBuilder, searcher, query));
         }
 
         elapsedTime.stop();
