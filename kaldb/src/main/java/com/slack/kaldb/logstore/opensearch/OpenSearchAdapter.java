@@ -16,6 +16,7 @@ import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
 import java.io.IOException;
 import java.time.Instant;
@@ -33,6 +34,7 @@ import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.settings.Settings;
@@ -176,24 +178,37 @@ public class OpenSearchAdapter {
     }
   }
 
-  /**
-   * For each defined field in the chunk schema, this will check if the field is already registered,
-   * and if not attempt to register it with the mapper service
-   */
-  public void reloadSchema() {
-    registerNewFields(chunkSchema);
-  }
+  protected Map<String, CheckedConsumer<XContentBuilder, IOException>>
+      convertChunkSchemaToMappingFields() {
+    Map<String, CheckedConsumer<XContentBuilder, IOException>> fields = new HashMap<>();
 
-  protected static XContentBuilder createMappings(Map<String, String> fields) throws IOException {
-    XContentBuilder mappingBuilder =
-        XContentFactory.jsonBuilder().startObject().startObject("properties");
-    for (Map.Entry<String, String> field : fields.entrySet()) {
-      mappingBuilder.startObject(field.getKey());
-      mappingBuilder.field("type", field.getValue());
-      mappingBuilder.endObject();
+    // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
+    //  this needs to be adapted to include other field types once we have support
+    // syntax for the CheckedConsumer is b.field("property1", "propertyValue")
+    for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
+      String fieldName = entry.getValue().name;
+      if (entry.getValue().fieldType == FieldType.TEXT) {
+        fields.put(fieldName, b -> b.field("type", "text"));
+      } else if (entry.getValue().fieldType == FieldType.STRING) {
+        fields.put(fieldName, b -> b.field("type", "keyword"));
+      } else if (entry.getValue().fieldType == FieldType.INTEGER) {
+        fields.put(fieldName, b -> b.field("type", "integer"));
+      } else if (entry.getValue().fieldType == FieldType.LONG) {
+        fields.put(fieldName, b -> b.field("type", "long"));
+      } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
+        fields.put(fieldName, b -> b.field("type", "double"));
+      } else if (entry.getValue().fieldType == FieldType.FLOAT) {
+        fields.put(fieldName, b -> b.field("type", "float"));
+      } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
+        fields.put(fieldName, b -> b.field("type", "boolean"));
+      } else {
+        LOG.warn(
+            "Field type '{}' is not yet currently supported for field '{}'",
+            entry.getValue().fieldType,
+            entry.getValue().name);
+      }
     }
-    mappingBuilder.endObject().endObject();
-    return mappingBuilder;
+    return fields;
   }
 
   /** Builds a CollectorManager for use in the Lucene aggregation step */
@@ -340,17 +355,23 @@ public class OpenSearchAdapter {
   }
 
   /**
-   * Registers a field type and name to the MapperService for use in aggregations. This informs the
-   * aggregators how to access a specific field and what value type it contains. registerField(
-   * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
-   * "long"));
+   * For each defined field in the chunk schema, this will check if the field is already registered,
+   * and if not attempt to register it with the mapper service
+   *
+   * <p>Registers a field type and name to the MapperService for use in aggregations and query
+   * parsing. For example in aggregations this informs the aggregators how to access a specific
+   * field and what value type it contains. We bulk add all the fields because doing one at a time
+   * is very costly when fields are over a 1000 This means potentially if the update fails it's
+   * tough to know which fields did not get registered
    */
-  protected boolean registerNewFields(Map<String, LuceneFieldDef> chunkSchema) {
-    Map<String, String> newFields = new HashMap<>();
-    for (Map.Entry<String, LuceneFieldDef> fieldEntry : chunkSchema.entrySet()) {
-      String fieldName = fieldEntry.getKey();
+  public boolean tryRegisterFields() {
+    Map<String, CheckedConsumer<XContentBuilder, IOException>> newFields = new HashMap<>();
 
+    for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
+        convertChunkSchemaToMappingFields().entrySet()) {
+      String fieldName = field.getKey();
       MappedFieldType fieldType = mapperService.fieldType(fieldName);
+
       if (mapperService.isMetadataField(fieldName)) {
         LOG.trace("Skipping metadata field '{}'", fieldName);
       } else if (fieldType != null) {
@@ -359,22 +380,7 @@ public class OpenSearchAdapter {
             fieldType.name(),
             fieldType.familyTypeName());
       } else {
-        String type = fieldEntry.getValue().fieldType.name;
-        if (type.equals("text")
-            || type.equals("string")
-            || type.equals("integer")
-            || type.equals("long")
-            || type.equals("double")
-            || type.equals("float")
-            || type.equals("boolean")) {
-          if (type.equals("string")) {
-            type = "keyword";
-          }
-          newFields.put(fieldEntry.getKey(), type);
-        } else {
-          LOG.warn(
-              "Field type '{}' is not yet currently supported for field '{}'", type, fieldName);
-        }
+        newFields.put(field.getKey(), field.getValue());
       }
     }
 
@@ -384,11 +390,37 @@ public class OpenSearchAdapter {
           "_doc",
           new CompressedXContent(BytesReference.bytes(mapping)),
           MapperService.MergeReason.MAPPING_UPDATE);
+      return true;
     } catch (Exception e) {
-      LOG.error("Error doing map update", e);
+      LOG.error("Could not register new fields", e);
       return false;
     }
-    return true;
+  }
+
+  /**
+   * Here is an example mapping. The checkedConsumer while building today just exposes type but can
+   * include other properties in the future
+   */
+  //  {
+  //    "properties": {
+  //    "field_name": {
+  //      "type": "keyword",
+  //      "index": false
+  //    }
+  //  }
+  //  }
+  private static XContentBuilder createMappings(
+      Map<String, CheckedConsumer<XContentBuilder, IOException>> fields) throws IOException {
+    XContentBuilder mappingBuilder =
+        XContentFactory.jsonBuilder().startObject().startObject("properties");
+    for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
+        fields.entrySet()) {
+      mappingBuilder.startObject(field.getKey());
+      field.getValue().accept(mappingBuilder);
+      mappingBuilder.endObject();
+    }
+    mappingBuilder.endObject().endObject();
+    return mappingBuilder;
   }
 
   /**
