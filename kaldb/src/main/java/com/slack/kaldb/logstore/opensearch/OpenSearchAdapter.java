@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
@@ -75,6 +76,7 @@ import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
@@ -275,6 +277,7 @@ public class OpenSearchAdapter {
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     SumAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     MinAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    MaxAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -462,6 +465,8 @@ public class OpenSearchAdapter {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(MinAggBuilder.TYPE)) {
       return getMinAggregationBuilder((MinAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(MaxAggBuilder.TYPE)) {
+      return getMaxAggregationBuilder((MaxAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(PercentilesAggBuilder.TYPE)) {
       return getPercentilesAggregationBuilder((PercentilesAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(UniqueCountAggBuilder.TYPE)) {
@@ -544,11 +549,33 @@ public class OpenSearchAdapter {
     MinAggregationBuilder minAggregationBuilder =
         new MinAggregationBuilder(builder.getName()).field(builder.getField());
 
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      minAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
     if (builder.getMissing() != null) {
       minAggregationBuilder.missing(builder.getMissing());
     }
 
     return minAggregationBuilder;
+  }
+
+  /**
+   * Given an MaxAggBuilder returns a MaxAggregationBuilder to be used in building aggregation tree
+   */
+  protected static MaxAggregationBuilder getMaxAggregationBuilder(MaxAggBuilder builder) {
+    MaxAggregationBuilder maxAggregationBuilder =
+        new MaxAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      maxAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
+    if (builder.getMissing() != null) {
+      maxAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return maxAggregationBuilder;
   }
 
   /**

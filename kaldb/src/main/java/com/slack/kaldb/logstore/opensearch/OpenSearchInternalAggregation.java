@@ -29,10 +29,12 @@ import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
+import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
@@ -137,6 +139,10 @@ public class OpenSearchInternalAggregation {
                   AggregationBuilder.class, MinAggregationBuilder.NAME, MinAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
                   InternalAggregation.class, MinAggregationBuilder.NAME, InternalMin::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class, MaxAggregationBuilder.NAME, MaxAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, MaxAggregationBuilder.NAME, InternalMax::new),
               new NamedWriteableRegistry.Entry(
                   InternalSimpleValue.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
               new NamedWriteableRegistry.Entry(

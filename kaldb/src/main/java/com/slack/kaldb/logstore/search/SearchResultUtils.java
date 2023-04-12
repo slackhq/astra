@@ -13,6 +13,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
@@ -131,6 +132,12 @@ public class SearchResultUtils {
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
           fromValueProto((searchAggregation.getValueSource().getMissing())),
+          getScript(searchAggregation.getValueSource().getScript()));
+    } else if (searchAggregation.getType().equals(MaxAggBuilder.TYPE)) {
+      return new MaxAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
           getScript(searchAggregation.getValueSource().getScript()));
     } else if (searchAggregation.getType().equals(UniqueCountAggBuilder.TYPE)) {
       return new UniqueCountAggBuilder(
@@ -266,6 +273,25 @@ public class SearchResultUtils {
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(MinAggBuilder.TYPE)
           .setName(minAggBuilder.getName())
+          .setValueSource(valueSourceAggBuilder.build())
+          .build();
+
+    } else if (aggBuilder instanceof MaxAggBuilder) {
+      MaxAggBuilder maxAggBuilder = (MaxAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(maxAggBuilder.getField())
+                  .setMissing(toValueProto(maxAggBuilder.getMissing()));
+
+      if (maxAggBuilder.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(maxAggBuilder.getScript()));
+      }
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(MaxAggBuilder.TYPE)
+          .setName(maxAggBuilder.getName())
           .setValueSource(valueSourceAggBuilder.build())
           .build();
 
