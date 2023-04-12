@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
@@ -127,6 +129,45 @@ public class SearchResultUtilsTest {
         (PercentilesAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(percentilesAggBuilder1).isEqualTo(percentilesAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertMovingAveragePipelineToFromProto() {
+    MovingAvgAggBuilder movingAvgAggBuilder1 =
+        new MovingAvgAggBuilder("1", "_count", "linear", 2, 5, 3D, 4D, 5D, 2, false, true);
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(movingAvgAggBuilder1);
+    MovingAvgAggBuilder movingAvgAggBuilder2 =
+        (MovingAvgAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(movingAvgAggBuilder1).isEqualTo(movingAvgAggBuilder2);
+    assertThat(movingAvgAggBuilder1.getName()).isEqualTo("1");
+    assertThat(movingAvgAggBuilder1.getBucketsPath()).isEqualTo("_count");
+    assertThat(movingAvgAggBuilder1.getModel()).isEqualTo("linear");
+    assertThat(movingAvgAggBuilder1.getWindow()).isEqualTo(2);
+    assertThat(movingAvgAggBuilder1.getPredict()).isEqualTo(5);
+    assertThat(movingAvgAggBuilder1.getAlpha()).isEqualTo(3);
+    assertThat(movingAvgAggBuilder1.getBeta()).isEqualTo(4);
+    assertThat(movingAvgAggBuilder1.getGamma()).isEqualTo(5);
+    assertThat(movingAvgAggBuilder1.getPeriod()).isEqualTo(2);
+    assertThat(movingAvgAggBuilder1.isPad()).isEqualTo(false);
+    assertThat(movingAvgAggBuilder1.isMinimize()).isEqualTo(true);
+  }
+
+  @Test
+  public void shouldConvertDerivativePipelineToFromProto() {
+    DerivativeAggBuilder derivativeAggBuilder1 = new DerivativeAggBuilder("2", "_count", "unit");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(derivativeAggBuilder1);
+    DerivativeAggBuilder derivativeAggBuilder2 =
+        (DerivativeAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(derivativeAggBuilder1).isEqualTo(derivativeAggBuilder2);
+    assertThat(derivativeAggBuilder1.getName()).isEqualTo("2");
+    assertThat(derivativeAggBuilder1.getBucketsPath()).isEqualTo("_count");
+    assertThat(derivativeAggBuilder1.getUnit()).isEqualTo("unit");
   }
 
   @Test

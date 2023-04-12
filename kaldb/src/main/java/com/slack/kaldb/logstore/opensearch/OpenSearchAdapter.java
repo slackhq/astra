@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
@@ -73,6 +74,7 @@ import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.BucketHelpers;
+import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.EwmaModel;
 import org.opensearch.search.aggregations.pipeline.HoltLinearModel;
 import org.opensearch.search.aggregations.pipeline.HoltWintersModel;
@@ -446,6 +448,8 @@ public class OpenSearchAdapter {
       AggBuilder aggBuilder) {
     if (aggBuilder.getType().equals(MovingAvgAggBuilder.TYPE)) {
       return getMovingAverageAggregationBuilder((MovingAvgAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(DerivativeAggBuilder.TYPE)) {
+      return getDerivativeAggregationBuilder((DerivativeAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("PipelineAggregation type %s not yet supported", aggBuilder.getType()));
@@ -457,7 +461,7 @@ public class OpenSearchAdapter {
    * subAggregation builder step
    */
   protected static boolean isPipelineAggregation(AggBuilder aggBuilder) {
-    List<String> pipelineAggregators = List.of(MovingAvgAggBuilder.TYPE);
+    List<String> pipelineAggregators = List.of(MovingAvgAggBuilder.TYPE, DerivativeAggBuilder.TYPE);
     return pipelineAggregators.contains(aggBuilder.getType());
   }
 
@@ -608,6 +612,22 @@ public class OpenSearchAdapter {
     }
 
     return movAvgPipelineAggregationBuilder;
+  }
+
+  /**
+   * Given a DerivativeAggBuilder returns a DerivativePipelineAggregationBuilder to be used in
+   * building aggregation tree
+   */
+  protected static DerivativePipelineAggregationBuilder getDerivativeAggregationBuilder(
+      DerivativeAggBuilder builder) {
+    DerivativePipelineAggregationBuilder derivativePipelineAggregationBuilder =
+        new DerivativePipelineAggregationBuilder(builder.getName(), builder.getBucketsPath());
+
+    if (builder.getUnit() != null && !builder.getUnit().isEmpty()) {
+      derivativePipelineAggregationBuilder.unit(builder.getUnit());
+    }
+
+    return derivativePipelineAggregationBuilder;
   }
 
   /**

@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
@@ -140,6 +141,11 @@ public class SearchResultUtils {
           searchAggregation.getPipeline().getMovingAverage().getPeriod(),
           searchAggregation.getPipeline().getMovingAverage().getPad(),
           searchAggregation.getPipeline().getMovingAverage().getMinimize());
+    } else if (searchAggregation.getType().equals(DerivativeAggBuilder.TYPE)) {
+      return new DerivativeAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getPipeline().getBucketsPath(),
+          (String) fromValueProto(searchAggregation.getPipeline().getDerivative().getUnit()));
     } else if (searchAggregation.getType().equals(TermsAggBuilder.TYPE)) {
       return new TermsAggBuilder(
           searchAggregation.getName(),
@@ -268,6 +274,22 @@ public class SearchResultUtils {
                           .setPeriod(movingAvgAggBuilder.getPeriod())
                           .setPad(movingAvgAggBuilder.isPad())
                           .setMinimize(movingAvgAggBuilder.isMinimize())
+                          .build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof DerivativeAggBuilder) {
+      DerivativeAggBuilder derivativeAggBuilder = (DerivativeAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(DerivativeAggBuilder.TYPE)
+          .setName(derivativeAggBuilder.getName())
+          .setPipeline(
+              KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.newBuilder()
+                  .setBucketsPath(derivativeAggBuilder.getBucketsPath())
+                  .setDerivative(
+                      KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                          .DerivativeAggregation.newBuilder()
+                          .setUnit(toValueProto(derivativeAggBuilder.getUnit()))
                           .build())
                   .build())
           .build();
