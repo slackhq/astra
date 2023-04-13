@@ -1,10 +1,13 @@
 package com.slack.kaldb.logstore.search.aggregations;
 
+import java.util.List;
+import java.util.Map;
+
 public class MinAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "min";
 
-  public MinAggBuilder(String name, String field, Object missing) {
-    super(name, field, missing);
+  public MinAggBuilder(String name, String field, Object missing, String script) {
+    super(name, Map.of(), List.of(), field, missing, script);
   }
 
   @Override
@@ -14,9 +17,14 @@ public class MinAggBuilder extends ValueSourceAggBuilder {
 
   @Override
   public String toString() {
-    return "MinAggregationBuilder{"
+    return "MinAggBuilder{"
         + "field='"
         + field
+        + '\''
+        + ", missing="
+        + missing
+        + ", script='"
+        + script
         + '\''
         + ", name='"
         + name
