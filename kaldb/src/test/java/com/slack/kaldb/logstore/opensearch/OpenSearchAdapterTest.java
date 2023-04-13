@@ -7,8 +7,10 @@ import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -17,6 +19,7 @@ import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
@@ -24,6 +27,9 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 public class OpenSearchAdapterTest {
 
@@ -159,6 +165,60 @@ public class OpenSearchAdapterTest {
       // todo - we don't have access to the package local methods for extra asserts - use
       // reflection?
     }
+  }
+
+  @Test
+  public void canBuildValidMovingAveragePipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithDerivative =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new MovingAvgAggBuilder("bar", "_count", "linear", 5, 2)));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithDerivative);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    MovAvgPipelineAggregator movAvgPipelineAggregator =
+        (MovAvgPipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(movAvgPipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(movAvgPipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
+  }
+
+  @Test
+  public void canBuildValidDerivativePipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithDerivative =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new DerivativeAggBuilder("bar", "_count", null)));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithDerivative);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    DerivativePipelineAggregator derivativePipelineAggregator =
+        (DerivativePipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(derivativePipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(derivativePipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
   }
 
   @Test

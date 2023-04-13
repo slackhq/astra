@@ -9,6 +9,7 @@ import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
@@ -279,6 +280,25 @@ public class OpenSearchRequest {
                                       .setBucketsPath(getBucketsPath(movAvg))
                                       .setMovingAverage(movingAvgAggBuilder.build())
                                       .build());
+                        } else if (aggregationObject.equals(DerivativeAggBuilder.TYPE)) {
+                          JsonNode derivativeAgg = aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(DerivativeAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(derivativeAgg))
+                                      .setDerivative(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .PipelineAggregation.DerivativeAggregation
+                                              .newBuilder()
+                                              .setUnit(
+                                                  SearchResultUtils.toValueProto(
+                                                      getUnit(derivativeAgg)))
+                                              .build())
+                                      .build());
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -430,6 +450,13 @@ public class OpenSearchRequest {
       return movingAverage.get("settings").get("pad").asBoolean();
     }
     return false;
+  }
+
+  private static String getUnit(JsonNode derivative) {
+    if (derivative.has("unit")) {
+      return derivative.get("unit").asText();
+    }
+    return null;
   }
 
   private static int getSize(JsonNode agg) {
