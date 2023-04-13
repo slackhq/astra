@@ -8,6 +8,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
@@ -22,9 +23,22 @@ import org.junit.Test;
 public class SearchResultUtilsTest {
 
   @Test
+  public void shouldConvertMinAggToFromProto() {
+    MinAggBuilder minAggBuilder =
+        new MinAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 8;");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(minAggBuilder);
+    MinAggBuilder otherMinAggBuilder =
+        (MinAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(minAggBuilder).isEqualTo(otherMinAggBuilder);
+  }
+
+  @Test
   public void shouldConvertAvgAggToFromProto() {
     AvgAggBuilder avgAggBuilder1 =
-        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 9;");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(avgAggBuilder1);
@@ -106,7 +120,7 @@ public class SearchResultUtilsTest {
   @Test
   public void shouldConvertPercentilesToFromProto() {
     PercentilesAggBuilder percentilesAggBuilder1 =
-        new PercentilesAggBuilder("foo", "service_name", "2", List.of(99D, 100D));
+        new PercentilesAggBuilder("foo", "service_name", "2", List.of(99D, 100D), "return 8;");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(percentilesAggBuilder1);
@@ -121,7 +135,7 @@ public class SearchResultUtilsTest {
     // this is not representative of a real or reasonable query, but we should be able to convert it
     // just the same
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null);
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null, null);
 
     DateHistogramAggBuilder dateHistogramAggBuilderInner =
         new DateHistogramAggBuilder(

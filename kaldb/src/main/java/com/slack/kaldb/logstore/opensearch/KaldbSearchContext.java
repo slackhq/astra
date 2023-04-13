@@ -59,12 +59,17 @@ public class KaldbSearchContext extends SearchContext {
   private final BigArrays bigArrays;
   private final ContextIndexSearcher contextIndexSearcher;
   private final QueryShardContext queryShardContext;
+  private final Query query;
 
   public KaldbSearchContext(
-      BigArrays bigArrays, QueryShardContext queryShardContext, IndexSearcher indexSearcher)
+      BigArrays bigArrays,
+      QueryShardContext queryShardContext,
+      IndexSearcher indexSearcher,
+      Query query)
       throws IOException {
     this.bigArrays = bigArrays;
     this.queryShardContext = queryShardContext;
+    this.query = query;
     this.contextIndexSearcher =
         new ContextIndexSearcher(
             indexSearcher.getIndexReader(),
@@ -391,7 +396,7 @@ public class KaldbSearchContext extends SearchContext {
 
   @Override
   public Query query() {
-    throw new NotImplementedException();
+    return this.query;
   }
 
   @Override

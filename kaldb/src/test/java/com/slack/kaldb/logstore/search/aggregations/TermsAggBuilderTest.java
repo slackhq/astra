@@ -25,7 +25,7 @@ public class TermsAggBuilderTest {
     assertThat(
             new TermsAggBuilder(
                 "name",
-                List.of(new AvgAggBuilder("name", "field", null)),
+                List.of(new AvgAggBuilder("name", "field", null, null)),
                 "field",
                 1L,
                 10,
@@ -34,7 +34,7 @@ public class TermsAggBuilderTest {
         .isEqualTo(
             new TermsAggBuilder(
                 "name",
-                List.of(new AvgAggBuilder("name", "field", null)),
+                List.of(new AvgAggBuilder("name", "field", null, null)),
                 "field",
                 1L,
                 10,
@@ -44,7 +44,7 @@ public class TermsAggBuilderTest {
     assertThat(
             new TermsAggBuilder(
                 "name",
-                List.of(new AvgAggBuilder("name", "field", null)),
+                List.of(new AvgAggBuilder("name", "field", null, null)),
                 "field",
                 1L,
                 10,
@@ -53,7 +53,7 @@ public class TermsAggBuilderTest {
         .isNotEqualTo(
             new TermsAggBuilder(
                 "name",
-                List.of(new AvgAggBuilder("name", "field1", null)),
+                List.of(new AvgAggBuilder("name", "field1", null, null)),
                 "field",
                 1L,
                 10,
@@ -63,7 +63,7 @@ public class TermsAggBuilderTest {
     assertThat(
             new TermsAggBuilder(
                 "name",
-                List.of(new AvgAggBuilder("name", "field", null)),
+                List.of(new AvgAggBuilder("name", "field", null, null)),
                 "field",
                 1L,
                 10,

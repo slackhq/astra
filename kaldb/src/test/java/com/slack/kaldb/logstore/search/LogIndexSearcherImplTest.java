@@ -5,6 +5,7 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUN
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_LONG_PROPERTY;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
@@ -16,6 +17,7 @@ import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
@@ -37,6 +39,8 @@ import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.metrics.InternalAvg;
+import org.opensearch.search.aggregations.metrics.InternalMin;
 
 public class LogIndexSearcherImplTest {
 
@@ -656,6 +660,67 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
+  public void testAggregationWithScripting() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> scriptNull =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, null));
+    assertThat(((InternalAvg) scriptNull.internalAggregation).value()).isEqualTo(3.25);
+
+    SearchResult<LogMessage> scriptEmpty =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, ""));
+    assertThat(((InternalAvg) scriptEmpty.internalAggregation).value()).isEqualTo(3.25);
+
+    SearchResult<LogMessage> scripted =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"));
+    assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
+  }
+
+  @Test
+  public void testFullIndexSearchForMinAgg() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new MinAggBuilder(
+                "test", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "0", null));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    InternalMin internalMin =
+        (InternalMin) Objects.requireNonNull(allIndexItems.internalAggregation);
+
+    // NOTE: 1.593365471E12 is the epoch seconds above but in milliseconds and in scientific
+    // notation
+    assertThat(internalMin.getValue()).isEqualTo(Double.parseDouble("1.593365471E12"));
+  }
+
+  @Test
   public void testTermsAggregation() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
@@ -715,7 +780,10 @@ public class LogIndexSearcherImplTest {
                 Map.of("min", 1593365471000L, "max", 1593365471000L + 5000L),
                 List.of(
                     new AvgAggBuilder(
-                        "avgTimestamp", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null),
+                        "avgTimestamp",
+                        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                        null,
+                        null),
                     new MovingAvgAggBuilder("movAvgCount", "_count", "simple", 2, 1))),
             List.of());
 

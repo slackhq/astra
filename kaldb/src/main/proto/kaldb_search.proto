@@ -26,7 +26,7 @@ message SearchRequest {
     string name = 2;
     // Optional metadata
     map<string, Value> metadata = 3;
-    // Any nested aggregations to perform. These may contain additonal nested aggregations themselves,
+    // Any nested aggregations to perform. These may contain additional nested aggregations themselves,
     // and have sibling aggregations
     repeated SearchAggregation sub_aggregations = 4;
 
@@ -42,6 +42,9 @@ message SearchRequest {
 
       // Value to substitute if no value is calculated
       Value missing = 2;
+
+      // Script to execute, expected to be a string or null
+      Value script = 3;
 
       oneof type {
         DateHistogramAggregation date_histogram = 11;

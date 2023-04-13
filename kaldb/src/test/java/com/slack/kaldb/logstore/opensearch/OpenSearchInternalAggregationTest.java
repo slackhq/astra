@@ -34,14 +34,15 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalDateHistogramAggregation() throws IOException {
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", null);
     DateHistogramAggBuilder dateHistogramAggBuilder =
         new DateHistogramAggBuilder(
             "foo", "epoch_ms", "10s", "5s", 10, "epoch_ms", Map.of(), List.of(avgAggBuilder));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -60,12 +61,14 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalHistogramAggregation() throws IOException {
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", null);
     HistogramAggBuilder histogramAggBuilder =
         new HistogramAggBuilder("foo", "duration_ms", "1000", 1, List.of(avgAggBuilder));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            histogramAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            histogramAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -87,7 +90,7 @@ public class OpenSearchInternalAggregationTest {
         new TermsAggBuilder("1", List.of(), "service_name", "2", 10, 0, Map.of("_count", "asc"));
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            termsAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            termsAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -101,10 +104,12 @@ public class OpenSearchInternalAggregationTest {
   @Test
   public void canSerializeDeserializeInternalPercentiles() throws IOException {
     PercentilesAggBuilder percentilesAggBuilder =
-        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D));
+        new PercentilesAggBuilder("1", "service_name", null, List.of(95D, 99D), "return 8;");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            percentilesAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            percentilesAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
     InternalAggregation internalAggregation1 =
         collectorManager.reduce(Collections.singleton(collectorManager.newCollector()));
 
@@ -121,7 +126,7 @@ public class OpenSearchInternalAggregationTest {
     UniqueCountAggBuilder uniqueCountAggBuilder1 =
         new UniqueCountAggBuilder("1", "service_name", "3", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
-        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder1, indexSearcher);
+        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder1, indexSearcher, null);
     InternalAggregation internalAggregation1 =
         collectorManager1.reduce(Collections.singleton(collectorManager1.newCollector()));
     byte[] serialize = OpenSearchInternalAggregation.toByteArray(internalAggregation1);
@@ -133,7 +138,7 @@ public class OpenSearchInternalAggregationTest {
     UniqueCountAggBuilder uniqueCountAggBuilder3 =
         new UniqueCountAggBuilder("1", "service_name", "3", 3L);
     CollectorManager<Aggregator, InternalAggregation> collectorManager3 =
-        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder3, indexSearcher);
+        openSearchAdapter.getCollectorManager(uniqueCountAggBuilder3, indexSearcher, null);
     InternalAggregation internalAggregation3 =
         collectorManager3.reduce(Collections.singleton(collectorManager3.newCollector()));
     byte[] serialize2 = OpenSearchInternalAggregation.toByteArray(internalAggregation3);

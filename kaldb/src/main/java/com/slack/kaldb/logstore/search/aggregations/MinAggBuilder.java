@@ -3,11 +3,10 @@ package com.slack.kaldb.logstore.search.aggregations;
 import java.util.List;
 import java.util.Map;
 
-/** Aggregation request type to calculate the average value */
-public class AvgAggBuilder extends ValueSourceAggBuilder {
-  public static final String TYPE = "avg";
+public class MinAggBuilder extends ValueSourceAggBuilder {
+  public static final String TYPE = "min";
 
-  public AvgAggBuilder(String name, String field, Object missing, String script) {
+  public MinAggBuilder(String name, String field, Object missing, String script) {
     super(name, Map.of(), List.of(), field, missing, script);
   }
 
@@ -18,7 +17,7 @@ public class AvgAggBuilder extends ValueSourceAggBuilder {
 
   @Override
   public String toString() {
-    return "AvgAggBuilder{"
+    return "MinAggBuilder{"
         + "field='"
         + field
         + '\''

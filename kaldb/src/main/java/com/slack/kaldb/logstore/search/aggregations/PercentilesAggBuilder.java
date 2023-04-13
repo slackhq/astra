@@ -1,14 +1,15 @@
 package com.slack.kaldb.logstore.search.aggregations;
 
 import java.util.List;
+import java.util.Map;
 
 public class PercentilesAggBuilder extends ValueSourceAggBuilder {
   public static final String TYPE = "percentiles";
   private final List<Double> percentiles;
 
   public PercentilesAggBuilder(
-      String name, String field, Object missing, List<Double> percentiles) {
-    super(name, field, missing);
+      String name, String field, Object missing, List<Double> percentiles, String script) {
+    super(name, Map.of(), List.of(), field, missing, script);
 
     this.percentiles = percentiles;
   }
@@ -36,6 +37,9 @@ public class PercentilesAggBuilder extends ValueSourceAggBuilder {
         + '\''
         + ", missing="
         + missing
+        + ", script='"
+        + script
+        + '\''
         + ", name='"
         + name
         + '\''

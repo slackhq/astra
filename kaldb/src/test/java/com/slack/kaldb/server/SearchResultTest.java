@@ -50,7 +50,8 @@ public class SearchResultTest {
         openSearchAdapter.buildAggregatorUsingContext(
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"),
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
     InternalAggregation internalAggregation = dateHistogramAggregation.buildTopLevel();
     SearchResult<LogMessage> searchResult =
         new SearchResult<>(logMessages, 1, 1, 5, 7, 7, internalAggregation);

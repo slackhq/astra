@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -178,7 +179,19 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(avg))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(avg)))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
+                                      .build());
+                        } else if (aggregationObject.equals(MinAggBuilder.TYPE)) {
+                          JsonNode min = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(MinAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(min))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(min)))
                                       .build());
                         } else if (aggregationObject.equals(UniqueCountAggBuilder.TYPE)) {
                           JsonNode uniqueCount = aggs.get(aggregationName).get(aggregationObject);
@@ -210,6 +223,8 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(percentiles))
+                                      .setScript(
+                                          SearchResultUtils.toValueProto(getScript(percentiles)))
                                       .setMissing(
                                           SearchResultUtils.toValueProto(getMissing(percentiles)))
                                       .setPercentiles(
@@ -290,6 +305,13 @@ public class OpenSearchRequest {
 
   private static String getFieldName(JsonNode agg) {
     return agg.get("field").asText();
+  }
+
+  private static String getScript(JsonNode agg) {
+    if (agg.has("script")) {
+      return agg.get("script").asText();
+    }
+    return "";
   }
 
   private static String getBucketsPath(JsonNode pipelineAgg) {
