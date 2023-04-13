@@ -6,6 +6,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
@@ -27,6 +28,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
@@ -165,6 +167,33 @@ public class OpenSearchAdapterTest {
       // todo - we don't have access to the package local methods for extra asserts - use
       // reflection?
     }
+  }
+
+  @Test
+  public void canBuildValidCumulativeSumPipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithCumulativeSum =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new CumulativeSumAggBuilder("bar", "_count", "##0.#####E0")));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithCumulativeSum);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    CumulativeSumPipelineAggregator cumulativeSumPipelineAggregator =
+        (CumulativeSumPipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(cumulativeSumPipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(cumulativeSumPipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
   }
 
   @Test

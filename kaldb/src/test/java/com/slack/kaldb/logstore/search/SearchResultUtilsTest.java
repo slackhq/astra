@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
@@ -130,6 +131,21 @@ public class SearchResultUtilsTest {
         (PercentilesAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(percentilesAggBuilder1).isEqualTo(percentilesAggBuilder2);
+  }
+
+  @Test
+  public void shouldConvertCumulativeSumPipelineToFromProto() {
+    CumulativeSumAggBuilder cumulativeSumAggBuilder1 =
+        new CumulativeSumAggBuilder("2", "_count", "##0.#####E0");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(cumulativeSumAggBuilder1);
+    CumulativeSumAggBuilder cumulativeSumAggBuilder2 =
+        (CumulativeSumAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(cumulativeSumAggBuilder1.getName()).isEqualTo("2");
+    assertThat(cumulativeSumAggBuilder1.getBucketsPath()).isEqualTo("_count");
+    assertThat(cumulativeSumAggBuilder1.getFormat()).isEqualTo("##0.#####E0");
   }
 
   @Test
