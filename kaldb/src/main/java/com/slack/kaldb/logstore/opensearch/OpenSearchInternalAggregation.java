@@ -35,6 +35,7 @@ import org.opensearch.search.aggregations.metrics.InternalValueCount;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.EwmaModel;
 import org.opensearch.search.aggregations.pipeline.HoltLinearModel;
@@ -114,6 +115,10 @@ public class OpenSearchInternalAggregation {
                   MovAvgPipelineAggregationBuilder.class,
                   MovAvgPipelineAggregationBuilder.NAME,
                   MovAvgPipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  CumulativeSumPipelineAggregationBuilder.class,
+                  CumulativeSumPipelineAggregationBuilder.NAME,
+                  CumulativeSumPipelineAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
                   DerivativePipelineAggregationBuilder.class,
                   DerivativePipelineAggregationBuilder.NAME,

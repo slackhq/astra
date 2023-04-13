@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
@@ -152,6 +153,11 @@ public class SearchResultUtils {
           searchAggregation.getPipeline().getMovingAverage().getPeriod(),
           searchAggregation.getPipeline().getMovingAverage().getPad(),
           searchAggregation.getPipeline().getMovingAverage().getMinimize());
+    } else if (searchAggregation.getType().equals(CumulativeSumAggBuilder.TYPE)) {
+      return new CumulativeSumAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getPipeline().getBucketsPath(),
+          (String) fromValueProto(searchAggregation.getPipeline().getCumulativeSum().getFormat()));
     } else if (searchAggregation.getType().equals(DerivativeAggBuilder.TYPE)) {
       return new DerivativeAggBuilder(
           searchAggregation.getName(),
@@ -301,6 +307,22 @@ public class SearchResultUtils {
                           .setPeriod(movingAvgAggBuilder.getPeriod())
                           .setPad(movingAvgAggBuilder.isPad())
                           .setMinimize(movingAvgAggBuilder.isMinimize())
+                          .build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof CumulativeSumAggBuilder) {
+      CumulativeSumAggBuilder cumulativeSumAggBuilder = (CumulativeSumAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(CumulativeSumAggBuilder.TYPE)
+          .setName(cumulativeSumAggBuilder.getName())
+          .setPipeline(
+              KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.newBuilder()
+                  .setBucketsPath(cumulativeSumAggBuilder.getBucketsPath())
+                  .setCumulativeSum(
+                      KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                          .CumulativeSumAggregation.newBuilder()
+                          .setFormat(toValueProto(cumulativeSumAggBuilder.getFormat()))
                           .build())
                   .build())
           .build();

@@ -8,6 +8,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
@@ -280,6 +281,26 @@ public class OpenSearchRequest {
                                       .setBucketsPath(getBucketsPath(movAvg))
                                       .setMovingAverage(movingAvgAggBuilder.build())
                                       .build());
+                        } else if (aggregationObject.equals(CumulativeSumAggBuilder.TYPE)) {
+                          JsonNode cumulativeSumAgg =
+                              aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(CumulativeSumAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(cumulativeSumAgg))
+                                      .setCumulativeSum(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .PipelineAggregation.CumulativeSumAggregation
+                                              .newBuilder()
+                                              .setFormat(
+                                                  SearchResultUtils.toValueProto(
+                                                      getFormat(cumulativeSumAgg)))
+                                              .build())
+                                      .build());
                         } else if (aggregationObject.equals(DerivativeAggBuilder.TYPE)) {
                           JsonNode derivativeAgg = aggs.get(aggregationName).get(aggregationObject);
 
@@ -390,6 +411,13 @@ public class OpenSearchRequest {
       return dateHistogram.get("offset").asText();
     }
     return "";
+  }
+
+  private static String getFormat(JsonNode cumulateSum) {
+    if (cumulateSum.has("format")) {
+      return cumulateSum.get("format").asText();
+    }
+    return null;
   }
 
   private static String getMovAvgModel(JsonNode movingAverage) {
