@@ -2,7 +2,9 @@ package com.slack.kaldb.chunk;
 
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.metadata.schema.FieldType;
 import java.io.Closeable;
+import java.util.Map;
 
 /**
  * A chunk stores messages for a specific time range. It can concurrently store messages and respond
@@ -24,4 +26,6 @@ public interface Chunk<T> extends Closeable {
 
   /** Return true if the chunk contains data within that time range (epoch ms). */
   boolean containsDataInTimeRange(long startTs, long endTs);
+
+  Map<String, FieldType> getSchema();
 }

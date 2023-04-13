@@ -12,6 +12,7 @@ import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.schema.ChunkSchema;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -25,11 +26,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +52,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private LogIndexSearcher<T> logSearcher;
   private SearchMetadata searchMetadata;
   private Path dataDirectory;
+  private ChunkSchema chunkSchema;
   private Metadata.CacheSlotMetadata.CacheSlotState cacheSlotLastKnownState;
 
   private final String dataDirectoryPrefix;
@@ -199,7 +203,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       if (!Files.exists(schemaPath)) {
         throw new RuntimeException("We expect a schema.json file to exist within the index");
       }
-      ChunkSchema chunkSchema = ChunkSchema.deserializeFile(schemaPath);
+      this.chunkSchema = ChunkSchema.deserializeFile(schemaPath);
 
       this.chunkInfo = ChunkInfo.fromSnapshotMetadata(snapshotMetadata);
       this.logSearcher =
@@ -312,6 +316,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       return chunkInfo.containsDataInTimeRange(startTs, endTs);
     }
     return false;
+  }
+
+  @Override
+  public Map<String, FieldType> getSchema() {
+    if (chunkSchema != null) {
+      return chunkSchema
+          .fieldDefMap
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> entry.getValue().fieldType));
+    } else {
+      return Map.of();
+    }
   }
 
   @Override

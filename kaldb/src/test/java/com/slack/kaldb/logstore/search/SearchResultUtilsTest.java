@@ -14,6 +14,7 @@ import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -225,5 +226,105 @@ public class SearchResultUtilsTest {
         .isEqualTo(Map.of("1", 2, "3", false));
     assertThat(fromValueProto(toValueProto(List.of("1", 2, 3D, false))))
         .isEqualTo(List.of("1", 2, 3D, false));
+  }
+
+  @Test
+  public void shouldConvertSchemaDefinitionToFromProto() {
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.BOOLEAN)
+                    .build()))
+        .isEqualTo(FieldType.BOOLEAN);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.BOOLEAN))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder()
+                .setType(KaldbSearch.FieldType.BOOLEAN)
+                .build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.DOUBLE)
+                    .build()))
+        .isEqualTo(FieldType.DOUBLE);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.DOUBLE))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder()
+                .setType(KaldbSearch.FieldType.DOUBLE)
+                .build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.STRING)
+                    .build()))
+        .isEqualTo(FieldType.STRING);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.STRING))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder()
+                .setType(KaldbSearch.FieldType.STRING)
+                .build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.FLOAT)
+                    .build()))
+        .isEqualTo(FieldType.FLOAT);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.FLOAT))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder().setType(KaldbSearch.FieldType.FLOAT).build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.LONG)
+                    .build()))
+        .isEqualTo(FieldType.LONG);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.LONG))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder().setType(KaldbSearch.FieldType.LONG).build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.TEXT)
+                    .build()))
+        .isEqualTo(FieldType.TEXT);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.TEXT))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder().setType(KaldbSearch.FieldType.TEXT).build());
+
+    assertThat(
+            SearchResultUtils.fromSchemaDefinitionProto(
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.INTEGER)
+                    .build()))
+        .isEqualTo(FieldType.INTEGER);
+    assertThat(SearchResultUtils.toSchemaDefinitionProto(FieldType.INTEGER))
+        .isEqualTo(
+            KaldbSearch.SchemaDefinition.newBuilder()
+                .setType(KaldbSearch.FieldType.INTEGER)
+                .build());
+  }
+
+  @Test
+  public void shouldConvertSchemaResultsToFromProto() {
+    KaldbSearch.SchemaResult schemaResult =
+        KaldbSearch.SchemaResult.newBuilder()
+            .putFieldDefinition(
+                "foo",
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.TEXT)
+                    .build())
+            .build();
+
+    Map<String, FieldType> fromMap = SearchResultUtils.fromSchemaResultProto(schemaResult);
+    assertThat(fromMap.size()).isEqualTo(1);
+    assertThat(fromMap.get("foo")).isEqualTo(FieldType.TEXT);
+
+    KaldbSearch.SchemaResult schemaResultOut = SearchResultUtils.toSchemaResultProto(fromMap);
+    assertThat(schemaResult).isEqualTo(schemaResultOut);
   }
 }

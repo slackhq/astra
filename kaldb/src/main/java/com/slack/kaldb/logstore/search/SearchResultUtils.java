@@ -17,6 +17,7 @@ import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
@@ -455,6 +456,72 @@ public class SearchResultUtils {
         protoSearchResult.getSnapshotsWithReplicas(),
         OpenSearchInternalAggregation.fromByteArray(
             protoSearchResult.getInternalAggregations().toByteArray()));
+  }
+
+  public static FieldType fromSchemaDefinitionProto(
+      KaldbSearch.SchemaDefinition protoSchemaDefinition) {
+    if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.TEXT)) {
+      return FieldType.TEXT;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.STRING)) {
+      return FieldType.STRING;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.INTEGER)) {
+      return FieldType.INTEGER;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.LONG)) {
+      return FieldType.LONG;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.FLOAT)) {
+      return FieldType.FLOAT;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.BOOLEAN)) {
+      return FieldType.BOOLEAN;
+    } else if (protoSchemaDefinition.getType().equals(KaldbSearch.FieldType.DOUBLE)) {
+      return FieldType.DOUBLE;
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Field type %s is not a supported type", protoSchemaDefinition.getType()));
+    }
+  }
+
+  public static KaldbSearch.SchemaDefinition toSchemaDefinitionProto(FieldType fieldType) {
+    KaldbSearch.SchemaDefinition.Builder schemaBuilder = KaldbSearch.SchemaDefinition.newBuilder();
+
+    if (fieldType.equals(FieldType.TEXT)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.TEXT);
+    } else if (fieldType.equals(FieldType.STRING)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.STRING);
+    } else if (fieldType.equals(FieldType.INTEGER)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.INTEGER);
+    } else if (fieldType.equals(FieldType.LONG)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.LONG);
+    } else if (fieldType.equals(FieldType.FLOAT)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.FLOAT);
+    } else if (fieldType.equals(FieldType.BOOLEAN)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.BOOLEAN);
+    } else if (fieldType.equals(FieldType.DOUBLE)) {
+      schemaBuilder.setType(KaldbSearch.FieldType.DOUBLE);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Field type %s is not a supported type", fieldType));
+    }
+
+    return schemaBuilder.build();
+  }
+
+  public static Map<String, FieldType> fromSchemaResultProto(
+      KaldbSearch.SchemaResult protoSchemaResult) {
+    Map<String, FieldType> schemaMap = new HashMap<>();
+    protoSchemaResult
+        .getFieldDefinitionMap()
+        .forEach(
+            (key, value) -> {
+              schemaMap.put(key, fromSchemaDefinitionProto(value));
+            });
+    return schemaMap;
+  }
+
+  public static KaldbSearch.SchemaResult toSchemaResultProto(Map<String, FieldType> schema) {
+    KaldbSearch.SchemaResult.Builder schemaBuilder = KaldbSearch.SchemaResult.newBuilder();
+    schema.forEach(
+        (key, value) -> schemaBuilder.putFieldDefinition(key, toSchemaDefinitionProto(value)));
+    return schemaBuilder.build();
   }
 
   public static <T> KaldbSearch.SearchResult toSearchResultProto(SearchResult<T> searchResult) {
