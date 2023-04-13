@@ -9,18 +9,22 @@ public class AvgAggBuilderTest {
   @Test
   public void testEqualsAndHashCode() {
 
-    assertThat(new AvgAggBuilder("name", "field", null))
-        .isEqualTo(new AvgAggBuilder("name", "field", null));
-    assertThat(new AvgAggBuilder("name", "field", null).hashCode())
-        .isEqualTo(new AvgAggBuilder("name", "field", null).hashCode());
-    assertThat(new AvgAggBuilder("name", "field", 2L))
-        .isEqualTo(new AvgAggBuilder("name", "field", 2L));
+    assertThat(new AvgAggBuilder("name", "field", null, null))
+        .isEqualTo(new AvgAggBuilder("name", "field", null, null));
+    assertThat(new AvgAggBuilder("name", "field", null, null).hashCode())
+        .isEqualTo(new AvgAggBuilder("name", "field", null, null).hashCode());
+    assertThat(new AvgAggBuilder("name", "field", 2L, null))
+        .isEqualTo(new AvgAggBuilder("name", "field", 2L, null));
+    assertThat(new AvgAggBuilder("name", "field", 2L, "return 9;"))
+        .isEqualTo(new AvgAggBuilder("name", "field", 2L, "return 9;"));
 
-    assertThat(new AvgAggBuilder("name", "field", null))
-        .isNotEqualTo(new AvgAggBuilder("name", "field", 2L));
-    assertThat(new AvgAggBuilder("name", "field1", 2L))
-        .isNotEqualTo(new AvgAggBuilder("name", "field", 2L));
-    assertThat(new AvgAggBuilder("name1", "field", null))
-        .isNotEqualTo(new AvgAggBuilder("name", "field", null));
+    assertThat(new AvgAggBuilder("name", "field", null, null))
+        .isNotEqualTo(new AvgAggBuilder("name", "field", 2L, null));
+    assertThat(new AvgAggBuilder("name", "field1", 2L, null))
+        .isNotEqualTo(new AvgAggBuilder("name", "field", 2L, null));
+    assertThat(new AvgAggBuilder("name1", "field", null, null))
+        .isNotEqualTo(new AvgAggBuilder("name", "field", null, null));
+    assertThat(new AvgAggBuilder("name", "field", null, ""))
+        .isNotEqualTo(new AvgAggBuilder("name", "field", null, null));
   }
 }

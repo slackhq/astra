@@ -40,6 +40,13 @@ public class SearchResultUtils {
     return KaldbSearch.Struct.newBuilder().putAllFields(valueMap).build();
   }
 
+  private static String getScript(KaldbSearch.Value value) {
+    if (value.hasStringValue()) {
+      return value.getStringValue();
+    }
+    return null;
+  }
+
   public static Object fromValueProto(KaldbSearch.Value value) {
     if (value.hasNullValue()) {
       return null;
@@ -108,12 +115,14 @@ public class SearchResultUtils {
       return new AvgAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
-          fromValueProto(searchAggregation.getValueSource().getMissing()));
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
+          getScript(searchAggregation.getValueSource().getScript()));
     } else if (searchAggregation.getType().equals(MinAggBuilder.TYPE)) {
       return new MinAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
-          fromValueProto((searchAggregation.getValueSource().getMissing())));
+          fromValueProto((searchAggregation.getValueSource().getMissing())),
+          getScript(searchAggregation.getValueSource().getScript()));
     } else if (searchAggregation.getType().equals(UniqueCountAggBuilder.TYPE)) {
       return new UniqueCountAggBuilder(
           searchAggregation.getName(),
@@ -127,7 +136,8 @@ public class SearchResultUtils {
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()),
-          searchAggregation.getValueSource().getPercentiles().getPercentilesList());
+          searchAggregation.getValueSource().getPercentiles().getPercentilesList(),
+          getScript(searchAggregation.getValueSource().getScript()));
     } else if (searchAggregation.getType().equals(MovingAvgAggBuilder.TYPE)) {
       return new MovingAvgAggBuilder(
           searchAggregation.getName(),
@@ -195,27 +205,37 @@ public class SearchResultUtils {
     if (aggBuilder instanceof AvgAggBuilder) {
       AvgAggBuilder avgAggregation = (AvgAggBuilder) aggBuilder;
 
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(avgAggregation.getField())
+                  .setMissing(toValueProto(avgAggregation.getMissing()));
+      if (avgAggregation.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(avgAggregation.getScript()));
+      }
+
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(AvgAggBuilder.TYPE)
           .setName(avgAggregation.getName())
-          .setValueSource(
-              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
-                  .setField(avgAggregation.getField())
-                  .setMissing(toValueProto(avgAggregation.getMissing()))
-                  .build())
+          .setValueSource(valueSourceAggBuilder.build())
           .build();
 
     } else if (aggBuilder instanceof MinAggBuilder) {
       MinAggBuilder minAggBuilder = (MinAggBuilder) aggBuilder;
 
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(minAggBuilder.getField())
+                  .setMissing(toValueProto(minAggBuilder.getMissing()));
+      if (minAggBuilder.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(minAggBuilder.getScript()));
+      }
+
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(MinAggBuilder.TYPE)
           .setName(minAggBuilder.getName())
-          .setValueSource(
-              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
-                  .setField(minAggBuilder.getField())
-                  .setMissing(toValueProto(minAggBuilder.getMissing()))
-                  .build())
+          .setValueSource(valueSourceAggBuilder.build())
           .build();
 
     } else if (aggBuilder instanceof UniqueCountAggBuilder) {
@@ -239,10 +259,8 @@ public class SearchResultUtils {
     } else if (aggBuilder instanceof PercentilesAggBuilder) {
       PercentilesAggBuilder percentilesAggBuilder = (PercentilesAggBuilder) aggBuilder;
 
-      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
-          .setType(PercentilesAggBuilder.TYPE)
-          .setName(percentilesAggBuilder.getName())
-          .setValueSource(
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(percentilesAggBuilder.getField())
                   .setMissing(toValueProto(percentilesAggBuilder.getMissing()))
@@ -250,8 +268,16 @@ public class SearchResultUtils {
                       KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                           .PercentilesAggregation.newBuilder()
                           .addAllPercentiles(percentilesAggBuilder.getPercentiles())
-                          .build())
-                  .build())
+                          .build());
+
+      if (percentilesAggBuilder.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(percentilesAggBuilder.getScript()));
+      }
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(PercentilesAggBuilder.TYPE)
+          .setName(percentilesAggBuilder.getName())
+          .setValueSource(valueSourceAggBuilder.build())
           .build();
     } else if (aggBuilder instanceof MovingAvgAggBuilder) {
       MovingAvgAggBuilder movingAvgAggBuilder = (MovingAvgAggBuilder) aggBuilder;

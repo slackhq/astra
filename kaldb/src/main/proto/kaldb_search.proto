@@ -43,6 +43,9 @@ message SearchRequest {
       // Value to substitute if no value is calculated
       Value missing = 2;
 
+      // Script to execute, expected to be a string or null
+      Value script = 3;
+
       oneof type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;

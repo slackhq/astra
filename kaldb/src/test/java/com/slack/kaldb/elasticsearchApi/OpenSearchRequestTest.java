@@ -164,6 +164,8 @@ public class OpenSearchRequestTest {
     assertThat(percentileAggBuilder.getValueSource().getMissing().hasNullValue()).isTrue();
     assertThat(percentileAggBuilder.getValueSource().getPercentiles().getPercentilesList())
         .containsExactly(25D, 50D, 75D, 95D, 99D);
+    assertThat(percentileAggBuilder.getValueSource().getScript().getStringValue())
+        .isEqualTo("return 8;");
   }
 
   @Test

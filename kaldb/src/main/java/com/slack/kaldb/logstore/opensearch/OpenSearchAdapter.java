@@ -57,6 +57,9 @@ import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptModule;
+import org.opensearch.script.ScriptService;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.BucketOrder;
@@ -337,6 +340,8 @@ public class OpenSearchAdapter {
       SimilarityService similarityService,
       MapperService mapperService) {
     final ValuesSourceRegistry valuesSourceRegistry = buildValueSourceRegistry();
+    ScriptModule scriptModule = ScriptModuleProvider.getInstance();
+
     return new QueryShardContext(
         0,
         indexSettings,
@@ -351,7 +356,7 @@ public class OpenSearchAdapter {
             ::getForField,
         mapperService,
         similarityService,
-        null,
+        new ScriptService(indexSettings.getSettings(), scriptModule.engines, scriptModule.contexts),
         null,
         null,
         null,
@@ -472,6 +477,10 @@ public class OpenSearchAdapter {
     AvgAggregationBuilder avgAggregationBuilder =
         new AvgAggregationBuilder(builder.getName()).field(builder.getField());
 
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      avgAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
     if (builder.getMissing() != null) {
       avgAggregationBuilder.missing(builder.getMissing());
     }
@@ -524,6 +533,10 @@ public class OpenSearchAdapter {
         new PercentilesAggregationBuilder(builder.getName())
             .field(builder.getField())
             .percentiles(builder.getPercentilesArray());
+
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      percentilesAggregationBuilder.script(new Script(builder.getScript()));
+    }
 
     if (builder.getMissing() != null) {
       percentilesAggregationBuilder.missing(builder.getMissing());

@@ -26,7 +26,7 @@ public class SearchResultUtilsTest {
   @Test
   public void shouldConvertMinAggToFromProto() {
     MinAggBuilder minAggBuilder =
-        new MinAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new MinAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 8;");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(minAggBuilder);
@@ -39,7 +39,7 @@ public class SearchResultUtilsTest {
   @Test
   public void shouldConvertAvgAggToFromProto() {
     AvgAggBuilder avgAggBuilder1 =
-        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3");
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 9;");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(avgAggBuilder1);
@@ -121,7 +121,7 @@ public class SearchResultUtilsTest {
   @Test
   public void shouldConvertPercentilesToFromProto() {
     PercentilesAggBuilder percentilesAggBuilder1 =
-        new PercentilesAggBuilder("foo", "service_name", "2", List.of(99D, 100D));
+        new PercentilesAggBuilder("foo", "service_name", "2", List.of(99D, 100D), "return 8;");
 
     KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
         SearchResultUtils.toSearchAggregationProto(percentilesAggBuilder1);
@@ -175,7 +175,7 @@ public class SearchResultUtilsTest {
     // this is not representative of a real or reasonable query, but we should be able to convert it
     // just the same
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null);
+        new AvgAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, null, null);
 
     DateHistogramAggBuilder dateHistogramAggBuilderInner =
         new DateHistogramAggBuilder(

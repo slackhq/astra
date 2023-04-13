@@ -58,9 +58,9 @@ public class OpenSearchAdapterTest {
   @Test
   public void collectorManagerCorrectlyReducesListOfCollectors() throws IOException {
     AvgAggBuilder avgAggBuilder1 =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2", null);
     AvgAggBuilder avgAggBuilder2 =
-        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapter.getCollectorManager(
             avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
@@ -83,7 +83,7 @@ public class OpenSearchAdapterTest {
   @Test
   public void canBuildValidMinAggregator() throws IOException {
     MinAggBuilder minAggBuilder =
-        new MinAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
+        new MinAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             minAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
@@ -101,7 +101,7 @@ public class OpenSearchAdapterTest {
   @Test
   public void canBuildValidAvgAggregator() throws IOException {
     AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", "");
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
