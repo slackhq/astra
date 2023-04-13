@@ -14,6 +14,7 @@ import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.metadata.schema.ChunkSchema;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -27,7 +28,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.apache.lucene.index.IndexCommit;
 import org.slf4j.Logger;
 
@@ -275,5 +278,15 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
         query.endTimeEpochMs,
         query.howMany,
         query.aggBuilder);
+  }
+
+  @Override
+  public Map<String, FieldType> getSchema() {
+    return logStore
+        .getSchema()
+        .entrySet()
+        .stream()
+        .collect(
+            Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> entry.getValue().fieldType));
   }
 }

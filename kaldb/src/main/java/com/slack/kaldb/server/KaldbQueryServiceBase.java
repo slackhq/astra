@@ -28,5 +28,23 @@ public abstract class KaldbQueryServiceBase extends KaldbServiceGrpc.KaldbServic
     }
   }
 
+  @Override
+  public void schema(
+      KaldbSearch.SchemaRequest request,
+      StreamObserver<KaldbSearch.SchemaResult> responseObserver) {
+    LOG.info(
+        String.format("Schema request received: '%s'", request.toString().replace("\n", ", ")));
+
+    try {
+      responseObserver.onNext(getSchema(request));
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.error("Error completing schema request", e);
+      responseObserver.onError(Status.UNKNOWN.withDescription(e.getMessage()).asException());
+    }
+  }
+
   public abstract KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request);
+
+  public abstract KaldbSearch.SchemaResult getSchema(KaldbSearch.SchemaRequest request);
 }

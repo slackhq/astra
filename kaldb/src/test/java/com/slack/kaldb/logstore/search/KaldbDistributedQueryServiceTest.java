@@ -10,9 +10,14 @@ import static com.slack.kaldb.metadata.snapshot.SnapshotMetadata.LIVE_SNAPSHOT_P
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
+import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
@@ -26,13 +31,19 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.proto.metadata.Metadata;
+import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -792,6 +803,125 @@ public class KaldbDistributedQueryServiceTest {
             chunkEndTime.toEpochMilli(),
             "new_dataset_that_does_not_have_a_partition");
     assertThat(searchNodes.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testSchema() {
+    Instant endTime = Instant.now();
+    Instant startTime = endTime.minus(1, ChronoUnit.HOURS);
+
+    // mock the zookeeper responses, as we don't want to test ZK behavior here
+    SearchMetadataStore searchMetadataStoreMock = mock(SearchMetadataStore.class);
+    when(searchMetadataStoreMock.getCached())
+        .thenReturn(List.of(new SearchMetadata("foo", "snapshot1", "http://127.0.0.1")));
+    SnapshotMetadataStore snapshotMetadataStoreMock = mock(SnapshotMetadataStore.class);
+    when(snapshotMetadataStoreMock.getCached())
+        .thenReturn(
+            List.of(
+                new SnapshotMetadata(
+                    "snapshot1",
+                    "/1",
+                    endTime.minus(30, ChronoUnit.MINUTES).toEpochMilli(),
+                    endTime.toEpochMilli(),
+                    10,
+                    "1",
+                    Metadata.IndexType.LOGS_LUCENE9)));
+    DatasetMetadataStore datasetMetadataStoreMock = mock(DatasetMetadataStore.class);
+    when(datasetMetadataStoreMock.getCached())
+        .thenReturn(
+            List.of(
+                new DatasetMetadata(
+                    "foo",
+                    "foo",
+                    10,
+                    List.of(
+                        new DatasetPartitionMetadata(
+                            endTime.minus(1, ChronoUnit.DAYS).toEpochMilli(),
+                            Long.MAX_VALUE,
+                            List.of("1"))),
+                    "")));
+
+    KaldbDistributedQueryService distributedQueryService =
+        new KaldbDistributedQueryService(
+            searchMetadataStoreMock,
+            snapshotMetadataStoreMock,
+            datasetMetadataStoreMock,
+            new SimpleMeterRegistry(),
+            Duration.of(2, ChronoUnit.SECONDS),
+            Duration.of(2, ChronoUnit.SECONDS));
+
+    // Make a mock grpc stub and store it in the stubs cache map
+    KaldbServiceGrpc.KaldbServiceFutureStub futureStub =
+        mock(KaldbServiceGrpc.KaldbServiceFutureStub.class);
+    distributedQueryService.stubs.put("http://127.0.0.1", futureStub);
+    when(futureStub.withDeadlineAfter(anyLong(), any(TimeUnit.class))).thenReturn(futureStub);
+    when(futureStub.withInterceptors(any())).thenReturn(futureStub);
+    when(futureStub.schema(any(KaldbSearch.SchemaRequest.class)))
+        .thenReturn(
+            Futures.immediateFuture(
+                KaldbSearch.SchemaResult.newBuilder()
+                    .putFieldDefinition(
+                        "foo",
+                        KaldbSearch.SchemaDefinition.newBuilder()
+                            .setType(KaldbSearch.FieldType.TEXT)
+                            .build())
+                    .build()));
+
+    // wildcard schema query should return a result
+    KaldbSearch.SchemaRequest schemaRequestWildcard =
+        KaldbSearch.SchemaRequest.newBuilder()
+            .setStartTimeEpochMs(startTime.toEpochMilli())
+            .setEndTimeEpochMs(endTime.toEpochMilli())
+            .setDataset("*")
+            .build();
+    KaldbSearch.SchemaResult schemaResultWildcard =
+        distributedQueryService.getSchema(schemaRequestWildcard);
+    assertThat(schemaResultWildcard.getFieldDefinitionMap())
+        .isEqualTo(
+            Map.of(
+                "foo",
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.TEXT)
+                    .build()));
+
+    // Exact dataset query should return a result
+    KaldbSearch.SchemaRequest schemaRequestExact =
+        KaldbSearch.SchemaRequest.newBuilder()
+            .setStartTimeEpochMs(startTime.toEpochMilli())
+            .setEndTimeEpochMs(endTime.toEpochMilli())
+            .setDataset("foo")
+            .build();
+    KaldbSearch.SchemaResult schemaResultExact =
+        distributedQueryService.getSchema(schemaRequestExact);
+    assertThat(schemaResultExact.getFieldDefinitionMap())
+        .isEqualTo(
+            Map.of(
+                "foo",
+                KaldbSearch.SchemaDefinition.newBuilder()
+                    .setType(KaldbSearch.FieldType.TEXT)
+                    .build()));
+
+    // query window that returns no results should have no schema
+    KaldbSearch.SchemaRequest schemaRequestMissing =
+        KaldbSearch.SchemaRequest.newBuilder()
+            .setStartTimeEpochMs(0)
+            .setEndTimeEpochMs(10)
+            .setDataset("*")
+            .build();
+    KaldbSearch.SchemaResult schemaResultMissing =
+        distributedQueryService.getSchema(schemaRequestMissing);
+    assertThat(schemaResultMissing.getFieldDefinitionMap().size()).isEqualTo(0);
+
+    // query window that queries a different dataset should have no schema
+    KaldbSearch.SchemaRequest schemaRequestWrongDataset =
+        KaldbSearch.SchemaRequest.newBuilder()
+            .setStartTimeEpochMs(startTime.toEpochMilli())
+            .setEndTimeEpochMs(endTime.toEpochMilli())
+            .setDataset("bar")
+            .build();
+    KaldbSearch.SchemaResult schemaResultWrongDataset =
+        distributedQueryService.getSchema(schemaRequestWrongDataset);
+    assertThat(schemaResultWrongDataset.getFieldDefinitionMap().size()).isEqualTo(0);
   }
 
   private String createIndexerZKMetadata(

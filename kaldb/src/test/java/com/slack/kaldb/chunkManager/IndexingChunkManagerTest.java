@@ -46,6 +46,7 @@ import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -1250,6 +1251,41 @@ public class IndexingChunkManagerTest {
             })
         .isInstanceOf(ChunkRollOverException.class);
     checkMetadata(1, 1, 0, 1, 1);
+  }
+
+  @Test
+  public void testNewFieldAddedToSchema() throws IOException, TimeoutException {
+    ChunkRollOverStrategy chunkRollOverStrategy =
+        new DiskOrMessageCountBasedRolloverStrategy(
+            metricsRegistry, 10 * 1024 * 1024 * 1024L, 100L);
+    initChunkManager(
+        chunkRollOverStrategy, S3_TEST_BUCKET, MoreExecutors.newDirectExecutorService());
+
+    List<LogMessage> messages1 = MessageUtil.makeMessagesWithTimeDifference(1, 10);
+    Map<String, FieldType> schemaBefore = chunkManager.getSchema();
+    assertThat(schemaBefore.size()).isEqualTo(0);
+
+    int offset = 1;
+    for (LogMessage m : messages1) {
+      chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
+      offset++;
+    }
+    chunkManager.getActiveChunk().commit();
+    chunkManager.rollOverActiveChunk();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
+
+    // add a new message with a novel field and value
+    LogMessage logMessage =
+        LogMessage.fromWireMessage(MessageUtil.makeWireMessage(11, Map.of("schemaTest", true)));
+    chunkManager.addMessage(
+        logMessage, logMessage.toString().length(), TEST_KAFKA_PARTITION_ID, offset++);
+    chunkManager.rollOverActiveChunk();
+    await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 2);
+
+    // ensure that we have the new field, and as well as at least one other field
+    Map<String, FieldType> schema = chunkManager.getSchema();
+    assertThat(schema.size()).isGreaterThan(1);
+    assertThat(schema.get("schemaTest")).isEqualTo(FieldType.BOOLEAN);
   }
 
   @Test

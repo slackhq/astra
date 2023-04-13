@@ -24,16 +24,20 @@ import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseHit;
 import com.slack.kaldb.elasticsearchApi.searchResponse.SearchResponseMetadata;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.OpenSearchInternalAggregation;
+import com.slack.kaldb.logstore.search.SearchResultUtils;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -182,19 +186,38 @@ public class ElasticsearchApiService {
    */
   @Get
   @Path("/:indexName/_mapping")
-  public HttpResponse mapping(@Param("indexName") Optional<String> indexName) throws IOException {
+  public HttpResponse mapping(
+      @Param("indexName") Optional<String> indexName,
+      @Param("startTimeEpochMs") Optional<Long> startTimeEpochMs,
+      @Param("endTimeEpochMs") Optional<Long> endTimeEpochMs)
+      throws IOException {
+    // Use a tree map so the results are naturally sorted
+    Map<String, Map<String, String>> propertiesMap = new TreeMap<>();
+
+    // we default the schema search to the last hour if params are not provided
+    KaldbSearch.SchemaResult schemaResult =
+        searcher.getSchema(
+            KaldbSearch.SchemaRequest.newBuilder()
+                .setDataset(indexName.orElse("*"))
+                .setStartTimeEpochMs(
+                    startTimeEpochMs.orElse(
+                        Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli()))
+                .setEndTimeEpochMs(endTimeEpochMs.orElse(Instant.now().toEpochMilli()))
+                .build());
+
+    Map<String, FieldType> schema = SearchResultUtils.fromSchemaResultProto(schemaResult);
+    schema.forEach((key, value) -> propertiesMap.put(key, Map.of("type", value.getName())));
+
+    // todo - remove this after we add support for a "date" type
+    // override the timestamp as a date field for proper autocomplete
+    propertiesMap.put(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, Map.of("type", "date"));
+
     return HttpResponse.of(
         HttpStatus.OK,
         MediaType.JSON,
         JsonUtil.writeAsString(
             ImmutableMap.of(
                 indexName.orElseThrow(),
-                ImmutableMap.of(
-                    "mappings",
-                    ImmutableMap.of(
-                        "properties",
-                        ImmutableMap.of(
-                            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-                            ImmutableMap.of("type", "date")))))));
+                ImmutableMap.of("mappings", ImmutableMap.of("properties", propertiesMap)))));
   }
 }

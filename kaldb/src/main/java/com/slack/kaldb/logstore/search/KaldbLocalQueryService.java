@@ -3,9 +3,11 @@ package com.slack.kaldb.logstore.search;
 import brave.ScopedSpan;
 import brave.Tracing;
 import com.slack.kaldb.chunkManager.ChunkManager;
+import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import java.time.Duration;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,5 +38,16 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     span.finish();
     LOG.info("Finished search request: {}", request);
     return result;
+  }
+
+  @Override
+  public KaldbSearch.SchemaResult getSchema(KaldbSearch.SchemaRequest request) {
+    LOG.info("Received schema request: {}", request);
+    ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.getSchema");
+    Map<String, FieldType> schema = chunkManager.getSchema();
+    KaldbSearch.SchemaResult schemaResult = SearchResultUtils.toSchemaResultProto(schema);
+    span.tag("fieldDefinitionCount", String.valueOf(schemaResult.getFieldDefinitionCount()));
+    span.finish();
+    return schemaResult;
   }
 }
