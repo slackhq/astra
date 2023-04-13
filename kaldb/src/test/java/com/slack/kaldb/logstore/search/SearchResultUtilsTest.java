@@ -13,6 +13,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -49,6 +50,30 @@ public class SearchResultUtilsTest {
         (AvgAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(avgAggBuilder1).isEqualTo(avgAggBuilder2);
+    assertThat(avgAggBuilder1).isEqualTo(avgAggBuilder2);
+    assertThat(avgAggBuilder1.getName()).isEqualTo("1");
+    assertThat(avgAggBuilder1.getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    assertThat(avgAggBuilder1.getMissing()).isEqualTo("3");
+    assertThat(avgAggBuilder1.getScript()).isEqualTo("return 9;");
+  }
+
+  @Test
+  public void shouldConvertSumAggToFromProto() {
+    SumAggBuilder sumAggBuilder1 =
+        new SumAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 9;");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(sumAggBuilder1);
+    SumAggBuilder sumAggBuilder2 =
+        (SumAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(sumAggBuilder1).isEqualTo(sumAggBuilder2);
+    assertThat(sumAggBuilder1.getName()).isEqualTo("1");
+    assertThat(sumAggBuilder1.getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    assertThat(sumAggBuilder1.getMissing()).isEqualTo("3");
+    assertThat(sumAggBuilder1.getScript()).isEqualTo("return 9;");
   }
 
   @Test
