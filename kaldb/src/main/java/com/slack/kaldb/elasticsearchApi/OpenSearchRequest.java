@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -244,6 +245,28 @@ public class OpenSearchRequest {
                                                       getPrecisionThreshold(uniqueCount)))
                                               .build())
                                       .build());
+                        } else if (aggregationObject.equals(ExtendedStatsAggBuilder.TYPE)) {
+                          JsonNode extendedStats = aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(ExtendedStatsAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(extendedStats))
+                                      .setMissing(
+                                          SearchResultUtils.toValueProto(getMissing(extendedStats)))
+                                      .setScript(
+                                          SearchResultUtils.toValueProto(getScript(extendedStats)))
+                                      .setExtendedStats(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .ValueSourceAggregation.ExtendedStatsAggregation
+                                              .newBuilder()
+                                              .setSigma(
+                                                  SearchResultUtils.toValueProto(
+                                                      getSigma(extendedStats))))
+                                      .build());
                         } else if (aggregationObject.equals(PercentilesAggBuilder.TYPE)) {
                           JsonNode percentiles = aggs.get(aggregationName).get(aggregationObject);
                           aggBuilder
@@ -424,6 +447,13 @@ public class OpenSearchRequest {
   private static Long getPrecisionThreshold(JsonNode uniqueCount) {
     if (uniqueCount.has("precision_threshold")) {
       return uniqueCount.get("precision_threshold").asLong();
+    }
+    return null;
+  }
+
+  private static Double getSigma(JsonNode extendedStats) {
+    if (extendedStats.has("sigma")) {
+      return extendedStats.get("sigma").asDouble();
     }
     return null;
   }

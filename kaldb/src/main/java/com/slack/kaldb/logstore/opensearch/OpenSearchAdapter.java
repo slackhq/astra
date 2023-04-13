@@ -11,6 +11,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -75,6 +76,7 @@ import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ExtendedStatsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
@@ -279,6 +281,7 @@ public class OpenSearchAdapter {
     MinAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     MaxAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    ExtendedStatsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
 
@@ -469,6 +472,8 @@ public class OpenSearchAdapter {
       return getPercentilesAggregationBuilder((PercentilesAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(UniqueCountAggBuilder.TYPE)) {
       return getUniqueCountAggregationBuilder((UniqueCountAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(ExtendedStatsAggBuilder.TYPE)) {
+      return getExtendedStatsAggregationBuilder((ExtendedStatsAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("Aggregation type %s not yet supported", aggBuilder.getType()));
@@ -601,6 +606,31 @@ public class OpenSearchAdapter {
     }
 
     return uniqueCountAggregationBuilder;
+  }
+
+  /**
+   * Given a ExtendedStatsAggBuilder, returns a ExtendedStatsAggregationBuilder to be used in
+   * building aggregation tree. This returns all possible extended stats and it is up to the
+   * requestor to filter to the desired fields
+   */
+  protected static ExtendedStatsAggregationBuilder getExtendedStatsAggregationBuilder(
+      ExtendedStatsAggBuilder builder) {
+    ExtendedStatsAggregationBuilder extendedStatsAggregationBuilder =
+        new ExtendedStatsAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getSigma() != null) {
+      extendedStatsAggregationBuilder.sigma(builder.getSigma());
+    }
+
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      extendedStatsAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
+    if (builder.getMissing() != null) {
+      extendedStatsAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return extendedStatsAggregationBuilder;
   }
 
   /**

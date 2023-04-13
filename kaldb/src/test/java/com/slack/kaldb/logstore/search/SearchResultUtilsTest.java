@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -89,6 +90,26 @@ public class SearchResultUtilsTest {
         .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
     assertThat(sumAggBuilder1.getMissing()).isEqualTo("3");
     assertThat(sumAggBuilder1.getScript()).isEqualTo("return 9;");
+  }
+
+  @Test
+  public void shouldConvertExtendedStatsAggToFromProto() {
+    ExtendedStatsAggBuilder extendedStatsAggBuilder1 =
+        new ExtendedStatsAggBuilder(
+            "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 9;", 3D);
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(extendedStatsAggBuilder1);
+    ExtendedStatsAggBuilder extendedStatsAggBuilder2 =
+        (ExtendedStatsAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(extendedStatsAggBuilder1).isEqualTo(extendedStatsAggBuilder2);
+    assertThat(extendedStatsAggBuilder1.getName()).isEqualTo("1");
+    assertThat(extendedStatsAggBuilder1.getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+    assertThat(extendedStatsAggBuilder1.getMissing()).isEqualTo("3");
+    assertThat(extendedStatsAggBuilder1.getScript()).isEqualTo("return 9;");
+    assertThat(extendedStatsAggBuilder1.getSigma()).isEqualTo(3D);
   }
 
   @Test
