@@ -14,6 +14,7 @@ import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -260,7 +261,7 @@ public class OpenSearchRequest {
                                       .setMinimize(getMovAvgMinimize(movAvg))
                                       .setPad(getMovAvgPad(movAvg));
 
-                          Integer window = getMovAvgWindow(movAvg);
+                          Integer window = getWindow(movAvg);
                           if (window != null) {
                             movingAvgAggBuilder.setWindow(window);
                           }
@@ -313,6 +314,31 @@ public class OpenSearchRequest {
                                                   SearchResultUtils.toValueProto(
                                                       getFormat(cumulativeSumAgg)))
                                               .build())
+                                      .build());
+                        } else if (aggregationObject.equals(MovingFunctionAggBuilder.TYPE)) {
+                          JsonNode movingFunctionAgg =
+                              aggs.get(aggregationName).get(aggregationObject);
+
+                          KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                  .MovingFunctionAggregation.Builder
+                              movingFunctionAggBuilder =
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .MovingFunctionAggregation.newBuilder()
+                                      .setWindow(getWindow(movingFunctionAgg))
+                                      .setScript(getScript(movingFunctionAgg));
+                          Integer shift = getMovingFunctionShift(movingFunctionAgg);
+                          if (shift != null) {
+                            movingFunctionAggBuilder.setShift(shift);
+                          }
+
+                          aggBuilder
+                              .setType(MovingFunctionAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(movingFunctionAgg))
+                                      .setMovingFunction(movingFunctionAggBuilder.build())
                                       .build());
                         } else if (aggregationObject.equals(DerivativeAggBuilder.TYPE)) {
                           JsonNode derivativeAgg = aggs.get(aggregationName).get(aggregationObject);
@@ -437,9 +463,16 @@ public class OpenSearchRequest {
     return movingAverage.get("model").asText();
   }
 
-  private static Integer getMovAvgWindow(JsonNode movingAverage) {
-    if (movingAverage.has("window")) {
-      return movingAverage.get("window").asInt();
+  private static Integer getWindow(JsonNode agg) {
+    if (agg.has("window")) {
+      return agg.get("window").asInt();
+    }
+    return null;
+  }
+
+  private static Integer getMovingFunctionShift(JsonNode movingFunction) {
+    if (movingFunction.has("shift")) {
+      return movingFunction.get("shift").asInt();
     }
     return null;
   }

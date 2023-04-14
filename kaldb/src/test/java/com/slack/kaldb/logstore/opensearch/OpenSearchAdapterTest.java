@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
@@ -33,6 +34,7 @@ import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.MovFnPipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 public class OpenSearchAdapterTest {
@@ -211,6 +213,33 @@ public class OpenSearchAdapterTest {
         (CumulativeSumPipelineAggregator) pipelineTree.aggregators().get(0);
     assertThat(cumulativeSumPipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
     assertThat(cumulativeSumPipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
+  }
+
+  @Test
+  public void canBuildValidMovingFunctionPipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithMovingFn =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new MovingFunctionAggBuilder("bar", "_count", "return 8;", 10, null)));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithMovingFn);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    MovFnPipelineAggregator movingFnAggregator =
+        (MovFnPipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(movingFnAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(movingFnAggregator.name()).isEqualTo("bar");
 
     // TODO - we don't have access to the package local methods for extra asserts - use
     //  reflection?
