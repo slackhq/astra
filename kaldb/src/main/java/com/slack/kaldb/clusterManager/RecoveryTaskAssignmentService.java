@@ -21,7 +21,6 @@ import com.slack.kaldb.util.FutureUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -185,16 +184,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                 recoveryTasksThatNeedAssignment.stream(),
                 availableRecoveryNodes.stream(),
                 (recoveryTask, recoveryNode) -> {
-                  RecoveryNodeMetadata recoveryNodeAssigned =
-                      new RecoveryNodeMetadata(
-                          recoveryNode.name,
-                          Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
-                          recoveryTask.name,
-                          recoveryNode.supportedIndexTypes,
-                          Instant.now().toEpochMilli());
-
-                  ListenableFuture<?> future =
-                      recoveryNodeMetadataStore.update(recoveryNodeAssigned);
+                  ListenableFuture<?> future = assignRecoveryTaskToNode(recoveryNode, recoveryTask);
                   addCallback(
                       future,
                       FutureUtils.successCountingCallback(successCounter),
@@ -224,5 +214,18 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
         nanosToMillis(assignmentDuration));
 
     return successfulAssignments;
+  }
+
+  private ListenableFuture<?> assignRecoveryTaskToNode(
+      final RecoveryNodeMetadata recoveryNodeMetadata, final RecoveryTaskMetadata recoveryTask) {
+    if (recoveryNodeMetadata.recoveryNodeState
+        != Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE) {
+      throw new IllegalStateException(
+          "Only free recovery nodes can be assigned: " + recoveryNodeMetadata.toString());
+    }
+    return recoveryNodeMetadataStore.updateRecoveryNodeState(
+        recoveryNodeMetadata,
+        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
+        recoveryTask.name);
   }
 }

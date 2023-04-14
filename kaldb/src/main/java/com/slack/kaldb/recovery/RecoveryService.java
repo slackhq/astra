@@ -237,7 +237,8 @@ public class RecoveryService extends AbstractIdleService {
 
   private void setRecoveryNodeMetadataState(
       Metadata.RecoveryNodeMetadata.RecoveryNodeState nodeState) {
-    recoveryNodeMetadataStore.getAndUpdateRecoveryNodeState(searchContext.hostname, nodeState);
+    recoveryNodeMetadataStore.getAndUpdateNonFreeRecoveryNodeState(
+        searchContext.hostname, nodeState);
   }
 
   /**

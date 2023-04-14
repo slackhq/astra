@@ -1,9 +1,16 @@
 package com.slack.kaldb.metadata.recovery;
 
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+
+import com.google.common.util.concurrent.ListenableFuture;
 import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,18 +49,52 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
         LOG);
   }
 
-  public void getAndUpdateRecoveryNodeState(
+  public void getAndUpdateNonFreeRecoveryNodeStateSync(
       String slotName, Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
-    RecoveryNodeMetadata recoveryNodeMetadata = getNodeSync(slotName);
-    RecoveryNodeMetadata updatedRecoveryNodeMetadata =
+    try {
+      getAndUpdateNonFreeRecoveryNodeState(slotName, newRecoveryNodeState)
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      throw new InternalMetadataStoreException("Failed to update recovery node: " + slotName, e);
+    }
+  }
+
+  public ListenableFuture<?> getAndUpdateNonFreeRecoveryNodeState(
+      String slotName, Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
+    RecoveryNodeMetadata recoveryNode = getNodeSync(slotName);
+    if (recoveryNode.recoveryNodeState.equals(
+        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
+      throw new IllegalArgumentException(
+          "Current slot state can't be free: " + recoveryNode.toString());
+    }
+    String newRecoveryTaskId =
+        newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
+            ? ""
+            : recoveryNode.recoveryTaskName;
+
+    return updateRecoveryNodeState(recoveryNode, newRecoveryNodeState, newRecoveryTaskId);
+  }
+
+  /** Update RecoveryNodeState with a recovery task while keeping the remaining fields the same. */
+  public ListenableFuture<?> updateRecoveryNodeState(
+      final RecoveryNodeMetadata recoveryNode,
+      final Metadata.RecoveryNodeMetadata.RecoveryNodeState newState,
+      final String newRecoveryTaskName) {
+    if (newState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
+        && !newRecoveryTaskName.isEmpty()) {
+      throw new IllegalArgumentException("Recovery node in free state should have empty task name");
+    }
+    if (!newState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
+        && newRecoveryTaskName.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Recovery node in non-free state should have a valid recovery task assigned");
+    }
+    return update(
         new RecoveryNodeMetadata(
-            recoveryNodeMetadata.name,
-            newRecoveryNodeState,
-            newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
-                ? ""
-                : recoveryNodeMetadata.recoveryTaskName,
-            recoveryNodeMetadata.supportedIndexTypes,
-            Instant.now().toEpochMilli());
-    updateSync(updatedRecoveryNodeMetadata);
+            recoveryNode.name,
+            newState,
+            newRecoveryTaskName,
+            recoveryNode.supportedIndexTypes,
+            Instant.now().toEpochMilli()));
   }
 }
