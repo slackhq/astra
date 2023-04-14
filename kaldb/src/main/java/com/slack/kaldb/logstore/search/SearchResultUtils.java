@@ -16,6 +16,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -115,6 +116,12 @@ public class SearchResultUtils {
       return null;
     } else if (searchAggregation.getType().equals(AvgAggBuilder.TYPE)) {
       return new AvgAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
+          getScript(searchAggregation.getValueSource().getScript()));
+    } else if (searchAggregation.getType().equals(SumAggBuilder.TYPE)) {
+      return new SumAggBuilder(
           searchAggregation.getName(),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()),
@@ -224,6 +231,23 @@ public class SearchResultUtils {
       return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
           .setType(AvgAggBuilder.TYPE)
           .setName(avgAggregation.getName())
+          .setValueSource(valueSourceAggBuilder.build())
+          .build();
+    } else if (aggBuilder instanceof SumAggBuilder) {
+      SumAggBuilder sumAggregation = (SumAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(sumAggregation.getField())
+                  .setMissing(toValueProto(sumAggregation.getMissing()));
+      if (sumAggregation.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(sumAggregation.getScript()));
+      }
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(SumAggBuilder.TYPE)
+          .setName(sumAggregation.getName())
           .setValueSource(valueSourceAggBuilder.build())
           .build();
 

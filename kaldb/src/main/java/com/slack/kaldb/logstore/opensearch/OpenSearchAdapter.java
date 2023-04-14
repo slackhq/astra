@@ -15,6 +15,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -75,6 +77,7 @@ import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.BucketHelpers;
@@ -108,6 +111,10 @@ public class OpenSearchAdapter {
   private final MapperService mapperService;
 
   private final Map<String, LuceneFieldDef> chunkSchema;
+
+  // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
+  // set this to a high number for now
+  private static final int TOTAL_FIELDS_LIMIT = 5000;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
@@ -175,58 +182,37 @@ public class OpenSearchAdapter {
     }
   }
 
-  /**
-   * For each defined field in the chunk schema, this will check if the field is already registered,
-   * and if not attempt to register it with the mapper service
-   */
-  public void reloadSchema() {
+  protected Map<String, CheckedConsumer<XContentBuilder, IOException>>
+      convertChunkSchemaToMappingFields() {
+    Map<String, CheckedConsumer<XContentBuilder, IOException>> fields = new HashMap<>();
+
     // todo - see SchemaAwareLogDocumentBuilderImpl.getDefaultLuceneFieldDefinitions
     //  this needs to be adapted to include other field types once we have support
+    // syntax for the CheckedConsumer is b.field("property1", "propertyValue")
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
-      try {
-        if (entry.getValue().fieldType == FieldType.TEXT) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
-        } else if (entry.getValue().fieldType == FieldType.STRING) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
-        } else if (entry.getValue().fieldType == FieldType.INTEGER) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "integer"));
-        } else if (entry.getValue().fieldType == FieldType.LONG) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "long"));
-        } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "double"));
-        } else if (entry.getValue().fieldType == FieldType.FLOAT) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "float"));
-        } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
-          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "boolean"));
-        } else {
-          LOG.warn(
-              "Field type '{}' is not yet currently supported for field '{}'",
-              entry.getValue().fieldType,
-              entry.getValue().name);
-        }
-      } catch (Exception e) {
-        LOG.error("Error parsing schema mapping for {}", entry.getValue().toString(), e);
+      String fieldName = entry.getValue().name;
+      if (entry.getValue().fieldType == FieldType.TEXT) {
+        fields.put(fieldName, b -> b.field("type", "text"));
+      } else if (entry.getValue().fieldType == FieldType.STRING) {
+        fields.put(fieldName, b -> b.field("type", "keyword"));
+      } else if (entry.getValue().fieldType == FieldType.INTEGER) {
+        fields.put(fieldName, b -> b.field("type", "integer"));
+      } else if (entry.getValue().fieldType == FieldType.LONG) {
+        fields.put(fieldName, b -> b.field("type", "long"));
+      } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
+        fields.put(fieldName, b -> b.field("type", "double"));
+      } else if (entry.getValue().fieldType == FieldType.FLOAT) {
+        fields.put(fieldName, b -> b.field("type", "float"));
+      } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
+        fields.put(fieldName, b -> b.field("type", "boolean"));
+      } else {
+        LOG.warn(
+            "Field type '{}' is not yet currently supported for field '{}'",
+            entry.getValue().fieldType,
+            entry.getValue().name);
       }
     }
-  }
-
-  protected static XContentBuilder mapping(
-      CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
-    XContentBuilder builder =
-        XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
-    buildFields.accept(builder);
-    return builder.endObject().endObject().endObject();
-  }
-
-  protected static XContentBuilder fieldMapping(
-      String fieldName, CheckedConsumer<XContentBuilder, IOException> buildField)
-      throws IOException {
-    return mapping(
-        b -> {
-          b.startObject(fieldName);
-          buildField.accept(b);
-          b.endObject();
-        });
+    return fields;
   }
 
   /** Builds a CollectorManager for use in the Lucene aggregation step */
@@ -287,6 +273,7 @@ public class OpenSearchAdapter {
     HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    SumAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     MinAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -302,6 +289,8 @@ public class OpenSearchAdapter {
             .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_3_0)
+            .put(
+                MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
             .build();
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
@@ -371,37 +360,72 @@ public class OpenSearchAdapter {
   }
 
   /**
-   * Registers a field type and name to the MapperService for use in aggregations. This informs the
-   * aggregators how to access a specific field and what value type it contains. registerField(
-   * mapperService, LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, b -> b.field("type",
-   * "long"));
+   * For each defined field in the chunk schema, this will check if the field is already registered,
+   * and if not attempt to register it with the mapper service
+   *
+   * <p>Registers a field type and name to the MapperService for use in aggregations and query
+   * parsing. For example in aggregations this informs the aggregators how to access a specific
+   * field and what value type it contains. We bulk add all the fields because doing one at a time
+   * is very costly when fields are over a 1000 This means potentially if the update fails it's
+   * tough to know which fields did not get registered
    */
-  private static boolean tryRegisterField(
-      MapperService mapperService,
-      String fieldName,
-      CheckedConsumer<XContentBuilder, IOException> buildField) {
-    MappedFieldType fieldType = mapperService.fieldType(fieldName);
-    if (mapperService.isMetadataField(fieldName)) {
-      LOG.trace("Skipping metadata field '{}'", fieldName);
-      return false;
-    } else if (fieldType != null) {
-      LOG.trace(
-          "Field '{}' already exists as typeName '{}', skipping query mapping update",
-          fieldType.name(),
-          fieldType.familyTypeName());
-      return false;
-    } else {
-      try {
-        XContentBuilder mapping = fieldMapping(fieldName, buildField);
-        mapperService.merge(
-            "_doc",
-            new CompressedXContent(BytesReference.bytes(mapping)),
-            MapperService.MergeReason.MAPPING_UPDATE);
-      } catch (Exception e) {
-        LOG.error("Error doing map update", e);
+  public boolean tryRegisterFields() {
+    Map<String, CheckedConsumer<XContentBuilder, IOException>> newFields = new HashMap<>();
+
+    for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
+        convertChunkSchemaToMappingFields().entrySet()) {
+      String fieldName = field.getKey();
+      MappedFieldType fieldType = mapperService.fieldType(fieldName);
+
+      if (mapperService.isMetadataField(fieldName)) {
+        LOG.trace("Skipping metadata field '{}'", fieldName);
+      } else if (fieldType != null) {
+        LOG.trace(
+            "Field '{}' already exists as typeName '{}', skipping query mapping update",
+            fieldType.name(),
+            fieldType.familyTypeName());
+      } else {
+        newFields.put(field.getKey(), field.getValue());
       }
-      return true;
     }
+
+    try {
+      XContentBuilder mapping = createMappings(newFields);
+      mapperService.merge(
+          "_doc",
+          new CompressedXContent(BytesReference.bytes(mapping)),
+          MapperService.MergeReason.MAPPING_UPDATE);
+      return true;
+    } catch (Exception e) {
+      LOG.error("Could not register new fields", e);
+      return false;
+    }
+  }
+
+  /**
+   * Here is an example mapping. The checkedConsumer while building today just exposes type but can
+   * include other properties in the future
+   */
+  //  {
+  //    "properties": {
+  //    "field_name": {
+  //      "type": "keyword",
+  //      "index": false
+  //    }
+  //  }
+  //  }
+  private static XContentBuilder createMappings(
+      Map<String, CheckedConsumer<XContentBuilder, IOException>> fields) throws IOException {
+    XContentBuilder mappingBuilder =
+        XContentFactory.jsonBuilder().startObject().startObject("properties");
+    for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
+        fields.entrySet()) {
+      mappingBuilder.startObject(field.getKey());
+      field.getValue().accept(mappingBuilder);
+      mappingBuilder.endObject();
+    }
+    mappingBuilder.endObject().endObject();
+    return mappingBuilder;
   }
 
   /**
@@ -432,6 +456,8 @@ public class OpenSearchAdapter {
       return getHistogramAggregationBuilder((HistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(SumAggBuilder.TYPE)) {
+      return getSumAggregationBuilder((SumAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(MinAggBuilder.TYPE)) {
@@ -473,6 +499,24 @@ public class OpenSearchAdapter {
     List<String> pipelineAggregators =
         List.of(MovingAvgAggBuilder.TYPE, DerivativeAggBuilder.TYPE, CumulativeSumAggBuilder.TYPE);
     return pipelineAggregators.contains(aggBuilder.getType());
+  }
+
+  /**
+   * Given an SumAggBuilder returns a SumAggregationBuilder to be used in building aggregation tree
+   */
+  protected static SumAggregationBuilder getSumAggregationBuilder(SumAggBuilder builder) {
+    SumAggregationBuilder sumAggregationBuilder =
+        new SumAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      sumAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
+    if (builder.getMissing() != null) {
+      sumAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return sumAggregationBuilder;
   }
 
   /**

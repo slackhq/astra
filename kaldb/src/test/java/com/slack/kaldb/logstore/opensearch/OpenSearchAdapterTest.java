@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregator;
@@ -96,6 +98,24 @@ public class OpenSearchAdapterTest {
       assertThat(internalMin.getName()).isEqualTo("foo");
 
       // TODO - we don't have access to the package local methods for extra asserts - use
+      // reflection?
+    }
+  }
+
+  @Test
+  public void canBuildValidSumAggregator() throws IOException {
+    SumAggBuilder sumAggBuilder =
+        new SumAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", "");
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            sumAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+
+    try (Aggregator avgAggregator = collectorManager.newCollector()) {
+      InternalSum internalSum = (InternalSum) avgAggregator.buildTopLevel();
+
+      assertThat(internalSum.getName()).isEqualTo("foo");
+
+      // todo - we don't have access to the package local methods for extra asserts - use
       // reflection?
     }
   }
