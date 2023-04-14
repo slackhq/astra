@@ -70,14 +70,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
           @Override
           public void afterRefresh(boolean didRefresh) {
-            openSearchAdapter.reloadSchema();
+            openSearchAdapter.tryRegisterFields();
           }
         };
     this.searcherManager = searcherManager;
     this.searcherManager.addListener(refreshListener);
 
     // initialize the adapter with whatever the default schema is
-    openSearchAdapter.reloadSchema();
+    openSearchAdapter.tryRegisterFields();
   }
 
   @Override
