@@ -19,6 +19,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -41,6 +42,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.metrics.InternalSum;
 
 public class LogIndexSearcherImplTest {
 
@@ -718,6 +720,29 @@ public class LogIndexSearcherImplTest {
     // NOTE: 1.593365471E12 is the epoch seconds above but in milliseconds and in scientific
     // notation
     assertThat(internalMin.getValue()).isEqualTo(Double.parseDouble("1.593365471E12"));
+  }
+
+  @Test
+  public void testFullIndexSearchForSumAgg() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new SumAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    InternalSum internalSum =
+        (InternalSum) Objects.requireNonNull(allIndexItems.internalAggregation);
+
+    // 1, 3, 4, 5
+    assertThat(internalSum.getValue()).isEqualTo(13);
   }
 
   @Test

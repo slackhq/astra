@@ -254,6 +254,30 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testHistogramWithNestedSum() throws Exception {
+    String rawRequest = getRawQueryString("nested_datehistogram_sum");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+    KaldbSearch.SearchRequest.SearchAggregation sumAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(sumAggBuilder.getName()).isEqualTo("1");
+    assertThat(sumAggBuilder.getValueSource().getField()).isEqualTo("duration_ms");
+    assertThat(sumAggBuilder.getValueSource().getScript().getStringValue()).isEqualTo("return 8;");
+    assertThat(sumAggBuilder.getValueSource().getMissing().getStringValue()).isEqualTo("2");
+  }
+
+  @Test
   public void testDateHistogramWithNestedMovingAvg() throws IOException {
     String rawRequest = getRawQueryString("datehistogram_movavg");
 

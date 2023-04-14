@@ -1,0 +1,2 @@
+{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"_all"}
+{"size":0,"query":{"bool":{"filter":[{"range":{"_timesinceepoch":{"gte":1681406342656,"lte":1681409942656,"format":"epoch_millis"}}},{"query_string":{"analyze_wildcard":true,"query":"*"}}]}},"aggs":{"2":{"date_histogram":{"interval":"2s","field":"_timesinceepoch","min_doc_count":0,"extended_bounds":{"min":1681406342656,"max":1681409942656},"format":"epoch_millis"},"aggs":{"1":{"sum":{"field":"duration_ms","script":"return 8;","missing":"2"}}}}}}

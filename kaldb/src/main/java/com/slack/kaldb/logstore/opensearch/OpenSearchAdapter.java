@@ -15,6 +15,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
@@ -76,6 +77,7 @@ import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.BucketHelpers;
@@ -271,6 +273,7 @@ public class OpenSearchAdapter {
     HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     AvgAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+    SumAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     MinAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     CardinalityAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -453,6 +456,8 @@ public class OpenSearchAdapter {
       return getHistogramAggregationBuilder((HistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(SumAggBuilder.TYPE)) {
+      return getSumAggregationBuilder((SumAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(AvgAggBuilder.TYPE)) {
       return getAvgAggregationBuilder((AvgAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(MinAggBuilder.TYPE)) {
@@ -494,6 +499,24 @@ public class OpenSearchAdapter {
     List<String> pipelineAggregators =
         List.of(MovingAvgAggBuilder.TYPE, DerivativeAggBuilder.TYPE, CumulativeSumAggBuilder.TYPE);
     return pipelineAggregators.contains(aggBuilder.getType());
+  }
+
+  /**
+   * Given an SumAggBuilder returns a SumAggregationBuilder to be used in building aggregation tree
+   */
+  protected static SumAggregationBuilder getSumAggregationBuilder(SumAggBuilder builder) {
+    SumAggregationBuilder sumAggregationBuilder =
+        new SumAggregationBuilder(builder.getName()).field(builder.getField());
+
+    if (builder.getScript() != null && !builder.getScript().isEmpty()) {
+      sumAggregationBuilder.script(new Script(builder.getScript()));
+    }
+
+    if (builder.getMissing() != null) {
+      sumAggregationBuilder.missing(builder.getMissing());
+    }
+
+    return sumAggregationBuilder;
   }
 
   /**

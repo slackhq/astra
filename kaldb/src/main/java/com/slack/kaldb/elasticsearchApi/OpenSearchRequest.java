@@ -15,6 +15,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -183,6 +184,18 @@ public class OpenSearchRequest {
                                       .setField(getFieldName(avg))
                                       .setScript(SearchResultUtils.toValueProto(getScript(avg)))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
+                                      .build());
+                        } else if (aggregationObject.equals(SumAggBuilder.TYPE)) {
+                          JsonNode sum = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(SumAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(sum))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(sum)))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(sum)))
                                       .build());
                         } else if (aggregationObject.equals(MinAggBuilder.TYPE)) {
                           JsonNode min = aggs.get(aggregationName).get(aggregationObject);
