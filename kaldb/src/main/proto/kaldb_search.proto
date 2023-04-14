@@ -108,6 +108,7 @@ message SearchRequest {
       oneof type {
         MovingAverageAggregation moving_average = 11;
         DerivativeAggregation derivative = 12;
+        CumulativeSumAggregation cumulative_sum = 13;
       }
 
       message MovingAverageAggregation {
@@ -138,6 +139,11 @@ message SearchRequest {
 
         // Applies only to holt_winters
         bool pad = 9;
+      }
+
+      message CumulativeSumAggregation {
+        // Optional format
+        Value format = 1;
       }
 
       message DerivativeAggregation {
