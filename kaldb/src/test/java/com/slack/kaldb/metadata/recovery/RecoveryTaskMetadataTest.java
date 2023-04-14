@@ -103,7 +103,9 @@ public class RecoveryTaskMetadataTest {
                     "name", null, 0, 1, IndexType.LOGS_LUCENE9, Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
         .isThrownBy(
-            () -> new RecoveryTaskMetadata("name", "partitionId", 0, 1, IndexType.LOGS_LUCENE9, 0));
+            () ->
+                new RecoveryTaskMetadata(
+                    "name", null, 0, 1, IndexType.LOGS_LUCENE9, Instant.now().toEpochMilli()));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
