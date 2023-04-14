@@ -82,12 +82,14 @@ public class RecoveryNodeMetadataStore extends EphemeralMutableMetadataStore<Rec
       final String newRecoveryTaskName) {
     if (newState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
         && !newRecoveryTaskName.isEmpty()) {
-      throw new IllegalArgumentException("Recovery node in free state should have empty task name");
+      throw new IllegalArgumentException(
+          "Recovery node in free state should have empty task name: " + recoveryNode.toString());
     }
     if (!newState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)
         && newRecoveryTaskName.isEmpty()) {
       throw new IllegalArgumentException(
-          "Recovery node in non-free state should have a valid recovery task assigned");
+          "Recovery node in non-free state should have a valid recovery task assigned: "
+              + recoveryNode.toString());
     }
     return update(
         new RecoveryNodeMetadata(
