@@ -561,7 +561,6 @@ public class RecoveryServiceTest {
     assertThat(offsets.endOffset).isEqualTo(recoveryTaskEndOffset);
   }
 
-  // TODO: Add checks to ensure fields are copied correctly during state changes.
   @Test
   public void testValidateOffsetsWhenRecoveryTaskOverlapsWithBeginningOfKafkaRange() {
     long kafkaStartOffset = 100;

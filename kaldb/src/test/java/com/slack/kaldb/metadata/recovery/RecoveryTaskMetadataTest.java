@@ -61,8 +61,6 @@ public class RecoveryTaskMetadataTest {
         new RecoveryTaskMetadata(
             name, partitionId, startOffset, 8, IndexType.UNRECOGNIZED, createdTimeEpochMs);
 
-    // TODO: Add checks with different index type
-
     assertThat(recoveryTaskMetadataA).isEqualTo(recoveryTaskMetadataB);
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataC);
     assertThat(recoveryTaskMetadataA).isNotEqualTo(recoveryTaskMetadataD);
