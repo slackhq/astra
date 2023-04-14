@@ -29,13 +29,18 @@ import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.InternalValueCount;
+import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.PercentilesAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.EwmaModel;
 import org.opensearch.search.aggregations.pipeline.HoltLinearModel;
 import org.opensearch.search.aggregations.pipeline.HoltWintersModel;
+import org.opensearch.search.aggregations.pipeline.InternalDerivative;
 import org.opensearch.search.aggregations.pipeline.InternalSimpleValue;
 import org.opensearch.search.aggregations.pipeline.LinearModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgModel;
@@ -110,6 +115,22 @@ public class OpenSearchInternalAggregation {
                   MovAvgPipelineAggregationBuilder.class,
                   MovAvgPipelineAggregationBuilder.NAME,
                   MovAvgPipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  CumulativeSumPipelineAggregationBuilder.class,
+                  CumulativeSumPipelineAggregationBuilder.NAME,
+                  CumulativeSumPipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  DerivativePipelineAggregationBuilder.class,
+                  DerivativePipelineAggregationBuilder.NAME,
+                  DerivativePipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  DerivativePipelineAggregationBuilder.NAME,
+                  InternalDerivative::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class, MinAggregationBuilder.NAME, MinAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, MinAggregationBuilder.NAME, InternalMin::new),
               new NamedWriteableRegistry.Entry(
                   InternalSimpleValue.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
               new NamedWriteableRegistry.Entry(

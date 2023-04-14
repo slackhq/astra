@@ -8,8 +8,11 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -178,7 +181,19 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(avg))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(avg)))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(avg)))
+                                      .build());
+                        } else if (aggregationObject.equals(MinAggBuilder.TYPE)) {
+                          JsonNode min = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(MinAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(min))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(min)))
                                       .build());
                         } else if (aggregationObject.equals(UniqueCountAggBuilder.TYPE)) {
                           JsonNode uniqueCount = aggs.get(aggregationName).get(aggregationObject);
@@ -210,6 +225,8 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(percentiles))
+                                      .setScript(
+                                          SearchResultUtils.toValueProto(getScript(percentiles)))
                                       .setMissing(
                                           SearchResultUtils.toValueProto(getMissing(percentiles)))
                                       .setPercentiles(
@@ -264,6 +281,45 @@ public class OpenSearchRequest {
                                       .setBucketsPath(getBucketsPath(movAvg))
                                       .setMovingAverage(movingAvgAggBuilder.build())
                                       .build());
+                        } else if (aggregationObject.equals(CumulativeSumAggBuilder.TYPE)) {
+                          JsonNode cumulativeSumAgg =
+                              aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(CumulativeSumAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(cumulativeSumAgg))
+                                      .setCumulativeSum(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .PipelineAggregation.CumulativeSumAggregation
+                                              .newBuilder()
+                                              .setFormat(
+                                                  SearchResultUtils.toValueProto(
+                                                      getFormat(cumulativeSumAgg)))
+                                              .build())
+                                      .build());
+                        } else if (aggregationObject.equals(DerivativeAggBuilder.TYPE)) {
+                          JsonNode derivativeAgg = aggs.get(aggregationName).get(aggregationObject);
+
+                          aggBuilder
+                              .setType(DerivativeAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setPipeline(
+                                  KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                                      .newBuilder()
+                                      .setBucketsPath(getBucketsPath(derivativeAgg))
+                                      .setDerivative(
+                                          KaldbSearch.SearchRequest.SearchAggregation
+                                              .PipelineAggregation.DerivativeAggregation
+                                              .newBuilder()
+                                              .setUnit(
+                                                  SearchResultUtils.toValueProto(
+                                                      getUnit(derivativeAgg)))
+                                              .build())
+                                      .build());
                         } else if (aggregationObject.equals("aggs")) {
                           // nested aggregations
                           aggBuilder.addAllSubAggregations(
@@ -290,6 +346,13 @@ public class OpenSearchRequest {
 
   private static String getFieldName(JsonNode agg) {
     return agg.get("field").asText();
+  }
+
+  private static String getScript(JsonNode agg) {
+    if (agg.has("script")) {
+      return agg.get("script").asText();
+    }
+    return "";
   }
 
   private static String getBucketsPath(JsonNode pipelineAgg) {
@@ -350,6 +413,13 @@ public class OpenSearchRequest {
     return "";
   }
 
+  private static String getFormat(JsonNode cumulateSum) {
+    if (cumulateSum.has("format")) {
+      return cumulateSum.get("format").asText();
+    }
+    return null;
+  }
+
   private static String getMovAvgModel(JsonNode movingAverage) {
     return movingAverage.get("model").asText();
   }
@@ -408,6 +478,13 @@ public class OpenSearchRequest {
       return movingAverage.get("settings").get("pad").asBoolean();
     }
     return false;
+  }
+
+  private static String getUnit(JsonNode derivative) {
+    if (derivative.has("unit")) {
+      return derivative.get("unit").asText();
+    }
+    return null;
   }
 
   private static int getSize(JsonNode agg) {

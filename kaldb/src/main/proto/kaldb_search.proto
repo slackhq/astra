@@ -26,7 +26,7 @@ message SearchRequest {
     string name = 2;
     // Optional metadata
     map<string, Value> metadata = 3;
-    // Any nested aggregations to perform. These may contain additonal nested aggregations themselves,
+    // Any nested aggregations to perform. These may contain additional nested aggregations themselves,
     // and have sibling aggregations
     repeated SearchAggregation sub_aggregations = 4;
 
@@ -42,6 +42,9 @@ message SearchRequest {
 
       // Value to substitute if no value is calculated
       Value missing = 2;
+
+      // Script to execute, expected to be a string or null
+      Value script = 3;
 
       oneof type {
         DateHistogramAggregation date_histogram = 11;
@@ -104,6 +107,8 @@ message SearchRequest {
 
       oneof type {
         MovingAverageAggregation moving_average = 11;
+        DerivativeAggregation derivative = 12;
+        CumulativeSumAggregation cumulative_sum = 13;
       }
 
       message MovingAverageAggregation {
@@ -134,6 +139,16 @@ message SearchRequest {
 
         // Applies only to holt_winters
         bool pad = 9;
+      }
+
+      message CumulativeSumAggregation {
+        // Optional format
+        Value format = 1;
+      }
+
+      message DerivativeAggregation {
+        // Optional unit for derivative
+        Value unit = 1;
       }
     }
   }
@@ -177,7 +192,37 @@ enum NullValue {
   NULL_VALUE = 0;
 }
 
+message SchemaRequest {
+  // Data sets or chunk_ids to be searched
+  string dataset = 1;
+  repeated string chunk_ids = 2;
+  int64 start_time_epoch_ms = 3;
+  int64 end_time_epoch_ms = 4;
+}
+
+message SchemaResult {
+  // Map of field name, to field definition
+  map<string, SchemaDefinition> field_definition = 1;
+}
+
+enum FieldType {
+  TEXT = 0;
+  STRING = 1;
+  INTEGER = 2;
+  LONG = 3;
+  FLOAT = 4;
+  BOOLEAN = 5;
+  DOUBLE = 6;
+}
+
+message SchemaDefinition {
+  // Field type as defined by KalDB
+  FieldType type = 1;
+  // Any field-specific metadata to be included
+  // map<string, Value> metadata = 2;
+}
 
 service KaldbService {
   rpc Search (SearchRequest) returns (SearchResult) {}
+  rpc Schema (SchemaRequest) returns (SchemaResult) {}
 }

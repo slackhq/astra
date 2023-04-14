@@ -23,7 +23,7 @@ public class TermsAggBuilder extends ValueSourceAggBuilder {
       long minDocCount,
       Map<String, String> order) {
     // todo - metadata?
-    super(name, Map.of(), subAggregations, field, missing);
+    super(name, Map.of(), subAggregations, field, missing, null);
 
     this.size = size;
     this.minDocCount = minDocCount;

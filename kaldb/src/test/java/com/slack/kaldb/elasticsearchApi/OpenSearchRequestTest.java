@@ -164,6 +164,59 @@ public class OpenSearchRequestTest {
     assertThat(percentileAggBuilder.getValueSource().getMissing().hasNullValue()).isTrue();
     assertThat(percentileAggBuilder.getValueSource().getPercentiles().getPercentilesList())
         .containsExactly(25D, 50D, 75D, 95D, 99D);
+    assertThat(percentileAggBuilder.getValueSource().getScript().getStringValue())
+        .isEqualTo("return 8;");
+  }
+
+  @Test
+  public void testHistogramWithNestedCumulativeSum() throws Exception {
+    String rawRequest = getRawQueryString("nested_datehistogram_cumulative_sum");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation cumulativeSumAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(cumulativeSumAggBuilder.getName()).isEqualTo("3");
+    assertThat(cumulativeSumAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
+    assertThat(
+            cumulativeSumAggBuilder.getPipeline().getCumulativeSum().getFormat().getStringValue())
+        .isEqualTo("##0.#####E0");
+  }
+
+  @Test
+  public void testHistogramWithNestedDerivative() throws Exception {
+    String rawRequest = getRawQueryString("nested_datehistogram_derivative");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation derivativeAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(derivativeAggBuilder.getName()).isEqualTo("3");
+    assertThat(derivativeAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
+    assertThat(derivativeAggBuilder.getPipeline().getDerivative().getUnit().getStringValue())
+        .isEqualTo("1m");
   }
 
   @Test

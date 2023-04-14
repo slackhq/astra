@@ -14,10 +14,13 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
+import com.slack.kaldb.metadata.schema.FieldType;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -190,5 +193,12 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
   @VisibleForTesting
   public List<Chunk<T>> getChunkList() {
     return chunkList;
+  }
+
+  @Override
+  public Map<String, FieldType> getSchema() {
+    Map<String, FieldType> schema = new HashMap<>();
+    chunkList.forEach(chunk -> schema.putAll(chunk.getSchema()));
+    return Collections.unmodifiableMap(schema);
   }
 }

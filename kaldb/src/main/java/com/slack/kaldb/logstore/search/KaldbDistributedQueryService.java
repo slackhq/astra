@@ -60,7 +60,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       "search_metadata_total_change_counter";
   private final Counter searchMetadataTotalChangeCounter;
 
-  private final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
+  protected final Map<String, KaldbServiceGrpc.KaldbServiceFutureStub> stubs =
       new ConcurrentHashMap<>();
 
   public static final String DISTRIBUTED_QUERY_APDEX_SATISFIED =
@@ -431,6 +431,88 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     } catch (Exception e) {
       LOG.error("Distributed search failed", e);
       throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public KaldbSearch.SchemaResult getSchema(KaldbSearch.SchemaRequest distribSchemaReq) {
+    // todo - this shares a significant amount of code with the distributed search request
+    //  and would benefit from refactoring the current "distributedSearch" abstraction to support
+    //  different types of requests
+
+    LOG.info("Starting distributed search for schema request: {}", distribSchemaReq);
+    ScopedSpan span =
+        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSchema");
+
+    Map<String, SnapshotMetadata> snapshotsMatchingQuery =
+        getMatchingSnapshots(
+            snapshotMetadataStore,
+            datasetMetadataStore,
+            distribSchemaReq.getStartTimeEpochMs(),
+            distribSchemaReq.getEndTimeEpochMs(),
+            distribSchemaReq.getDataset());
+
+    // for each matching snapshot, we find the search metadata nodes that we can potentially query
+    Map<String, List<SearchMetadata>> searchMetadataNodesMatchingQuery =
+        getMatchingSearchMetadata(searchMetadataStore, snapshotsMatchingQuery);
+
+    // from the list of search metadata nodes per snapshot, pick one. Additionally map it to the
+    // underlying URL to query
+    Map<String, List<String>> nodesAndSnapshotsToQuery =
+        getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
+
+    List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
+    for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
+      KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
+      if (stub == null) {
+        // TODO: insert a failed result in the results object that we return from this method
+        // mimicing
+        continue;
+      }
+
+      KaldbSearch.SchemaRequest localSearchReq =
+          distribSchemaReq.toBuilder().addAllChunkIds(searchNode.getValue()).build();
+
+      // make sure all underlying futures finish executing (successful/cancelled/failed/other)
+      // and cannot be pending when the successfulAsList.get(SAME_TIMEOUT_MS) runs
+      ListenableFuture<KaldbSearch.SchemaResult> schemaRequest =
+          stub.withDeadlineAfter(defaultQueryTimeout.toMillis(), TimeUnit.MILLISECONDS)
+              .withInterceptors(
+                  GrpcTracing.newBuilder(Tracing.current()).build().newClientInterceptor())
+              .schema(localSearchReq);
+      queryServers.add(schemaRequest);
+    }
+
+    ListenableFuture<List<KaldbSearch.SchemaResult>> searchFuture =
+        Futures.successfulAsList(queryServers);
+    try {
+      List<KaldbSearch.SchemaResult> searchResults =
+          searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
+      KaldbSearch.SchemaResult.Builder schemaBuilder = KaldbSearch.SchemaResult.newBuilder();
+      searchResults.forEach(
+          schemaResult ->
+              schemaBuilder.putAllFieldDefinition(schemaResult.getFieldDefinitionMap()));
+      return schemaBuilder.build();
+    } catch (TimeoutException e) {
+      // We provide a deadline to the stub of "defaultQueryTimeout" - if this is sufficiently lower
+      // than the request timeout, we would expect searchFuture.get(requestTimeout) to never throw
+      // an exception. This however doesn't necessarily hold true if the query node is CPU
+      // saturated, and there is not enough cpu time to fail the pending stub queries that have
+      // exceeded their deadline - causing the searchFuture get to fail with a timeout.
+      LOG.error(
+          "Schema failed with timeout exception. This is potentially due to CPU saturation of the query node.",
+          e);
+      return KaldbSearch.SchemaResult.newBuilder().build();
+    } catch (Exception e) {
+      LOG.error("Schema failed with ", e);
+      span.error(e);
+      return KaldbSearch.SchemaResult.newBuilder().build();
+    } finally {
+      // always request future cancellation, so that any exceptions or incomplete futures don't
+      // continue to consume CPU on work that will not be used
+      searchFuture.cancel(false);
+      LOG.info("Finished distributed search for request: {}", distribSchemaReq);
+      span.finish();
     }
   }
 }

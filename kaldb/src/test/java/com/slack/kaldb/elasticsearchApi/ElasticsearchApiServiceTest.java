@@ -3,8 +3,12 @@ package com.slack.kaldb.elasticsearchApi;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
@@ -16,6 +20,8 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
+import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -24,11 +30,14 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import org.assertj.core.data.Offset;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -277,7 +286,32 @@ public class ElasticsearchApiServiceTest {
 
   @Test
   public void testIndexMapping() throws IOException {
-    HttpResponse response = elasticsearchApiService.mapping(Optional.of("foo"));
+    KaldbQueryServiceBase searcher = mock(KaldbQueryServiceBase.class);
+    ElasticsearchApiService serviceUnderTest = new ElasticsearchApiService(searcher);
+
+    Instant start = Instant.now();
+    Instant end = start.minusSeconds(60);
+
+    when(searcher.getSchema(
+            eq(
+                KaldbSearch.SchemaRequest.newBuilder()
+                    .setDataset("foo")
+                    .setStartTimeEpochMs(start.toEpochMilli())
+                    .setEndTimeEpochMs(end.toEpochMilli())
+                    .build())))
+        .thenReturn(KaldbSearch.SchemaResult.newBuilder().build());
+
+    HttpResponse response =
+        serviceUnderTest.mapping(
+            Optional.of("foo"), Optional.of(start.toEpochMilli()), Optional.of(end.toEpochMilli()));
+    verify(searcher)
+        .getSchema(
+            eq(
+                KaldbSearch.SchemaRequest.newBuilder()
+                    .setDataset("foo")
+                    .setStartTimeEpochMs(start.toEpochMilli())
+                    .setEndTimeEpochMs(end.toEpochMilli())
+                    .build()));
 
     // handle response
     AggregatedHttpResponse aggregatedRes = response.aggregate().join();
@@ -290,6 +324,22 @@ public class ElasticsearchApiServiceTest {
     assertThat(
             jsonNode.findValue("foo").findValue(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName))
         .isNotNull();
+
+    when(searcher.getSchema(any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              KaldbSearch.SchemaRequest request =
+                  ((KaldbSearch.SchemaRequest) invocationOnMock.getArguments()[0]);
+              assertThat(request.getDataset()).isEqualTo("bar");
+              assertThat(request.getStartTimeEpochMs())
+                  .isCloseTo(
+                      Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli(),
+                      Offset.offset(1000L));
+              assertThat(request.getEndTimeEpochMs())
+                  .isCloseTo(Instant.now().toEpochMilli(), Offset.offset(1000L));
+              return KaldbSearch.SchemaResult.newBuilder().build();
+            });
+    serviceUnderTest.mapping(Optional.of("bar"), Optional.empty(), Optional.empty());
   }
 
   private void addMessagesToChunkManager(List<LogMessage> messages) throws IOException {

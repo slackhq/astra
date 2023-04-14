@@ -6,8 +6,12 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilderBase;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
 import java.io.IOException;
@@ -16,12 +20,18 @@ import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregator;
+import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 public class OpenSearchAdapterTest {
 
@@ -44,21 +54,21 @@ public class OpenSearchAdapterTest {
         };
 
     openSearchAdapter.buildAggregatorUsingContext(
-        unknownAgg, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+        unknownAgg, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
   }
 
   @Test
   public void collectorManagerCorrectlyReducesListOfCollectors() throws IOException {
     AvgAggBuilder avgAggBuilder1 =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2", null);
     AvgAggBuilder avgAggBuilder2 =
-        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2");
+        new AvgAggBuilder("bar", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "2", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager1 =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            avgAggBuilder1, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager2 =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder2, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            avgAggBuilder2, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
 
     Aggregator collector1 = collectorManager1.newCollector();
     Aggregator collector2 = collectorManager2.newCollector();
@@ -73,12 +83,30 @@ public class OpenSearchAdapterTest {
   }
 
   @Test
-  public void canBuildValidAvgAggregator() throws IOException {
-    AvgAggBuilder avgAggBuilder =
-        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1");
+  public void canBuildValidMinAggregator() throws IOException {
+    MinAggBuilder minAggBuilder =
+        new MinAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", null);
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            minAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+
+    try (Aggregator minAggregator = collectorManager.newCollector()) {
+      InternalMin internalMin = (InternalMin) minAggregator.buildTopLevel();
+
+      assertThat(internalMin.getName()).isEqualTo("foo");
+
+      // TODO - we don't have access to the package local methods for extra asserts - use
+      // reflection?
+    }
+  }
+
+  @Test
+  public void canBuildValidAvgAggregator() throws IOException {
+    AvgAggBuilder avgAggBuilder =
+        new AvgAggBuilder("foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", "");
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            avgAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
 
     try (Aggregator avgAggregator = collectorManager.newCollector()) {
       InternalAvg internalAvg = (InternalAvg) avgAggregator.buildTopLevel();
@@ -96,7 +124,9 @@ public class OpenSearchAdapterTest {
         new UniqueCountAggBuilder("foo", "service_name", "1", 0L);
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            uniqueCountAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            uniqueCountAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
     try (Aggregator uniqueCountAggregator = collectorManager.newCollector()) {
       InternalCardinality internalUniqueCount =
@@ -125,7 +155,8 @@ public class OpenSearchAdapterTest {
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
     try (Aggregator dateHistogramAggregator = collectorManager.newCollector()) {
       InternalDateHistogram internalDateHistogram =
@@ -139,13 +170,96 @@ public class OpenSearchAdapterTest {
   }
 
   @Test
+  public void canBuildValidCumulativeSumPipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithCumulativeSum =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new CumulativeSumAggBuilder("bar", "_count", "##0.#####E0")));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithCumulativeSum);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    CumulativeSumPipelineAggregator cumulativeSumPipelineAggregator =
+        (CumulativeSumPipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(cumulativeSumPipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(cumulativeSumPipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
+  }
+
+  @Test
+  public void canBuildValidMovingAveragePipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithDerivative =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new MovingAvgAggBuilder("bar", "_count", "linear", 5, 2)));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithDerivative);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    MovAvgPipelineAggregator movAvgPipelineAggregator =
+        (MovAvgPipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(movAvgPipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(movAvgPipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
+  }
+
+  @Test
+  public void canBuildValidDerivativePipelineAggregator() {
+    DateHistogramAggBuilder dateHistogramWithDerivative =
+        new DateHistogramAggBuilder(
+            "foo",
+            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+            "5s",
+            "2s",
+            100,
+            "epoch_ms",
+            Map.of(),
+            List.of(new DerivativeAggBuilder("bar", "_count", null)));
+
+    AbstractAggregationBuilder builder =
+        OpenSearchAdapter.getAggregationBuilder(dateHistogramWithDerivative);
+    PipelineAggregator.PipelineTree pipelineTree = builder.buildPipelineTree();
+
+    assertThat(pipelineTree.aggregators().size()).isEqualTo(1);
+    DerivativePipelineAggregator derivativePipelineAggregator =
+        (DerivativePipelineAggregator) pipelineTree.aggregators().get(0);
+    assertThat(derivativePipelineAggregator.bucketsPaths()).isEqualTo(new String[] {"_count"});
+    assertThat(derivativePipelineAggregator.name()).isEqualTo("bar");
+
+    // TODO - we don't have access to the package local methods for extra asserts - use
+    //  reflection?
+  }
+
+  @Test
   public void canBuildValidHistogram() throws IOException {
     HistogramAggBuilder histogramAggBuilder =
         new HistogramAggBuilder(
             "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1000", 1, List.of());
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
-            histogramAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            histogramAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
     try (Aggregator histogramAggregator = collectorManager.newCollector()) {
       InternalHistogram internalDateHistogram =
@@ -170,7 +284,8 @@ public class OpenSearchAdapterTest {
     CollectorManager<Aggregator, InternalAggregation> collectorManager =
         openSearchAdapter.getCollectorManager(
             dateHistogramAggBuilder,
-            logStoreAndSearcherRule.logStore.getSearcherManager().acquire());
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
 
     try (Aggregator dateHistogramExtendedBounds = collectorManager.newCollector()) {
       InternalHistogram internalDateHistogram =
