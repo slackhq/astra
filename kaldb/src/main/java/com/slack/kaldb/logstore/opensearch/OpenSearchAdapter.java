@@ -20,7 +20,10 @@ import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.schema.LuceneFieldDef;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -191,19 +194,23 @@ public class OpenSearchAdapter {
     // syntax for the CheckedConsumer is b.field("property1", "propertyValue")
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
       String fieldName = entry.getValue().name;
-      if (entry.getValue().fieldType == FieldType.TEXT) {
+      FieldType fieldType = entry.getValue().fieldType;
+      if (fieldName.equals("service") || fieldName.equals("upstream_cluster")) {
+        LOG.info("DEBUG fieldName={} fieldType={}", fieldName, fieldType.getName());
+      }
+      if (fieldType == FieldType.TEXT) {
         fields.put(fieldName, b -> b.field("type", "text"));
-      } else if (entry.getValue().fieldType == FieldType.STRING) {
+      } else if (fieldType == FieldType.STRING) {
         fields.put(fieldName, b -> b.field("type", "keyword"));
-      } else if (entry.getValue().fieldType == FieldType.INTEGER) {
+      } else if (fieldType == FieldType.INTEGER) {
         fields.put(fieldName, b -> b.field("type", "integer"));
-      } else if (entry.getValue().fieldType == FieldType.LONG) {
+      } else if (fieldType == FieldType.LONG) {
         fields.put(fieldName, b -> b.field("type", "long"));
-      } else if (entry.getValue().fieldType == FieldType.DOUBLE) {
+      } else if (fieldType == FieldType.DOUBLE) {
         fields.put(fieldName, b -> b.field("type", "double"));
-      } else if (entry.getValue().fieldType == FieldType.FLOAT) {
+      } else if (fieldType == FieldType.FLOAT) {
         fields.put(fieldName, b -> b.field("type", "float"));
-      } else if (entry.getValue().fieldType == FieldType.BOOLEAN) {
+      } else if (fieldType == FieldType.BOOLEAN) {
         fields.put(fieldName, b -> b.field("type", "boolean"));
       } else {
         LOG.warn(
@@ -418,13 +425,23 @@ public class OpenSearchAdapter {
       Map<String, CheckedConsumer<XContentBuilder, IOException>> fields) throws IOException {
     XContentBuilder mappingBuilder =
         XContentFactory.jsonBuilder().startObject().startObject("properties");
+    boolean hasMapping = false;
     for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
         fields.entrySet()) {
+      if (field.getKey().equals("upstream_cluster") || field.getKey().equals("service")) {
+        hasMapping = true;
+        LOG.info("DEBUG hasMapping=true");
+      }
       mappingBuilder.startObject(field.getKey());
       field.getValue().accept(mappingBuilder);
       mappingBuilder.endObject();
     }
     mappingBuilder.endObject().endObject();
+    if (hasMapping) {
+      String mapping = ((ByteArrayOutputStream) mappingBuilder.getOutputStream()).toString(StandardCharsets.UTF_8);
+      int startIndex = mapping.indexOf("\"service");
+      LOG.info("DEBUG mapping2 = " + mapping.substring(startIndex - 100, startIndex + 200));
+    }
     return mappingBuilder;
   }
 
