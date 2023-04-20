@@ -369,7 +369,7 @@ public class OpenSearchAdapter {
    * is very costly when fields are over a 1000 This means potentially if the update fails it's
    * tough to know which fields did not get registered
    */
-  public boolean tryRegisterFields() {
+  public synchronized boolean tryRegisterFields() {
     Map<String, CheckedConsumer<XContentBuilder, IOException>> newFields = new HashMap<>();
 
     for (Map.Entry<String, CheckedConsumer<XContentBuilder, IOException>> field :
