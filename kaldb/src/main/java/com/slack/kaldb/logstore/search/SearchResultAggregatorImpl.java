@@ -3,6 +3,7 @@ package com.slack.kaldb.logstore.search;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
+import com.slack.kaldb.logstore.opensearch.ScriptServiceProvider;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,11 +55,16 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
             OpenSearchAdapter.getAggregationBuilder(searchQuery.aggBuilder).buildPipelineTree();
         reduceContext =
             InternalAggregation.ReduceContext.forFinalReduction(
-                KaldbBigArrays.getInstance(), null, (s) -> {}, pipelineTree);
+                KaldbBigArrays.getInstance(),
+                ScriptServiceProvider.getInstance(),
+                (s) -> {},
+                pipelineTree);
       } else {
         reduceContext =
             InternalAggregation.ReduceContext.forPartialReduction(
-                KaldbBigArrays.getInstance(), null, () -> PipelineAggregator.PipelineTree.EMPTY);
+                KaldbBigArrays.getInstance(),
+                ScriptServiceProvider.getInstance(),
+                () -> PipelineAggregator.PipelineTree.EMPTY);
       }
       // Using the first element on the list as the basis for the reduce method is per OpenSearch
       // recommendations: "For best efficiency, when implementing, try reusing an existing instance

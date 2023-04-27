@@ -49,6 +49,7 @@ import org.opensearch.search.aggregations.pipeline.InternalSimpleValue;
 import org.opensearch.search.aggregations.pipeline.LinearModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.MovFnPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.SimpleModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,6 +128,10 @@ public class OpenSearchInternalAggregation {
                   CumulativeSumPipelineAggregationBuilder.class,
                   CumulativeSumPipelineAggregationBuilder.NAME,
                   CumulativeSumPipelineAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  MovFnPipelineAggregationBuilder.class,
+                  MovFnPipelineAggregationBuilder.NAME,
+                  MovFnPipelineAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
                   DerivativePipelineAggregationBuilder.class,
                   DerivativePipelineAggregationBuilder.NAME,

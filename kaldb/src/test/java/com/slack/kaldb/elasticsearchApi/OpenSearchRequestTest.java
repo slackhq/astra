@@ -195,6 +195,33 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testHistogramWithNestedMovingFunction() throws Exception {
+    String rawRequest = getRawQueryString("nested_datehistogram_moving_fn");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation movingFunctionAggBuilder =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+    assertThat(movingFunctionAggBuilder.getName()).isEqualTo("3");
+    assertThat(movingFunctionAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
+    assertThat(movingFunctionAggBuilder.getPipeline().getMovingFunction().getScript())
+        .isEqualTo("return 8;");
+    assertThat(movingFunctionAggBuilder.getPipeline().getMovingFunction().getWindow()).isEqualTo(2);
+    assertThat(movingFunctionAggBuilder.getPipeline().getMovingFunction().getShift()).isEqualTo(3);
+  }
+
+  @Test
   public void testHistogramWithNestedDerivative() throws Exception {
     String rawRequest = getRawQueryString("nested_datehistogram_derivative");
 

@@ -15,6 +15,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -62,8 +63,6 @@ import org.opensearch.indices.IndicesModule;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.script.Script;
-import org.opensearch.script.ScriptModule;
-import org.opensearch.script.ScriptService;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.BucketOrder;
@@ -91,6 +90,7 @@ import org.opensearch.search.aggregations.pipeline.HoltWintersModel;
 import org.opensearch.search.aggregations.pipeline.LinearModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgModel;
 import org.opensearch.search.aggregations.pipeline.MovAvgPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.MovFnPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 import org.opensearch.search.aggregations.pipeline.SimpleModel;
 import org.opensearch.search.aggregations.support.ValuesSourceRegistry;
@@ -334,8 +334,6 @@ public class OpenSearchAdapter {
       SimilarityService similarityService,
       MapperService mapperService) {
     final ValuesSourceRegistry valuesSourceRegistry = buildValueSourceRegistry();
-    ScriptModule scriptModule = ScriptModuleProvider.getInstance();
-
     return new QueryShardContext(
         0,
         indexSettings,
@@ -350,7 +348,7 @@ public class OpenSearchAdapter {
             ::getForField,
         mapperService,
         similarityService,
-        new ScriptService(indexSettings.getSettings(), scriptModule.engines, scriptModule.contexts),
+        ScriptServiceProvider.getInstance(),
         null,
         null,
         null,
@@ -490,6 +488,8 @@ public class OpenSearchAdapter {
       return getCumulativeSumAggregationBuilder((CumulativeSumAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(DerivativeAggBuilder.TYPE)) {
       return getDerivativeAggregationBuilder((DerivativeAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(MovingFunctionAggBuilder.TYPE)) {
+      return getMovingFunctionAggregationBuilder((MovingFunctionAggBuilder) aggBuilder);
     } else {
       throw new IllegalArgumentException(
           String.format("PipelineAggregation type %s not yet supported", aggBuilder.getType()));
@@ -502,7 +502,11 @@ public class OpenSearchAdapter {
    */
   protected static boolean isPipelineAggregation(AggBuilder aggBuilder) {
     List<String> pipelineAggregators =
-        List.of(MovingAvgAggBuilder.TYPE, DerivativeAggBuilder.TYPE, CumulativeSumAggBuilder.TYPE);
+        List.of(
+            MovingAvgAggBuilder.TYPE,
+            DerivativeAggBuilder.TYPE,
+            CumulativeSumAggBuilder.TYPE,
+            MovingFunctionAggBuilder.TYPE);
     return pipelineAggregators.contains(aggBuilder.getType());
   }
 
@@ -701,6 +705,26 @@ public class OpenSearchAdapter {
     }
 
     return movAvgPipelineAggregationBuilder;
+  }
+
+  /**
+   * Given an MovingFunctionAggBuilder returns a MovFnPipelineAggregationBuilder to be used in
+   * building aggregation tree
+   */
+  protected static MovFnPipelineAggregationBuilder getMovingFunctionAggregationBuilder(
+      MovingFunctionAggBuilder builder) {
+    MovFnPipelineAggregationBuilder movFnPipelineAggregationBuilder =
+        new MovFnPipelineAggregationBuilder(
+            builder.getName(),
+            builder.getBucketsPath(),
+            new Script(builder.getScript()),
+            builder.getWindow());
+
+    if (builder.getShift() != null) {
+      movFnPipelineAggregationBuilder.setShift(builder.getShift());
+    }
+
+    return movFnPipelineAggregationBuilder;
   }
 
   /**

@@ -16,6 +16,7 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -172,6 +173,13 @@ public class SearchResultUtils {
           searchAggregation.getName(),
           searchAggregation.getPipeline().getBucketsPath(),
           (String) fromValueProto(searchAggregation.getPipeline().getCumulativeSum().getFormat()));
+    } else if (searchAggregation.getType().equals(MovingFunctionAggBuilder.TYPE)) {
+      return new MovingFunctionAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getPipeline().getBucketsPath(),
+          searchAggregation.getPipeline().getMovingFunction().getScript(),
+          searchAggregation.getPipeline().getMovingFunction().getWindow(),
+          searchAggregation.getPipeline().getMovingFunction().getShift());
     } else if (searchAggregation.getType().equals(DerivativeAggBuilder.TYPE)) {
       return new DerivativeAggBuilder(
           searchAggregation.getName(),
@@ -374,6 +382,29 @@ public class SearchResultUtils {
                           .CumulativeSumAggregation.newBuilder()
                           .setFormat(toValueProto(cumulativeSumAggBuilder.getFormat()))
                           .build())
+                  .build())
+          .build();
+    } else if (aggBuilder instanceof MovingFunctionAggBuilder) {
+      MovingFunctionAggBuilder movingFunctionAggBuilder = (MovingFunctionAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.MovingFunctionAggregation
+              .Builder
+          movingFunctionAggregationBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation
+                  .MovingFunctionAggregation.newBuilder()
+                  .setScript(movingFunctionAggBuilder.getScript())
+                  .setWindow(movingFunctionAggBuilder.getWindow());
+
+      if (movingFunctionAggBuilder.getShift() != null) {
+        movingFunctionAggregationBuilder.setShift(movingFunctionAggBuilder.getShift());
+      }
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(MovingFunctionAggBuilder.TYPE)
+          .setName(movingFunctionAggBuilder.getName())
+          .setPipeline(
+              KaldbSearch.SearchRequest.SearchAggregation.PipelineAggregation.newBuilder()
+                  .setBucketsPath(movingFunctionAggBuilder.getBucketsPath())
+                  .setMovingFunction(movingFunctionAggregationBuilder.build())
                   .build())
           .build();
     } else if (aggBuilder instanceof DerivativeAggBuilder) {

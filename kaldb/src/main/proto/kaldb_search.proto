@@ -109,6 +109,7 @@ message SearchRequest {
         MovingAverageAggregation moving_average = 11;
         DerivativeAggregation derivative = 12;
         CumulativeSumAggregation cumulative_sum = 13;
+        MovingFunctionAggregation moving_function = 14;
       }
 
       message MovingAverageAggregation {
@@ -149,6 +150,17 @@ message SearchRequest {
       message DerivativeAggregation {
         // Optional unit for derivative
         Value unit = 1;
+      }
+
+      message MovingFunctionAggregation {
+        // Moving function window, required
+        int32 window = 1;
+
+        // Moving function shift, optional
+        int32 shift = 2;
+
+        // Script to execute, required
+        string script = 3;
       }
     }
   }
