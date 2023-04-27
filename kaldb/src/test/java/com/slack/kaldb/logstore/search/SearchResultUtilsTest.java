@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
@@ -168,9 +169,28 @@ public class SearchResultUtilsTest {
     CumulativeSumAggBuilder cumulativeSumAggBuilder2 =
         (CumulativeSumAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
+    assertThat(cumulativeSumAggBuilder1).isEqualTo(cumulativeSumAggBuilder2);
     assertThat(cumulativeSumAggBuilder1.getName()).isEqualTo("2");
     assertThat(cumulativeSumAggBuilder1.getBucketsPath()).isEqualTo("_count");
     assertThat(cumulativeSumAggBuilder1.getFormat()).isEqualTo("##0.#####E0");
+  }
+
+  @Test
+  public void shouldConvertMovingFunctionPipelineToFromProto() {
+    MovingFunctionAggBuilder movingFunctionAggBuilder1 =
+        new MovingFunctionAggBuilder("2", "_count", "return 8;", 2, 3);
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(movingFunctionAggBuilder1);
+    MovingFunctionAggBuilder movingFunctionAggBuilder2 =
+        (MovingFunctionAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(movingFunctionAggBuilder1).isEqualTo(movingFunctionAggBuilder2);
+    assertThat(movingFunctionAggBuilder1.getName()).isEqualTo("2");
+    assertThat(movingFunctionAggBuilder1.getBucketsPath()).isEqualTo("_count");
+    assertThat(movingFunctionAggBuilder1.getScript()).isEqualTo("return 8;");
+    assertThat(movingFunctionAggBuilder1.getWindow()).isEqualTo(2);
+    assertThat(movingFunctionAggBuilder1.getShift()).isEqualTo(3);
   }
 
   @Test
