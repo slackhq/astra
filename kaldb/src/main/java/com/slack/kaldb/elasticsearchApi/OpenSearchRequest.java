@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
@@ -207,7 +208,20 @@ public class OpenSearchRequest {
                                   KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
                                       .newBuilder()
                                       .setField(getFieldName(min))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(min)))
                                       .setMissing(SearchResultUtils.toValueProto(getMissing(min)))
+                                      .build());
+                        } else if (aggregationObject.equals(MaxAggBuilder.TYPE)) {
+                          JsonNode max = aggs.get(aggregationName).get(aggregationObject);
+                          aggBuilder
+                              .setType(MaxAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setValueSource(
+                                  KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                                      .newBuilder()
+                                      .setField(getFieldName(max))
+                                      .setScript(SearchResultUtils.toValueProto(getScript(max)))
+                                      .setMissing(SearchResultUtils.toValueProto(getMissing(max)))
                                       .build());
                         } else if (aggregationObject.equals(UniqueCountAggBuilder.TYPE)) {
                           JsonNode uniqueCount = aggs.get(aggregationName).get(aggregationObject);

@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
@@ -29,6 +30,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.pipeline.CumulativeSumPipelineAggregator;
@@ -98,6 +100,25 @@ public class OpenSearchAdapterTest {
       InternalMin internalMin = (InternalMin) minAggregator.buildTopLevel();
 
       assertThat(internalMin.getName()).isEqualTo("foo");
+
+      // TODO - we don't have access to the package local methods for extra asserts - use
+      // reflection?
+    }
+  }
+
+  @Test
+  public void canBuildValidMaxAggregator() throws IOException {
+    MaxAggBuilder maxAggBuilder =
+        new MaxAggBuilder(
+            "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", "return 8;");
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            maxAggBuilder, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+
+    try (Aggregator maxAggregator = collectorManager.newCollector()) {
+      InternalMax internalMax = (InternalMax) maxAggregator.buildTopLevel();
+
+      assertThat(internalMax.getName()).isEqualTo("foo");
 
       // TODO - we don't have access to the package local methods for extra asserts - use
       // reflection?

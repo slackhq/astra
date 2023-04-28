@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
@@ -38,6 +39,19 @@ public class SearchResultUtilsTest {
         (MinAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
 
     assertThat(minAggBuilder).isEqualTo(otherMinAggBuilder);
+  }
+
+  @Test
+  public void shouldConvertMaxAggToFromProto() {
+    MaxAggBuilder maxAggBuilder =
+        new MaxAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "3", "return 7;");
+
+    KaldbSearch.SearchRequest.SearchAggregation searchAggregation =
+        SearchResultUtils.toSearchAggregationProto(maxAggBuilder);
+    MaxAggBuilder otherMaxAggBuilder =
+        (MaxAggBuilder) SearchResultUtils.fromSearchAggregations(searchAggregation);
+
+    assertThat(maxAggBuilder).isEqualTo(otherMaxAggBuilder);
   }
 
   @Test
