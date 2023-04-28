@@ -169,6 +169,31 @@ public class OpenSearchRequestTest {
   }
 
   @Test
+  public void testHistogramWithNestedExtendedStats() throws Exception {
+    String rawRequest = getRawQueryString("nested_datehistogram_extended_stats");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation dateHistogramAggBuilder =
+        parsedRequestList.get(0).getAggregations();
+    assertThat(dateHistogramAggBuilder.getValueSource().getField())
+        .isEqualTo(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName);
+
+    assertThat(dateHistogramAggBuilder.getSubAggregationsCount()).isEqualTo(1);
+    KaldbSearch.SearchRequest.SearchAggregation extendedStatsAgg =
+        parsedRequestList.get(0).getAggregations().getSubAggregations(0);
+
+    assertThat(extendedStatsAgg.getName()).isEqualTo("1");
+    assertThat(extendedStatsAgg.getValueSource().getField()).isEqualTo("duration_ms");
+    assertThat(extendedStatsAgg.getValueSource().getExtendedStats().getSigma().getDoubleValue())
+        .isEqualTo(2D);
+  }
+
+  @Test
   public void testHistogramWithNestedCumulativeSum() throws Exception {
     String rawRequest = getRawQueryString("nested_datehistogram_cumulative_sum");
 

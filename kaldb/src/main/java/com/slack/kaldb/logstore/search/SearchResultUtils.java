@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -148,6 +149,14 @@ public class SearchResultUtils {
           (Long)
               fromValueProto(
                   searchAggregation.getValueSource().getUniqueCount().getPrecisionThreshold()));
+    } else if (searchAggregation.getType().equals(ExtendedStatsAggBuilder.TYPE)) {
+      return new ExtendedStatsAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getValueSource().getField(),
+          fromValueProto(searchAggregation.getValueSource().getMissing()),
+          getScript(searchAggregation.getValueSource().getScript()),
+          (Double)
+              fromValueProto(searchAggregation.getValueSource().getExtendedStats().getSigma()));
     } else if (searchAggregation.getType().equals(PercentilesAggBuilder.TYPE)) {
       return new PercentilesAggBuilder(
           searchAggregation.getName(),
@@ -303,6 +312,35 @@ public class SearchResultUtils {
           .setValueSource(valueSourceAggBuilder.build())
           .build();
 
+    } else if (aggBuilder instanceof ExtendedStatsAggBuilder) {
+      ExtendedStatsAggBuilder extendedStatsAggBuilder = (ExtendedStatsAggBuilder) aggBuilder;
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.ExtendedStatsAggregation
+              .Builder
+          extendedStats =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation
+                  .ExtendedStatsAggregation.newBuilder();
+
+      if (extendedStatsAggBuilder.getSigma() != null) {
+        extendedStats.setSigma(toValueProto(extendedStatsAggBuilder.getSigma()));
+      }
+
+      KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.Builder
+          valueSourceAggBuilder =
+              KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
+                  .setField(extendedStatsAggBuilder.getField())
+                  .setMissing(toValueProto(extendedStatsAggBuilder.getMissing()))
+                  .setExtendedStats(extendedStats.build());
+
+      if (extendedStatsAggBuilder.getScript() != null) {
+        valueSourceAggBuilder.setScript(toValueProto(extendedStatsAggBuilder.getScript()));
+      }
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(ExtendedStatsAggBuilder.TYPE)
+          .setName(extendedStatsAggBuilder.getName())
+          .setValueSource(valueSourceAggBuilder.build())
+          .build();
     } else if (aggBuilder instanceof UniqueCountAggBuilder) {
       UniqueCountAggBuilder uniqueCountAggBuilder = (UniqueCountAggBuilder) aggBuilder;
 

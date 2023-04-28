@@ -49,7 +49,8 @@ message SearchRequest {
       oneof type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
-        HistogramAggregation histogram= 13;
+        HistogramAggregation histogram = 13;
+        ExtendedStatsAggregation extended_stats = 15;
         UniqueCountAggregation unique_count = 16;
         PercentilesAggregation percentiles = 17;
       }
@@ -93,6 +94,12 @@ message SearchRequest {
       message UniqueCountAggregation {
         // Precision threshold for cardinality
         Value precision_threshold = 1;
+      }
+
+      // Unique fields specific to the extended stats aggregation request
+      message ExtendedStatsAggregation {
+        // Optional sigma
+        Value sigma = 1;
       }
 
       // Unique fields specific to the percentiles aggregation request

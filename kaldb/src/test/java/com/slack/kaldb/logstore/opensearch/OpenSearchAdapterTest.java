@@ -9,6 +9,7 @@ import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -30,6 +31,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram
 import org.opensearch.search.aggregations.bucket.histogram.InternalHistogram;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalExtendedStats;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
@@ -177,6 +179,29 @@ public class OpenSearchAdapterTest {
 
       assertThat(internalUniqueCount.getName()).isEqualTo("foo");
       assertThat(internalUniqueCount.getValue()).isEqualTo(0);
+
+      // todo - we don't have access to the package local methods for extra asserts - use
+      // reflection?
+    }
+  }
+
+  @Test
+  public void canBuildValidExtendedStatsAggregator() throws IOException {
+    ExtendedStatsAggBuilder extendedStatsAggBuilder =
+        new ExtendedStatsAggBuilder(
+            "foo", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1", "", 2D);
+    CollectorManager<Aggregator, InternalAggregation> collectorManager =
+        openSearchAdapter.getCollectorManager(
+            extendedStatsAggBuilder,
+            logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+            null);
+
+    try (Aggregator avgAggregator = collectorManager.newCollector()) {
+      InternalExtendedStats internalExtendedStats =
+          (InternalExtendedStats) avgAggregator.buildTopLevel();
+
+      assertThat(internalExtendedStats.getName()).isEqualTo("foo");
+      assertThat(internalExtendedStats.getSigma()).isEqualTo(2);
 
       // todo - we don't have access to the package local methods for extra asserts - use
       // reflection?

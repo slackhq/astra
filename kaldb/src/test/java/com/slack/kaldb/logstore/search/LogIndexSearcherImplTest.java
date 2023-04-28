@@ -17,6 +17,7 @@ import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
@@ -42,6 +43,7 @@ import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHisto
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
+import org.opensearch.search.aggregations.metrics.InternalExtendedStats;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
@@ -771,6 +773,36 @@ public class LogIndexSearcherImplTest {
 
     // 1, 3, 4, 5
     assertThat(internalSum.getValue()).isEqualTo(13);
+  }
+
+  @Test
+  public void testFullIndexSearchForExtendedStatsAgg() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> allIndexItems =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new ExtendedStatsAggBuilder("test", TEST_SOURCE_LONG_PROPERTY, "0", null, null));
+
+    assertThat(allIndexItems.hits.size()).isEqualTo(4);
+
+    InternalExtendedStats internalExtendedStats =
+        (InternalExtendedStats) Objects.requireNonNull(allIndexItems.internalAggregation);
+
+    // 1, 3, 4, 5
+    assertThat(internalExtendedStats).isNotNull();
+    assertThat(internalExtendedStats.getCount()).isEqualTo(4);
+    assertThat(internalExtendedStats.getMax()).isEqualTo(5);
+    assertThat(internalExtendedStats.getMin()).isEqualTo(1);
+    assertThat(internalExtendedStats.getSum()).isEqualTo(13);
+    assertThat(internalExtendedStats.getAvg()).isEqualTo(3.25);
+    assertThat(internalExtendedStats.getSumOfSquares()).isEqualTo(51);
+    assertThat(internalExtendedStats.getVariance()).isEqualTo(2.1875);
   }
 
   @Test

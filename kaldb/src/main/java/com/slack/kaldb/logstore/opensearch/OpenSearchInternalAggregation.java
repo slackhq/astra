@@ -27,8 +27,10 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.terms.UnmappedTerms;
 import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ExtendedStatsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalAvg;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
+import org.opensearch.search.aggregations.metrics.InternalExtendedStats;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalSum;
@@ -103,6 +105,14 @@ public class OpenSearchInternalAggregation {
                   AggregationBuilder.class, SumAggregationBuilder.NAME, SumAggregationBuilder::new),
               new NamedWriteableRegistry.Entry(
                   InternalAggregation.class, SumAggregationBuilder.NAME, InternalSum::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  ExtendedStatsAggregationBuilder.NAME,
+                  ExtendedStatsAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class,
+                  ExtendedStatsAggregationBuilder.NAME,
+                  InternalExtendedStats::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   CardinalityAggregationBuilder.NAME,
