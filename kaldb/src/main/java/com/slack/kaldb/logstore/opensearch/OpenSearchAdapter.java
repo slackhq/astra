@@ -174,7 +174,7 @@ public class OpenSearchAdapter {
         boolQueryBuilder.must(queryStringQueryBuilder);
       }
 
-      return boolQueryBuilder.toQuery(queryShardContext);
+      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
       throw new IllegalArgumentException(e);
