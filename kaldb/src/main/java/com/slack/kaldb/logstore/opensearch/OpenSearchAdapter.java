@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.FiltersAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -68,6 +69,8 @@ import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.FiltersAggregator;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
@@ -292,7 +295,6 @@ public class OpenSearchAdapter {
   private static ValuesSourceRegistry buildValueSourceRegistry() {
     ValuesSourceRegistry.Builder valuesSourceRegistryBuilder = new ValuesSourceRegistry.Builder();
 
-    // todo - add additional aggregations as needed
     DateHistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     HistogramAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     TermsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
@@ -304,6 +306,9 @@ public class OpenSearchAdapter {
     ExtendedStatsAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     PercentilesAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
     ValueCountAggregationBuilder.registerAggregators(valuesSourceRegistryBuilder);
+
+    // Filters are registered in a non-standard way
+    valuesSourceRegistryBuilder.registerUsage(FiltersAggregationBuilder.NAME);
 
     return valuesSourceRegistryBuilder.build();
   }
@@ -443,6 +448,8 @@ public class OpenSearchAdapter {
       return getDateHistogramAggregationBuilder((DateHistogramAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(HistogramAggBuilder.TYPE)) {
       return getHistogramAggregationBuilder((HistogramAggBuilder) aggBuilder);
+    } else if (aggBuilder.getType().equals(FiltersAggBuilder.TYPE)) {
+      return getFiltersAggregationBuilder((FiltersAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(TermsAggBuilder.TYPE)) {
       return getTermsAggregationBuilder((TermsAggBuilder) aggBuilder);
     } else if (aggBuilder.getType().equals(SumAggBuilder.TYPE)) {
@@ -828,6 +835,40 @@ public class OpenSearchAdapter {
     }
 
     return termsAggregationBuilder;
+  }
+
+  /**
+   * Given an FiltersAggBuilder returns a FiltersAggregationBuilder to be used in building
+   * aggregation tree. Note this is different from a filter aggregation (single) as this takes a map
+   * of keyed filters, but can be invoked with a single entry in the map.
+   */
+  protected static FiltersAggregationBuilder getFiltersAggregationBuilder(
+      FiltersAggBuilder builder) {
+    List<FiltersAggregator.KeyedFilter> keyedFilterList = new ArrayList<>();
+    for (Map.Entry<String, FiltersAggBuilder.FilterAgg> stringFilterAggEntry :
+        builder.getFilterAggMap().entrySet()) {
+      FiltersAggBuilder.FilterAgg filterAgg = stringFilterAggEntry.getValue();
+      keyedFilterList.add(
+          new FiltersAggregator.KeyedFilter(
+              stringFilterAggEntry.getKey(),
+              new QueryStringQueryBuilder(filterAgg.getQueryString())
+                  .lenient(true)
+                  .analyzeWildcard(filterAgg.isAnalyzeWildcard())));
+    }
+
+    FiltersAggregationBuilder filtersAggregationBuilder =
+        new FiltersAggregationBuilder(
+            builder.getName(), keyedFilterList.toArray(new FiltersAggregator.KeyedFilter[0]));
+
+    for (AggBuilder subAggregation : builder.getSubAggregations()) {
+      if (isPipelineAggregation(subAggregation)) {
+        filtersAggregationBuilder.subAggregation(getPipelineAggregationBuilder(subAggregation));
+      } else {
+        filtersAggregationBuilder.subAggregation(getAggregationBuilder(subAggregation));
+      }
+    }
+
+    return filtersAggregationBuilder;
   }
 
   /**
