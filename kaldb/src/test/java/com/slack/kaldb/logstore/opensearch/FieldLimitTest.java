@@ -11,13 +11,17 @@ public class FieldLimitTest {
 
   @Test
   public void checkIfMaxFieldLimitsIsEnforced() {
-    Map<String, LuceneFieldDef> fieldDefMap = getChunkSchema(5001);
+    Map<String, LuceneFieldDef> fieldDefMap = getChunkSchema(100);
     OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(fieldDefMap);
+    assertThat(openSearchAdapter.tryRegisterFields()).isTrue();
+
+    LuceneFieldDef fieldDef = new LuceneFieldDef("new_field", "integer", true, true, true);
+    fieldDefMap.put("new_field", fieldDef);
     assertThat(openSearchAdapter.tryRegisterFields()).isFalse();
 
-    fieldDefMap = getChunkSchema(2);
-    openSearchAdapter = new OpenSearchAdapter(fieldDefMap);
-    assertThat(openSearchAdapter.tryRegisterFields()).isTrue();
+    //    fieldDefMap = getChunkSchema(2);
+    //    openSearchAdapter = new OpenSearchAdapter(fieldDefMap);
+    //    assertThat(openSearchAdapter.tryRegisterFields()).isTrue();
   }
 
   private Map<String, LuceneFieldDef> getChunkSchema(int nFields) {

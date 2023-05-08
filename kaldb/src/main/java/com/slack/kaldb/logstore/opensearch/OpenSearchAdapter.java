@@ -393,15 +393,16 @@ public class OpenSearchAdapter {
       }
     }
 
+    XContentBuilder mapping = null;
+    CompressedXContent xContent = null;
     try {
-      XContentBuilder mapping = createMappings(newFields);
-      mapperService.merge(
-          "_doc",
-          new CompressedXContent(BytesReference.bytes(mapping)),
-          MapperService.MergeReason.MAPPING_UPDATE);
+      mapping = createMappings(newFields);
+      xContent = new CompressedXContent(BytesReference.bytes(mapping));
+      mapperService.merge("_doc", xContent, MapperService.MergeReason.MAPPING_UPDATE);
       return true;
     } catch (Exception e) {
-      LOG.error("Could not register new fields", e);
+      LOG.error("DEBUG mapping: " + xContent.toString());
+      LOG.error("DEBUG Could not register new fields", e);
       return false;
     }
   }

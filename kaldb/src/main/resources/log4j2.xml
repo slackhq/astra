@@ -6,7 +6,7 @@
         <Console name="console" target="SYSTEM_OUT">
             <!-- https://github.com/apache/logging-log4j2/blob/master/log4j-layout-template-json/src/main/resources/EcsLayout.json -->
             <!-- maxStringLength - limit the length of the stack trace -->
-            <JsonTemplateLayout maxStringLength="2000" eventTemplateUri="classpath:KaldbLayout.json" truncatedStringSuffix="..."/>
+            <JsonTemplateLayout eventTemplateUri="classpath:KaldbLayout.json" truncatedStringSuffix="..."/>
         </Console>
     </Appenders>
 
