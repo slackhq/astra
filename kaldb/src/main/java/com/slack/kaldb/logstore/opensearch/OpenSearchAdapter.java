@@ -115,6 +115,10 @@ public class OpenSearchAdapter {
 
   private final Map<String, LuceneFieldDef> chunkSchema;
 
+  // we can make this configurable when SchemaAwareLogDocumentBuilderImpl enforces a limit
+  // set this to a high number for now
+  private static final int TOTAL_FIELDS_LIMIT = 2500;
+
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
     IndexSettings indexSettings = buildIndexSettings();
     SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
@@ -174,7 +178,7 @@ public class OpenSearchAdapter {
         boolQueryBuilder.must(queryStringQueryBuilder);
       }
 
-      return boolQueryBuilder.toQuery(queryShardContext);
+      return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
       throw new IllegalArgumentException(e);
@@ -311,6 +315,8 @@ public class OpenSearchAdapter {
             .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 1)
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_3_0)
+            .put(
+                MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
             .build();
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
