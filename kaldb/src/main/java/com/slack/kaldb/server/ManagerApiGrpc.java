@@ -1,7 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -18,6 +16,10 @@ import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.naming.SizeLimitExceededException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,9 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.naming.SizeLimitExceededException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
 
 /**
  * Administration API for managing dataset configurations, including throughput and partition
@@ -129,7 +130,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                       .listSync()
                       .stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
-                      .collect(Collectors.toList()))
+                      .toList())
               .build());
       responseObserver.onCompleted();
     } catch (Exception e) {
@@ -298,12 +299,12 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                 snapshotMetadataList
                     .stream()
                     .map((snapshot) -> snapshot.snapshotId)
-                    .collect(Collectors.toList())));
+                    .toList()));
 
     return snapshotMetadataList
         .stream()
         .filter((snapshot) -> matchingSnapshots.contains(snapshot.snapshotId))
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /**
@@ -346,7 +347,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
             .filter(
                 datasetPartitionMetadata ->
                     datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
-            .collect(Collectors.toList());
+            .toList();
 
     // todo - consider adding some padding to this value; this may complicate
     //   validation as you would need to consider what happens when there's a future

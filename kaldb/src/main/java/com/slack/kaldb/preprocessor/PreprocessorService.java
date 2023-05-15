@@ -233,7 +233,7 @@ public class PreprocessorService extends AbstractService {
         .stream()
         .filter(datasetMetadata -> datasetMetadata.getThroughputBytes() > 0)
         .filter(datasetMetadata -> getActivePartitionList(datasetMetadata).size() > 0)
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /** Gets the active list of partitions from the provided dataset metadata */
@@ -263,7 +263,7 @@ public class PreprocessorService extends AbstractService {
     return datasetMetadataList
         .stream()
         .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /** Builds a Properties hashtable using the provided config, and sensible defaults */

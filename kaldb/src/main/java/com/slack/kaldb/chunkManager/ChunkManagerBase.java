@@ -15,6 +15,9 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.slack.kaldb.metadata.schema.FieldType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,8 +31,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A chunk manager provides a unified api to write and query all the chunks in the application.
@@ -93,13 +94,13 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
           chunkList
               .stream()
               .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
-              .collect(Collectors.toList());
+              .toList();
     } else {
       chunksMatchingQuery =
           chunkList
               .stream()
               .filter(c -> query.chunkIds.contains(c.id()))
-              .collect(Collectors.toList());
+              .toList();
     }
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
@@ -143,7 +144,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                 (future) ->
                     queryCancellationService.schedule(
                         () -> future.cancel(true), queryTimeout.toMillis(), TimeUnit.MILLISECONDS))
-            .collect(Collectors.toList());
+            .toList();
 
     Future<List<SearchResult<T>>> searchResultFuture = Futures.successfulAsList(queries);
     try {

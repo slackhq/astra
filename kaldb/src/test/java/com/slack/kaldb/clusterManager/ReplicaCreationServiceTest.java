@@ -404,7 +404,7 @@ public class ReplicaCreationServiceTest {
         eligibleSnapshots
             .stream()
             .map(snapshotMetadata -> snapshotMetadata.snapshotId)
-            .collect(Collectors.toList());
+            .toList();
     assertThat(
             replicaMetadataStore
                 .listSync()

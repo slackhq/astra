@@ -606,9 +606,9 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+            searchNodes.stream().map(s -> s.snapshotName).toList());
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
@@ -1059,9 +1059,9 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(2);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+            searchNodes.stream().map(s -> s.snapshotName).toList());
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(2);
   }

@@ -248,7 +248,7 @@ public class PreprocessorServiceUnitTest {
   public void shouldNotCachePartitionBeyondStickyTimeout() throws InterruptedException {
     int stickyTimeoutMs = 1;
     List<String> partitions =
-        IntStream.range(0, 100).mapToObj((String::valueOf)).collect(Collectors.toList());
+        IntStream.range(0, 100).mapToObj((String::valueOf)).toList();
 
     String datasetName = "datasetName";
     DatasetMetadata datasetMetadata =

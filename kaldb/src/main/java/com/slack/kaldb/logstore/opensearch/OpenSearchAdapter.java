@@ -784,7 +784,7 @@ public class OpenSearchAdapter {
             .getSubAggregations()
             .stream()
             .map(subagg -> ((AggBuilderBase) subagg).getName())
-            .collect(Collectors.toList());
+            .toList();
 
     List<BucketOrder> order =
         builder
@@ -810,7 +810,7 @@ public class OpenSearchAdapter {
                     return BucketOrder.aggregation(entry.getKey(), asc);
                   }
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     TermsAggregationBuilder termsAggregationBuilder =
         new TermsAggregationBuilder(builder.getName())

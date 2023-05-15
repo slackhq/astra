@@ -270,7 +270,7 @@ public class ChunkCleanerServiceTest {
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
-                .collect(Collectors.toList()))
+                .toList())
         .containsExactlyElementsOf(List.of(10L, 10L, 11L, 11L));
 
     assertThat(chunk1.isReadOnly()).isTrue();
@@ -307,7 +307,7 @@ public class ChunkCleanerServiceTest {
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
-                .collect(Collectors.toList()))
+                .toList())
         .containsOnly(10L, 11L, 11L);
 
     // Delete chunk1.
@@ -324,7 +324,7 @@ public class ChunkCleanerServiceTest {
                 .stream()
                 .map(s -> s.maxOffset)
                 .sorted()
-                .collect(Collectors.toList()))
+                .toList())
         .containsOnly(10L, 11L);
   }
 
@@ -341,9 +341,9 @@ public class ChunkCleanerServiceTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+            searchNodes.stream().map(s -> s.snapshotName).toList());
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotSize);
   }

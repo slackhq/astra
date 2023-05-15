@@ -4,8 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.proto.metadata.Metadata;
+
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMetadata> {
   private static DatasetMetadata fromDatasetMetadataProto(
@@ -15,7 +15,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
             .getPartitionConfigsList()
             .stream()
             .map(DatasetPartitionMetadata::fromDatasetPartitionMetadataProto)
-            .collect(Collectors.toList());
+            .toList();
 
     return new DatasetMetadata(
         datasetMetadataProto.getName(),
@@ -31,7 +31,7 @@ public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMeta
             .partitionConfigs
             .stream()
             .map(DatasetPartitionMetadata::toDatasetPartitionMetadataProto)
-            .collect(Collectors.toList());
+            .toList();
 
     return Metadata.DatasetMetadata.newBuilder()
         .setName(metadata.name)

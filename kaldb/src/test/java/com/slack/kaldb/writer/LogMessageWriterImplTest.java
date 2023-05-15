@@ -1,15 +1,5 @@
 package com.slack.kaldb.writer;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static org.assertj.core.api.Assertions.assertThat;
-
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.protobuf.ByteString;
@@ -23,15 +13,6 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
 import org.junit.After;
@@ -40,6 +21,25 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
+
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class LogMessageWriterImplTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -165,7 +165,7 @@ public class LogMessageWriterImplTest {
                         name,
                         serviceName,
                         TEST_MESSAGE_TYPE))
-            .collect(Collectors.toList());
+            .toList();
 
     IndexingChunkManager<LogMessage> chunkManager = localChunkManagerUtil.chunkManager;
     LogMessageWriterImpl messageWriter =

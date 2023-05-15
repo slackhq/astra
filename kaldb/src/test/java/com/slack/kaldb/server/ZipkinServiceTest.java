@@ -1,16 +1,5 @@
 package com.slack.kaldb.server;
 
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
-import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
-import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
@@ -27,16 +16,6 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -46,6 +25,27 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.ZK_PATH_PREFIX;
+import static com.slack.kaldb.testlib.KaldbSearchUtils.searchUsingGrpcApi;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_DATASET_NAME;
+import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 public class ZipkinServiceTest {
 
@@ -224,7 +224,7 @@ public class ZipkinServiceTest {
     messages.addAll(generateLogWireMessagesForOneTrace(trace3StartTime, 1, "3"));
 
     List<LogMessage> logMessages =
-        messages.stream().map(LogMessage::fromWireMessage).collect(Collectors.toList());
+        messages.stream().map(LogMessage::fromWireMessage).toList();
 
     final int indexedMessagesCount =
         produceMessagesToKafka(kafkaServer.getBroker(), TEST_KAFKA_TOPIC_1, 0, logMessages);

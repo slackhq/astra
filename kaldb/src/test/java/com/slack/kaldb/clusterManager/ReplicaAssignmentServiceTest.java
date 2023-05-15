@@ -426,7 +426,7 @@ public class ReplicaAssignmentServiceTest {
             .getCached()
             .stream()
             .filter(cacheSlotMetadata -> !unmutatedSlots.contains(cacheSlotMetadata))
-            .collect(Collectors.toList());
+            .toList();
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
     assertThat(mutatedCacheSlots.get(0).name).isEqualTo(cacheSlotFree.name);
     assertThat(mutatedCacheSlots.get(0).replicaId).isEqualTo(replicaMetadataList.get(3).name);
@@ -620,7 +620,7 @@ public class ReplicaAssignmentServiceTest {
                         replicaMetadata ->
                             replicaMetadata.createdTimeEpochMs
                                 < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
-                    .collect(Collectors.toList())))
+                    .toList()))
         .isTrue();
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))

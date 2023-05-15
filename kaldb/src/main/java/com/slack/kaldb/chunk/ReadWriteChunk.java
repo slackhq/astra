@@ -1,9 +1,5 @@
 package com.slack.kaldb.chunk;
 
-import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
-import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
-import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
@@ -22,6 +18,9 @@ import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.apache.lucene.index.IndexCommit;
+import org.slf4j.Logger;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,8 +30,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.apache.lucene.index.IndexCommit;
-import org.slf4j.Logger;
+
+import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
+import static com.slack.kaldb.logstore.BlobFsUtils.copyToS3;
+import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
 
 /**
  * An ReadWriteChunk provides a base implementation for a shard to which we can write and read the
@@ -154,8 +155,8 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
       // Update the chunk with the time range of the data in the chunk.
       // TODO: This type conversion is a temporary hack, fix it by adding timestamp field to the
       // message.
-      if (message instanceof LogMessage) {
-        chunkInfo.updateDataTimeRange(((LogMessage) message).getTimestamp().toEpochMilli());
+      if (message instanceof LogMessage logMessage) {
+        chunkInfo.updateDataTimeRange(logMessage.getTimestamp().toEpochMilli());
         chunkInfo.updateMaxOffset(offset);
       }
     } else {

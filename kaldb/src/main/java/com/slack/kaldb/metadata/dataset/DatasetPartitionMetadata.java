@@ -1,13 +1,13 @@
 package com.slack.kaldb.metadata.dataset;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.proto.metadata.Metadata;
+
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Metadata for a specific partition configuration at a point in time. For partitions that are
@@ -113,6 +113,6 @@ public class DatasetPartitionMetadata {
                     partitionMetadata.endTimeEpochMs,
                     startTimeEpochMs,
                     endTimeEpochMs))
-        .collect(Collectors.toList());
+        .toList();
   }
 }

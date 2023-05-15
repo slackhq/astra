@@ -1,5 +1,23 @@
 package com.slack.kaldb.logstore.schema;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.schema.FieldType;
+import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.testlib.MetricsUtil;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.junit.Before;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_AND_DUPLICATE_FIELD_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.CONVERT_FIELD_VALUE_COUNTER;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.DROP_FIELDS_COUNTER;
@@ -7,24 +25,6 @@ import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.build;
 import static com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl.makeNewFieldOfType;
 import static org.assertj.core.api.Assertions.assertThat;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.schema.FieldType;
-import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.testlib.MetricsUtil;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.SortedDocValuesField;
-import org.junit.Before;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DropPolicyTest {
 
@@ -83,7 +83,7 @@ public class DropPolicyTest {
     // Ensure lucene field name and the name in schema match.
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
-            docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
+            docBuilder.getSchema().values().stream().map(f -> f.name).toList());
   }
 
   @Test
@@ -135,7 +135,7 @@ public class DropPolicyTest {
     // Ensure lucene field name and the name in schema match.
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
-            docBuilder.getSchema().values().stream().map(f -> f.name).collect(Collectors.toList()));
+            docBuilder.getSchema().values().stream().map(f -> f.name).toList());
   }
 
   @Test

@@ -1,11 +1,5 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
-import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -21,6 +15,9 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
@@ -32,8 +29,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 /**
  * The replica assignment service watches for changes in the available cache slots and replicas
@@ -147,7 +148,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                 cacheSlotMetadata ->
                     cacheSlotMetadata.cacheSlotState.equals(
                         Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-            .collect(Collectors.toList());
+            .toList();
 
     // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
     // assigned chunks that matches all recent queries. This should help balance out the load
@@ -208,7 +209,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                       MoreExecutors.directExecutor());
                   return future;
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     ListenableFuture<?> futureList = Futures.successfulAsList(replicaAssignments);
     try {

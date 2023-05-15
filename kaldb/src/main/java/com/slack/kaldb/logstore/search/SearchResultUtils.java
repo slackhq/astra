@@ -25,13 +25,13 @@ import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
+import org.apache.commons.lang3.NotImplementedException;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.NotImplementedException;
 
 public class SearchResultUtils {
   public static Map<String, Object> fromValueStruct(KaldbSearch.Struct struct) {
@@ -74,7 +74,7 @@ public class SearchResultUtils {
           .getValuesList()
           .stream()
           .map(SearchResultUtils::fromValueProto)
-          .collect(Collectors.toList());
+          .toList();
     } else {
       return null;
     }
@@ -104,7 +104,7 @@ public class SearchResultUtils {
                   ((List<?>) object)
                       .stream()
                       .map(SearchResultUtils::toValueProto)
-                      .collect(Collectors.toList()))
+                      .toList())
               .build());
     } else {
       throw new IllegalArgumentException();
@@ -201,7 +201,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .collect(Collectors.toList()),
+              .toList(),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()),
           searchAggregation.getValueSource().getTerms().getSize(),
@@ -220,7 +220,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .collect(Collectors.toList()));
+              .toList());
     } else if (searchAggregation.getType().equals(HistogramAggBuilder.TYPE)) {
       return new HistogramAggBuilder(
           searchAggregation.getName(),
@@ -231,7 +231,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .collect(Collectors.toList()));
+              .toList());
     }
 
     throw new NotImplementedException(
@@ -487,7 +487,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .collect(Collectors.toList()))
+                  .toList())
           .setValueSource(valueSourceAggregationBuilder.build())
           .build();
     } else if (aggBuilder instanceof DateHistogramAggBuilder) {
@@ -520,7 +520,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .collect(Collectors.toList()))
+                  .toList())
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())
@@ -546,7 +546,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .collect(Collectors.toList()))
+                  .toList())
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(histogramAggBuilder.getField())

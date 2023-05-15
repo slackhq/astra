@@ -1,11 +1,5 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
-import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
@@ -20,6 +14,9 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -32,8 +29,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 
 /**
  * Manages the lifecycle for the Replica metadata type. At least one Replica is expected to be
@@ -201,7 +202,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                   MoreExecutors.directExecutor());
                               return future;
                             })
-                        .collect(Collectors.toList()))
+                        .toList())
             .flatMap(List::stream)
             .collect(Collectors.toUnmodifiableList());
 
