@@ -1,4 +1,4 @@
-FROM maven:3.8.3-adoptopenjdk-17 as build
+FROM maven:3.9-amazoncorretto-17 as build
 COPY . /work/
 RUN cd /work; mvn package -DskipTests
 
