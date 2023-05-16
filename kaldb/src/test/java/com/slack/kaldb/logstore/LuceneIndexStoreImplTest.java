@@ -14,6 +14,7 @@ import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -94,7 +95,6 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       logStore.logStore.commit();
       logStore.logStore.refresh();
-      Thread.sleep(1000);
 
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(
@@ -259,7 +259,6 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       logStore.logStore.commit();
       logStore.logStore.refresh();
-      Thread.sleep(1000);
 
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo", 1000);
@@ -335,10 +334,7 @@ public class LuceneIndexStoreImplTest {
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
-      S3MockExtension.builder() // .silent()
-          // .withRootFolder()
-          .withSecureConnection(false)
-          .build();
+      S3MockExtension.builder().silent().withSecureConnection(false).build();
 
   @Nested
   public class SnapshotTester {
@@ -511,19 +507,24 @@ public class LuceneIndexStoreImplTest {
 
     public AutoCommitTests() throws IOException {}
 
-    // NOTE: This test is very timing dependent. So, it can be flaky in CI.
     @Test
-    public void testCommit() throws InterruptedException {
+    public void testCommit() {
       addMessages(testLogStore.logStore, 1, 100, false);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
 
-      Thread.sleep(2 * commitDuration.toMillis());
-      Collection<LogMessage> results =
-          findAllMessages(testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10);
-      assertThat(results.size()).isEqualTo(1);
+      await()
+          .until(
+              () ->
+                  findAllMessages(
+                              testLogStore.logSearcher,
+                              MessageUtil.TEST_DATASET_NAME,
+                              "Message1",
+                              10)
+                          .size()
+                      == 1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);

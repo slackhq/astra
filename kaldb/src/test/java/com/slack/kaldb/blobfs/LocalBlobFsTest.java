@@ -188,7 +188,7 @@ public class LocalBlobFsTest {
     assertTrue(nonExistingFile.exists());
     long currentTime = System.currentTimeMillis();
     assertTrue(localBlobFs.lastModified(nonExistingFile.toURI()) <= currentTime);
-    Thread.sleep(1000L);
+    Thread.sleep(1L);
     // update last modified.
     localBlobFs.touch(nonExistingFile.toURI());
     assertTrue(localBlobFs.lastModified(nonExistingFile.toURI()) > currentTime);

@@ -687,7 +687,7 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
     // Wait for roll over.
-    rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
+    await().until(() -> getCount(ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);

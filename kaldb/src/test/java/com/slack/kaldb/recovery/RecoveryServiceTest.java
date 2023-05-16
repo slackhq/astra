@@ -18,7 +18,6 @@ import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.getStartOffset
 import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.setRetentionTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 
@@ -49,11 +48,11 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterEach;
@@ -216,11 +215,14 @@ public class RecoveryServiceTest {
         topicPartition.partition(),
         (int) msgsToProduce);
     await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
-    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
-    with()
-        .atMost(1, TimeUnit.MINUTES)
-        .await()
-        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+    // we immediately force delete the messages, as this is faster than changing the retention and
+    // waiting for the cleaner to run
+    components
+        .adminClient
+        .deleteRecords(Map.of(topicPartition, RecordsToDelete.beforeOffset(100)))
+        .all()
+        .get();
+    assertThat(getStartOffset(components.adminClient, topicPartition)).isGreaterThan(0);
 
     // produce some more messages that won't be expired
     setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
@@ -296,11 +298,14 @@ public class RecoveryServiceTest {
         topicPartition.partition(),
         (int) msgsToProduce);
     await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
-    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
-    with()
-        .atMost(1, TimeUnit.MINUTES)
-        .await()
-        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+    // we immediately force delete the messages, as this is faster than changing the retention and
+    // waiting for the cleaner to run
+    components
+        .adminClient
+        .deleteRecords(Map.of(topicPartition, RecordsToDelete.beforeOffset(100)))
+        .all()
+        .get();
+    assertThat(getStartOffset(components.adminClient, topicPartition)).isGreaterThan(0);
 
     // produce some more messages that won't be expired
     setRetentionTime(components.adminClient, topicPartition.topic(), 25000);

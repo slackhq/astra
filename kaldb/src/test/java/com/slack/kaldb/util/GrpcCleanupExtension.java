@@ -14,7 +14,6 @@ import javax.annotation.Nonnull;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-
 /**
  * Variation of the GrpcCleanupRule that has been adapted for JUnit 5. This should be able to go
  * away once they have updated the underlying implementation.

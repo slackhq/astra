@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.awaitility.Awaitility.await;
-import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
@@ -21,6 +20,7 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.collect.Maps;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.schema.RaiseErrorFieldValueTest;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -35,13 +35,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
@@ -54,8 +54,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KaldbKafkaConsumerTest {
+  private static final Logger LOG = LoggerFactory.getLogger(RaiseErrorFieldValueTest.class);
   public static final String TEST_KAFKA_CLIENT_GROUP = "test_kaldb_consumer";
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
@@ -259,11 +262,15 @@ public class KaldbKafkaConsumerTest {
           topicPartition.partition(),
           (int) msgsToProduce);
       await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
-      setRetentionTime(components.adminClient, topicPartition.topic(), 250);
-      with()
-          .atMost(1, TimeUnit.MINUTES)
-          .await()
-          .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+
+      // we immediately force delete the messages, as this is faster than changing the retention and
+      // waiting for the cleaner to run
+      components
+          .adminClient
+          .deleteRecords(Map.of(topicPartition, RecordsToDelete.beforeOffset(100)))
+          .all()
+          .get();
+      assertThat(getStartOffset(components.adminClient, topicPartition)).isGreaterThan(0);
 
       TestKafkaServer.produceMessagesToKafka(
           components.testKafkaServer.getBroker(),
