@@ -208,7 +208,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                       MoreExecutors.directExecutor());
                   return future;
                 })
-            .toList();
+            .collect(Collectors.toList());
 
     ListenableFuture<?> futureList = Futures.successfulAsList(replicaAssignments);
     try {
