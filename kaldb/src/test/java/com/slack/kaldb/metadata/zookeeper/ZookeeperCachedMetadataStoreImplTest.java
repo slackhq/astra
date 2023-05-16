@@ -25,9 +25,9 @@ import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public class ZookeeperCachedMetadataStoreImplTest {
     }
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     expectedCacheErrorCount = 0;
     meterRegistry = new SimpleMeterRegistry();
@@ -90,7 +90,7 @@ public class ZookeeperCachedMetadataStoreImplTest {
     zooKeeper = metadataStore.getCurator().getZookeeperClient().getZooKeeper();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException {
     assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCount);
     metadataStore.close();

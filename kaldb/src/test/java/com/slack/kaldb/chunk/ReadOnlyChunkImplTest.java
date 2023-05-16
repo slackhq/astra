@@ -11,12 +11,12 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -57,10 +57,10 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
 import org.apache.lucene.index.IndexCommit;
 import org.assertj.core.util.Files;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class ReadOnlyChunkImplTest {
@@ -70,21 +70,25 @@ public class ReadOnlyChunkImplTest {
   private MeterRegistry meterRegistry;
   private S3BlobFs s3BlobFs;
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(TEST_S3_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
-  @Before
+  @BeforeEach
   public void startup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+    S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
     s3BlobFs = new S3BlobFs(s3Client);
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException {
     s3BlobFs.close();
     testingServer.close();

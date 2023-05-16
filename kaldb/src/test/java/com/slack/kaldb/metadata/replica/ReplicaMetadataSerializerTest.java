@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.time.Instant;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ReplicaMetadataSerializerTest {
   private final ReplicaMetadataSerializer serDe = new ReplicaMetadataSerializer();

@@ -9,23 +9,23 @@ import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.PercentilesAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 
 public class OpenSearchInternalAggregationTest {
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule logStoreAndSearcherRule =
-      new TemporaryLogStoreAndSearcherRule(false);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
+      new TemporaryLogStoreAndSearcherExtension(false);
 
   private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 

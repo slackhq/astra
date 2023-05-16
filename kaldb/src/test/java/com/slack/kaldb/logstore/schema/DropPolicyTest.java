@@ -21,8 +21,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +31,7 @@ public class DropPolicyTest {
   private SimpleMeterRegistry meterRegistry;
   private static final Logger LOG = LoggerFactory.getLogger(RaiseErrorFieldValueTest.class);
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
   }

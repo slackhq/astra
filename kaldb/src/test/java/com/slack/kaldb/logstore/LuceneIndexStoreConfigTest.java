@@ -1,28 +1,48 @@
 package com.slack.kaldb.logstore;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+
 import java.time.Duration;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class LuceneIndexStoreConfigTest {
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testZeroCommitDuration() {
-    new LuceneIndexStoreConfig(Duration.ZERO, Duration.ofSeconds(10), "indexRoot", "logfile", true);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new LuceneIndexStoreConfig(
+                    Duration.ZERO, Duration.ofSeconds(10), "indexRoot", "logfile", true));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testZeroRefreshDuration() {
-    new LuceneIndexStoreConfig(Duration.ofSeconds(10), Duration.ZERO, "indexRoot", "logfile", true);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new LuceneIndexStoreConfig(
+                    Duration.ofSeconds(10), Duration.ZERO, "indexRoot", "logfile", true));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeCommitDuration() {
-    new LuceneIndexStoreConfig(
-        Duration.ofSeconds(-10), Duration.ofSeconds(10), "indexRoot", "logfile", true);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new LuceneIndexStoreConfig(
+                    Duration.ofSeconds(-10), Duration.ofSeconds(10), "indexRoot", "logfile", true));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeRefreshDuration() {
-    new LuceneIndexStoreConfig(
-        Duration.ofSeconds(10), Duration.ofSeconds(-100), "indexRoot", "logfile", true);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new LuceneIndexStoreConfig(
+                    Duration.ofSeconds(10),
+                    Duration.ofSeconds(-100),
+                    "indexRoot",
+                    "logfile",
+                    true));
   }
 }

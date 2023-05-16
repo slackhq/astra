@@ -20,11 +20,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
-public class TemporaryLogStoreAndSearcherRule implements TestRule {
+public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback {
 
   public static final long MAX_TIME = Long.MAX_VALUE;
 
@@ -61,7 +60,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   public LogIndexSearcherImpl logSearcher;
   public final File tempFolder;
 
-  public TemporaryLogStoreAndSearcherRule(boolean enableFullTextSearch) throws IOException {
+  public TemporaryLogStoreAndSearcherExtension(boolean enableFullTextSearch) throws IOException {
     this(
         Duration.of(5, ChronoUnit.MINUTES),
         Duration.of(5, ChronoUnit.MINUTES),
@@ -69,7 +68,7 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
         SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD);
   }
 
-  public TemporaryLogStoreAndSearcherRule(
+  public TemporaryLogStoreAndSearcherExtension(
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
@@ -103,23 +102,14 @@ public class TemporaryLogStoreAndSearcherRule implements TestRule {
   }
 
   @Override
-  public Statement apply(Statement base, Description description) {
-    return new Statement() {
-      @Override
-      public void evaluate() throws Throwable {
-        try {
-          base.evaluate(); // Run the test
-        } finally {
-          if (logStore != null) {
-            logStore.close();
-          }
-          if (logSearcher != null) {
-            logSearcher.close();
-          }
-          FileUtils.deleteDirectory(tempFolder);
-          metricsRegistry.close();
-        }
-      }
-    };
+  public void afterEach(ExtensionContext context) throws Exception {
+    if (logStore != null) {
+      logStore.close();
+    }
+    if (logSearcher != null) {
+      logSearcher.close();
+    }
+    FileUtils.deleteDirectory(tempFolder);
+    metricsRegistry.close();
   }
 }

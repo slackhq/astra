@@ -19,7 +19,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.github.charithe.kafka.EphemeralKafkaBroker;
 import com.google.common.util.concurrent.Service;
 import com.slack.kaldb.chunk.ReadWriteChunk;
@@ -46,12 +46,10 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,11 +64,13 @@ public class KaldbIndexerTest {
   private static final String KALDB_TEST_CLIENT = "kaldb-test-client";
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
-
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final Instant startTime = Instant.now();
 
@@ -84,7 +84,7 @@ public class KaldbIndexerTest {
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private SearchMetadataStore searchMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     KaldbConfigs.IndexerConfig indexerConfig = makeIndexerConfig();
     Tracing.newBuilder().build();
@@ -105,7 +105,7 @@ public class KaldbIndexerTest {
 
     chunkManagerUtil =
         new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             testZKServer,
@@ -133,7 +133,7 @@ public class KaldbIndexerTest {
         kafkaServer.getBroker().getBrokerList().get());
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
@@ -626,7 +626,7 @@ public class KaldbIndexerTest {
     LOG.info("Starting the indexer again");
     chunkManagerUtil =
         new ChunkManagerUtil<>(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             testZKServer,

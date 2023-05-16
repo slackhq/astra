@@ -2,7 +2,7 @@ package com.slack.kaldb.testlib;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -44,7 +44,7 @@ public class ChunkManagerUtil<T> {
   private final MetadataStore metadataStore;
 
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
-      S3MockRule s3MockRule,
+      S3MockExtension s3MockExtension,
       String s3Bucket,
       MeterRegistry meterRegistry,
       long maxBytesPerChunk,
@@ -63,7 +63,7 @@ public class ChunkManagerUtil<T> {
     MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
 
     return new ChunkManagerUtil<>(
-        s3MockRule,
+        s3MockExtension,
         s3Bucket,
         meterRegistry,
         zkServer,
@@ -75,7 +75,7 @@ public class ChunkManagerUtil<T> {
   }
 
   public ChunkManagerUtil(
-      S3MockRule s3MockRule,
+      S3MockExtension s3MockExtension,
       String s3Bucket,
       MeterRegistry meterRegistry,
       TestingServer zkServer,
@@ -87,7 +87,7 @@ public class ChunkManagerUtil<T> {
       throws Exception {
 
     tempFolder = Files.createTempDir(); // TODO: don't use beta func.
-    s3Client = s3MockRule.createS3ClientV2();
+    s3Client = s3MockExtension.createS3ClientV2();
 
     S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
     this.zkServer = zkServer;

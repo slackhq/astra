@@ -6,10 +6,11 @@ import static com.slack.kaldb.chunk.ChunkInfo.containsDataInTimeRange;
 import static com.slack.kaldb.chunk.ChunkInfo.fromSnapshotMetadata;
 import static com.slack.kaldb.chunk.ChunkInfo.toSnapshotMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ChunkInfoTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
@@ -253,54 +254,62 @@ public class ChunkInfoTest {
         .isTrue();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeStartTimeInDateRange() {
     final ChunkInfo info =
         new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
-    assertThat(info.containsDataInTimeRange(-1, 980)).isTrue();
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> info.containsDataInTimeRange(-1, 980));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeEndTimeInDateRange() {
     final ChunkInfo info =
         new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
-    assertThat(info.containsDataInTimeRange(960, -1)).isTrue();
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> info.containsDataInTimeRange(960, -1));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeIntervalInDateRange() {
     final ChunkInfo info =
         new ChunkInfo(TEST_CHUNK_NAME, 1000, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
     info.updateDataTimeRange(980);
     info.updateDataTimeRange(1020);
 
-    assertThat(info.containsDataInTimeRange(960, 950)).isTrue();
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> info.containsDataInTimeRange(960, 950));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidChunkName() {
-    new ChunkInfo(null, 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new ChunkInfo(null, 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyChunkName() {
-    new ChunkInfo("", 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new ChunkInfo("", 100, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeChunkCreationTime() {
-    new ChunkInfo(TEST_CHUNK_NAME, -1, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () -> new ChunkInfo(TEST_CHUNK_NAME, -1, TEST_KAFKA_PARTITION_ID, TEST_SNAPSHOT_PATH));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyKafkaPartitionId() {
-    new ChunkInfo(TEST_CHUNK_NAME, 100, "", TEST_SNAPSHOT_PATH);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new ChunkInfo(TEST_CHUNK_NAME, 100, "", TEST_SNAPSHOT_PATH));
   }
 
   @Test

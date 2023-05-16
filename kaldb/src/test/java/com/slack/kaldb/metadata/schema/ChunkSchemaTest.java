@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.util.concurrent.ConcurrentHashMap;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ChunkSchemaTest {
   @Test

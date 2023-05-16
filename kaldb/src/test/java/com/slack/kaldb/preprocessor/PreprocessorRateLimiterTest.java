@@ -13,7 +13,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import org.apache.kafka.streams.kstream.Predicate;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class PreprocessorRateLimiterTest {
 

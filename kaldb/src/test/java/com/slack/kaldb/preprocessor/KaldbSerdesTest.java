@@ -7,7 +7,7 @@ import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.time.Instant;
 import org.apache.kafka.common.serialization.Serde;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class KaldbSerdesTest {
 

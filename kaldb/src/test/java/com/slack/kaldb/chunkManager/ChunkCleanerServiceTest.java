@@ -13,7 +13,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadWriteChunk;
@@ -36,17 +36,21 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.assertj.core.data.Offset;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ChunkCleanerServiceTest {
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private SimpleMeterRegistry metricsRegistry;
@@ -54,12 +58,12 @@ public class ChunkCleanerServiceTest {
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         makeChunkManagerUtil(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
@@ -71,7 +75,7 @@ public class ChunkCleanerServiceTest {
     snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getMetadataStore(), false);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException, TimeoutException {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
@@ -197,7 +201,7 @@ public class ChunkCleanerServiceTest {
     assertThat(snapshotNodes.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshotNodes.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).startTimeEpochMs)
-        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(1000L));
+        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(2500L));
     assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
     final List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(1);

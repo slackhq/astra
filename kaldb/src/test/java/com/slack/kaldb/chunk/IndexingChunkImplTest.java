@@ -12,11 +12,12 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
@@ -36,6 +37,7 @@ import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -50,19 +52,16 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 
-@RunWith(Enclosed.class)
 public class IndexingChunkImplTest {
   private static final String TEST_KAFKA_PARTITION_ID = "10";
   private static final String TEST_HOST = "localhost";
@@ -86,8 +85,9 @@ public class IndexingChunkImplTest {
     assertThat(beforeSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
-  public static class BasicTests {
-    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Nested
+  public class BasicTests {
+    @TempDir private Path tmpPath;
 
     private boolean closeChunk = true;
     private MeterRegistry registry;
@@ -95,7 +95,7 @@ public class IndexingChunkImplTest {
     private TestingServer testingServer;
     private MetadataStore metadataStore;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
 
@@ -118,7 +118,7 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(),
+              tmpPath.toFile(),
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
@@ -140,7 +140,7 @@ public class IndexingChunkImplTest {
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
@@ -346,7 +346,7 @@ public class IndexingChunkImplTest {
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void testAddMessageToReadOnlyChunk() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
@@ -359,10 +359,16 @@ public class IndexingChunkImplTest {
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.setReadOnly(true);
       assertThat(chunk.isReadOnly()).isTrue();
-      chunk.addMessage(MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, offset);
+
+      int finalOffset = offset;
+      assertThatExceptionOfType(IllegalStateException.class)
+          .isThrownBy(
+              () ->
+                  chunk.addMessage(
+                      MessageUtil.makeMessage(101), TEST_KAFKA_PARTITION_ID, finalOffset));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testMessageFromDifferentPartitionFails() {
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
@@ -375,7 +381,13 @@ public class IndexingChunkImplTest {
       assertThat(chunk.isReadOnly()).isFalse();
       chunk.setReadOnly(true);
       assertThat(chunk.isReadOnly()).isTrue();
-      chunk.addMessage(MessageUtil.makeMessage(101), "differentKafkaPartition", offset);
+
+      int finalOffset = offset;
+      assertThatExceptionOfType(IllegalArgumentException.class)
+          .isThrownBy(
+              () ->
+                  chunk.addMessage(
+                      MessageUtil.makeMessage(101), "differentKafkaPartition", finalOffset));
     }
 
     @Test
@@ -419,8 +431,9 @@ public class IndexingChunkImplTest {
     }
   }
 
-  public static class TestChunkWithRaiseErrorPolicy {
-    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Nested
+  public class TestChunkWithRaiseErrorPolicy {
+    @TempDir private Path tmpPath;
 
     private boolean closeChunk = true;
     private MeterRegistry registry;
@@ -428,7 +441,7 @@ public class IndexingChunkImplTest {
     private TestingServer testingServer;
     private MetadataStore metadataStore;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
 
@@ -451,7 +464,7 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(),
+              tmpPath.toFile(),
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
@@ -472,7 +485,7 @@ public class IndexingChunkImplTest {
       testBeforeSnapshotState(snapshotMetadataStore, searchMetadataStore, chunk);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
@@ -496,12 +509,14 @@ public class IndexingChunkImplTest {
     }
   }
 
-  public static class SnapshotTests {
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder().silent().withSecureConnection(false).build();
 
-    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Nested
+  public class SnapshotTests {
 
-    @Rule public TemporaryFolder localDownloadFolder = new TemporaryFolder();
+    @TempDir private Path tmpPath;
 
     private SimpleMeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
@@ -511,7 +526,7 @@ public class IndexingChunkImplTest {
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       Tracing.newBuilder().build();
       testingServer = new TestingServer();
@@ -533,7 +548,7 @@ public class IndexingChunkImplTest {
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
-              temporaryFolder.newFolder(),
+              tmpPath.toFile(),
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
@@ -559,7 +574,7 @@ public class IndexingChunkImplTest {
       assertThat(searchNodes.size()).isEqualTo(1);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
       searchMetadataStore.close();
@@ -606,7 +621,7 @@ public class IndexingChunkImplTest {
 
       // create an S3 client for test
       String bucket = "invalid-bucket";
-      S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
       S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
@@ -667,7 +682,7 @@ public class IndexingChunkImplTest {
 
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
-      S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
       S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
@@ -718,8 +733,7 @@ public class IndexingChunkImplTest {
       // Ensure folder is cleared after chunk chlose. List the number of files in folder
       // recursively, skip empty folders.
       assertThat(
-              FileUtils.listFiles(
-                      temporaryFolder.getRoot(), TrueFileFilter.TRUE, TrueFileFilter.TRUE)
+              FileUtils.listFiles(tmpPath.toFile(), TrueFileFilter.TRUE, TrueFileFilter.TRUE)
                   .stream()
                   .count())
           .isZero();

@@ -2,6 +2,7 @@ package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -29,10 +30,10 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class RecoveryTaskAssignmentServiceTest {
 
@@ -43,7 +44,7 @@ public class RecoveryTaskAssignmentServiceTest {
   private RecoveryTaskMetadataStore recoveryTaskMetadataStore;
   private RecoveryNodeMetadataStore recoveryNodeMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -63,7 +64,7 @@ public class RecoveryTaskAssignmentServiceTest {
     recoveryNodeMetadataStore = spy(new RecoveryNodeMetadataStore(metadataStore, true));
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException {
     recoveryNodeMetadataStore.close();
     recoveryTaskMetadataStore.close();
@@ -73,7 +74,7 @@ public class RecoveryTaskAssignmentServiceTest {
     meterRegistry.close();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void shouldCheckInvalidEventAggregation() {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
@@ -88,11 +89,17 @@ public class RecoveryTaskAssignmentServiceTest {
             .setEventAggregationSecs(-1)
             .build();
 
-    new RecoveryTaskAssignmentService(
-        recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new RecoveryTaskAssignmentService(
+                    recoveryTaskMetadataStore,
+                    recoveryNodeMetadataStore,
+                    managerConfig,
+                    meterRegistry));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void shouldCheckInvalidPeriod() {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =
@@ -107,9 +114,15 @@ public class RecoveryTaskAssignmentServiceTest {
             .setEventAggregationSecs(1)
             .build();
 
-    new RecoveryTaskAssignmentService(
-            recoveryTaskMetadataStore, recoveryNodeMetadataStore, managerConfig, meterRegistry)
-        .scheduler();
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new RecoveryTaskAssignmentService(
+                        recoveryTaskMetadataStore,
+                        recoveryNodeMetadataStore,
+                        managerConfig,
+                        meterRegistry)
+                    .scheduler());
   }
 
   @Test
@@ -811,7 +824,7 @@ public class RecoveryTaskAssignmentServiceTest {
   }
 
   @Test
-  @Ignore // Flakey, occasionally throws InternalMetadataStore on the recoveryNodeMetadataStore
+  @Disabled // Flakey, occasionally throws InternalMetadataStore on the recoveryNodeMetadataStore
   public void shouldHandleTasksAvailableFirstLifecycle() throws Exception {
     KaldbConfigs.ManagerConfig.RecoveryTaskAssignmentServiceConfig
         recoveryTaskAssignmentServiceConfig =

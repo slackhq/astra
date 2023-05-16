@@ -2,9 +2,9 @@ package com.slack.kaldb.clusterManager;
 
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.AssertionsForClassTypes.fail;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
@@ -27,9 +27,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.naming.SizeLimitExceededException;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ReplicaRestoreServiceTest {
 
@@ -39,7 +39,7 @@ public class ReplicaRestoreServiceTest {
   private KaldbConfigs.ManagerConfig managerConfig;
   private ReplicaMetadataStore replicaMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -71,7 +71,7 @@ public class ReplicaRestoreServiceTest {
     replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException {
     meterRegistry.close();
     testingServer.close();
@@ -135,7 +135,7 @@ public class ReplicaRestoreServiceTest {
                 replicaRestoreService.queueSnapshotsForRestoration(List.of(snapshotIncluded));
                 Thread.sleep(300);
               } catch (Exception e) {
-                fail();
+                fail("Error in queueSnapshotsForRestoration", e);
               }
             }
           });
@@ -224,8 +224,7 @@ public class ReplicaRestoreServiceTest {
       snapshots.add(new SnapshotMetadata(id, id, now + 10, now + 15, 0, id, LOGS_LUCENE9));
     }
 
-    assertThrows(
-        SizeLimitExceededException.class,
-        () -> replicaRestoreService.queueSnapshotsForRestoration(snapshots));
+    assertThatExceptionOfType(SizeLimitExceededException.class)
+        .isThrownBy(() -> replicaRestoreService.queueSnapshotsForRestoration(snapshots));
   }
 }

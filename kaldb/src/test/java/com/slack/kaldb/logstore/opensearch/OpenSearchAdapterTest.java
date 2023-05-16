@@ -1,6 +1,7 @@
 package com.slack.kaldb.logstore.opensearch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AggBuilder;
@@ -17,13 +18,13 @@ import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingFunctionAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.lucene.search.CollectorManager;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.AbstractAggregationBuilder;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
@@ -43,15 +44,15 @@ import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 public class OpenSearchAdapterTest {
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule logStoreAndSearcherRule =
-      new TemporaryLogStoreAndSearcherRule(false);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
+      new TemporaryLogStoreAndSearcherExtension(false);
 
   private final OpenSearchAdapter openSearchAdapter = new OpenSearchAdapter(Map.of());
 
   public OpenSearchAdapterTest() throws IOException {}
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void safelyHandlesUnknownAggregations() throws IOException {
     AggBuilder unknownAgg =
         new AggBuilderBase("foo") {
@@ -61,8 +62,13 @@ public class OpenSearchAdapterTest {
           }
         };
 
-    openSearchAdapter.buildAggregatorUsingContext(
-        unknownAgg, logStoreAndSearcherRule.logStore.getSearcherManager().acquire(), null);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                openSearchAdapter.buildAggregatorUsingContext(
+                    unknownAgg,
+                    logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
+                    null));
   }
 
   @Test
@@ -363,7 +369,7 @@ public class OpenSearchAdapterTest {
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void handlesDateHistogramExtendedBoundsMinDocEdgeCases() throws IOException {
     // when using minDocCount the extended bounds must be set
     DateHistogramAggBuilder dateHistogramAggBuilder =
@@ -382,10 +388,7 @@ public class OpenSearchAdapterTest {
             logStoreAndSearcherRule.logStore.getSearcherManager().acquire(),
             null);
 
-    try (Aggregator dateHistogramExtendedBounds = collectorManager.newCollector()) {
-      InternalHistogram internalDateHistogram =
-          (InternalHistogram) dateHistogramExtendedBounds.buildTopLevel();
-      assertThat(internalDateHistogram.getName()).isEqualTo("foo");
-    }
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> collectorManager.newCollector());
   }
 }

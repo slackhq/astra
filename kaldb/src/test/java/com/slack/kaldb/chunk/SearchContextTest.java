@@ -1,8 +1,9 @@
 package com.slack.kaldb.chunk;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SearchContextTest {
 
@@ -16,19 +17,22 @@ public class SearchContextTest {
     assertThat(searchContext.port).isEqualTo(PORT);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativePort() {
-    new SearchContext(HOSTNAME, -1);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new SearchContext(HOSTNAME, -1));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyHostname() {
-    new SearchContext("", 1000);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new SearchContext("", 1000));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNullHostname() {
-    new SearchContext(null, 1000);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new SearchContext(null, 1000));
   }
 
   @Test

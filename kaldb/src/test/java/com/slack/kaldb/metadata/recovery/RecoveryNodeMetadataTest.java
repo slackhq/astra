@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class RecoveryNodeMetadataTest {
 

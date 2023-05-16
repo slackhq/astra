@@ -9,6 +9,7 @@ import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static com.slack.kaldb.util.SnapshotUtil.makeSnapshot;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -22,9 +23,9 @@ import java.util.concurrent.ExecutionException;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ZookeeperMetadataStoreImplTest {
   private TestingServer testingServer;
@@ -33,7 +34,7 @@ public class ZookeeperMetadataStoreImplTest {
   private CountingFatalErrorHandler countingFatalErrorHandler;
   private ZooKeeper zooKeeper;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are flaky.
@@ -51,7 +52,7 @@ public class ZookeeperMetadataStoreImplTest {
     zooKeeper = metadataStore.getCurator().getZookeeperClient().getZooKeeper();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException, NoSuchFieldException, IllegalAccessException {
     metadataStore.close();
     testingServer.close();
@@ -517,10 +518,12 @@ public class ZookeeperMetadataStoreImplTest {
     closeZookeeperClientConnection(zooKeeper);
   }
 
-  @Test(expected = NoNodeException.class)
+  @Test
   public void testCacheNodeAndChildrenCreatesMissingPath() throws Exception {
     String root = "/root";
-    metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer());
+    assertThatExceptionOfType(NoNodeException.class)
+        .isThrownBy(
+            () -> metadataStore.cacheNodeAndChildren(root, new SnapshotMetadataSerializer()));
   }
 
   @SuppressWarnings("OptionalGetWithoutIsPresent")

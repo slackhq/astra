@@ -1,6 +1,10 @@
 package com.slack.kaldb.blobfs.s3;
 
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,11 +15,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.apache.commons.io.IOUtils;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -23,27 +26,28 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
-/** Don't assertj but use junit asserts for this code to keep the blobfs lib deps simpler. */
 public class S3BlobFsTest {
-  @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder().silent().withSecureConnection(false).build();
 
   final String DELIMITER = "/";
   final String SCHEME = "s3";
   final String FILE_FORMAT = "%s://%s/%s";
   final String DIR_FORMAT = "%s://%s";
 
-  private final S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+  private final S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
   private String bucket;
   private S3BlobFs s3BlobFs;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     bucket = "test-bucket-" + UUID.randomUUID();
     s3BlobFs = new S3BlobFs(s3Client);
     s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException {
     if (s3BlobFs != null) {
       s3BlobFs.close();
@@ -74,8 +78,8 @@ public class S3BlobFsTest {
             .filter(x -> x.contains("touch"))
             .toArray(String[]::new);
 
-    Assert.assertEquals(response.length, originalFiles.length);
-    Assert.assertTrue(Arrays.equals(response, originalFiles));
+    assertEquals(response.length, originalFiles.length);
+    assertTrue(Arrays.equals(response, originalFiles));
   }
 
   @Test
@@ -96,9 +100,9 @@ public class S3BlobFsTest {
             .map(S3Object::key)
             .filter(x -> x.contains("touch"))
             .toArray(String[]::new);
-    Assert.assertEquals(response.length, originalFiles.length);
+    assertEquals(response.length, originalFiles.length);
 
-    Assert.assertTrue(
+    assertTrue(
         Arrays.equals(
             response, Arrays.stream(originalFiles).map(x -> folder + DELIMITER + x).toArray()));
   }
@@ -117,9 +121,9 @@ public class S3BlobFsTest {
         s3BlobFs.listFiles(URI.create(String.format(DIR_FORMAT, SCHEME, bucket)), false);
 
     actualFiles = Arrays.stream(actualFiles).filter(x -> x.contains("list")).toArray(String[]::new);
-    Assert.assertEquals(actualFiles.length, originalFiles.length);
+    assertEquals(actualFiles.length, originalFiles.length);
 
-    Assert.assertTrue(Arrays.equals(actualFiles, expectedFileNames.toArray()));
+    assertTrue(Arrays.equals(actualFiles, expectedFileNames.toArray()));
   }
 
   @Test
@@ -136,9 +140,9 @@ public class S3BlobFsTest {
 
     actualFiles =
         Arrays.stream(actualFiles).filter(x -> x.contains("list-2")).toArray(String[]::new);
-    Assert.assertEquals(actualFiles.length, originalFiles.length);
+    assertEquals(actualFiles.length, originalFiles.length);
 
-    Assert.assertTrue(
+    assertTrue(
         Arrays.equals(
             Arrays.stream(originalFiles)
                 .map(
@@ -168,8 +172,8 @@ public class S3BlobFsTest {
 
     actualFiles =
         Arrays.stream(actualFiles).filter(x -> x.contains("list-3")).toArray(String[]::new);
-    Assert.assertEquals(actualFiles.length, expectedResultList.size());
-    Assert.assertTrue(Arrays.equals(expectedResultList.toArray(), actualFiles));
+    assertEquals(actualFiles.length, expectedResultList.size());
+    assertTrue(Arrays.equals(expectedResultList.toArray(), actualFiles));
   }
 
   @Test
@@ -195,8 +199,8 @@ public class S3BlobFsTest {
             .filter(x -> x.contains("delete"))
             .toArray(String[]::new);
 
-    Assert.assertEquals(actualResponse.length, 2);
-    Assert.assertTrue(Arrays.equals(actualResponse, expectedResultList.toArray()));
+    assertEquals(actualResponse.length, 2);
+    assertTrue(Arrays.equals(actualResponse, expectedResultList.toArray()));
   }
 
   @Test
@@ -218,7 +222,7 @@ public class S3BlobFsTest {
             .filter(x -> x.contains("delete-2"))
             .toArray(String[]::new);
 
-    Assert.assertEquals(0, actualResponse.length);
+    assertEquals(0, actualResponse.length);
   }
 
   @Test
@@ -248,10 +252,10 @@ public class S3BlobFsTest {
                     bucket,
                     folder + DELIMITER + childFolder + DELIMITER + "a-delete.txt")));
 
-    Assert.assertTrue(isBucketDir);
-    Assert.assertTrue(isDir);
-    Assert.assertTrue(isDirChild);
-    Assert.assertFalse(notIsDir);
+    assertTrue(isBucketDir);
+    assertTrue(isDir);
+    assertTrue(isDirChild);
+    assertFalse(notIsDir);
   }
 
   @Test
@@ -289,11 +293,11 @@ public class S3BlobFsTest {
                     bucket,
                     folder + DELIMITER + childFolder + DELIMITER + "d-ex.txt")));
 
-    Assert.assertTrue(bucketExists);
-    Assert.assertTrue(dirExists);
-    Assert.assertTrue(childDirExists);
-    Assert.assertTrue(fileExists);
-    Assert.assertFalse(fileNotExists);
+    assertTrue(bucketExists);
+    assertTrue(dirExists);
+    assertTrue(childDirExists);
+    assertTrue(fileExists);
+    assertFalse(fileNotExists);
   }
 
   @Test
@@ -308,12 +312,12 @@ public class S3BlobFsTest {
     HeadObjectResponse headObjectResponse =
         s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, fileName));
 
-    Assert.assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
+    assertEquals(headObjectResponse.contentLength(), (Long) fileToCopy.length());
 
     File fileToDownload = new File("copyFile_download.txt").getAbsoluteFile();
     s3BlobFs.copyToLocalFile(
         URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)), fileToDownload);
-    Assert.assertEquals(fileToCopy.length(), fileToDownload.length());
+    assertEquals(fileToCopy.length(), fileToDownload.length());
 
     fileToDownload.deleteOnExit();
   }
@@ -329,7 +333,7 @@ public class S3BlobFsTest {
     InputStream is =
         s3BlobFs.open(URI.create(String.format(FILE_FORMAT, SCHEME, bucket, fileName)));
     String actualContents = IOUtils.toString(is, StandardCharsets.UTF_8);
-    Assert.assertEquals(actualContents, fileContent);
+    assertEquals(actualContents, fileContent);
   }
 
   @Test
@@ -340,6 +344,6 @@ public class S3BlobFsTest {
 
     HeadObjectResponse headObjectResponse =
         s3Client.headObject(S3TestUtils.getHeadObjectRequest(bucket, folderName + DELIMITER));
-    Assert.assertTrue(headObjectResponse.sdkHttpResponse().isSuccessful());
+    assertTrue(headObjectResponse.sdkHttpResponse().isSuccessful());
   }
 }

@@ -9,7 +9,7 @@ import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -42,10 +42,10 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -92,19 +92,23 @@ public class KaldbTest {
     return (boolean) map.get("healthy");
   }
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(TEST_S3_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
   private S3Client s3Client;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
 
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
@@ -133,7 +137,7 @@ public class KaldbTest {
     await().until(() -> datasetMetadataStore.listSync().size() == 1);
   }
 
-  @After
+  @AfterEach
   public void teardown() throws Exception {
     if (kafkaServer != null) {
       kafkaServer.close();

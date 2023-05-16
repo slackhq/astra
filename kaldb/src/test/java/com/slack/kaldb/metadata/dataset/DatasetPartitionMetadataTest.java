@@ -16,9 +16,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class DatasetPartitionMetadataTest {
 
@@ -27,7 +27,7 @@ public class DatasetPartitionMetadataTest {
   private DatasetMetadataStore datasetMetadataStore;
   private TestingServer testZKServer;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
 
@@ -48,7 +48,7 @@ public class DatasetPartitionMetadataTest {
     datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     datasetMetadataStore.close();
     zkMetadataStore.close();

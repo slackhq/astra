@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SearchMetadataSerializerTest {
   private final SearchMetadataSerializer serDe = new SearchMetadataSerializer();

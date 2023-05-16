@@ -46,9 +46,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class KaldbDistributedQueryServiceTest {
 
@@ -67,7 +67,7 @@ public class KaldbDistributedQueryServiceTest {
   private SearchContext cache3SearchContext;
   private SearchContext cache4SearchContext;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
 
@@ -98,7 +98,7 @@ public class KaldbDistributedQueryServiceTest {
     cache4SearchContext = new SearchContext("cache_host4", 20003);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     snapshotMetadataStore.close();
     searchMetadataStore.close();

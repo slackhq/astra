@@ -18,8 +18,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Map;
 import org.apache.lucene.document.Document;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +27,7 @@ public class RaiseErrorFieldValueTest {
   private SimpleMeterRegistry meterRegistry;
   private static final Logger LOG = LoggerFactory.getLogger(RaiseErrorFieldValueTest.class);
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
   }

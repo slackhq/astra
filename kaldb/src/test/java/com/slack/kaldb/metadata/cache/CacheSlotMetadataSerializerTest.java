@@ -8,7 +8,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
 import java.util.List;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class CacheSlotMetadataSerializerTest {
   private final CacheSlotMetadataSerializer serDe = new CacheSlotMetadataSerializer();

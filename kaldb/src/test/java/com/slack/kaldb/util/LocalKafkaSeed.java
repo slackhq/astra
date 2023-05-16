@@ -17,8 +17,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Provides functionality to seed a local instance of Kafka with sample data.
@@ -30,7 +30,7 @@ public class LocalKafkaSeed {
   private static final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-ddHH:mm:ss.SSSzzz");
 
   /** Initializes local kafka broker with sample messages occurring in the immediate future. */
-  @Ignore
+  @Disabled
   @Test
   public void seedLocalBrokerWithSampleData() throws Exception {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);
@@ -38,7 +38,7 @@ public class LocalKafkaSeed {
     TestKafkaServer.produceMessagesToKafka(broker, startTime);
   }
 
-  @Ignore
+  @Disabled
   @Test
   public void seedJsonLogsFromFile() throws IOException {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);
@@ -61,7 +61,7 @@ public class LocalKafkaSeed {
   }
 
   /** Initializes local kafka broker with sample messages replayed from a log file */
-  @Ignore
+  @Disabled
   @Test
   public void seedFromFile() throws IOException {
     EphemeralKafkaBroker broker = EphemeralKafkaBroker.create(9092, 2181);

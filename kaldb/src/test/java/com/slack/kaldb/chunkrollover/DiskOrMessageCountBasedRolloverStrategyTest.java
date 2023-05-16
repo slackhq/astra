@@ -7,9 +7,10 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -29,6 +30,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -36,29 +38,32 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class DiskOrMessageCountBasedRolloverStrategyTest {
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final String TEST_KAFKA_PARTITION_ID = "10";
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @TempDir private Path tmpPath;
 
   private IndexingChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
-  private S3Client s3Client;
+  private final S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
@@ -70,14 +75,11 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
 
   private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 10;
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
-    // create an S3 client and a bucket for test
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
-
     s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
@@ -97,7 +99,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     searchMetadataStore = new SearchMetadataStore(metadataStore, false);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws TimeoutException, IOException {
     metricsRegistry.close();
     if (chunkManager != null) {
@@ -124,7 +126,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     chunkManager =
         new IndexingChunkManager<>(
             "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
+            tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
             s3BlobFs,
@@ -151,7 +153,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   }
 
   @Test
-  @Ignore // flakey test
+  @Disabled // flakey test
   public void testDiskBasedRolloverWithMaxBytes() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(
@@ -229,14 +231,16 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     assertThat(response.getSnapshotsWithReplicas()).isEqualTo(3);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeMaxMessagesPerChunk() {
-    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 100, -1);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 100, -1));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeMaxBytesPerChunk() {
-    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, -100, 1);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, -100, 1));
   }
 
   @Test

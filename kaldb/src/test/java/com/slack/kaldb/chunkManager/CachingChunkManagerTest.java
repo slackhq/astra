@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
@@ -22,10 +22,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class CachingChunkManagerTest {
@@ -35,23 +35,27 @@ public class CachingChunkManagerTest {
   private MeterRegistry meterRegistry;
   private S3BlobFs s3BlobFs;
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(TEST_S3_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private ZookeeperMetadataStoreImpl metadataStore;
   private CachingChunkManager<LogMessage> cachingChunkManager;
 
-  @Before
+  @BeforeEach
   public void startup() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+    S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
     s3BlobFs = new S3BlobFs(s3Client);
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException, TimeoutException {
     if (cachingChunkManager != null) {
       cachingChunkManager.stopAsync();
