@@ -1,5 +1,11 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
+import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
+import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AbstractScheduledService;
@@ -15,9 +21,6 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,12 +32,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
-import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
-import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The replica assignment service watches for changes in the available cache slots and replicas

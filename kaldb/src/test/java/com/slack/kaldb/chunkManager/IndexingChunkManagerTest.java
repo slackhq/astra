@@ -74,7 +74,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.assertj.core.data.Offset;
 import org.junit.After;

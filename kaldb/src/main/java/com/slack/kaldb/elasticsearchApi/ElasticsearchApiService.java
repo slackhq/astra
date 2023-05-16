@@ -29,10 +29,6 @@ import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import com.slack.kaldb.util.JsonUtil;
-import org.opensearch.search.aggregations.InternalAggregation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +40,9 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.opensearch.search.aggregations.InternalAggregation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Elasticsearch compatible API service, for use in Grafana

@@ -1,5 +1,7 @@
 package com.slack.kaldb.server;
 
+import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -16,10 +18,6 @@ import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.naming.SizeLimitExceededException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,9 +25,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-
-import static com.slack.kaldb.metadata.dataset.DatasetMetadataSerializer.toDatasetMetadataProto;
+import javax.naming.SizeLimitExceededException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Administration API for managing dataset configurations, including throughput and partition
@@ -296,10 +294,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
         Sets.intersection(
             Sets.newHashSet(snapshotIds),
             Sets.newHashSet(
-                snapshotMetadataList
-                    .stream()
-                    .map((snapshot) -> snapshot.snapshotId)
-                    .toList()));
+                snapshotMetadataList.stream().map((snapshot) -> snapshot.snapshotId).toList()));
 
     return snapshotMetadataList
         .stream()

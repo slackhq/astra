@@ -4,7 +4,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.slack.kaldb.metadata.core.MetadataSerializer;
 import com.slack.kaldb.proto.metadata.Metadata;
-
 import java.util.List;
 
 public class DatasetMetadataSerializer implements MetadataSerializer<DatasetMetadata> {

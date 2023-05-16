@@ -15,9 +15,6 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.SearchResultAggregator;
 import com.slack.kaldb.logstore.search.SearchResultAggregatorImpl;
 import com.slack.kaldb.metadata.schema.FieldType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +27,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A chunk manager provides a unified api to write and query all the chunks in the application.
@@ -97,10 +95,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
               .toList();
     } else {
       chunksMatchingQuery =
-          chunkList
-              .stream()
-              .filter(c -> query.chunkIds.contains(c.id()))
-              .toList();
+          chunkList.stream().filter(c -> query.chunkIds.contains(c.id())).toList();
     }
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent

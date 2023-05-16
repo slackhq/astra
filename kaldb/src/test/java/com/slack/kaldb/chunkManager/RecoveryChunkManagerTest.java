@@ -45,7 +45,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -355,8 +354,7 @@ public class RecoveryChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes).isEmpty();
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
-        .isEmpty();
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList()).isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
   }
 
@@ -400,8 +398,7 @@ public class RecoveryChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes).isEmpty();
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
-        .isEmpty();
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList()).isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
 
     // roll over active chunk on close.

@@ -34,7 +34,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.assertj.core.data.Offset;
 import org.junit.After;
 import org.junit.Before;
@@ -264,13 +263,7 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
 
     checkMetadata(4, 2, 2, 2, 0);
-    assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .toList())
+    assertThat(snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList())
         .containsExactlyElementsOf(List.of(10L, 10L, 11L, 11L));
 
     assertThat(chunk1.isReadOnly()).isTrue();
@@ -301,13 +294,7 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().contains(chunk2)).isFalse();
 
     checkMetadata(3, 1, 2, 1, 0);
-    assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .toList())
+    assertThat(snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList())
         .containsOnly(10L, 11L, 11L);
 
     // Delete chunk1.
@@ -318,13 +305,7 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isZero();
 
     checkMetadata(2, 0, 2, 0, 0);
-    assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .toList())
+    assertThat(snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList())
         .containsOnly(10L, 11L);
   }
 

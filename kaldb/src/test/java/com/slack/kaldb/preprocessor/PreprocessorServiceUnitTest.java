@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.streams.StreamsConfig;
@@ -247,8 +246,7 @@ public class PreprocessorServiceUnitTest {
   @Test
   public void shouldNotCachePartitionBeyondStickyTimeout() throws InterruptedException {
     int stickyTimeoutMs = 1;
-    List<String> partitions =
-        IntStream.range(0, 100).mapToObj((String::valueOf)).toList();
+    List<String> partitions = IntStream.range(0, 100).mapToObj((String::valueOf)).toList();
 
     String datasetName = "datasetName";
     DatasetMetadata datasetMetadata =

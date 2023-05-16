@@ -32,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
@@ -401,10 +400,7 @@ public class ReplicaCreationServiceTest {
     assertThat(snapshotMetadataList).isEqualTo(snapshotMetadataStore.listSync());
 
     List<String> eligibleSnapshotIds =
-        eligibleSnapshots
-            .stream()
-            .map(snapshotMetadata -> snapshotMetadata.snapshotId)
-            .toList();
+        eligibleSnapshots.stream().map(snapshotMetadata -> snapshotMetadata.snapshotId).toList();
     assertThat(
             replicaMetadataStore
                 .listSync()

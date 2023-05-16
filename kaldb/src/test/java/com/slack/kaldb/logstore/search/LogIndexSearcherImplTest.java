@@ -832,11 +832,7 @@ public class LogIndexSearcherImplTest {
     assertThat(stringTerms.getBuckets().size()).isEqualTo(4);
 
     List<String> bucketKeys =
-        stringTerms
-            .getBuckets()
-            .stream()
-            .map(bucket -> (String) bucket.getKey())
-            .toList();
+        stringTerms.getBuckets().stream().map(bucket -> (String) bucket.getKey()).toList();
     assertThat(bucketKeys.contains("String-1")).isTrue();
     assertThat(bucketKeys.contains("String-3")).isTrue();
     assertThat(bucketKeys.contains("String-4")).isTrue();

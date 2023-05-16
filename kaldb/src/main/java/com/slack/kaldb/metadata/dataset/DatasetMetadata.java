@@ -1,13 +1,12 @@
 package com.slack.kaldb.metadata.dataset;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
 import com.slack.kaldb.metadata.core.KaldbMetadata;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Contains configurations for use in the pre-processor and query service - including rate limits,

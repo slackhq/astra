@@ -25,13 +25,12 @@ import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.util.JsonUtil;
-import org.apache.commons.lang3.NotImplementedException;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class SearchResultUtils {
   public static Map<String, Object> fromValueStruct(KaldbSearch.Struct struct) {
@@ -101,10 +100,7 @@ public class SearchResultUtils {
       valueBuilder.setListValue(
           KaldbSearch.ListValue.newBuilder()
               .addAllValues(
-                  ((List<?>) object)
-                      .stream()
-                      .map(SearchResultUtils::toValueProto)
-                      .toList())
+                  ((List<?>) object).stream().map(SearchResultUtils::toValueProto).toList())
               .build());
     } else {
       throw new IllegalArgumentException();

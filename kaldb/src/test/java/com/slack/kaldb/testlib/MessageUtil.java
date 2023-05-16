@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.time.Instant;
@@ -144,10 +143,7 @@ public class MessageUtil {
   }
 
   public static List<LogMessage> makeMessages(int low, int high) {
-    return IntStream.rangeClosed(low, high)
-        .boxed()
-        .map(MessageUtil::makeMessage)
-        .toList();
+    return IntStream.rangeClosed(low, high).boxed().map(MessageUtil::makeMessage).toList();
   }
 
   public static List<LogMessage> makeMessagesWithTimeDifference(int low, int high) {
