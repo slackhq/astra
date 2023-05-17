@@ -258,47 +258,51 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     String expectedTrace =
         String.format(
-            "[{\n"
-                + "  \"traceId\": \"1\",\n"
-                + "  \"parentId\": \"1\",\n"
-                + "  \"id\": \"localhost:100:1\",\n"
-                + "  \"kind\": \"SPAN_KIND_UNSPECIFIED\",\n"
-                + "  \"name\": \"Trace2\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"2\",\n"
-                + "  \"remoteEndpoint\": {\n"
-                + "    \"serviceName\": \"testDataSet\",\n"
-                + "    \"ipv4\": \"\",\n"
-                + "    \"ipv6\": \"\",\n"
-                + "    \"port\": 0\n"
-                + "  },\n"
-                + "  \"annotations\": [],\n"
-                + "  \"tags\": {\n"
-                + "    \"hostname\": \"localhost\"\n"
-                + "  },\n"
-                + "  \"debug\": false,\n"
-                + "  \"shared\": false\n"
-                + "},{\n"
-                + "  \"traceId\": \"1\",\n"
-                + "  \"parentId\": \"\",\n"
-                + "  \"id\": \"localhost:100:0\",\n"
-                + "  \"kind\": \"SPAN_KIND_UNSPECIFIED\",\n"
-                + "  \"name\": \"Trace1\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"1\",\n"
-                + "  \"remoteEndpoint\": {\n"
-                + "    \"serviceName\": \"testDataSet\",\n"
-                + "    \"ipv4\": \"\",\n"
-                + "    \"ipv6\": \"\",\n"
-                + "    \"port\": 0\n"
-                + "  },\n"
-                + "  \"annotations\": [],\n"
-                + "  \"tags\": {\n"
-                + "    \"hostname\": \"localhost\"\n"
-                + "  },\n"
-                + "  \"debug\": false,\n"
-                + "  \"shared\": false\n"
-                + "}]",
+            """
+                        [
+                            {
+                                "traceId": "1",
+                                "parentId": "1",
+                                "id": "1localhost:100:1",
+                                "kind": "SPAN_KIND_UNSPECIFIED",
+                                "name": "Trace2",
+                                "timestamp": "%d",
+                                "duration": "2",
+                                "remoteEndpoint": {
+                                    "serviceName": "testDataSet",
+                                    "ipv4": "",
+                                    "ipv6": "",
+                                    "port": 0
+                                },
+                                "annotations": [],
+                                "tags": {
+                                    "hostname": "localhost"
+                                },
+                                "debug": false,
+                                "shared": false
+                            },
+                            {
+                                "traceId": "1",
+                                "parentId": "",
+                                "id": "1localhost:100:0",
+                                "kind": "SPAN_KIND_UNSPECIFIED",
+                                "name": "Trace1",
+                                "timestamp": "%d",
+                                "duration": "1",
+                                "remoteEndpoint": {
+                                    "serviceName": "testDataSet",
+                                    "ipv4": "",
+                                    "ipv6": "",
+                                    "port": 0
+                                },
+                                "annotations": [],
+                                "tags": {
+                                    "hostname": "localhost"
+                                },
+                                "debug": false,
+                                "shared": false
+                            }
+                        ]""",
             ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(2)),
             ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(1)));
     assertThat(body).isEqualTo(expectedTrace);
@@ -339,27 +343,30 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     expectedTrace =
         String.format(
-            "[{\n"
-                + "  \"traceId\": \"1\",\n"
-                + "  \"parentId\": \"1\",\n"
-                + "  \"id\": \"localhost:100:1\",\n"
-                + "  \"kind\": \"SPAN_KIND_UNSPECIFIED\",\n"
-                + "  \"name\": \"Trace2\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"2\",\n"
-                + "  \"remoteEndpoint\": {\n"
-                + "    \"serviceName\": \"testDataSet\",\n"
-                + "    \"ipv4\": \"\",\n"
-                + "    \"ipv6\": \"\",\n"
-                + "    \"port\": 0\n"
-                + "  },\n"
-                + "  \"annotations\": [],\n"
-                + "  \"tags\": {\n"
-                + "    \"hostname\": \"localhost\"\n"
-                + "  },\n"
-                + "  \"debug\": false,\n"
-                + "  \"shared\": false\n"
-                + "}]",
+            """
+                        [
+                            {
+                                "traceId": "1",
+                                "parentId": "1",
+                                "id": "localhost:100:1",
+                                "kind": "SPAN_KIND_UNSPECIFIED",
+                                "name": "Trace2",
+                                "timestamp": "%d",
+                                "duration": "2",
+                                "remoteEndpoint": {
+                                    "serviceName": "testDataSet",
+                                    "ipv4": "",
+                                    "ipv6": "",
+                                    "port": 0
+                                },
+                                "annotations": [],
+                                "tags": {
+                                    "hostname": "localhost"
+                                },
+                                "debug": false,
+                                "shared": false
+                            }
+                        ]""",
             ZipkinService.convertToMicroSeconds(trace1StartTime.plusSeconds(2)));
     assertThat(body).isEqualTo(expectedTrace);
 
@@ -389,27 +396,30 @@ public class ZipkinServiceTest {
     assertThat(response.status().code()).isEqualTo(200);
     expectedTrace =
         String.format(
-            "[{\n"
-                + "  \"traceId\": \"3\",\n"
-                + "  \"parentId\": \"\",\n"
-                + "  \"id\": \"localhost:100:7\",\n"
-                + "  \"kind\": \"SPAN_KIND_UNSPECIFIED\",\n"
-                + "  \"name\": \"Trace1\",\n"
-                + "  \"timestamp\": \"%d\",\n"
-                + "  \"duration\": \"1\",\n"
-                + "  \"remoteEndpoint\": {\n"
-                + "    \"serviceName\": \"testDataSet\",\n"
-                + "    \"ipv4\": \"\",\n"
-                + "    \"ipv6\": \"\",\n"
-                + "    \"port\": 0\n"
-                + "  },\n"
-                + "  \"annotations\": [],\n"
-                + "  \"tags\": {\n"
-                + "    \"hostname\": \"localhost\"\n"
-                + "  },\n"
-                + "  \"debug\": false,\n"
-                + "  \"shared\": false\n"
-                + "}]",
+            """
+                        [
+                            {
+                                "traceId": "3",
+                                "parentId": "",
+                                "id": "localhost:100:7",
+                                "kind": "SPAN_KIND_UNSPECIFIED",
+                                "name": "Trace1",
+                                "timestamp": "%d",
+                                "duration": "1",
+                                "remoteEndpoint": {
+                                    "serviceName": "testDataSet",
+                                    "ipv4": "",
+                                    "ipv6": "",
+                                    "port": 0
+                                },
+                                "annotations": [],
+                                "tags": {
+                                    "hostname": "localhost"
+                                },
+                                "debug": false,
+                                "shared": false
+                            }
+                        ]""",
             ZipkinService.convertToMicroSeconds(trace3StartTime.plusSeconds(1)));
     assertThat(body).isEqualTo(expectedTrace);
 
