@@ -12,18 +12,17 @@ import static com.slack.kaldb.recovery.RecoveryService.RECOVERY_NODE_ASSIGNMENT_
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.TestKafkaServer.produceMessagesToKafka;
-import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getKafkaTestServer;
-import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.getStartOffset;
-import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.BasicTests.setRetentionTime;
 import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.TEST_KAFKA_CLIENT_GROUP;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.getKafkaTestServer;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.getStartOffset;
+import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumerTest.setRetentionTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.awaitility.Awaitility.with;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.collect.Maps;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -49,17 +48,17 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.apache.curator.test.TestingServer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -67,9 +66,13 @@ public class RecoveryServiceTest {
 
   private static final String TEST_S3_BUCKET = "test-s3-bucket";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(TEST_S3_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(TEST_S3_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final String TEST_KAFKA_TOPIC_1 = "test-topic-1";
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
@@ -82,17 +85,17 @@ public class RecoveryServiceTest {
   private RecoveryService recoveryService;
   private ZookeeperMetadataStoreImpl metadataStore;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     kafkaServer = new TestKafkaServer();
     meterRegistry = new SimpleMeterRegistry();
     zkServer = new TestingServer();
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
     blobFs = new S3BlobFs(s3Client);
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws Exception {
     if (recoveryService != null) {
       recoveryService.stopAsync();
@@ -181,7 +184,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithCompletelyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =
@@ -212,11 +215,14 @@ public class RecoveryServiceTest {
         topicPartition.partition(),
         (int) msgsToProduce);
     await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
-    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
-    with()
-        .atMost(1, TimeUnit.MINUTES)
-        .await()
-        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+    // we immediately force delete the messages, as this is faster than changing the retention and
+    // waiting for the cleaner to run
+    components
+        .adminClient
+        .deleteRecords(Map.of(topicPartition, RecordsToDelete.beforeOffset(100)))
+        .all()
+        .get();
+    assertThat(getStartOffset(components.adminClient, topicPartition)).isGreaterThan(0);
 
     // produce some more messages that won't be expired
     setRetentionTime(components.adminClient, topicPartition.topic(), 25000);
@@ -262,7 +268,7 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskWithPartiallyUnavailableOffsets() throws Exception {
     final TopicPartition topicPartition = new TopicPartition(TestKafkaServer.TEST_KAFKA_TOPIC, 0);
-    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_RULE);
+    TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
     metadataStore =
@@ -292,11 +298,14 @@ public class RecoveryServiceTest {
         topicPartition.partition(),
         (int) msgsToProduce);
     await().until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce);
-    setRetentionTime(components.adminClient, topicPartition.topic(), 250);
-    with()
-        .atMost(1, TimeUnit.MINUTES)
-        .await()
-        .until(() -> getStartOffset(components.adminClient, topicPartition) > 0);
+    // we immediately force delete the messages, as this is faster than changing the retention and
+    // waiting for the cleaner to run
+    components
+        .adminClient
+        .deleteRecords(Map.of(topicPartition, RecordsToDelete.beforeOffset(100)))
+        .all()
+        .get();
+    assertThat(getStartOffset(components.adminClient, topicPartition)).isGreaterThan(0);
 
     // produce some more messages that won't be expired
     setRetentionTime(components.adminClient, topicPartition.topic(), 25000);

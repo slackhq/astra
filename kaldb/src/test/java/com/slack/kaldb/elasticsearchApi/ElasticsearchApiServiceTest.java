@@ -11,7 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
@@ -38,36 +38,37 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.assertj.core.data.Offset;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ElasticsearchApiServiceTest {
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final String TEST_KAFKA_PARTITION_ID = "10";
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private ElasticsearchApiService elasticsearchApiService;
 
   private SimpleMeterRegistry metricsRegistry;
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         ChunkManagerUtil.makeChunkManagerUtil(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
@@ -80,7 +81,7 @@ public class ElasticsearchApiServiceTest {
     elasticsearchApiService = new ElasticsearchApiService(searcher);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws TimeoutException, IOException {
     chunkManagerUtil.close();
     metricsRegistry.close();

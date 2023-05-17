@@ -25,12 +25,12 @@ import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MetricsUtil;
+import com.slack.kaldb.util.GrpcCleanupExtension;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -38,14 +38,15 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @SuppressWarnings("ResultOfMethodCallIgnored")
 public class ManagerApiGrpcTest {
-  @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+
+  @RegisterExtension public final GrpcCleanupExtension grpcCleanup = new GrpcCleanupExtension();
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -57,7 +58,7 @@ public class ManagerApiGrpcTest {
   private ReplicaRestoreService replicaRestoreService;
   private ManagerApiServiceGrpc.ManagerApiServiceBlockingStub managerApiStub;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -107,7 +108,7 @@ public class ManagerApiGrpcTest {
     managerApiStub = ManagerApiServiceGrpc.newBlockingStub(channel);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     replicaRestoreService.stopAsync();
     replicaRestoreService.awaitTerminated(DEFAULT_START_STOP_DURATION);

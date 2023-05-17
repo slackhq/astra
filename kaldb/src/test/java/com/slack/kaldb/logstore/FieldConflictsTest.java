@@ -1,29 +1,29 @@
 package com.slack.kaldb.logstore;
 
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.findAllMessages;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class FieldConflictsTest {
-  @BeforeClass
+  @BeforeAll
   public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(true);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension strictLogStore =
+      new TemporaryLogStoreAndSearcherExtension(true);
 
   public FieldConflictsTest() throws IOException {}
 

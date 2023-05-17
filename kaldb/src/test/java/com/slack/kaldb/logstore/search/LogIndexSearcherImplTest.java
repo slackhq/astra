@@ -10,8 +10,9 @@ import static com.slack.kaldb.testlib.MessageUtil.TEST_SOURCE_STRING_PROPERTY;
 import static com.slack.kaldb.testlib.MessageUtil.makeMessageWithIndexAndTimestamp;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
@@ -23,7 +24,7 @@ import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -34,10 +35,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
@@ -50,17 +51,17 @@ import org.opensearch.search.aggregations.metrics.InternalSum;
 
 public class LogIndexSearcherImplTest {
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(true);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension strictLogStore =
+      new TemporaryLogStoreAndSearcherExtension(true);
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule strictLogStoreWithoutFts =
-      new TemporaryLogStoreAndSearcherRule(false);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension strictLogStoreWithoutFts =
+      new TemporaryLogStoreAndSearcherExtension(false);
 
   public LogIndexSearcherImplTest() throws IOException {}
 
-  @BeforeClass
+  @BeforeAll
   public static void beforeClass() {
     Tracing.newBuilder().build();
   }
@@ -165,7 +166,7 @@ public class LogIndexSearcherImplTest {
   }
 
   @Test
-  @Ignore // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
+  @Disabled // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
   public void testIndexBoundSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     strictLogStore.logStore.addMessage(makeMessageWithIndexAndTimestamp(1, "test1", "idx", time));
@@ -1371,22 +1372,26 @@ public class LogIndexSearcherImplTest {
         .isZero();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNullSearchString() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
 
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME + "miss",
-        null,
-        0,
-        MAX_TIME,
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME + "miss",
+                    null,
+                    0,
+                    MAX_TIME,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
   @Test
-  @Ignore // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
+  @Disabled // todo - re-enable when multi-tenancy is supported - slackhq/kaldb/issues/223
   public void testMissingIndexSearch() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
@@ -1482,121 +1487,156 @@ public class LogIndexSearcherImplTest {
         .isTrue();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyIndexName() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        "",
-        "test",
-        0,
-        MAX_TIME,
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    "",
+                    "test",
+                    0,
+                    MAX_TIME,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNullIndexName() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        null,
-        "test",
-        0,
-        MAX_TIME,
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    null,
+                    "test",
+                    0,
+                    MAX_TIME,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidStartTime() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        -1L,
-        MAX_TIME,
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    -1L,
+                    MAX_TIME,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidEndTime() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        0,
-        -1L,
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    0,
+                    -1L,
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidTimeRange() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        time.toEpochMilli(),
-        time.minusSeconds(1).toEpochMilli(),
-        1000,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    time.toEpochMilli(),
+                    time.minusSeconds(1).toEpochMilli(),
+                    1000,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testSearchOrHistogramQuery() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        time.toEpochMilli(),
-        time.plusSeconds(1).toEpochMilli(),
-        0,
-        null);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    0,
+                    null));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeHitCount() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        time.toEpochMilli(),
-        time.plusSeconds(1).toEpochMilli(),
-        -1,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    -1,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeHistogramInterval() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "test",
-        time.toEpochMilli(),
-        time.plusSeconds(1).toEpochMilli(),
-        1,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "test",
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    1,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "-1s")));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testQueryParseError() {
     Instant time = Instant.ofEpochSecond(1593365471);
     loadTestData(time);
-    strictLogStore.logSearcher.search(
-        TEST_DATASET_NAME,
-        "/",
-        time.toEpochMilli(),
-        time.plusSeconds(1).toEpochMilli(),
-        1,
-        new DateHistogramAggBuilder("1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                strictLogStore.logSearcher.search(
+                    TEST_DATASET_NAME,
+                    "/",
+                    time.toEpochMilli(),
+                    time.plusSeconds(1).toEpochMilli(),
+                    1,
+                    new DateHistogramAggBuilder(
+                        "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s")));
   }
 
   @Test

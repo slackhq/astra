@@ -10,9 +10,9 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class SearchMetadataStoreTest {
   private SimpleMeterRegistry meterRegistry;
@@ -20,7 +20,7 @@ public class SearchMetadataStoreTest {
   private MetadataStore zkMetadataStore;
   private SearchMetadataStore store;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
@@ -36,7 +36,7 @@ public class SearchMetadataStoreTest {
             meterRegistry);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException {
     if (store != null) store.close();
     zkMetadataStore.close();

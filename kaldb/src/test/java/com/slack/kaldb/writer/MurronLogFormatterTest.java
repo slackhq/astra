@@ -3,6 +3,7 @@ package com.slack.kaldb.writer;
 import static com.slack.kaldb.writer.MurronLogFormatter.API_LOG_DURATION_FIELD;
 import static com.slack.kaldb.writer.MurronLogFormatter.ENVOY_DURATION_FIELD;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
@@ -12,7 +13,7 @@ import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class MurronLogFormatterTest {
   public Object getTagValue(List<Trace.KeyValue> tags, String key) {
@@ -116,9 +117,10 @@ public class MurronLogFormatterTest {
     MurronLogFormatter.fromApiLog(null);
   }
 
-  @Test(expected = MismatchedInputException.class)
-  public void testEmptyMurronMessage() throws JsonProcessingException {
-    MurronLogFormatter.fromApiLog(Murron.MurronMessage.newBuilder().build());
+  @Test
+  public void testEmptyMurronMessage() {
+    assertThatExceptionOfType(MismatchedInputException.class)
+        .isThrownBy(() -> MurronLogFormatter.fromApiLog(Murron.MurronMessage.newBuilder().build()));
   }
 
   @Test

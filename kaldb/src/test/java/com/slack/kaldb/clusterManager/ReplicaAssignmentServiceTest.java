@@ -3,6 +3,7 @@ package com.slack.kaldb.clusterManager;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -31,9 +32,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ReplicaAssignmentServiceTest {
 
@@ -46,7 +47,7 @@ public class ReplicaAssignmentServiceTest {
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -66,7 +67,7 @@ public class ReplicaAssignmentServiceTest {
     replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
@@ -76,7 +77,7 @@ public class ReplicaAssignmentServiceTest {
     meterRegistry.close();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void shouldCheckInvalidEventAggregation() {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
@@ -89,11 +90,14 @@ public class ReplicaAssignmentServiceTest {
             .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    new ReplicaAssignmentService(
-        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new ReplicaAssignmentService(
+                    cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void shouldCheckInvalidSchedulePeriod() {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
@@ -106,9 +110,12 @@ public class ReplicaAssignmentServiceTest {
             .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
             .build();
 
-    new ReplicaAssignmentService(
-            cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
-        .scheduler();
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new ReplicaAssignmentService(
+                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                    .scheduler());
   }
 
   @Test

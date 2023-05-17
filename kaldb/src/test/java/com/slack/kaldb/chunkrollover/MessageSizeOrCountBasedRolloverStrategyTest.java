@@ -1,26 +1,27 @@
 package com.slack.kaldb.chunkrollover;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class MessageSizeOrCountBasedRolloverStrategyTest {
 
   private SimpleMeterRegistry metricsRegistry;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     metricsRegistry = new SimpleMeterRegistry();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws TimeoutException, IOException {
     metricsRegistry.close();
   }
@@ -36,14 +37,16 @@ public class MessageSizeOrCountBasedRolloverStrategyTest {
     assertThat(chunkRollOverStrategy.getMaxMessagesPerChunk()).isEqualTo(100);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeMaxMessagesPerChunk() {
-    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 100, -1);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, 100, -1));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testNegativeMaxBytesPerChunk() {
-    new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, -100, 1);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new MessageSizeOrCountBasedRolloverStrategy(metricsRegistry, -100, 1));
   }
 
   @Test

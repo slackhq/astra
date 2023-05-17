@@ -1,9 +1,10 @@
 package com.slack.kaldb.metadata.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import java.util.List;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class KaldbMetadataTest {
   private static class DummyMetadata extends KaldbMetadata {
@@ -19,8 +20,9 @@ public class KaldbMetadataTest {
     assertThat(List.of(new DummyMetadata("test1"), new DummyMetadata("test2")).size()).isEqualTo(2);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEmptyName() {
-    new DummyMetadata("");
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new DummyMetadata(""));
   }
 }

@@ -11,22 +11,22 @@ import com.slack.kaldb.logstore.search.SearchResultUtils;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.InternalAggregation;
 
 public class SearchResultTest {
 
-  @Rule
-  public TemporaryLogStoreAndSearcherRule logStoreAndSearcherRule =
-      new TemporaryLogStoreAndSearcherRule(false);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension logStoreAndSearcherRule =
+      new TemporaryLogStoreAndSearcherExtension(false);
 
   public SearchResultTest() throws IOException {}
 

@@ -18,15 +18,16 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getValue;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -59,6 +60,7 @@ import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -77,25 +79,28 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.assertj.core.data.Offset;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class IndexingChunkManagerTest {
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private static final String TEST_KAFKA_PARTITION_ID = "10";
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @TempDir private Path tmpPath;
 
   private IndexingChunkManager<LogMessage> chunkManager = null;
 
@@ -109,12 +114,12 @@ public class IndexingChunkManagerTest {
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
 
     s3BlobFs = new S3BlobFs(s3Client);
 
@@ -135,7 +140,7 @@ public class IndexingChunkManagerTest {
     searchMetadataStore = new SearchMetadataStore(metadataStore, false);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws TimeoutException, IOException {
     metricsRegistry.close();
     if (chunkManager != null) {
@@ -156,7 +161,7 @@ public class IndexingChunkManagerTest {
     chunkManager =
         new IndexingChunkManager<>(
             "testData",
-            temporaryFolder.newFolder().getAbsolutePath(),
+            tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
             s3BlobFs,
@@ -170,7 +175,7 @@ public class IndexingChunkManagerTest {
   }
 
   @Test
-  @Ignore
+  @Disabled
   // Todo: this test needs to be refactored as it currently does not reliably replicate the race
   //   condition Additionally, this test as currently written is extremely slow, and accounts
   //   for over 10% of our test runtime
@@ -611,7 +616,7 @@ public class IndexingChunkManagerTest {
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testMessagesAddedToActiveChunks() throws Exception {
     ChunkRollOverStrategy chunkRollOverStrategy =
         new DiskOrMessageCountBasedRolloverStrategy(metricsRegistry, 10 * 1024 * 1024 * 1024L, 2L);
@@ -659,7 +664,8 @@ public class IndexingChunkManagerTest {
 
     checkMetadata(3, 2, 1, 2, 1);
     // Inserting in an older chunk throws an exception. So, additions go to active chunks only.
-    chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1);
+    assertThatExceptionOfType(IllegalStateException.class)
+        .isThrownBy(() -> chunk1.addMessage(msg4, TEST_KAFKA_PARTITION_ID, 1));
   }
 
   @Test
@@ -681,7 +687,7 @@ public class IndexingChunkManagerTest {
     // Main chunk is already committed. Commit the new chunk so we can search it.
     chunkManager.getActiveChunk().commit();
     // Wait for roll over.
-    rollOverExecutor.awaitTermination(10, TimeUnit.SECONDS);
+    await().until(() -> getCount(ROLLOVERS_COMPLETED, metricsRegistry) == 1);
 
     assertThat(chunkManager.getChunkList().size()).isEqualTo(2);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(11);

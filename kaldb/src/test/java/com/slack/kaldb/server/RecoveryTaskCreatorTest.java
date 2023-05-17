@@ -36,9 +36,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("UnstableApiUsage")
 public class RecoveryTaskCreatorTest {
@@ -50,7 +50,7 @@ public class RecoveryTaskCreatorTest {
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private static final String partitionId = "1";
 
-  @Before
+  @BeforeEach
   public void startup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -68,7 +68,7 @@ public class RecoveryTaskCreatorTest {
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException {
     if (recoveryTaskStore != null) {
       recoveryTaskStore.close();

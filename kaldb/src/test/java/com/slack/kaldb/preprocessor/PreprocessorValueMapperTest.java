@@ -10,7 +10,7 @@ import com.slack.service.murron.trace.Trace;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import org.apache.kafka.streams.kstream.ValueMapper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class PreprocessorValueMapperTest {
 

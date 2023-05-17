@@ -6,9 +6,10 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
@@ -21,11 +22,11 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
+import com.slack.kaldb.util.GrpcCleanupExtension;
 import com.slack.kaldb.util.JsonUtil;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.testing.GrpcCleanupRule;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
@@ -34,34 +35,37 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class KaldbLocalQueryServiceTest {
   private static final String TEST_KAFKA_PARITION_ID = "10";
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
-  @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+  @RegisterExtension public final GrpcCleanupExtension grpcCleanup = new GrpcCleanupExtension();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private KaldbLocalQueryService<LogMessage> kaldbLocalQueryService;
   private SimpleMeterRegistry metricsRegistry;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         makeChunkManagerUtil(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
@@ -73,7 +77,7 @@ public class KaldbLocalQueryServiceTest {
         new KaldbLocalQueryService<>(chunkManagerUtil.chunkManager, Duration.ofSeconds(3));
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException, TimeoutException {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
@@ -316,7 +320,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(response.getInternalAggregations().size()).isEqualTo(0);
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testKalDbBadArgSearch() throws Throwable {
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
 
@@ -335,15 +339,19 @@ public class KaldbLocalQueryServiceTest {
 
     KaldbSearch.SearchRequest.Builder searchRequestBuilder = KaldbSearch.SearchRequest.newBuilder();
 
-    kaldbLocalQueryService.doSearch(
-        searchRequestBuilder
-            .setDataset(MessageUtil.TEST_DATASET_NAME)
-            .setQueryString("Message1")
-            .setStartTimeEpochMs(chunk1StartTimeMs)
-            .setEndTimeEpochMs(chunk1EndTimeMs)
-            .setHowMany(0)
-            .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
-            .build());
+    assertThatExceptionOfType(RuntimeException.class)
+        .isThrownBy(
+            () ->
+                kaldbLocalQueryService.doSearch(
+                    searchRequestBuilder
+                        .setDataset(MessageUtil.TEST_DATASET_NAME)
+                        .setQueryString("Message1")
+                        .setStartTimeEpochMs(chunk1StartTimeMs)
+                        .setEndTimeEpochMs(chunk1EndTimeMs)
+                        .setHowMany(0)
+                        .setAggregations(
+                            KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
+                        .build()));
   }
 
   @Test
@@ -425,7 +433,7 @@ public class KaldbLocalQueryServiceTest {
     assertThat(dateHistogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
   }
 
-  @Test(expected = StatusRuntimeException.class)
+  @Test
   public void testKalDbGrpcSearchThrowsException() throws IOException {
     // Load test data into chunk manager.
     IndexingChunkManager<LogMessage> chunkManager = chunkManagerUtil.chunkManager;
@@ -462,15 +470,18 @@ public class KaldbLocalQueryServiceTest {
     // Build a bad search request.
     final long chunk1StartTimeMs = startTime.toEpochMilli();
     final long chunk1EndTimeMs = chunk1StartTimeMs + (10 * 1000);
-    KaldbSearch.SearchResult result =
-        blockingStub.search(
-            KaldbSearch.SearchRequest.newBuilder()
-                .setDataset(MessageUtil.TEST_DATASET_NAME)
-                .setQueryString("Message1")
-                .setStartTimeEpochMs(chunk1StartTimeMs)
-                .setEndTimeEpochMs(chunk1EndTimeMs)
-                .setHowMany(0)
-                .setAggregations(KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
-                .build());
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(
+            () ->
+                blockingStub.search(
+                    KaldbSearch.SearchRequest.newBuilder()
+                        .setDataset(MessageUtil.TEST_DATASET_NAME)
+                        .setQueryString("Message1")
+                        .setStartTimeEpochMs(chunk1StartTimeMs)
+                        .setEndTimeEpochMs(chunk1EndTimeMs)
+                        .setHowMany(0)
+                        .setAggregations(
+                            KaldbSearch.SearchRequest.SearchAggregation.newBuilder().build())
+                        .build()));
   }
 }

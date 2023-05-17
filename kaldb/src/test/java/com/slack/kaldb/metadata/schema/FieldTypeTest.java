@@ -3,7 +3,7 @@ package com.slack.kaldb.metadata.schema;
 import static com.slack.kaldb.metadata.schema.FieldType.convertFieldValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class FieldTypeTest {
   @Test

@@ -28,7 +28,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.processor.StreamPartitioner;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class PreprocessorServiceUnitTest {
 

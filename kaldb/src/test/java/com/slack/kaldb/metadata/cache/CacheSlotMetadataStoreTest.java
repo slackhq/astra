@@ -16,9 +16,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class CacheSlotMetadataStoreTest {
   private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
@@ -28,7 +28,7 @@ public class CacheSlotMetadataStoreTest {
   private MeterRegistry meterRegistry;
   private CacheSlotMetadataStore uncachedStore;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     meterRegistry = new SimpleMeterRegistry();
     // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -48,7 +48,7 @@ public class CacheSlotMetadataStoreTest {
     this.uncachedStore = new CacheSlotMetadataStore(zkMetadataStore, false);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException {
     zkMetadataStore.close();
     testingServer.close();

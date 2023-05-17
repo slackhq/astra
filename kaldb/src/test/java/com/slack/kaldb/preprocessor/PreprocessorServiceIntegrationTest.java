@@ -23,10 +23,10 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,13 +37,13 @@ public class PreprocessorServiceIntegrationTest {
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
   }
 
-  @After
+  @AfterEach
   public void teardown() throws Exception {
     kafkaServer.close();
     zkServer.close();
@@ -107,7 +107,7 @@ public class PreprocessorServiceIntegrationTest {
   }
 
   // Ignore flaky test. This test can be potentially merged with the above test.
-  @Ignore
+  @Disabled
   @Test
   @SuppressWarnings({"rawtypes", "unchecked"})
   public void shouldProcessMessageStartToFinish() throws Exception {

@@ -13,23 +13,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import brave.Tracing;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 
 public class StatsCollectorTest {
-  @Rule
-  public TemporaryLogStoreAndSearcherRule strictLogStore =
-      new TemporaryLogStoreAndSearcherRule(true);
+  @RegisterExtension
+  public TemporaryLogStoreAndSearcherExtension strictLogStore =
+      new TemporaryLogStoreAndSearcherExtension(true);
 
   public StatsCollectorTest() throws IOException {}
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
   }

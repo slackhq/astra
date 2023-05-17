@@ -2,6 +2,7 @@ package com.slack.kaldb.server;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,30 +15,32 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class KaldbConfigTest {
 
-  @Before
+  @BeforeEach
   public void setUp() {
     KaldbConfig.reset();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     KaldbConfig.reset();
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testInitWithMissingConfigFile() throws IOException {
-    KaldbConfig.initFromFile(Path.of("missing_config_file.json"));
+  @Test
+  public void testInitWithMissingConfigFile() {
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> KaldbConfig.initFromFile(Path.of("missing_config_file.json")));
   }
 
-  @Test(expected = InvalidProtocolBufferException.class)
-  public void testEmptyJsonCfgFile() throws InvalidProtocolBufferException {
-    KaldbConfig.fromJsonConfig("");
+  @Test
+  public void testEmptyJsonCfgFile() {
+    assertThatExceptionOfType(InvalidProtocolBufferException.class)
+        .isThrownBy(() -> KaldbConfig.fromJsonConfig(""));
   }
 
   @Test
@@ -467,15 +470,17 @@ public class KaldbConfigTest {
     assertThat(preprocessorKafkaStreamConfig.getProcessingGuarantee()).isEqualTo("at_least_once");
   }
 
-  @Test(expected = RuntimeException.class)
-  public void testParseFormats() throws IOException {
+  @Test
+  public void testParseFormats() {
     // only json/yaml file extentions are supported
-    KaldbConfig.initFromFile(Path.of("README.md"));
+    assertThatExceptionOfType(RuntimeException.class)
+        .isThrownBy(() -> KaldbConfig.initFromFile(Path.of("README.md")));
   }
 
-  @Test(expected = InvalidProtocolBufferException.class)
-  public void testMalformedYaml() throws InvalidProtocolBufferException, JsonProcessingException {
-    KaldbConfig.fromYamlConfig(":test");
+  @Test
+  public void testMalformedYaml() {
+    assertThatExceptionOfType(InvalidProtocolBufferException.class)
+        .isThrownBy(() -> KaldbConfig.fromYamlConfig(":test"));
   }
 
   @Test

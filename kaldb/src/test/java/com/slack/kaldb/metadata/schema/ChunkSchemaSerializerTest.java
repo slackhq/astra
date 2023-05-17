@@ -1,21 +1,22 @@
 package com.slack.kaldb.metadata.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class ChunkSchemaSerializerTest {
   private final ChunkSchemaSerializer serDe = new ChunkSchemaSerializer();
 
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir private Path tmpPath;
 
   @Test
   public void testChunkSchemaSerializer() throws IOException {
@@ -46,7 +47,7 @@ public class ChunkSchemaSerializerTest {
     assertThat(deserializedSchema.fieldDefMap.keySet()).containsExactly(field1, field2);
 
     // Serialize and deserialize to a file.
-    final File tempFile = tempFolder.newFile("tempSchema.json");
+    final File tempFile = Files.createTempFile(tmpPath, null, ".json").toFile();
     assertThat(Files.size(tempFile.toPath())).isZero();
     ChunkSchema.serializeToFile(chunkSchema, tempFile);
     assertThat(Files.size(tempFile.toPath())).isNotZero();
@@ -70,7 +71,7 @@ public class ChunkSchemaSerializerTest {
     assertThat(deserializedSchema.metadata).isEqualTo(Collections.emptyMap());
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testChunkSchemaException() {
     String intFieldName = "IntfieldDef";
     String intType = "integer";
@@ -83,6 +84,7 @@ public class ChunkSchemaSerializerTest {
     fieldDefMap.put(field1, fieldDef1);
     fieldDefMap.put(field2 + "error", fieldDef2);
     String schemaName = "schemaName";
-    new ChunkSchema(schemaName, fieldDefMap, new ConcurrentHashMap<>());
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> new ChunkSchema(schemaName, fieldDefMap, new ConcurrentHashMap<>()));
   }
 }

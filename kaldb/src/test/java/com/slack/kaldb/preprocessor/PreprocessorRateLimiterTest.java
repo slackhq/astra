@@ -13,7 +13,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import org.apache.kafka.streams.kstream.Predicate;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class PreprocessorRateLimiterTest {
 
@@ -406,7 +406,7 @@ public class PreprocessorRateLimiterTest {
             .build();
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
-    PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 3, false);
+    PreprocessorRateLimiter rateLimiter = new PreprocessorRateLimiter(meterRegistry, 1, 2, false);
 
     long targetThroughput = span.getSerializedSize() - 1;
     DatasetMetadata datasetMetadata =
@@ -422,9 +422,8 @@ public class PreprocessorRateLimiterTest {
     assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isFalse();
 
-    Thread.sleep(4000);
+    Thread.sleep(2500);
 
-    assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isTrue();
     assertThat(predicate.test("key", span)).isFalse();

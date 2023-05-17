@@ -7,11 +7,11 @@ import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
 import static com.slack.kaldb.testlib.MessageUtil.TEST_MESSAGE_TYPE;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.SpanUtil.makeSpan;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.protobuf.ByteString;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
@@ -34,32 +34,33 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class LogMessageWriterImplTest {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private ChunkManagerUtil<LogMessage> chunkManagerUtil;
   private SimpleMeterRegistry metricsRegistry;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     chunkManagerUtil =
         makeChunkManagerUtil(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             metricsRegistry,
             10 * 1024 * 1024 * 1024L,
@@ -69,7 +70,7 @@ public class LogMessageWriterImplTest {
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws IOException, TimeoutException {
     if (chunkManagerUtil != null) {
       chunkManagerUtil.close();
@@ -142,7 +143,7 @@ public class LogMessageWriterImplTest {
     SimpleMeterRegistry localMetricsRegistry = new SimpleMeterRegistry();
     ChunkManagerUtil<LogMessage> localChunkManagerUtil =
         makeChunkManagerUtil(
-            S3_MOCK_RULE,
+            S3_MOCK_EXTENSION,
             S3_TEST_BUCKET,
             localMetricsRegistry,
             1000L,

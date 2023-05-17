@@ -10,13 +10,14 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_CO
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.addMessages;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.findAllMessages;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.addMessages;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.findAllMessages;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.kaldb.blobfs.LocalBlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
@@ -26,11 +27,10 @@ import com.slack.kaldb.logstore.search.LogIndexSearcherImpl;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.testlib.MessageUtil;
-import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule;
+import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -41,28 +41,27 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.index.IndexCommit;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 @SuppressWarnings("unused")
-@RunWith(Enclosed.class)
 public class LuceneIndexStoreImplTest {
-  @BeforeClass
+  @BeforeAll
   public static void beforeClass() {
     Tracing.newBuilder().build();
   }
 
-  public static class TestsWithConvertAndDuplicateFieldPolicy {
-    @Rule
-    public TemporaryLogStoreAndSearcherRule logStore = new TemporaryLogStoreAndSearcherRule(true);
+  @Nested
+  public class TestsWithConvertAndDuplicateFieldPolicy {
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension logStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
 
     public TestsWithConvertAndDuplicateFieldPolicy() throws IOException {}
 
@@ -96,7 +95,6 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       logStore.logStore.commit();
       logStore.logStore.refresh();
-      Thread.sleep(1000);
 
       SearchResult<LogMessage> result1 =
           logStore.logSearcher.search(
@@ -187,10 +185,11 @@ public class LuceneIndexStoreImplTest {
     }
   }
 
-  public static class TestsWithRaiseErrorFieldConflictPolicy {
-    @Rule
-    public TemporaryLogStoreAndSearcherRule logStore =
-        new TemporaryLogStoreAndSearcherRule(
+  @Nested
+  public class TestsWithRaiseErrorFieldConflictPolicy {
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension logStore =
+        new TemporaryLogStoreAndSearcherExtension(
             Duration.of(5, ChronoUnit.MINUTES),
             Duration.of(5, ChronoUnit.MINUTES),
             true,
@@ -260,7 +259,6 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.addMessage(msg);
       logStore.logStore.commit();
       logStore.logStore.refresh();
-      Thread.sleep(1000);
 
       Collection<LogMessage> results =
           findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo", 1000);
@@ -311,10 +309,11 @@ public class LuceneIndexStoreImplTest {
     }
   }
 
-  public static class SuppressExceptionsOnClosedWriter {
-    @Rule
-    public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(true);
+  @Nested
+  public class SuppressExceptionsOnClosedWriter {
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension testLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
 
     public SuppressExceptionsOnClosedWriter() throws IOException {}
 
@@ -333,14 +332,17 @@ public class LuceneIndexStoreImplTest {
     }
   }
 
-  public static class SnapshotTester {
-    @Rule
-    public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(true);
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder().silent().withSecureConnection(false).build();
 
-    @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+  @Nested
+  public class SnapshotTester {
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension strictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
 
-    @ClassRule public static final S3MockRule S3_MOCK_RULE = S3MockRule.builder().silent().build();
+    @TempDir private Path tmpPath;
 
     public SnapshotTester() throws IOException {}
 
@@ -380,7 +382,7 @@ public class LuceneIndexStoreImplTest {
           .isGreaterThanOrEqualTo(activeFiles.size());
 
       // create an S3 client
-      S3Client s3Client = S3_MOCK_RULE.createS3ClientV2();
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
       S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
       s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
@@ -400,14 +402,13 @@ public class LuceneIndexStoreImplTest {
       }
 
       // Download files from S3 to local FS.
-      String[] s3Files =
-          copyFromS3(bucket, prefix, s3BlobFs, Paths.get(tempFolder.getRoot().getAbsolutePath()));
+      String[] s3Files = copyFromS3(bucket, prefix, s3BlobFs, tmpPath.toAbsolutePath());
       assertThat(s3Files.length).isEqualTo(activeFiles.size());
 
       // Search files in local FS.
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
               logStore.getSchema());
       Collection<LogMessage> newResults =
           findAllMessages(newSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 100);
@@ -445,12 +446,11 @@ public class LuceneIndexStoreImplTest {
       assertThat(blobFs.listFiles(dirPath.toUri(), false).length)
           .isGreaterThanOrEqualTo(activeFiles.size());
 
-      copyToLocalPath(
-          dirPath, activeFiles, Paths.get(tempFolder.getRoot().getAbsolutePath()), blobFs);
+      copyToLocalPath(dirPath, activeFiles, tmpPath.toAbsolutePath(), blobFs);
 
       LogIndexSearcherImpl newSearcher =
           new LogIndexSearcherImpl(
-              LogIndexSearcherImpl.searcherManagerFromPath(tempFolder.getRoot().toPath()),
+              LogIndexSearcherImpl.searcherManagerFromPath(tmpPath.toAbsolutePath()),
               logStore.getSchema());
 
       Collection<LogMessage> newResults =
@@ -461,10 +461,11 @@ public class LuceneIndexStoreImplTest {
     }
   }
 
-  public static class IndexCleanupTests {
-    @Rule
-    public TemporaryLogStoreAndSearcherRule strictLogStore =
-        new TemporaryLogStoreAndSearcherRule(true);
+  @Nested
+  public class IndexCleanupTests {
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension strictLogStore =
+        new TemporaryLogStoreAndSearcherExtension(true);
 
     public IndexCleanupTests() throws IOException {}
 
@@ -491,12 +492,13 @@ public class LuceneIndexStoreImplTest {
     }
   }
 
-  public static class AutoCommitTests {
+  @Nested
+  public class AutoCommitTests {
     Duration commitDuration = Duration.ofSeconds(5);
 
-    @Rule
-    public TemporaryLogStoreAndSearcherRule testLogStore =
-        new TemporaryLogStoreAndSearcherRule(
+    @RegisterExtension
+    public TemporaryLogStoreAndSearcherExtension testLogStore =
+        new TemporaryLogStoreAndSearcherExtension(
             commitDuration,
             commitDuration,
             true,
@@ -505,19 +507,24 @@ public class LuceneIndexStoreImplTest {
 
     public AutoCommitTests() throws IOException {}
 
-    // NOTE: This test is very timing dependent. So, it can be flaky in CI.
     @Test
-    public void testCommit() throws InterruptedException {
+    public void testCommit() {
       addMessages(testLogStore.logStore, 1, 100, false);
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
       assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry)).isEqualTo(0);
 
-      Thread.sleep(2 * commitDuration.toMillis());
-      Collection<LogMessage> results =
-          findAllMessages(testLogStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "Message1", 10);
-      assertThat(results.size()).isEqualTo(1);
+      await()
+          .until(
+              () ->
+                  findAllMessages(
+                              testLogStore.logSearcher,
+                              MessageUtil.TEST_DATASET_NAME,
+                              "Message1",
+                              10)
+                          .size()
+                      == 1);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);

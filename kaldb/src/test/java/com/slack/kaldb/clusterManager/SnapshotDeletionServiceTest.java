@@ -4,6 +4,7 @@ import static com.slack.kaldb.logstore.BlobFsUtils.createURI;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -16,7 +17,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
@@ -40,19 +41,23 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class SnapshotDeletionServiceTest {
 
   private static final String S3_TEST_BUCKET = "snapshot-deletion-service-bucket";
 
-  @ClassRule
-  public static final S3MockRule S3_MOCK_RULE =
-      S3MockRule.builder().withInitialBuckets(S3_TEST_BUCKET).silent().build();
+  @RegisterExtension
+  public static final S3MockExtension S3_MOCK_EXTENSION =
+      S3MockExtension.builder()
+          .withInitialBuckets(S3_TEST_BUCKET)
+          .silent()
+          .withSecureConnection(false)
+          .build();
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -63,7 +68,7 @@ public class SnapshotDeletionServiceTest {
   private S3Client s3Client;
   private S3BlobFs s3BlobFs;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
@@ -73,7 +78,7 @@ public class SnapshotDeletionServiceTest {
         KaldbConfigs.ZookeeperConfig.newBuilder()
             .setZkConnectString(testingServer.getConnectString())
             .setZkPathPrefix("SnapshotDeletionServiceTest")
-            .setZkSessionTimeoutMs(1000)
+            .setZkSessionTimeoutMs(2500)
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
             .build();
@@ -82,12 +87,12 @@ public class SnapshotDeletionServiceTest {
     snapshotMetadataStore = spy(new SnapshotMetadataStore(metadataStore, true));
     replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
 
-    s3Client = S3_MOCK_RULE.createS3ClientV2();
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
 
     s3BlobFs = spy(new S3BlobFs(s3Client));
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws IOException {
     snapshotMetadataStore.close();
     replicaMetadataStore.close();
@@ -98,7 +103,7 @@ public class SnapshotDeletionServiceTest {
     meterRegistry.close();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void shouldThrowOnInvalidSnapshotLifespan() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
@@ -118,8 +123,15 @@ public class SnapshotDeletionServiceTest {
             .setScheduleInitialDelayMins(0)
             .build();
 
-    new SnapshotDeletionService(
-        replicaMetadataStore, snapshotMetadataStore, s3BlobFs, managerConfig, meterRegistry);
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new SnapshotDeletionService(
+                    replicaMetadataStore,
+                    snapshotMetadataStore,
+                    s3BlobFs,
+                    managerConfig,
+                    meterRegistry));
   }
 
   @Test

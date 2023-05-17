@@ -27,18 +27,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
 import org.apache.zookeeper.ZooKeeper;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@RunWith(Enclosed.class)
 public class KaldbMetadataStoreTest {
-
   private static final SnapshotMetadata ROOT_SNAPSHOT = makeSnapshot("defaultRootSnapshot");
   private static final SnapshotMetadataSerializer snapshotMetadataSerializer =
       new SnapshotMetadataSerializer();
@@ -57,10 +54,11 @@ public class KaldbMetadataStoreTest {
         name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
   }
 
-  public static class TestPersistentCreatableUpdatableCacheableMetadataStore {
+  @Nested
+  public class TestPersistentCreatableUpdatableCacheableMetadataStore {
     private ZooKeeper zooKeeper;
 
-    private static class DummyPersistentCreatableUpdatableCacheableMetadataStore
+    private class DummyPersistentCreatableUpdatableCacheableMetadataStore
         extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableUpdatableCacheableMetadataStore(
           String storeFolder,
@@ -72,7 +70,7 @@ public class KaldbMetadataStoreTest {
       }
     }
 
-    private static final Logger LOG =
+    private final Logger LOG =
         LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
 
     private TestingServer testingServer;
@@ -81,7 +79,7 @@ public class KaldbMetadataStoreTest {
     private DummyPersistentCreatableUpdatableCacheableMetadataStore store;
     private int expectedCacheErrorCounter = 0;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       expectedCacheErrorCounter = 0;
       meterRegistry = new SimpleMeterRegistry();
@@ -112,7 +110,7 @@ public class KaldbMetadataStoreTest {
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
 
@@ -556,7 +554,7 @@ public class KaldbMetadataStoreTest {
     }
 
     @Test
-    @Ignore // flakey test
+    @Disabled // flakey test
     public void testCorruptZkMetadata() throws ExecutionException, InterruptedException {
       assertThat(store.list().get().isEmpty()).isTrue();
 
@@ -600,8 +598,9 @@ public class KaldbMetadataStoreTest {
     }
   }
 
-  public static class TestPersistentCreatableCacheableMetadataStore {
-    private static class DummyPersistentCreatableCacheableMetadataStore
+  @Nested
+  public class TestPersistentCreatableCacheableMetadataStore {
+    private class DummyPersistentCreatableCacheableMetadataStore
         extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableCacheableMetadataStore(
           String storeFolder,
@@ -613,7 +612,7 @@ public class KaldbMetadataStoreTest {
       }
     }
 
-    private static final Logger LOG =
+    private final Logger LOG =
         LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
 
     private TestingServer testingServer;
@@ -621,7 +620,7 @@ public class KaldbMetadataStoreTest {
     private MeterRegistry meterRegistry;
     private DummyPersistentCreatableCacheableMetadataStore store;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -650,7 +649,7 @@ public class KaldbMetadataStoreTest {
               SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
@@ -701,8 +700,9 @@ public class KaldbMetadataStoreTest {
     }
   }
 
-  public static class TestPersistentCreatableMetadataStore {
-    private static class DummyPersistentCreatableMetadataStore
+  @Nested
+  public class TestPersistentCreatableMetadataStore {
+    private class DummyPersistentCreatableMetadataStore
         extends PersistentMutableMetadataStore<SnapshotMetadata> {
       public DummyPersistentCreatableMetadataStore(
           String storeFolder,
@@ -714,7 +714,7 @@ public class KaldbMetadataStoreTest {
       }
     }
 
-    private static final Logger LOG =
+    private final Logger LOG =
         LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
 
     private TestingServer testingServer;
@@ -722,7 +722,7 @@ public class KaldbMetadataStoreTest {
     private MeterRegistry meterRegistry;
     private DummyPersistentCreatableMetadataStore store;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -743,7 +743,7 @@ public class KaldbMetadataStoreTest {
               SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       zkMetadataStore.close();
       testingServer.close();
@@ -827,7 +827,7 @@ public class KaldbMetadataStoreTest {
     private DummyEphemeralCreatableUpdatableCacheableMetadataStore store;
     private int expectedCacheErrorCount = 0;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       expectedCacheErrorCount = 0;
       meterRegistry = new SimpleMeterRegistry();
@@ -858,7 +858,7 @@ public class KaldbMetadataStoreTest {
       zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCount);
       zkMetadataStore.close();
@@ -1366,7 +1366,7 @@ public class KaldbMetadataStoreTest {
     private MeterRegistry meterRegistry;
     private DummyEphemeralCreatableCacheableMetadataStore store;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -1395,7 +1395,7 @@ public class KaldbMetadataStoreTest {
               SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();
@@ -1467,7 +1467,7 @@ public class KaldbMetadataStoreTest {
     private MeterRegistry meterRegistry;
     private DummyEphemeralCreatableMetadataStore store;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -1496,7 +1496,7 @@ public class KaldbMetadataStoreTest {
               SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       zkMetadataStore.close();
       testingServer.close();
@@ -1575,7 +1575,7 @@ public class KaldbMetadataStoreTest {
     private ZookeeperMetadataStoreImpl zkMetadataStore;
     private MeterRegistry meterRegistry;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
       meterRegistry = new SimpleMeterRegistry();
       // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
@@ -1601,7 +1601,7 @@ public class KaldbMetadataStoreTest {
           .isNull();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws IOException {
       assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
       zkMetadataStore.close();

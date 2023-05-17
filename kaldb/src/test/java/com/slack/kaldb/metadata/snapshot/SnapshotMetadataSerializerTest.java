@@ -2,9 +2,10 @@ package com.slack.kaldb.metadata.snapshot;
 
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SnapshotMetadataSerializerTest {
   private final SnapshotMetadataSerializer serDe = new SnapshotMetadataSerializer();
@@ -37,23 +38,27 @@ public class SnapshotMetadataSerializerTest {
     assertThat(deserializedSnapshotMetadata.indexType).isEqualTo(LOGS_LUCENE9);
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void serializeNullObject() throws InvalidProtocolBufferException {
-    serDe.toJsonStr(null);
+  @Test
+  public void serializeNullObject() {
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> serDe.toJsonStr(null));
   }
 
-  @Test(expected = InvalidProtocolBufferException.class)
-  public void deserializeNullObject() throws InvalidProtocolBufferException {
-    serDe.fromJsonStr(null);
+  @Test
+  public void deserializeNullObject() {
+    assertThatExceptionOfType(InvalidProtocolBufferException.class)
+        .isThrownBy(() -> serDe.fromJsonStr(null));
   }
 
-  @Test(expected = InvalidProtocolBufferException.class)
-  public void deserializeEmptyObject() throws InvalidProtocolBufferException {
-    serDe.fromJsonStr("");
+  @Test
+  public void deserializeEmptyObject() {
+    assertThatExceptionOfType(InvalidProtocolBufferException.class)
+        .isThrownBy(() -> serDe.fromJsonStr(""));
   }
 
-  @Test(expected = InvalidProtocolBufferException.class)
-  public void deserializeTestString() throws InvalidProtocolBufferException {
-    serDe.fromJsonStr("test");
+  @Test
+  public void deserializeTestString() {
+    assertThatExceptionOfType(InvalidProtocolBufferException.class)
+        .isThrownBy(() -> serDe.fromJsonStr("test"));
   }
 }
