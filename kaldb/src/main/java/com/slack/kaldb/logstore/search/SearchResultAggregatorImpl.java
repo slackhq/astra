@@ -4,13 +4,12 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.opensearch.KaldbBigArrays;
 import com.slack.kaldb.logstore.opensearch.OpenSearchAdapter;
 import com.slack.kaldb.logstore.opensearch.ScriptServiceProvider;
-import org.opensearch.search.aggregations.InternalAggregation;
-import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.aggregations.pipeline.PipelineAggregator;
 
 /**
  * This class will merge multiple search results into a single search result. Takes all the hits

@@ -1,5 +1,7 @@
 package com.slack.kaldb.testlib;
 
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -14,18 +16,15 @@ import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.apache.commons.io.FileUtils;
-import org.apache.curator.test.TestingServer;
-import software.amazon.awssdk.services.s3.S3Client;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import org.apache.commons.io.FileUtils;
+import org.apache.curator.test.TestingServer;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * This class creates a chunk manager that can be used in unit tests.

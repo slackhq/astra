@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.util.JsonUtil;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.time.Instant;

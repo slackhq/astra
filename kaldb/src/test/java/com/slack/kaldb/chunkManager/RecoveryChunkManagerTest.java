@@ -1,41 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import brave.Tracing;
-import com.adobe.testing.s3mock.junit4.S3MockRule;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
-import com.slack.kaldb.chunk.ChunkInfo;
-import com.slack.kaldb.chunk.ReadWriteChunk;
-import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.logstore.search.SearchQuery;
-import com.slack.kaldb.logstore.search.SearchResult;
-import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
-import com.slack.kaldb.metadata.search.SearchMetadata;
-import com.slack.kaldb.metadata.search.SearchMetadataStore;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
-import com.slack.kaldb.proto.config.KaldbConfigs;
-import com.slack.kaldb.testlib.KaldbConfigUtil;
-import com.slack.kaldb.testlib.MessageUtil;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import software.amazon.awssdk.services.s3.S3Client;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-
 import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
 import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
@@ -55,6 +19,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import brave.Tracing;
+import com.adobe.testing.s3mock.junit4.S3MockRule;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.chunk.ChunkInfo;
+import com.slack.kaldb.chunk.ReadWriteChunk;
+import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.logstore.search.SearchQuery;
+import com.slack.kaldb.logstore.search.SearchResult;
+import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.search.SearchMetadata;
+import com.slack.kaldb.metadata.search.SearchMetadataStore;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
+import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
+import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.testlib.KaldbConfigUtil;
+import com.slack.kaldb.testlib.MessageUtil;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import org.apache.curator.test.TestingServer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class RecoveryChunkManagerTest {
   // TODO: Ensure clean close after all chunks are uploaded.

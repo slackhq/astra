@@ -1,5 +1,18 @@
 package com.slack.kaldb.chunkManager;
 
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ChunkInfo;
@@ -13,12 +26,6 @@ import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.assertj.core.data.Offset;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,19 +35,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-
-import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.makeChunkManagerUtil;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import org.assertj.core.data.Offset;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class ChunkCleanerServiceTest {
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
