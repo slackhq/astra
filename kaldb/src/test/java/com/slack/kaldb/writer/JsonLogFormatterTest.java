@@ -25,8 +25,7 @@ public class JsonLogFormatterTest {
     span = JsonLogFormatter.fromJsonLog(json.getBytes(StandardCharsets.UTF_8));
     assertThat(span.getTagsList().size()).isEqualTo(3);
     Set<Trace.KeyValue> tags =
-        span.getTagsList()
-            .stream()
+        span.getTagsList().stream()
             .filter(kv -> kv.getKey().equals("field1"))
             .collect(Collectors.toSet());
     assertThat(tags.size()).isEqualTo(1);

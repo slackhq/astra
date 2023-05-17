@@ -58,9 +58,7 @@ public class RaiseErrorFieldValueTest {
     Document msg1Doc = docBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -129,9 +127,7 @@ public class RaiseErrorFieldValueTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);

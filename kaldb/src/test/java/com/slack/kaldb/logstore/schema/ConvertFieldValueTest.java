@@ -62,9 +62,7 @@ public class ConvertFieldValueTest {
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -95,9 +93,7 @@ public class ConvertFieldValueTest {
     assertThat(msg2Doc.getFields().size()).isEqualTo(14);
     // Value is converted for conflicting field.
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -110,16 +106,12 @@ public class ConvertFieldValueTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -201,16 +193,12 @@ public class ConvertFieldValueTest {
         .isEqualTo(FieldType.FLOAT);
     String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.TEXT);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(additionalCreatedFieldName))
                 .count())
         .isZero();
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(floatStrConflictField))
                 .count())
         .isEqualTo(2);
@@ -229,16 +217,12 @@ public class ConvertFieldValueTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isEqualTo(1);
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(
-            testDocument1
-                .getFields()
-                .stream()
+            testDocument1.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);

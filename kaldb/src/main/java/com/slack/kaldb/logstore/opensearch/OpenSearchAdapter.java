@@ -780,17 +780,12 @@ public class OpenSearchAdapter {
    */
   protected static TermsAggregationBuilder getTermsAggregationBuilder(TermsAggBuilder builder) {
     List<String> subAggNames =
-        builder
-            .getSubAggregations()
-            .stream()
+        builder.getSubAggregations().stream()
             .map(subagg -> ((AggBuilderBase) subagg).getName())
             .collect(Collectors.toList());
 
     List<BucketOrder> order =
-        builder
-            .getOrder()
-            .entrySet()
-            .stream()
+        builder.getOrder().entrySet().stream()
             .map(
                 (entry) -> {
                   // todo - this potentially needs BucketOrder.compound support

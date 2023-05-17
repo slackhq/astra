@@ -503,9 +503,7 @@ public class IndexingChunkManagerTest {
     // Contains messages 1-10
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     String firstChunkId =
-        chunkManager
-            .chunkList
-            .stream()
+        chunkManager.chunkList.stream()
             .filter(c -> !c.id().equals(activeChunkId))
             .findFirst()
             .get()
@@ -772,9 +770,7 @@ public class IndexingChunkManagerTest {
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     ReadWriteChunk<LogMessage> chunk =
         (ReadWriteChunk<LogMessage>)
-            chunkManager
-                .getChunkList()
-                .stream()
+            chunkManager.getChunkList().stream()
                 .filter(chunkIterator -> Objects.equals(chunkIterator.id(), secondChunk.chunkId))
                 .findFirst()
                 .get();

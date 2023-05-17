@@ -85,8 +85,7 @@ public class SearchResultAggregatorImpl<T extends LogMessage> implements SearchR
 
     // TODO: Instead of sorting all hits using a bounded priority queue of size k is more efficient.
     List<T> resultHits =
-        searchResults
-            .stream()
+        searchResults.stream()
             .flatMap(r -> r.hits.stream())
             .sorted(
                 Comparator.comparing(

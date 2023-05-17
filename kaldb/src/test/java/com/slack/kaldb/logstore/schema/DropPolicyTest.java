@@ -55,9 +55,7 @@ public class DropPolicyTest {
     // Only string fields have doc values not text fields.
     assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.STRING.name);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(LogMessage.SystemField.ID.fieldName)
@@ -66,17 +64,13 @@ public class DropPolicyTest {
         .isEqualTo(1);
     assertThat(docBuilder.getSchema().get("_index").fieldType.name).isEqualTo(FieldType.TEXT.name);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
                 .count())
         .isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -106,9 +100,7 @@ public class DropPolicyTest {
     // Only string fields have doc values not text fields.
     assertThat(docBuilder.getSchema().get("_id").fieldType.name).isEqualTo(FieldType.STRING.name);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(LogMessage.SystemField.ID.fieldName)
@@ -117,18 +109,14 @@ public class DropPolicyTest {
         .isEqualTo(1);
     assertThat(docBuilder.getSchema().get("_index").fieldType.name).isEqualTo(FieldType.TEXT.name);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals("_index") && f instanceof SortedDocValuesField)
                 .count())
         .isZero();
     assertThat(docBuilder.getSchema().keySet())
         .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isZero();
@@ -174,9 +162,7 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -239,9 +225,7 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -283,9 +267,7 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -329,9 +311,7 @@ public class DropPolicyTest {
     assertThat(docBuilder.getSchema().keySet())
         .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isZero();
@@ -363,9 +343,7 @@ public class DropPolicyTest {
     Document msg1Doc = docBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -396,9 +374,7 @@ public class DropPolicyTest {
     assertThat(msg2Doc.getFields().size()).isEqualTo(12);
     // Conflicting field is dropped.
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isEmpty();
@@ -488,16 +464,12 @@ public class DropPolicyTest {
         .isEqualTo(FieldType.FLOAT);
     String additionalCreatedFieldName = makeNewFieldOfType(floatStrConflictField, FieldType.TEXT);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(additionalCreatedFieldName))
                 .count())
         .isZero();
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(floatStrConflictField))
                 .count())
         .isZero();
@@ -516,16 +488,12 @@ public class DropPolicyTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);

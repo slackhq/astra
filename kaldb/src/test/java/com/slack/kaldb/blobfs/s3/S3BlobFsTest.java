@@ -69,9 +69,7 @@ public class S3BlobFsTest {
         s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
 
     String[] response =
-        listObjectsV2Response
-            .contents()
-            .stream()
+        listObjectsV2Response.contents().stream()
             .map(S3Object::key)
             .filter(x -> x.contains("touch"))
             .toArray(String[]::new);
@@ -94,9 +92,7 @@ public class S3BlobFsTest {
         s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, folder, false));
 
     String[] response =
-        listObjectsV2Response
-            .contents()
-            .stream()
+        listObjectsV2Response.contents().stream()
             .map(S3Object::key)
             .filter(x -> x.contains("touch"))
             .toArray(String[]::new);
@@ -194,9 +190,7 @@ public class S3BlobFsTest {
     ListObjectsV2Response listObjectsV2Response =
         s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
     String[] actualResponse =
-        listObjectsV2Response
-            .contents()
-            .stream()
+        listObjectsV2Response.contents().stream()
             .map(x -> x.key().substring(1))
             .filter(x -> x.contains("delete"))
             .toArray(String[]::new);
@@ -219,9 +213,7 @@ public class S3BlobFsTest {
     ListObjectsV2Response listObjectsV2Response =
         s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
     String[] actualResponse =
-        listObjectsV2Response
-            .contents()
-            .stream()
+        listObjectsV2Response.contents().stream()
             .map(S3Object::key)
             .filter(x -> x.contains("delete-2"))
             .toArray(String[]::new);

@@ -422,9 +422,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(cacheSlotMetadataStore.getCached().containsAll(unmutatedSlots)).isTrue();
 
     List<CacheSlotMetadata> mutatedCacheSlots =
-        cacheSlotMetadataStore
-            .getCached()
-            .stream()
+        cacheSlotMetadataStore.getCached().stream()
             .filter(cacheSlotMetadata -> !unmutatedSlots.contains(cacheSlotMetadata))
             .collect(Collectors.toList());
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
@@ -592,9 +590,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(4);
 
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -602,9 +598,7 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -613,9 +607,7 @@ public class ReplicaAssignmentServiceTest {
         .isEqualTo(3);
     assertThat(
             replicaMetadataExpiredList.containsAll(
-                replicaMetadataStore
-                    .listSync()
-                    .stream()
+                replicaMetadataStore.listSync().stream()
                     .filter(
                         replicaMetadata ->
                             replicaMetadata.createdTimeEpochMs
@@ -691,9 +683,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -701,9 +691,7 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(2);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -728,9 +716,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -738,9 +724,7 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(2);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -826,9 +810,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -836,9 +818,7 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(2);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -916,9 +896,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(2);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -926,9 +904,7 @@ public class ReplicaAssignmentServiceTest {
                 .count())
         .isEqualTo(2);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -981,9 +957,7 @@ public class ReplicaAssignmentServiceTest {
     await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(
-            cacheSlotMetadataStore
-                .listSync()
-                .stream()
+            cacheSlotMetadataStore.listSync().stream()
                 .filter(
                     cacheSlotMetadata ->
                         cacheSlotMetadata.cacheSlotState.equals(
@@ -1010,9 +984,7 @@ public class ReplicaAssignmentServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -1022,9 +994,7 @@ public class ReplicaAssignmentServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -1100,9 +1070,7 @@ public class ReplicaAssignmentServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(

@@ -125,9 +125,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onNext(
           ManagerApi.ListDatasetMetadataResponse.newBuilder()
               .addAllDatasetMetadata(
-                  datasetMetadataStore
-                      .listSync()
-                      .stream()
+                  datasetMetadataStore.listSync().stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());
@@ -295,13 +293,11 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
         Sets.intersection(
             Sets.newHashSet(snapshotIds),
             Sets.newHashSet(
-                snapshotMetadataList
-                    .stream()
+                snapshotMetadataList.stream()
                     .map((snapshot) -> snapshot.snapshotId)
                     .collect(Collectors.toList())));
 
-    return snapshotMetadataList
-        .stream()
+    return snapshotMetadataList.stream()
         .filter((snapshot) -> matchingSnapshots.contains(snapshot.snapshotId))
         .collect(Collectors.toList());
   }
@@ -333,16 +329,14 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     }
 
     Optional<DatasetPartitionMetadata> previousActiveDatasetPartition =
-        existingPartitions
-            .stream()
+        existingPartitions.stream()
             .filter(
                 datasetPartitionMetadata ->
                     datasetPartitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
     List<DatasetPartitionMetadata> remainingDatasetPartitions =
-        existingPartitions
-            .stream()
+        existingPartitions.stream()
             .filter(
                 datasetPartitionMetadata ->
                     datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)

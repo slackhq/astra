@@ -263,9 +263,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                    .getCached()
-                    .stream()
+                cacheSlotMetadataStore.getCached().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
@@ -341,9 +339,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                    .getCached()
-                    .stream()
+                cacheSlotMetadataStore.getCached().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
@@ -560,9 +556,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                    .getCached()
-                    .stream()
+                cacheSlotMetadataStore.getCached().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
@@ -658,9 +652,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -670,9 +662,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -702,9 +692,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -832,9 +820,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore
-                        .getCached()
-                        .stream()
+                cacheSlotMetadataStore.getCached().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -854,9 +840,7 @@ public class ReplicaEvictionServiceTest {
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     CacheSlotMetadata updatedCacheSlot =
-        cacheSlotMetadataStore
-            .getCached()
-            .stream()
+        cacheSlotMetadataStore.getCached().stream()
             .filter(
                 cacheSlotMetadata ->
                     Objects.equals(cacheSlotMetadata.name, cacheSlotReplicaExpiredOne.name))

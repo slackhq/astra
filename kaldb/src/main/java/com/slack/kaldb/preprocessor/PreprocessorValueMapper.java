@@ -76,8 +76,7 @@ public class PreprocessorValueMapper {
    * <p>todo - consider putting the service name into a top-level Trace.Span property
    */
   public static String getServiceName(Trace.Span span) {
-    return span.getTagsList()
-        .stream()
+    return span.getTagsList().stream()
         .filter(tag -> tag.getKey().equals(SERVICE_NAME_KEY))
         .map(Trace.KeyValue::getVStr)
         .findFirst()

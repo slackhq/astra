@@ -90,14 +90,12 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     List<Chunk<T>> chunksMatchingQuery;
     if (query.chunkIds.isEmpty()) {
       chunksMatchingQuery =
-          chunkList
-              .stream()
+          chunkList.stream()
               .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
               .collect(Collectors.toList());
     } else {
       chunksMatchingQuery =
-          chunkList
-              .stream()
+          chunkList.stream()
               .filter(c -> query.chunkIds.contains(c.id()))
               .collect(Collectors.toList());
     }
@@ -110,8 +108,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
     Collections.shuffle(chunksMatchingQuery);
 
     List<ListenableFuture<SearchResult<T>>> queries =
-        chunksMatchingQuery
-            .stream()
+        chunksMatchingQuery.stream()
             .map(
                 (chunk) ->
                     queryExecutorService.submit(

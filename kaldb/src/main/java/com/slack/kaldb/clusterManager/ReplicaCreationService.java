@@ -151,9 +151,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     // build a map of snapshot ID to how many replicas currently exist for that snapshot ID
     Map<String, Long> snapshotToReplicas =
-        replicaMetadataStore
-            .getCached()
-            .stream()
+        replicaMetadataStore.getCached().stream()
             .collect(
                 Collectors.groupingBy(
                     (replicaMetadata) -> replicaMetadata.snapshotId, Collectors.counting()));
@@ -167,9 +165,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> createdReplicaMetadataList =
-        snapshotMetadataStore
-            .getCached()
-            .stream()
+        snapshotMetadataStore.getCached().stream()
             // only attempt to create replicas for snapshots that have not expired, and are not live
             .filter(
                 snapshotMetadata ->
