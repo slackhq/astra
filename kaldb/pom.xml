@@ -14,7 +14,7 @@
             aligned with the Armeria included versions.
         -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javac.target>11</javac.target>
+        <javac.target>17</javac.target>
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.13</http.client.version>
         <http.core.version>4.4.15</http.core.version>
@@ -501,7 +501,7 @@
             <extension>
                 <groupId>kr.motd.maven</groupId>
                 <artifactId>os-maven-plugin</artifactId>
-                <version>1.6.2</version>
+                <version>1.7.1</version>
             </extension>
         </extensions>
         <plugins>
