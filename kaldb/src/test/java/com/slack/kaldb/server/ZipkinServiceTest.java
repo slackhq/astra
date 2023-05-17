@@ -263,7 +263,7 @@ public class ZipkinServiceTest {
                             {
                                 "traceId": "1",
                                 "parentId": "1",
-                                "id": "1localhost:100:1",
+                                "id": "localhost:100:1",
                                 "kind": "SPAN_KIND_UNSPECIFIED",
                                 "name": "Trace2",
                                 "timestamp": "%d",
@@ -284,13 +284,13 @@ public class ZipkinServiceTest {
                             {
                                 "traceId": "1",
                                 "parentId": "",
-                                "id": "1localhost:100:0",
+                                "id": "localhost:100:0",
                                 "kind": "SPAN_KIND_UNSPECIFIED",
                                 "name": "Trace1",
                                 "timestamp": "%d",
                                 "duration": "1",
                                 "remoteEndpoint": {
-                                    "serviceName": "testDataSet",
+                                    "serviceName": "service1",
                                     "ipv4": "",
                                     "ipv6": "",
                                     "port": 0
@@ -354,7 +354,7 @@ public class ZipkinServiceTest {
                                 "timestamp": "%d",
                                 "duration": "2",
                                 "remoteEndpoint": {
-                                    "serviceName": "testDataSet",
+                                    "serviceName": "service1",
                                     "ipv4": "",
                                     "ipv6": "",
                                     "port": 0
@@ -407,7 +407,7 @@ public class ZipkinServiceTest {
                                 "timestamp": "%d",
                                 "duration": "1",
                                 "remoteEndpoint": {
-                                    "serviceName": "testDataSet",
+                                    "serviceName": "service1",
                                     "ipv4": "",
                                     "ipv6": "",
                                     "port": 0

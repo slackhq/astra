@@ -15,13 +15,23 @@ public class JsonLogFormatterTest {
 
   @Test
   public void testJsonByteArrayToTraceSpan() throws IOException {
-    String json = "{\"service_name\": \"my-service\", \"@timestamp\": \"2007-12-03T10:15:30.00Z\"}";
+    String json =
+        """
+            {
+                "service_name": "my-service",
+                "@timestamp": "2007-12-03T10:15:30.00Z"
+            }""";
     Trace.Span span = JsonLogFormatter.fromJsonLog(json.getBytes(StandardCharsets.UTF_8));
     assertThat(span.getName()).isEqualTo("my-service");
     assertThat(span.getTimestamp()).isEqualTo(1196676930000L); // milliseconds
 
     json =
-        "{\"service_name\": \"my-service\", \"@timestamp\": \"2007-12-03T10:15:30.00Z\", \"field1\" : \"value1\"}";
+        """
+                    {
+                        "service_name": "my-service",
+                        "@timestamp": "2007-12-03T10:15:30.00Z",
+                        "field1": "value1"
+                    }""";
     span = JsonLogFormatter.fromJsonLog(json.getBytes(StandardCharsets.UTF_8));
     assertThat(span.getTagsList().size()).isEqualTo(3);
     Set<Trace.KeyValue> tags =
@@ -43,12 +53,15 @@ public class JsonLogFormatterTest {
         .isThrownBy(
             () ->
                 JsonLogFormatter.fromJsonLog(
-                    "{\"service_name\": \"my-service\"}".getBytes(StandardCharsets.UTF_8)));
+                    """
+                                "{"service_name": "my-service"}"""
+                        .getBytes(StandardCharsets.UTF_8)));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
                 JsonLogFormatter.fromJsonLog(
-                    "{\"@timestamp\": \"2007-12-03T10:15:30.00Z\"}"
+                    """
+                                {"@timestamp": "2007-12-03T10:15:30.00Z"}"""
                         .getBytes(StandardCharsets.UTF_8)));
   }
 }
