@@ -116,8 +116,7 @@ public class DatasetMetadata extends KaldbMetadata {
   private void checkPartitions(
       List<DatasetPartitionMetadata> partitionConfig, String errorMessage) {
     List<DatasetPartitionMetadata> sortedConfigsByStartTime =
-        partitionConfig
-            .stream()
+        partitionConfig.stream()
             .sorted(Comparator.comparingLong(DatasetPartitionMetadata::getStartTimeEpochMs))
             .collect(Collectors.toList());
 

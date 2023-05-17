@@ -94,9 +94,7 @@ public class SearchResultAggregatorImplTest {
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalDateHistogram
-                .getBuckets()
-                .stream()
+            internalDateHistogram.getBuckets().stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
@@ -158,9 +156,7 @@ public class SearchResultAggregatorImplTest {
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalDateHistogram
-                .getBuckets()
-                .stream()
+            internalDateHistogram.getBuckets().stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
@@ -234,9 +230,7 @@ public class SearchResultAggregatorImplTest {
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalDateHistogram
-                .getBuckets()
-                .stream()
+            internalDateHistogram.getBuckets().stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size() + messages3.size() + messages4.size());
@@ -343,9 +337,7 @@ public class SearchResultAggregatorImplTest {
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalDateHistogram
-                .getBuckets()
-                .stream()
+            internalDateHistogram.getBuckets().stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());
@@ -456,9 +448,7 @@ public class SearchResultAggregatorImplTest {
     InternalDateHistogram internalDateHistogram =
         Objects.requireNonNull((InternalDateHistogram) aggSearchResult.internalAggregation);
     assertThat(
-            internalDateHistogram
-                .getBuckets()
-                .stream()
+            internalDateHistogram.getBuckets().stream()
                 .collect(Collectors.summarizingLong(InternalDateHistogram.Bucket::getDocCount))
                 .getSum())
         .isEqualTo(messages1.size() + messages2.size());

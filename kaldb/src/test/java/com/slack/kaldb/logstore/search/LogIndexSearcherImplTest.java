@@ -832,9 +832,7 @@ public class LogIndexSearcherImplTest {
     assertThat(stringTerms.getBuckets().size()).isEqualTo(4);
 
     List<String> bucketKeys =
-        stringTerms
-            .getBuckets()
-            .stream()
+        stringTerms.getBuckets().stream()
             .map(bucket -> (String) bucket.getKey())
             .collect(Collectors.toList());
     assertThat(bucketKeys.contains("String-1")).isTrue();
@@ -891,44 +889,24 @@ public class LogIndexSearcherImplTest {
     // we collect to a set here, because opensearch doubles up the pipeline aggregators for some
     // reason
     assertThat(
-            dateHistogram
-                .getBuckets()
-                .get(0)
-                .getAggregations()
-                .asList()
-                .stream()
+            dateHistogram.getBuckets().get(0).getAggregations().asList().stream()
                 .map(Aggregation::getName)
                 .collect(Collectors.toSet()))
         .containsExactly("avgTimestamp");
     for (int i = 1; i < 6; i++) {
       assertThat(
-              dateHistogram
-                  .getBuckets()
-                  .get(i)
-                  .getAggregations()
-                  .asList()
-                  .stream()
+              dateHistogram.getBuckets().get(i).getAggregations().asList().stream()
                   .map(Aggregation::getName)
                   .collect(Collectors.toSet()))
           .containsExactly("avgTimestamp", "movAvgCount");
     }
     assertThat(
-            dateHistogram
-                .getBuckets()
-                .get(6)
-                .getAggregations()
-                .asList()
-                .stream()
+            dateHistogram.getBuckets().get(6).getAggregations().asList().stream()
                 .map(Aggregation::getName)
                 .collect(Collectors.toSet()))
         .containsExactly("movAvgCount");
     assertThat(
-            dateHistogram
-                .getBuckets()
-                .get(7)
-                .getAggregations()
-                .asList()
-                .stream()
+            dateHistogram.getBuckets().get(7).getAggregations().asList().stream()
                 .map(Aggregation::getName)
                 .collect(Collectors.toSet()))
         .containsExactly("movAvgCount");

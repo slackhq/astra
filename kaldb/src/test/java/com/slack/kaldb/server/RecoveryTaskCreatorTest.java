@@ -1163,9 +1163,7 @@ public class RecoveryTaskCreatorTest {
     List<RecoveryTaskMetadata> recoveryTasks3 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks3.size()).isEqualTo(3);
     RecoveryTaskMetadata recoveryTask3 =
-        recoveryTaskStore
-            .listSync()
-            .stream()
+        recoveryTaskStore.listSync().stream()
             .filter(r -> !r.equals(recoveryTask1) && !r.equals(recoveryTask2))
             .findFirst()
             .get();
@@ -1195,9 +1193,7 @@ public class RecoveryTaskCreatorTest {
     List<RecoveryTaskMetadata> recoveryTasks4 = recoveryTaskStore.listSync();
     assertThat(recoveryTasks4.size()).isEqualTo(4);
     RecoveryTaskMetadata recoveryTask4 =
-        recoveryTaskStore
-            .listSync()
-            .stream()
+        recoveryTaskStore.listSync().stream()
             .filter(r -> !recoveryTasks3.contains(r))
             .findFirst()
             .get();
@@ -1232,9 +1228,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskCreator.determineStartingOffset(2050)).isEqualTo(2050);
     assertThat(recoveryTaskStore.listSync().size()).isEqualTo(6);
     RecoveryTaskMetadata recoveryTask5 =
-        recoveryTaskStore
-            .listSync()
-            .stream()
+        recoveryTaskStore.listSync().stream()
             .filter(r -> !recoveryTasks4.contains(r) && !r.equals(recoveryTaskPartition2))
             .findFirst()
             .get();

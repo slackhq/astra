@@ -684,9 +684,7 @@ public class IndexingChunkImplTest {
       ListObjectsV2Response objectsResponse =
           s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
       assertThat(
-              objectsResponse
-                  .contents()
-                  .stream()
+              objectsResponse.contents().stream()
                   .filter(o -> o.key().equals(SCHEMA_FILE_NAME))
                   .count())
           .isEqualTo(1);
@@ -700,8 +698,7 @@ public class IndexingChunkImplTest {
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
-          afterSnapshots
-              .stream()
+          afterSnapshots.stream()
               .filter(s -> s.snapshotPath.equals(SnapshotMetadata.LIVE_SNAPSHOT_PATH))
               .findFirst()
               .get();

@@ -282,10 +282,7 @@ public abstract class ReadWriteChunk<T> implements Chunk<T> {
 
   @Override
   public Map<String, FieldType> getSchema() {
-    return logStore
-        .getSchema()
-        .entrySet()
-        .stream()
+    return logStore.getSchema().entrySet().stream()
         .collect(
             Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> entry.getValue().fieldType));
   }

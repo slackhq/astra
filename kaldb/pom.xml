@@ -590,10 +590,22 @@
             </plugin>
 
             <!-- Format code automatically during build using google's style guide.-->
+            <!-- https://github.com/spotify/fmt-maven-plugin/blob/main/README.md -->
             <plugin>
-                <groupId>com.coveo</groupId>
+                <groupId>com.spotify.fmt</groupId>
                 <artifactId>fmt-maven-plugin</artifactId>
-                <version>2.6.0</version>
+                <version>2.20</version>
+                <configuration>
+                    <sourceDirectory>src/main/java</sourceDirectory>
+                    <testSourceDirectory>src/test/java</testSourceDirectory>
+                    <verbose>true</verbose>
+                    <filesNamePattern>.*\.java</filesNamePattern>
+                    <skip>false</skip>
+                    <skipSourceDirectory>false</skipSourceDirectory>
+                    <skipTestSourceDirectory>false</skipTestSourceDirectory>
+                    <skipSortingImports>false</skipSortingImports>
+                    <style>google</style>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

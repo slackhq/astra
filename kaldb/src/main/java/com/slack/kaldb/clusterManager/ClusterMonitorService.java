@@ -42,9 +42,7 @@ public class ClusterMonitorService extends AbstractIdleService {
           List.of(Tag.of("cacheSlotState", cacheSlotState.toString())),
           cacheSlotMetadataStore,
           store ->
-              store
-                  .getCached()
-                  .stream()
+              store.getCached().stream()
                   .filter(
                       cacheSlotMetadata -> cacheSlotMetadata.cacheSlotState.equals(cacheSlotState))
                   .count());

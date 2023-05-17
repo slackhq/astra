@@ -267,9 +267,7 @@ public class RecoveryTaskAssignmentServiceTest {
     assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(3);
     assertThat(recoveryNodeMetadataStore.listSync().containsAll(ineligibleRecoveryNodes)).isTrue();
     assertThat(
-            recoveryNodeMetadataStore
-                .listSync()
-                .stream()
+            recoveryNodeMetadataStore.listSync().stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -477,9 +475,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                        .getCached()
-                        .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                         .filter(
                             recoveryNodeMetadata ->
                                 recoveryNodeMetadata.recoveryNodeState.equals(
@@ -495,9 +491,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                        .getCached()
-                        .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                         .filter(
                             recoveryNodeMetadata ->
                                 recoveryNodeMetadata.recoveryNodeState.equals(
@@ -597,9 +591,7 @@ public class RecoveryTaskAssignmentServiceTest {
         .isEqualTo(1);
 
     assertThat(
-            recoveryNodeMetadataStore
-                .listSync()
-                .stream()
+            recoveryNodeMetadataStore.listSync().stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -607,9 +599,7 @@ public class RecoveryTaskAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
     assertThat(
-            recoveryNodeMetadataStore
-                .listSync()
-                .stream()
+            recoveryNodeMetadataStore.listSync().stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -684,9 +674,7 @@ public class RecoveryTaskAssignmentServiceTest {
         .isEqualTo(1);
 
     assertThat(
-            recoveryNodeMetadataStore
-                .listSync()
-                .stream()
+            recoveryNodeMetadataStore.listSync().stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -694,9 +682,7 @@ public class RecoveryTaskAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
     assertThat(
-            recoveryNodeMetadataStore
-                .listSync()
-                .stream()
+            recoveryNodeMetadataStore.listSync().stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -740,9 +726,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata) ->
                             recoveryNodeMetadata.recoveryNodeState.equals(
@@ -760,9 +744,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata) ->
                             recoveryNodeMetadata.recoveryNodeState.equals(
@@ -787,9 +769,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata) ->
                             recoveryNodeMetadata.recoveryNodeState.equals(
@@ -818,9 +798,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata ->
                             recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()
@@ -875,9 +853,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata) ->
                             recoveryNodeMetadata.recoveryNodeState.equals(
@@ -902,9 +878,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata) ->
                             recoveryNodeMetadata.recoveryNodeState.equals(
@@ -933,9 +907,7 @@ public class RecoveryTaskAssignmentServiceTest {
     await()
         .until(
             () ->
-                recoveryNodeMetadataStore
-                    .getCached()
-                    .stream()
+                recoveryNodeMetadataStore.getCached().stream()
                     .allMatch(
                         (recoveryNodeMetadata ->
                             recoveryNodeMetadata.updatedTimeEpochMs > before.toEpochMilli()

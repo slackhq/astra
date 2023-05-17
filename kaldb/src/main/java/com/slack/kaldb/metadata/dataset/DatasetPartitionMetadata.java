@@ -100,9 +100,7 @@ public class DatasetPartitionMetadata {
       long endTimeEpochMs,
       String dataset) {
     boolean skipDatasetFilter = (dataset.equals("*") || dataset.equals(MATCH_ALL_DATASET));
-    return datasetMetadataStore
-        .getCached()
-        .stream()
+    return datasetMetadataStore.getCached().stream()
         .filter(serviceMetadata -> skipDatasetFilter || serviceMetadata.name.equals(dataset))
         .flatMap(
             serviceMetadata -> serviceMetadata.partitionConfigs.stream()) // will always return one

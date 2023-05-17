@@ -88,9 +88,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -147,9 +145,7 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(docBuilder.getSchema().keySet())
         .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     assertThat(
-            testDocument
-                .getFields()
-                .stream()
+            testDocument.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isZero();
@@ -183,9 +179,7 @@ public class ConvertFieldValueAndDuplicateTest {
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -217,9 +211,7 @@ public class ConvertFieldValueAndDuplicateTest {
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(conflictingFieldName)
@@ -241,16 +233,12 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -286,9 +274,7 @@ public class ConvertFieldValueAndDuplicateTest {
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -320,9 +306,7 @@ public class ConvertFieldValueAndDuplicateTest {
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.STRING);
     // Value converted and new field is added.
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(conflictingFieldName)
@@ -345,16 +329,12 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -382,9 +362,7 @@ public class ConvertFieldValueAndDuplicateTest {
     Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
     assertThat(msg3Doc.getFields().size()).isEqualTo(16);
     assertThat(
-            msg3Doc
-                .getFields()
-                .stream()
+            msg3Doc.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(additionalCreatedBoolFieldName)
@@ -439,9 +417,7 @@ public class ConvertFieldValueAndDuplicateTest {
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
     assertThat(msg1Doc.getFields().size()).isEqualTo(14);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
                 .findFirst())
         .isNotEmpty();
@@ -474,9 +450,7 @@ public class ConvertFieldValueAndDuplicateTest {
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(
                     f ->
                         f.name().equals(conflictingFieldName)
@@ -498,16 +472,12 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
     assertThat(
-            msg1Doc
-                .getFields()
-                .stream()
+            msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            msg2Doc
-                .getFields()
-                .stream()
+            msg2Doc.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -607,16 +577,12 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry))
         .isEqualTo(1);
     assertThat(
-            testDocument1
-                .getFields()
-                .stream()
+            testDocument1.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
@@ -671,9 +637,7 @@ public class ConvertFieldValueAndDuplicateTest {
             List.of(stringField, "nested.leaf1", "nested.nested.leaf2", "nested.nested.leaf21"));
     // The new field is identified as text, but indexed as String.
     assertThat(
-            testDocument1
-                .getFields()
-                .stream()
+            testDocument1.getFields().stream()
                 .filter(f -> f.name().equals(stringField) && f instanceof SortedDocValuesField)
                 .count())
         .isEqualTo(1);
@@ -727,9 +691,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "nested.nested.leaf2",
                 "nested.nested.leaf21"));
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(
                     f -> f.name().equals(nestedStringField) && f instanceof SortedDocValuesField)
                 .count())
@@ -738,16 +700,12 @@ public class ConvertFieldValueAndDuplicateTest {
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
     assertThat(
-            testDocument1
-                .getFields()
-                .stream()
+            testDocument1.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);
     assertThat(
-            testDocument2
-                .getFields()
-                .stream()
+            testDocument2.getFields().stream()
                 .filter(f -> f.name().equals(LogMessage.SystemField.ALL.fieldName))
                 .count())
         .isEqualTo(1);

@@ -71,8 +71,7 @@ public class RecoveryTaskCreator {
   @VisibleForTesting
   public static List<SnapshotMetadata> getStaleLiveSnapshots(
       List<SnapshotMetadata> snapshots, String partitionId) {
-    return snapshots
-        .stream()
+    return snapshots.stream()
         .filter(snapshotMetadata -> snapshotMetadata.partitionId.equals(partitionId))
         .filter(SnapshotMetadata::isLive)
         .collect(Collectors.toUnmodifiableList());
@@ -86,16 +85,14 @@ public class RecoveryTaskCreator {
       String partitionId) {
 
     long maxSnapshotOffset =
-        snapshots
-            .stream()
+        snapshots.stream()
             .filter(snapshot -> snapshot.partitionId.equals(partitionId))
             .mapToLong(snapshot -> snapshot.maxOffset)
             .max()
             .orElse(-1);
 
     long maxRecoveryOffset =
-        recoveryTasks
-            .stream()
+        recoveryTasks.stream()
             .filter(recoveryTaskMetadata -> recoveryTaskMetadata.partitionId.equals(partitionId))
             .mapToLong(recoveryTaskMetadata -> recoveryTaskMetadata.endOffset)
             .max()
@@ -154,8 +151,7 @@ public class RecoveryTaskCreator {
 
     List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     List<SnapshotMetadata> snapshotsForPartition =
-        snapshots
-            .stream()
+        snapshots.stream()
             .filter(
                 snapshotMetadata -> {
                   if (snapshotMetadata == null || snapshotMetadata.partitionId == null) {
@@ -171,8 +167,7 @@ public class RecoveryTaskCreator {
     List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
     List<SnapshotMetadata> nonLiveSnapshotsForPartition =
-        snapshotsForPartition
-            .stream()
+        snapshotsForPartition.stream()
             .filter(s -> !deletedSnapshots.contains(s))
             .collect(Collectors.toUnmodifiableList());
 
@@ -278,8 +273,7 @@ public class RecoveryTaskCreator {
       SnapshotMetadataStore snapshotMetadataStore, List<SnapshotMetadata> snapshotsToBeDeleted) {
     AtomicInteger successCounter = new AtomicInteger(0);
     List<? extends ListenableFuture<?>> deletionFutures =
-        snapshotsToBeDeleted
-            .stream()
+        snapshotsToBeDeleted.stream()
             .map(
                 snapshot -> {
                   ListenableFuture<?> future = snapshotMetadataStore.delete(snapshot);

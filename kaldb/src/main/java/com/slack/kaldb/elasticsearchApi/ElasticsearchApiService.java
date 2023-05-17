@@ -91,8 +91,7 @@ public class ElasticsearchApiService {
 
     List<KaldbSearch.SearchRequest> requests = openSearchRequest.parseHttpPostBody(postBody);
     List<ListenableFuture<EsSearchResponse>> responseFutures =
-        requests
-            .stream()
+        requests.stream()
             .map(
                 (request) ->
                     Futures.submit(

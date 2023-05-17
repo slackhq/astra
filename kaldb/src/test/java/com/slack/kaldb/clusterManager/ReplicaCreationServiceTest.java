@@ -217,9 +217,7 @@ public class ReplicaCreationServiceTest {
     await().until(() -> replicaMetadataStore.getCached().size() == 4);
     assertThat(
             (int)
-                replicaMetadataStore
-                    .getCached()
-                    .stream()
+                replicaMetadataStore.getCached().stream()
                     .filter(replicaMetadata -> Objects.equals(replicaMetadata.snapshotId, "a"))
                     .count())
         .isEqualTo(4);
@@ -377,8 +375,7 @@ public class ReplicaCreationServiceTest {
     assertThat(snapshotList.size())
         .isEqualTo(eligibleSnapshotsToCreate + ineligibleSnapshotsToCreate + liveSnapshotsToCreate);
     Collections.shuffle(snapshotList);
-    snapshotList
-        .parallelStream()
+    snapshotList.parallelStream()
         .forEach((snapshotMetadata -> snapshotMetadataStore.createSync(snapshotMetadata)));
     List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSync();
     assertThat(snapshotMetadataList.size()).isEqualTo(snapshotList.size());
@@ -401,14 +398,11 @@ public class ReplicaCreationServiceTest {
     assertThat(snapshotMetadataList).isEqualTo(snapshotMetadataStore.listSync());
 
     List<String> eligibleSnapshotIds =
-        eligibleSnapshots
-            .stream()
+        eligibleSnapshots.stream()
             .map(snapshotMetadata -> snapshotMetadata.snapshotId)
             .collect(Collectors.toList());
     assertThat(
-            replicaMetadataStore
-                .listSync()
-                .stream()
+            replicaMetadataStore.listSync().stream()
                 .allMatch(
                     (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
         .isTrue();

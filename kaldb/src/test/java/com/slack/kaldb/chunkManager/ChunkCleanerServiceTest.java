@@ -265,9 +265,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(4, 2, 2, 2, 0);
     assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
+            snapshotMetadataStore.listSync().stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))
@@ -302,9 +300,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(3, 1, 2, 1, 0);
     assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
+            snapshotMetadataStore.listSync().stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))
@@ -319,9 +315,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(2, 0, 2, 0, 0);
     assertThat(
-            snapshotMetadataStore
-                .listSync()
-                .stream()
+            snapshotMetadataStore.listSync().stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))

@@ -69,10 +69,7 @@ public class SearchResultUtils {
     } else if (value.hasStructValue()) {
       return fromValueStruct(value.getStructValue());
     } else if (value.hasListValue()) {
-      return value
-          .getListValue()
-          .getValuesList()
-          .stream()
+      return value.getListValue().getValuesList().stream()
           .map(SearchResultUtils::fromValueProto)
           .collect(Collectors.toList());
     } else {
@@ -102,9 +99,7 @@ public class SearchResultUtils {
           KaldbSearch.ListValue.newBuilder()
               .addAllValues(
                   ((List<?>) object)
-                      .stream()
-                      .map(SearchResultUtils::toValueProto)
-                      .collect(Collectors.toList()))
+                      .stream().map(SearchResultUtils::toValueProto).collect(Collectors.toList()))
               .build());
     } else {
       throw new IllegalArgumentException();
@@ -197,9 +192,7 @@ public class SearchResultUtils {
     } else if (searchAggregation.getType().equals(TermsAggBuilder.TYPE)) {
       return new TermsAggBuilder(
           searchAggregation.getName(),
-          searchAggregation
-              .getSubAggregationsList()
-              .stream()
+          searchAggregation.getSubAggregationsList().stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()),
           searchAggregation.getValueSource().getField(),
@@ -216,9 +209,7 @@ public class SearchResultUtils {
           searchAggregation.getValueSource().getDateHistogram().getMinDocCount(),
           searchAggregation.getValueSource().getDateHistogram().getFormat(),
           searchAggregation.getValueSource().getDateHistogram().getExtendedBoundsMap(),
-          searchAggregation
-              .getSubAggregationsList()
-              .stream()
+          searchAggregation.getSubAggregationsList().stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()));
     } else if (searchAggregation.getType().equals(HistogramAggBuilder.TYPE)) {
@@ -227,9 +218,7 @@ public class SearchResultUtils {
           searchAggregation.getValueSource().getField(),
           searchAggregation.getValueSource().getHistogram().getInterval(),
           searchAggregation.getValueSource().getHistogram().getMinDocCount(),
-          searchAggregation
-              .getSubAggregationsList()
-              .stream()
+          searchAggregation.getSubAggregationsList().stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()));
     }
@@ -483,9 +472,7 @@ public class SearchResultUtils {
           .setType(TermsAggBuilder.TYPE)
           .setName(termsAggBuilder.getName())
           .addAllSubAggregations(
-              termsAggBuilder
-                  .getSubAggregations()
-                  .stream()
+              termsAggBuilder.getSubAggregations().stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
                   .collect(Collectors.toList()))
           .setValueSource(valueSourceAggregationBuilder.build())
@@ -516,9 +503,7 @@ public class SearchResultUtils {
           .setType(DateHistogramAggBuilder.TYPE)
           .setName(dateHistogramAggBuilder.getName())
           .addAllSubAggregations(
-              dateHistogramAggBuilder
-                  .getSubAggregations()
-                  .stream()
+              dateHistogramAggBuilder.getSubAggregations().stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
                   .collect(Collectors.toList()))
           .setValueSource(
@@ -542,9 +527,7 @@ public class SearchResultUtils {
           .setType(HistogramAggBuilder.TYPE)
           .setName(histogramAggBuilder.getName())
           .addAllSubAggregations(
-              histogramAggBuilder
-                  .getSubAggregations()
-                  .stream()
+              histogramAggBuilder.getSubAggregations().stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
                   .collect(Collectors.toList()))
           .setValueSource(

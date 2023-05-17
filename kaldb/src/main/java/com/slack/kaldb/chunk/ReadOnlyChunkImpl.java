@@ -321,10 +321,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   @Override
   public Map<String, FieldType> getSchema() {
     if (chunkSchema != null) {
-      return chunkSchema
-          .fieldDefMap
-          .entrySet()
-          .stream()
+      return chunkSchema.fieldDefMap.entrySet().stream()
           .collect(
               Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> entry.getValue().fieldType));
     } else {

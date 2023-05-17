@@ -394,8 +394,7 @@ public class S3BlobFs extends BlobFs {
         ListObjectsV2Response listObjectsV2Response = s3Client.listObjectsV2(listObjectsV2Request);
         LOG.debug("Getting ListObjectsV2Response: {}", listObjectsV2Response);
         List<S3Object> filesReturned = listObjectsV2Response.contents();
-        filesReturned
-            .stream()
+        filesReturned.stream()
             .forEach(
                 object -> {
                   // Only add files and not directories

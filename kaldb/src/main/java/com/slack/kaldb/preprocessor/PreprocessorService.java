@@ -205,8 +205,7 @@ public class PreprocessorService extends AbstractService {
 
     upstreamTopics.forEach(
         (upstreamTopic ->
-            builder
-                .stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
+            builder.stream(upstreamTopic, Consumed.with(Serdes.String(), Serdes.ByteArray()))
                 .flatMapValues(valueMapper)
                 .filter(rateLimitPredicate)
                 .peek(
@@ -229,8 +228,7 @@ public class PreprocessorService extends AbstractService {
    */
   protected static List<DatasetMetadata> filterValidDatasetMetadata(
       List<DatasetMetadata> datasetMetadataList) {
-    return datasetMetadataList
-        .stream()
+    return datasetMetadataList.stream()
         .filter(datasetMetadata -> datasetMetadata.getThroughputBytes() > 0)
         .filter(datasetMetadata -> getActivePartitionList(datasetMetadata).size() > 0)
         .collect(Collectors.toList());
@@ -239,19 +237,14 @@ public class PreprocessorService extends AbstractService {
   /** Gets the active list of partitions from the provided dataset metadata */
   protected static List<Integer> getActivePartitionList(DatasetMetadata datasetMetadata) {
     Optional<DatasetPartitionMetadata> datasetPartitionMetadata =
-        datasetMetadata
-            .getPartitionConfigs()
-            .stream()
+        datasetMetadata.getPartitionConfigs().stream()
             .filter(partitionMetadata -> partitionMetadata.getEndTimeEpochMs() == MAX_TIME)
             .findFirst();
 
     if (datasetPartitionMetadata.isEmpty()) {
       return Collections.emptyList();
     }
-    return datasetPartitionMetadata
-        .get()
-        .getPartitions()
-        .stream()
+    return datasetPartitionMetadata.get().getPartitions().stream()
         .map(Integer::parseInt)
         .collect(Collectors.toUnmodifiableList());
   }
@@ -260,8 +253,7 @@ public class PreprocessorService extends AbstractService {
   // in the future we can change the ordering from sort to something else
   public static List<DatasetMetadata> sortDatasetsOnThroughput(
       List<DatasetMetadata> datasetMetadataList) {
-    return datasetMetadataList
-        .stream()
+    return datasetMetadataList.stream()
         .sorted(Comparator.comparingLong(DatasetMetadata::getThroughputBytes).reversed())
         .collect(Collectors.toList());
   }
