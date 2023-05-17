@@ -1,14 +1,5 @@
 package com.slack.kaldb.preprocessor;
 
-import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
-import static org.assertj.core.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -17,17 +8,28 @@ import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.processor.StreamPartitioner;
 import org.junit.Test;
+
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class PreprocessorServiceUnitTest {
 
@@ -246,7 +248,8 @@ public class PreprocessorServiceUnitTest {
   @Test
   public void shouldNotCachePartitionBeyondStickyTimeout() throws InterruptedException {
     int stickyTimeoutMs = 1;
-    List<String> partitions = IntStream.range(0, 100).mapToObj((String::valueOf)).toList();
+    List<String> partitions =
+        IntStream.range(0, 100).mapToObj((String::valueOf)).collect(Collectors.toList());
 
     String datasetName = "datasetName";
     DatasetMetadata datasetMetadata =

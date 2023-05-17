@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +98,7 @@ public class ElasticsearchApiService {
                     Futures.submit(
                         () -> this.doSearch(request),
                         Tracing.current().currentTraceContext().executor(multisearchExecutor)))
-            .toList();
+            .collect(Collectors.toList());
 
     SearchResponseMetadata responseMetadata =
         new SearchResponseMetadata(

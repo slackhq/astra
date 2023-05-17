@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.naming.SizeLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
                       .listSync()
                       .stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
-                      .toList())
+                      .collect(Collectors.toList()))
               .build());
       responseObserver.onCompleted();
     } catch (Exception e) {
@@ -294,12 +295,15 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
         Sets.intersection(
             Sets.newHashSet(snapshotIds),
             Sets.newHashSet(
-                snapshotMetadataList.stream().map((snapshot) -> snapshot.snapshotId).toList()));
+                snapshotMetadataList
+                    .stream()
+                    .map((snapshot) -> snapshot.snapshotId)
+                    .collect(Collectors.toList())));
 
     return snapshotMetadataList
         .stream()
         .filter((snapshot) -> matchingSnapshots.contains(snapshot.snapshotId))
-        .toList();
+        .collect(Collectors.toList());
   }
 
   /**
@@ -342,7 +346,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
             .filter(
                 datasetPartitionMetadata ->
                     datasetPartitionMetadata.getEndTimeEpochMs() != MAX_TIME)
-            .toList();
+            .collect(Collectors.toList());
 
     // todo - consider adding some padding to this value; this may complicate
     //   validation as you would need to consider what happens when there's a future

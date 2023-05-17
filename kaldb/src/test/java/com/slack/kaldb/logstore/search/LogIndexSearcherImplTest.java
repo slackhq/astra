@@ -509,7 +509,7 @@ public class LogIndexSearcherImplTest {
             2,
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
-    assertThat(apples.hits.stream().map(m -> m.getId()).toList())
+    assertThat(apples.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("5", "3"));
     assertThat(apples.hits.size()).isEqualTo(2);
 
@@ -626,7 +626,7 @@ public class LogIndexSearcherImplTest {
             new DateHistogramAggBuilder(
                 "1", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName, "1s"));
     assertThat(babies.hits.size()).isEqualTo(2);
-    assertThat(babies.hits.stream().map(m -> m.getId()).toList())
+    assertThat(babies.hits.stream().map(m -> m.getId()).collect(Collectors.toList()))
         .isEqualTo(Arrays.asList("4", "2"));
 
     // Commit now
@@ -832,7 +832,11 @@ public class LogIndexSearcherImplTest {
     assertThat(stringTerms.getBuckets().size()).isEqualTo(4);
 
     List<String> bucketKeys =
-        stringTerms.getBuckets().stream().map(bucket -> (String) bucket.getKey()).toList();
+        stringTerms
+            .getBuckets()
+            .stream()
+            .map(bucket -> (String) bucket.getKey())
+            .collect(Collectors.toList());
     assertThat(bucketKeys.contains("String-1")).isTrue();
     assertThat(bucketKeys.contains("String-3")).isTrue();
     assertThat(bucketKeys.contains("String-4")).isTrue();

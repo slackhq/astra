@@ -1,13 +1,5 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.spy;
-
 import brave.Tracing;
 import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
@@ -21,6 +13,11 @@ import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.curator.test.TestingServer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -29,10 +26,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import java.util.stream.Collectors;
+
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.spy;
 
 public class ReplicaAssignmentServiceTest {
 
@@ -425,7 +427,7 @@ public class ReplicaAssignmentServiceTest {
             .getCached()
             .stream()
             .filter(cacheSlotMetadata -> !unmutatedSlots.contains(cacheSlotMetadata))
-            .toList();
+            .collect(Collectors.toList());
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
     assertThat(mutatedCacheSlots.get(0).name).isEqualTo(cacheSlotFree.name);
     assertThat(mutatedCacheSlots.get(0).replicaId).isEqualTo(replicaMetadataList.get(3).name);
@@ -619,7 +621,7 @@ public class ReplicaAssignmentServiceTest {
                         replicaMetadata ->
                             replicaMetadata.createdTimeEpochMs
                                 < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
-                    .toList()))
+                    .collect(Collectors.toList())))
         .isTrue();
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))

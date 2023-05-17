@@ -7,6 +7,7 @@ import com.slack.kaldb.metadata.core.KaldbMetadata;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Contains configurations for use in the pre-processor and query service - including rate limits,
@@ -118,7 +119,7 @@ public class DatasetMetadata extends KaldbMetadata {
         partitionConfig
             .stream()
             .sorted(Comparator.comparingLong(DatasetPartitionMetadata::getStartTimeEpochMs))
-            .toList();
+            .collect(Collectors.toList());
 
     for (int i = 0; i < sortedConfigsByStartTime.size(); i++) {
       if (i + 1 != sortedConfigsByStartTime.size()) {

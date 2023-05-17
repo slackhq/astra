@@ -147,7 +147,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                 cacheSlotMetadata ->
                     cacheSlotMetadata.cacheSlotState.equals(
                         Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-            .toList();
+            .collect(Collectors.toList());
 
     // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
     // assigned chunks that matches all recent queries. This should help balance out the load

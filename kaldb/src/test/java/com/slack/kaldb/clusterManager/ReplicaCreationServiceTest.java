@@ -1,13 +1,5 @@
 package com.slack.kaldb.clusterManager;
 
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.spy;
-
 import brave.Tracing;
 import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
@@ -20,6 +12,11 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.curator.test.TestingServer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,11 +29,16 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.curator.test.TestingServer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+
+import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.spy;
 
 public class ReplicaCreationServiceTest {
   private TestingServer testingServer;
@@ -400,7 +402,10 @@ public class ReplicaCreationServiceTest {
     assertThat(snapshotMetadataList).isEqualTo(snapshotMetadataStore.listSync());
 
     List<String> eligibleSnapshotIds =
-        eligibleSnapshots.stream().map(snapshotMetadata -> snapshotMetadata.snapshotId).toList();
+        eligibleSnapshots
+            .stream()
+            .map(snapshotMetadata -> snapshotMetadata.snapshotId)
+            .collect(Collectors.toList());
     assertThat(
             replicaMetadataStore
                 .listSync()

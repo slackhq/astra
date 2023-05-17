@@ -1,25 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
-import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.MetricsUtil.getValue;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
@@ -39,12 +19,6 @@ import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
 import org.junit.After;
 import org.junit.Before;
@@ -53,6 +27,34 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import software.amazon.awssdk.services.s3.S3Client;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
+import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.CHUNK_DATA_PREFIX;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getValue;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class RecoveryChunkManagerTest {
   // TODO: Ensure clean close after all chunks are uploaded.
@@ -354,7 +356,8 @@ public class RecoveryChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes).isEmpty();
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList()).isEmpty();
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+        .isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
   }
 
@@ -398,7 +401,8 @@ public class RecoveryChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes).isEmpty();
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList()).isEmpty();
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
+        .isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
 
     // roll over active chunk on close.

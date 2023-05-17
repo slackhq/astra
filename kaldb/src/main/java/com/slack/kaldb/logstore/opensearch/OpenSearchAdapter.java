@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.CollectorManager;
@@ -783,7 +784,7 @@ public class OpenSearchAdapter {
             .getSubAggregations()
             .stream()
             .map(subagg -> ((AggBuilderBase) subagg).getName())
-            .toList();
+            .collect(Collectors.toList());
 
     List<BucketOrder> order =
         builder
@@ -809,7 +810,7 @@ public class OpenSearchAdapter {
                     return BucketOrder.aggregation(entry.getKey(), asc);
                   }
                 })
-            .toList();
+            .collect(Collectors.toList());
 
     TermsAggregationBuilder termsAggregationBuilder =
         new TermsAggregationBuilder(builder.getName())

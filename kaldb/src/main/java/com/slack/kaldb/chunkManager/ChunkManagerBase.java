@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,10 +93,13 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
           chunkList
               .stream()
               .filter(c -> c.containsDataInTimeRange(query.startTimeEpochMs, query.endTimeEpochMs))
-              .toList();
+              .collect(Collectors.toList());
     } else {
       chunksMatchingQuery =
-          chunkList.stream().filter(c -> query.chunkIds.contains(c.id())).toList();
+          chunkList
+              .stream()
+              .filter(c -> query.chunkIds.contains(c.id()))
+              .collect(Collectors.toList());
     }
 
     // Shuffle the chunks to query. The chunkList is ordered, meaning if you had multiple concurrent
@@ -139,7 +143,7 @@ public abstract class ChunkManagerBase<T> extends AbstractIdleService implements
                 (future) ->
                     queryCancellationService.schedule(
                         () -> future.cancel(true), queryTimeout.toMillis(), TimeUnit.MILLISECONDS))
-            .toList();
+            .collect(Collectors.toList());
 
     Future<List<SearchResult<T>>> searchResultFuture = Futures.successfulAsList(queries);
     try {

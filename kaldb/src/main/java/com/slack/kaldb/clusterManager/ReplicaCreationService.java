@@ -201,7 +201,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                   MoreExecutors.directExecutor());
                               return future;
                             })
-                        .toList())
+                        .collect(Collectors.toList()))
             .flatMap(List::stream)
             .collect(Collectors.toUnmodifiableList());
 

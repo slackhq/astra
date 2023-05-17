@@ -1,30 +1,5 @@
 package com.slack.kaldb.chunkManager;
 
-import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
-import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
-import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
-import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVER_TIMER;
-import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
-import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
-import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
-import static com.slack.kaldb.testlib.MetricsUtil.getValue;
-import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.awaitility.Awaitility.await;
-
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit4.S3MockRule;
 import com.google.common.base.Throwables;
@@ -58,6 +33,17 @@ import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.curator.test.TestingServer;
+import org.assertj.core.data.Offset;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import software.amazon.awssdk.services.s3.S3Client;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -74,16 +60,32 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.curator.test.TestingServer;
-import org.assertj.core.data.Offset;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import software.amazon.awssdk.services.s3.S3Client;
+import java.util.stream.Collectors;
+
+import static com.slack.kaldb.chunk.ChunkInfo.MAX_FUTURE_TIME;
+import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_BYTES_INDEXED;
+import static com.slack.kaldb.chunkManager.IndexingChunkManager.LIVE_MESSAGES_INDEXED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_COMPLETED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_FAILED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVERS_INITIATED;
+import static com.slack.kaldb.chunkManager.RollOverChunkTask.ROLLOVER_TIMER;
+import static com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy.LIVE_BYTES_DIR;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
+import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
+import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_HOST;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.TEST_PORT;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchLiveSnapshot;
+import static com.slack.kaldb.testlib.ChunkManagerUtil.fetchNonLiveSnapshot;
+import static com.slack.kaldb.testlib.MetricsUtil.getCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
+import static com.slack.kaldb.testlib.MetricsUtil.getValue;
+import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherRule.MAX_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 public class IndexingChunkManagerTest {
 
@@ -605,9 +607,9 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).toList());
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
@@ -1058,9 +1060,9 @@ public class IndexingChunkManagerTest {
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
     List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
     assertThat(searchNodes.size()).isEqualTo(2);
-    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).toList())
+    assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).toList());
+            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(2);
   }

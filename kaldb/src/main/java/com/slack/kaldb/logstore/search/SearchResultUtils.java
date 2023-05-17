@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
 
 public class SearchResultUtils {
@@ -73,7 +74,7 @@ public class SearchResultUtils {
           .getValuesList()
           .stream()
           .map(SearchResultUtils::fromValueProto)
-          .toList();
+          .collect(Collectors.toList());
     } else {
       return null;
     }
@@ -100,7 +101,10 @@ public class SearchResultUtils {
       valueBuilder.setListValue(
           KaldbSearch.ListValue.newBuilder()
               .addAllValues(
-                  ((List<?>) object).stream().map(SearchResultUtils::toValueProto).toList())
+                  ((List<?>) object)
+                      .stream()
+                      .map(SearchResultUtils::toValueProto)
+                      .collect(Collectors.toList()))
               .build());
     } else {
       throw new IllegalArgumentException();
@@ -197,7 +201,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .toList(),
+              .collect(Collectors.toList()),
           searchAggregation.getValueSource().getField(),
           fromValueProto(searchAggregation.getValueSource().getMissing()),
           searchAggregation.getValueSource().getTerms().getSize(),
@@ -216,7 +220,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .toList());
+              .collect(Collectors.toList()));
     } else if (searchAggregation.getType().equals(HistogramAggBuilder.TYPE)) {
       return new HistogramAggBuilder(
           searchAggregation.getName(),
@@ -227,7 +231,7 @@ public class SearchResultUtils {
               .getSubAggregationsList()
               .stream()
               .map(SearchResultUtils::fromSearchAggregations)
-              .toList());
+              .collect(Collectors.toList()));
     }
 
     throw new NotImplementedException(
@@ -483,7 +487,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .toList())
+                  .collect(Collectors.toList()))
           .setValueSource(valueSourceAggregationBuilder.build())
           .build();
     } else if (aggBuilder instanceof DateHistogramAggBuilder) {
@@ -516,7 +520,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .toList())
+                  .collect(Collectors.toList()))
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(dateHistogramAggBuilder.getField())
@@ -542,7 +546,7 @@ public class SearchResultUtils {
                   .getSubAggregations()
                   .stream()
                   .map(SearchResultUtils::toSearchAggregationProto)
-                  .toList())
+                  .collect(Collectors.toList()))
           .setValueSource(
               KaldbSearch.SearchRequest.SearchAggregation.ValueSourceAggregation.newBuilder()
                   .setField(histogramAggBuilder.getField())
