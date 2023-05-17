@@ -15,10 +15,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -59,7 +60,7 @@ public class KaldbTest {
   private static final String KALDB_TEST_CLIENT_2 = "kaldb-test-client2";
 
   private DatasetMetadataStore datasetMetadataStore;
-  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private PrometheusMeterRegistry meterRegistry;
 
   private static String getHealthCheckResponse(String url) {
@@ -121,8 +122,8 @@ public class KaldbTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
             .build();
-    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
@@ -148,8 +149,8 @@ public class KaldbTest {
     if (datasetMetadataStore != null) {
       datasetMetadataStore.close();
     }
-    if (zkMetadataStore != null) {
-      zkMetadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (zkServer != null) {
       zkServer.close();

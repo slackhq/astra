@@ -1,176 +1,200 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 
-import com.google.common.base.Function;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import javax.annotation.Nullable;
-import org.apache.curator.utils.ZKPaths;
-import org.slf4j.Logger;
+import java.util.stream.Collectors;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
+import org.apache.curator.x.async.api.CreateOption;
+import org.apache.curator.x.async.modeled.ModelSerializer;
+import org.apache.curator.x.async.modeled.ModelSpec;
+import org.apache.curator.x.async.modeled.ModeledFramework;
+import org.apache.curator.x.async.modeled.ZPath;
+import org.apache.curator.x.async.modeled.cached.CachedModeledFramework;
+import org.apache.curator.x.async.modeled.cached.ModeledCacheListener;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.data.Stat;
 
 /**
- * KaldbMetadataStore is an abstract class on top of which all the metadata stores will be built.
+ * KaldbMetadataStore is a class which provides consistent ZK apis for all the metadata store class.
  *
- * <p>This abstraction is needed so that we can limit the ZK access to the application to a specific
- * set of paths and also to limit the operations that can be performed on those nodes. For example,
- * we only want the SnapshotMetadata to ever be created or deleted but never updated.
- *
- * <p>Every method provides an async(returns a future) and a sync API. In general, use the async API
- * you are performing batch operations and a sync if you are performing a synchronous operation on a
- * node.
+ * <p>Every method provides an async and a sync API. In general, use the async API you are
+ * performing batch operations and a sync if you are performing a synchronous operation on a node.
  */
-abstract class KaldbMetadataStore<T extends KaldbMetadata> {
-  protected final MetadataStore metadataStore;
-  protected final String storeFolder;
-  protected final MetadataSerializer<T> metadataSerializer;
-  protected final Logger logger;
+public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
+
+  private final String storeFolder;
+
+  private final ZPath zPath;
+
+  private final ModeledFramework<T> modeledClient;
+
+  private final CachedModeledFramework<T> cachedModeledFramework;
+
+  private final Map<KaldbMetadataStoreChangeListener, ModeledCacheListener<T>> listenerMap =
+      new ConcurrentHashMap<>();
 
   public KaldbMetadataStore(
-      MetadataStore metadataStore,
-      String storeFolder,
-      MetadataSerializer<T> metadataSerializer,
-      Logger logger)
-      throws ExecutionException, InterruptedException {
-    checkNotNull(metadataStore, "MetadataStore can't be null");
-    checkState(
-        storeFolder != null && !storeFolder.isEmpty(),
-        "SnapshotStoreFolder can't be null or empty.");
-    checkNotNull(logger, "Logger can't be null or empty");
+      AsyncCuratorFramework curator,
+      CreateMode createMode,
+      boolean shouldCache,
+      ModelSerializer<T> modelSerializer,
+      String storeFolder) {
 
-    this.metadataStore = metadataStore;
     this.storeFolder = storeFolder;
-    this.metadataSerializer = metadataSerializer;
-    this.logger = logger;
+    this.zPath = ZPath.parseWithIds(String.format("%s/{name}", storeFolder));
 
-    // Create the path to the store in ZK. However, since 2 different processes may create
-    // a path at the same time, ignore the exception if node already exists.
-    try {
-      metadataStore.create(storeFolder, "", true).get();
-    } catch (ExecutionException exception) {
-      //noinspection StatementWithEmptyBody
-      if (exception.getCause() instanceof NodeExistsException) {
-        // ignore exception, since node creation is idemponent.
-      } else {
-        throw exception;
-      }
+    ModelSpec<T> modelSpec =
+        ModelSpec.builder(modelSerializer)
+            .withPath(zPath)
+            .withCreateOptions(Set.of(CreateOption.createParentsIfNeeded))
+            .withCreateMode(createMode)
+            .build();
+    modeledClient = ModeledFramework.wrap(curator, modelSpec);
+
+    if (shouldCache) {
+      cachedModeledFramework = modeledClient.cached();
+      cachedModeledFramework.start();
+    } else {
+      cachedModeledFramework = null;
     }
   }
 
-  protected String getPath(String snapshotName) {
-    return ZKPaths.makePath(storeFolder, snapshotName);
+  public AsyncStage<String> createAsync(T metadataNode) {
+    // by passing the version 0, this will throw if we attempt to create and it already exists
+    return modeledClient.set(metadataNode, 0);
   }
 
-  // TODO: byte arrays every where.
-  @SuppressWarnings("UnstableApiUsage")
-  public ListenableFuture<T> getNode(String path) {
-    String nodePath = getPath(path);
-    Function<String, T> deserialize =
-        new Function<>() {
-          @Override
-          public @Nullable T apply(@Nullable String data) {
-            T result;
-            try {
-              result = metadataSerializer.fromJsonStr(data);
-            } catch (InvalidProtocolBufferException e) {
-              final String msg =
-                  String.format(
-                      "Unable to de-serialize data %s at path %s into a protobuf message.",
-                      data, path);
-              logger.error(msg, e);
-              throw new IllegalStateException(msg, e);
-            }
-            return result;
-          }
-        };
-
-    // TODO: Pass in the correct thread pool for this.
-    return Futures.transform(
-        metadataStore.get(nodePath), deserialize, MoreExecutors.directExecutor());
-  }
-
-  public T getNodeSync(String path) {
+  public void createSync(T metadataNode) {
     try {
-      return getNode(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      createAsync(metadataNode)
+          .toCompletableFuture()
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error creating node " + metadataNode, e);
+    }
+  }
+
+  public AsyncStage<T> getAsync(String path) {
+    if (cachedModeledFramework != null) {
+      return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
+    }
+    return modeledClient.withPath(zPath.resolved(path)).read();
+  }
+
+  public T getSync(String path) {
+    try {
+      return getAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
   }
 
-  /**
-   * Fetches all the nodes under a given path. This function can be very expensive on nodes with a
-   * large number of children so use it very sparingly in the code. If working with slightly stale
-   * data is an option, use getCached function instead.
-   *
-   * <p>Also, if there is an issue fetching a node, we will return a null object. So, if
-   * completeness of data is important, please ignore the result of this call if there are nulls.
-   *
-   * <p>TODO: If returning nulls is problematic, fail the future if there are any failures when
-   * fetching the nodes.
-   *
-   * <p>TODO: In future, cap the number of parallel calls to ZK to a fixed number. While slow, this
-   * call will not overwhelm ZK.
-   *
-   * <p>TODO: Should list return root node also or just children? Does this function work for single
-   * node?
-   */
-  @SuppressWarnings("UnstableApiUsage")
-  public ListenableFuture<List<T>> list() {
-    ListenableFuture<List<String>> children = metadataStore.getChildren(storeFolder);
-    Function<List<String>, List<T>> transformFunc =
-        new Function<>() {
-          @Override
-          public @Nullable List<T> apply(@Nullable List<String> paths) {
-            if (paths == null) return Collections.emptyList();
-
-            List<ListenableFuture<T>> getFutures = new ArrayList<>(paths.size());
-            for (String path : paths) {
-              getFutures.add(getNode(path));
-            }
-            ListenableFuture<List<T>> response = Futures.successfulAsList(getFutures);
-            try {
-              return response.get();
-            } catch (InterruptedException | ExecutionException e) {
-              // TODO: This log may be redundant. If so, remove it.
-              logger.error("Encountered Error fetching nodes from metadata store.", e);
-              return Collections.emptyList();
-            }
-          }
-        };
-
-    return Futures.transform(children, transformFunc, MoreExecutors.directExecutor());
+  public AsyncStage<Stat> updateAsync(T metadataNode) {
+    return modeledClient.update(metadataNode);
   }
 
-  public List<T> listSync() {
+  public void updateSync(T metadataNode) {
     try {
-      return list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error listing node under path", e);
+      updateAsync(metadataNode)
+          .toCompletableFuture()
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error updating node: " + metadataNode, e);
     }
   }
 
-  public ListenableFuture<?> delete(String path) {
-    return metadataStore.delete(getPath(path));
+  public AsyncStage<Void> deleteAsync(String path) {
+    return modeledClient.withPath(zPath.resolved(path)).delete();
   }
 
   public void deleteSync(String path) {
     try {
-      delete(path).get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      deleteAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error deleting node under at path: " + path, e);
+    }
+  }
+
+  public AsyncStage<Void> deleteAsync(T metadataNode) {
+    return modeledClient.withPath(zPath.resolved(metadataNode)).delete();
+  }
+
+  public void deleteSync(T metadataNode) {
+    try {
+      deleteAsync(metadataNode)
+          .toCompletableFuture()
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new InternalMetadataStoreException(
+          "Error deleting node under at path: " + metadataNode.name, e);
+    }
+  }
+
+  public AsyncStage<List<T>> getCachedAsync() {
+    if (cachedModeledFramework == null)
+      throw new UnsupportedOperationException("Caching is disabled");
+
+    return cachedModeledFramework.list();
+  }
+
+  public List<T> getCachedSync() {
+    try {
+      return getCachedAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error getting cached nodes", e);
+    }
+  }
+
+  public CompletionStage<List<T>> listAsync() {
+    return modeledClient
+        .withPath(ZPath.parse(storeFolder))
+        .childrenAsZNodes()
+        .thenApply(
+            (zNodes) -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()));
+  }
+
+  public List<T> listSync() {
+    // todo - consider combining listSync and getCachedSync, forcing the caller to use the cache
+    //  if it exists, as listing sync without a cache is a costly operation
+    try {
+      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (ExecutionException | InterruptedException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error listing node", e);
+    }
+  }
+
+  public void addListener(KaldbMetadataStoreChangeListener watcher) {
+    if (cachedModeledFramework == null)
+      throw new UnsupportedOperationException("Caching is disabled");
+
+    // this mapping exists because the remove is by reference, and the listener is a different
+    // object type
+    ModeledCacheListener<T> modeledCacheListener =
+        (type, path, stat, model) -> watcher.onMetadataStoreChanged();
+    cachedModeledFramework.listenable().addListener(modeledCacheListener);
+    listenerMap.put(watcher, modeledCacheListener);
+  }
+
+  public void removeListener(KaldbMetadataStoreChangeListener watcher) {
+    if (cachedModeledFramework == null)
+      throw new UnsupportedOperationException("Caching is disabled");
+    cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
+  }
+
+  @Override
+  public void close() {
+    if (cachedModeledFramework != null) {
+      cachedModeledFramework.close();
     }
   }
 }

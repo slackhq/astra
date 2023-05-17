@@ -28,6 +28,7 @@ import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.schema.ChunkSchema;
@@ -35,8 +36,6 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -55,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.lucene.index.IndexCommit;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterEach;
@@ -107,25 +107,25 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStore, false);
+        new CacheSlotMetadataStore(curatorFramework, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStore, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStore, snapshotId);
+    initializeZkReplica(curatorFramework, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStore,
+            curatorFramework,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -177,11 +177,11 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(0);
 
     // ensure we registered a search node for this cache slot
-    await().until(() -> searchMetadataStore.getCached().size() == 1);
-    assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
-    assertThat(searchMetadataStore.getCached().get(0).url)
+    await().until(() -> searchMetadataStore.getCachedSync().size() == 1);
+    assertThat(searchMetadataStore.getCachedSync().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.getCachedSync().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCached().get(0).name)
+    assertThat(searchMetadataStore.getCachedSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // mark the chunk for eviction
@@ -198,7 +198,7 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure the search metadata node was unregistered
-    await().until(() -> searchMetadataStore.getCached().size() == 0);
+    await().until(() -> searchMetadataStore.getCachedSync().size() == 0);
 
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
@@ -223,7 +223,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(0);
 
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 
   @Test
@@ -238,24 +238,24 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStore, false);
+        new CacheSlotMetadataStore(curatorFramework, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStore, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStore, snapshotId);
+    initializeZkReplica(curatorFramework, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStore,
+            curatorFramework,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -284,14 +284,14 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
+    assertThat(searchMetadataStore.getCachedSync().size()).isEqualTo(0);
 
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
         .isEqualTo(0);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 
   @Test
@@ -306,24 +306,24 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStore, false);
+        new CacheSlotMetadataStore(curatorFramework, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStore, replicaId, snapshotId);
+    initializeZkReplica(curatorFramework, replicaId, snapshotId);
     // we intentionally do not initialize a Snapshot, so the lookup is expected to fail
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStore,
+            curatorFramework,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -352,14 +352,14 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    assertThat(searchMetadataStore.getCached().size()).isEqualTo(0);
+    assertThat(searchMetadataStore.getCachedSync().size()).isEqualTo(0);
 
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
         .isEqualTo(0);
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "false").timer().count())
         .isEqualTo(1);
 
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 
   @Test
@@ -374,25 +374,25 @@ public class ReadOnlyChunkImplTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(metadataStore, false);
+        new CacheSlotMetadataStore(curatorFramework, false);
 
     String replicaId = "foo";
     String snapshotId = "bar";
 
     // setup Zk, BlobFs so data can be loaded
-    initializeZkReplica(metadataStore, replicaId, snapshotId);
-    initializeZkSnapshot(metadataStore, snapshotId);
+    initializeZkReplica(curatorFramework, replicaId, snapshotId);
+    initializeZkSnapshot(curatorFramework, snapshotId);
     initializeBlobStorageWithIndex(snapshotId);
 
     ReadOnlyChunkImpl<LogMessage> readOnlyChunk =
         new ReadOnlyChunkImpl<>(
-            metadataStore,
+            curatorFramework,
             meterRegistry,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
@@ -436,11 +436,11 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(1);
 
     // ensure we registered a search node for this cache slot
-    await().until(() -> searchMetadataStore.getCached().size() == 1);
-    assertThat(searchMetadataStore.getCached().get(0).snapshotName).isEqualTo(snapshotId);
-    assertThat(searchMetadataStore.getCached().get(0).url)
+    await().until(() -> searchMetadataStore.getCachedSync().size() == 1);
+    assertThat(searchMetadataStore.getCachedSync().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.getCachedSync().get(0).url)
         .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCached().get(0).name)
+    assertThat(searchMetadataStore.getCachedSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // verify we have files on disk
@@ -459,7 +459,7 @@ public class ReadOnlyChunkImplTest {
     assertThat(java.nio.file.Files.list(readOnlyChunk.getDataDirectory()).findFirst().isPresent())
         .isFalse();
 
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 
   private void assignReplicaToChunk(
@@ -474,38 +474,36 @@ public class ReadOnlyChunkImplTest {
             replicaId,
             Instant.now().toEpochMilli(),
             List.of(LOGS_LUCENE9));
-    cacheSlotMetadataStore.update(updatedCacheSlotMetadata);
+    cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
   }
 
-  private void initializeZkSnapshot(MetadataStore metadataStore, String snapshotId)
+  private void initializeZkSnapshot(AsyncCuratorFramework curatorFramework, String snapshotId)
       throws Exception {
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    snapshotMetadataStore
-        .create(
-            new SnapshotMetadata(
-                snapshotId,
-                "path",
-                Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
-                Instant.now().toEpochMilli(),
-                1,
-                "partitionId",
-                LOGS_LUCENE9))
-        .get(5, TimeUnit.SECONDS);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    snapshotMetadataStore.createSync(
+        new SnapshotMetadata(
+            snapshotId,
+            "path",
+            Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli(),
+            Instant.now().toEpochMilli(),
+            1,
+            "partitionId",
+            LOGS_LUCENE9));
   }
 
-  private void initializeZkReplica(MetadataStore metadataStore, String replicaId, String snapshotId)
+  private void initializeZkReplica(
+      AsyncCuratorFramework curatorFramework, String replicaId, String snapshotId)
       throws Exception {
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    replicaMetadataStore
-        .create(
-            new ReplicaMetadata(
-                replicaId,
-                snapshotId,
-                Instant.now().toEpochMilli(),
-                Instant.now().plusSeconds(60).toEpochMilli(),
-                false,
-                LOGS_LUCENE9))
-        .get(5, TimeUnit.SECONDS);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    replicaMetadataStore.createSync(
+        new ReplicaMetadata(
+            replicaId,
+            snapshotId,
+            Instant.now().toEpochMilli(),
+            Instant.now().plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9));
   }
 
   private void initializeBlobStorageWithIndex(String snapshotId) throws Exception {

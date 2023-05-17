@@ -6,6 +6,7 @@ import static com.slack.kaldb.util.FutureUtils.successCountingCallback;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
@@ -276,7 +277,10 @@ public class RecoveryTaskCreator {
         snapshotsToBeDeleted.stream()
             .map(
                 snapshot -> {
-                  ListenableFuture<?> future = snapshotMetadataStore.delete(snapshot);
+                  // todo - consider refactoring this to return a completable future instead
+                  ListenableFuture<?> future =
+                      JdkFutureAdapters.listenInPoolThread(
+                          snapshotMetadataStore.deleteAsync(snapshot).toCompletableFuture());
                   addCallback(
                       future,
                       successCountingCallback(successCounter),

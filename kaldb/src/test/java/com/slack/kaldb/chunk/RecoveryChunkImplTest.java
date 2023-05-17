@@ -7,7 +7,6 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -23,11 +22,10 @@ import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -46,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -70,7 +69,7 @@ public class RecoveryChunkImplTest {
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
 
@@ -89,10 +88,10 @@ public class RecoveryChunkImplTest {
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
               .build();
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -124,7 +123,7 @@ public class RecoveryChunkImplTest {
 
       searchMetadataStore.close();
       snapshotMetadataStore.close();
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
     }
@@ -425,7 +424,7 @@ public class RecoveryChunkImplTest {
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
 
@@ -444,10 +443,10 @@ public class RecoveryChunkImplTest {
               .setZkConnectionTimeoutMs(1000)
               .setSleepBetweenRetriesMs(1000)
               .build();
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -478,7 +477,7 @@ public class RecoveryChunkImplTest {
 
       searchMetadataStore.close();
       snapshotMetadataStore.close();
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
     }
@@ -510,7 +509,7 @@ public class RecoveryChunkImplTest {
     private SimpleMeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
     private S3BlobFs s3BlobFs;
@@ -530,10 +529,10 @@ public class RecoveryChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -563,7 +562,7 @@ public class RecoveryChunkImplTest {
       if (chunk != null) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
       if (s3BlobFs != null) {
@@ -672,8 +671,7 @@ public class RecoveryChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       assertThat(s3BlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();

@@ -11,15 +11,14 @@ import static org.mockito.Mockito.spy;
 
 import brave.Tracing;
 import com.slack.kaldb.clusterManager.ReplicaRestoreService;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.manager_api.ManagerApi;
 import com.slack.kaldb.proto.manager_api.ManagerApiServiceGrpc;
@@ -37,7 +36,10 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +53,7 @@ public class ManagerApiGrpcTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private DatasetMetadataStore datasetMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
@@ -73,10 +75,10 @@ public class ManagerApiGrpcTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    datasetMetadataStore = spy(new DatasetMetadataStore(metadataStore, true));
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(metadataStore, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
 
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -116,7 +118,7 @@ public class ManagerApiGrpcTest {
     replicaMetadataStore.close();
     snapshotMetadataStore.close();
     datasetMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
 
     testingServer.close();
     meterRegistry.close();
@@ -141,7 +143,7 @@ public class ManagerApiGrpcTest {
     assertThat(getDatasetMetadataResponse.getThroughputBytes()).isEqualTo(0);
     assertThat(getDatasetMetadataResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
-    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    DatasetMetadata datasetMetadata = datasetMetadataStore.getSync(datasetName);
     assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
     assertThat(datasetMetadata.getOwner()).isEqualTo(datasetOwner);
     assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
@@ -171,7 +173,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    DatasetMetadata datasetMetadata = datasetMetadataStore.getSync(datasetName);
     assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
     assertThat(datasetMetadata.getOwner()).isEqualTo(datasetOwner1);
     assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
@@ -268,12 +270,19 @@ public class ManagerApiGrpcTest {
     assertThat(updatedDatasetResponse.getThroughputBytes()).isEqualTo(0);
     assertThat(updatedDatasetResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
-    DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
-    assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
-    assertThat(datasetMetadata.getServiceNamePattern()).isEqualTo(serviceNamePattern);
-    assertThat(datasetMetadata.getOwner()).isEqualTo(updatedDatasetOwner);
-    assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
-    assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
+    AtomicReference<DatasetMetadata> datasetMetadata = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
+              return datasetMetadata.get().getOwner().equals(updatedDatasetOwner);
+            });
+
+    assertThat(datasetMetadata.get().getName()).isEqualTo(datasetName);
+    assertThat(datasetMetadata.get().getServiceNamePattern()).isEqualTo(serviceNamePattern);
+    assertThat(datasetMetadata.get().getOwner()).isEqualTo(updatedDatasetOwner);
+    assertThat(datasetMetadata.get().getThroughputBytes()).isEqualTo(0);
+    assertThat(datasetMetadata.get().getPartitionConfigs().size()).isEqualTo(0);
 
     Metadata.DatasetMetadata updatedServiceNamePatternResponse =
         managerApiStub.updateDatasetMetadata(
@@ -290,12 +299,20 @@ public class ManagerApiGrpcTest {
     assertThat(updatedServiceNamePatternResponse.getThroughputBytes()).isEqualTo(0);
     assertThat(updatedServiceNamePatternResponse.getPartitionConfigsList().size()).isEqualTo(0);
 
-    datasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
-    assertThat(datasetMetadata.getName()).isEqualTo(datasetName);
-    assertThat(datasetMetadata.getServiceNamePattern()).isEqualTo(updatedServiceNamePattern);
-    assertThat(datasetMetadata.getOwner()).isEqualTo(updatedDatasetOwner);
-    assertThat(datasetMetadata.getThroughputBytes()).isEqualTo(0);
-    assertThat(datasetMetadata.getPartitionConfigs().size()).isEqualTo(0);
+    await()
+        .until(
+            () -> {
+              datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
+              return Objects.equals(
+                  datasetMetadata.get().getServiceNamePattern(), updatedServiceNamePattern);
+            });
+
+    datasetMetadata.set(datasetMetadataStore.getSync(datasetName));
+    assertThat(datasetMetadata.get().getName()).isEqualTo(datasetName);
+    assertThat(datasetMetadata.get().getServiceNamePattern()).isEqualTo(updatedServiceNamePattern);
+    assertThat(datasetMetadata.get().getOwner()).isEqualTo(updatedDatasetOwner);
+    assertThat(datasetMetadata.get().getThroughputBytes()).isEqualTo(0);
+    assertThat(datasetMetadata.get().getPartitionConfigs().size()).isEqualTo(0);
   }
 
   @Test
@@ -346,7 +363,7 @@ public class ManagerApiGrpcTest {
     assertThat(firstAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    DatasetMetadata firstDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    DatasetMetadata firstDatasetMetadata = datasetMetadataStore.getSync(datasetName);
     assertThat(firstDatasetMetadata.getName()).isEqualTo(datasetName);
     assertThat(firstDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
     assertThat(firstDatasetMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
@@ -359,25 +376,34 @@ public class ManagerApiGrpcTest {
             .setThroughputBytes(-1)
             .addAllPartitionIds(List.of("3", "4", "5"))
             .build());
-    Metadata.DatasetMetadata secondAssignment =
-        managerApiStub.getDatasetMetadata(
-            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
 
-    assertThat(secondAssignment.getThroughputBytes()).isEqualTo(throughputBytes);
-    assertThat(secondAssignment.getPartitionConfigsList().size()).isEqualTo(2);
-    assertThat(secondAssignment.getPartitionConfigsList().get(0).getPartitionsList())
+    AtomicReference<Metadata.DatasetMetadata> secondAssignment = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              secondAssignment.set(
+                  managerApiStub.getDatasetMetadata(
+                      ManagerApi.GetDatasetMetadataRequest.newBuilder()
+                          .setName(datasetName)
+                          .build()));
+              return secondAssignment.get().getThroughputBytes() == throughputBytes;
+            });
+
+    assertThat(secondAssignment.get().getThroughputBytes()).isEqualTo(throughputBytes);
+    assertThat(secondAssignment.get().getPartitionConfigsList().size()).isEqualTo(2);
+    assertThat(secondAssignment.get().getPartitionConfigsList().get(0).getPartitionsList())
         .isEqualTo(List.of("1", "2"));
-    assertThat(secondAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
+    assertThat(secondAssignment.get().getPartitionConfigsList().get(0).getEndTimeEpochMs())
         .isNotEqualTo(MAX_TIME);
 
-    assertThat(secondAssignment.getPartitionConfigsList().get(1).getPartitionsList())
+    assertThat(secondAssignment.get().getPartitionConfigsList().get(1).getPartitionsList())
         .isEqualTo(List.of("3", "4", "5"));
-    assertThat(secondAssignment.getPartitionConfigsList().get(1).getStartTimeEpochMs())
+    assertThat(secondAssignment.get().getPartitionConfigsList().get(1).getStartTimeEpochMs())
         .isGreaterThanOrEqualTo(nowMs);
-    assertThat(secondAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
+    assertThat(secondAssignment.get().getPartitionConfigsList().get(1).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    DatasetMetadata secondDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    DatasetMetadata secondDatasetMetadata = datasetMetadataStore.getSync(datasetName);
     assertThat(secondDatasetMetadata.getName()).isEqualTo(datasetName);
     assertThat(secondDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
     assertThat(secondDatasetMetadata.getThroughputBytes()).isEqualTo(throughputBytes);
@@ -390,25 +416,34 @@ public class ManagerApiGrpcTest {
             .setName(datasetName)
             .setThroughputBytes(updatedThroughputBytes)
             .build());
-    Metadata.DatasetMetadata thirdAssignment =
-        managerApiStub.getDatasetMetadata(
-            ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());
 
-    assertThat(thirdAssignment.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
-    assertThat(thirdAssignment.getPartitionConfigsList().size()).isEqualTo(2);
-    assertThat(thirdAssignment.getPartitionConfigsList().get(0).getPartitionsList())
+    AtomicReference<Metadata.DatasetMetadata> thirdAssignment = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              thirdAssignment.set(
+                  managerApiStub.getDatasetMetadata(
+                      ManagerApi.GetDatasetMetadataRequest.newBuilder()
+                          .setName(datasetName)
+                          .build()));
+              return thirdAssignment.get().getThroughputBytes() == updatedThroughputBytes;
+            });
+
+    assertThat(thirdAssignment.get().getThroughputBytes()).isEqualTo(updatedThroughputBytes);
+    assertThat(thirdAssignment.get().getPartitionConfigsList().size()).isEqualTo(2);
+    assertThat(thirdAssignment.get().getPartitionConfigsList().get(0).getPartitionsList())
         .isEqualTo(List.of("1", "2"));
-    assertThat(thirdAssignment.getPartitionConfigsList().get(0).getEndTimeEpochMs())
+    assertThat(thirdAssignment.get().getPartitionConfigsList().get(0).getEndTimeEpochMs())
         .isNotEqualTo(MAX_TIME);
 
-    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getPartitionsList())
+    assertThat(thirdAssignment.get().getPartitionConfigsList().get(1).getPartitionsList())
         .isEqualTo(List.of("3", "4", "5"));
-    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getStartTimeEpochMs())
+    assertThat(thirdAssignment.get().getPartitionConfigsList().get(1).getStartTimeEpochMs())
         .isGreaterThanOrEqualTo(nowMs);
-    assertThat(thirdAssignment.getPartitionConfigsList().get(1).getEndTimeEpochMs())
+    assertThat(thirdAssignment.get().getPartitionConfigsList().get(1).getEndTimeEpochMs())
         .isEqualTo(MAX_TIME);
 
-    DatasetMetadata thirdDatasetMetadata = datasetMetadataStore.getNodeSync(datasetName);
+    DatasetMetadata thirdDatasetMetadata = datasetMetadataStore.getSync(datasetName);
     assertThat(thirdDatasetMetadata.getName()).isEqualTo(datasetName);
     assertThat(thirdDatasetMetadata.getOwner()).isEqualTo(datasetOwner);
     assertThat(thirdDatasetMetadata.getThroughputBytes()).isEqualTo(updatedThroughputBytes);
@@ -588,7 +623,7 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(datasetWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
 
     List<SnapshotMetadata> snapshotsWithData =
         ManagerApiGrpc.calculateRequiredSnapshots(
@@ -645,8 +680,8 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
-    await().until(() -> snapshotMetadataStore.getCached().size() == 2);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 2);
 
     managerApiStub.restoreReplica(
         ManagerApi.RestoreReplicaRequest.newBuilder()
@@ -655,7 +690,7 @@ public class ManagerApiGrpcTest {
             .setEndTimeEpochMs(end)
             .build());
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
     await()
         .until(
             () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry) == 1);
@@ -693,8 +728,8 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
-    await().until(() -> snapshotMetadataStore.getCached().size() == 3);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 3);
 
     replicaRestoreService.startAsync();
     replicaRestoreService.awaitRunning();
@@ -706,7 +741,7 @@ public class ManagerApiGrpcTest {
             .setEndTimeEpochMs(end)
             .build());
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(2);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
@@ -732,7 +767,7 @@ public class ManagerApiGrpcTest {
     snapshotMetadataStore.createSync(snapshotFoo);
     snapshotMetadataStore.createSync(snapshotBar);
     snapshotMetadataStore.createSync(snapshotBaz);
-    await().until(() -> snapshotMetadataStore.getCached().size() == 3);
+    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 3);
 
     replicaRestoreService.startAsync();
     replicaRestoreService.awaitRunning();
@@ -742,7 +777,7 @@ public class ManagerApiGrpcTest {
             .addAllIdsToRestore(List.of("foo", "bar", "baz"))
             .build());
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(3);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))

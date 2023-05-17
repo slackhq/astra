@@ -9,7 +9,6 @@ import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.COMMITS_TIMER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_FAILED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.MESSAGES_RECEIVED_COUNTER;
 import static com.slack.kaldb.logstore.LuceneIndexStoreImpl.REFRESHES_TIMER;
-import static com.slack.kaldb.server.KaldbConfig.DEFAULT_ZK_TIMEOUT_SECS;
 import static com.slack.kaldb.testlib.MetricsUtil.getCount;
 import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
@@ -26,12 +25,11 @@ import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MessageUtil;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -52,6 +50,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -73,12 +72,10 @@ public class IndexingChunkImplTest {
   private static void testBeforeSnapshotState(
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
-      ReadWriteChunk<LogMessage> chunk)
-      throws ExecutionException, InterruptedException, TimeoutException {
-    assertThat(snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS))
+      ReadWriteChunk<LogMessage> chunk) {
+    assertThat(snapshotMetadataStore.listSync())
         .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-    final List<SearchMetadata> beforeSearchNodes =
-        searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    final List<SearchMetadata> beforeSearchNodes = searchMetadataStore.listSync();
     assertThat(beforeSearchNodes.size()).isEqualTo(1);
     assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -93,7 +90,7 @@ public class IndexingChunkImplTest {
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -111,10 +108,11 @@ public class IndexingChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, false);
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -144,7 +142,7 @@ public class IndexingChunkImplTest {
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
     }
@@ -439,7 +437,7 @@ public class IndexingChunkImplTest {
     private MeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -457,10 +455,11 @@ public class IndexingChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, false);
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -489,7 +488,7 @@ public class IndexingChunkImplTest {
     public void tearDown() throws IOException, TimeoutException {
       if (closeChunk) chunk.close();
 
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
     }
@@ -521,7 +520,7 @@ public class IndexingChunkImplTest {
     private SimpleMeterRegistry registry;
     private ReadWriteChunk<LogMessage> chunk;
     private TestingServer testingServer;
-    private MetadataStore metadataStore;
+    private AsyncCuratorFramework curatorFramework;
     private boolean closeChunk;
     private SnapshotMetadataStore snapshotMetadataStore;
     private SearchMetadataStore searchMetadataStore;
@@ -541,10 +540,10 @@ public class IndexingChunkImplTest {
 
       registry = new SimpleMeterRegistry();
 
-      metadataStore = ZookeeperMetadataStoreImpl.fromConfig(registry, zkConfig);
+      curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-      searchMetadataStore = new SearchMetadataStore(metadataStore, true);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -566,11 +565,9 @@ public class IndexingChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
       closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSync();
       assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
       assertThat(searchNodes.size()).isEqualTo(1);
     }
 
@@ -579,7 +576,7 @@ public class IndexingChunkImplTest {
       if (closeChunk) chunk.close();
       searchMetadataStore.close();
       snapshotMetadataStore.close();
-      metadataStore.close();
+      curatorFramework.unwrap().close();
       testingServer.close();
       registry.close();
     }
@@ -629,15 +626,13 @@ public class IndexingChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
       assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSync();
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -708,8 +703,7 @@ public class IndexingChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots =
-          snapshotMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
@@ -721,8 +715,7 @@ public class IndexingChunkImplTest {
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
       assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes =
-          searchMetadataStore.list().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSync();
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));

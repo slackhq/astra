@@ -21,15 +21,14 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.MetadataStoreLifecycleManager;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStoreLifecycleManager;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.recovery.RecoveryService;
@@ -49,6 +48,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
@@ -67,7 +67,7 @@ public class Kaldb {
   private final KaldbConfigs.KaldbConfig kaldbConfig;
   private final S3Client s3Client;
   protected ServiceManager serviceManager;
-  protected MetadataStore metadataStore;
+  protected AsyncCuratorFramework curatorFramework;
 
   Kaldb(
       KaldbConfigs.KaldbConfig kaldbConfig,
@@ -125,15 +125,15 @@ public class Kaldb {
     setupSystemMetrics(prometheusMeterRegistry);
     addShutdownHook();
 
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
+    curatorFramework =
+        CuratorBuilder.build(
             prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
     // Initialize blobfs. Only S3 is supported currently.
     S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
     Set<Service> services =
-        getServices(metadataStore, kaldbConfig, s3BlobFs, prometheusMeterRegistry);
+        getServices(curatorFramework, kaldbConfig, s3BlobFs, prometheusMeterRegistry);
     serviceManager = new ServiceManager(services);
     serviceManager.addListener(getServiceManagerListener(), MoreExecutors.directExecutor());
 
@@ -141,7 +141,7 @@ public class Kaldb {
   }
 
   private static Set<Service> getServices(
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       KaldbConfigs.KaldbConfig kaldbConfig,
       BlobFs blobFs,
       PrometheusMeterRegistry meterRegistry)
@@ -154,7 +154,7 @@ public class Kaldb {
       IndexingChunkManager<LogMessage> chunkManager =
           IndexingChunkManager.fromConfig(
               meterRegistry,
-              metadataStore,
+              curatorFramework,
               kaldbConfig.getIndexerConfig(),
               blobFs,
               kaldbConfig.getS3Config());
@@ -169,7 +169,7 @@ public class Kaldb {
       KaldbIndexer indexer =
           new KaldbIndexer(
               chunkManager,
-              metadataStore,
+              curatorFramework,
               kaldbConfig.getIndexerConfig(),
               kaldbConfig.getIndexerConfig().getKafkaConfig(),
               meterRegistry);
@@ -192,12 +192,16 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
-      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, true);
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
-      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+      SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+
       services.add(
           new MetadataStoreLifecycleManager(
-              KaldbConfigs.NodeRole.QUERY, List.of(searchMetadataStore, snapshotMetadataStore)));
+              KaldbConfigs.NodeRole.QUERY,
+              List.of(searchMetadataStore, snapshotMetadataStore, datasetMetadataStore)));
+
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getQueryConfig().getServerConfig().getRequestTimeoutMs());
       KaldbDistributedQueryService kaldbDistributedQueryService =
@@ -225,7 +229,7 @@ public class Kaldb {
       CachingChunkManager<LogMessage> chunkManager =
           CachingChunkManager.fromConfig(
               meterRegistry,
-              metadataStore,
+              curatorFramework,
               kaldbConfig.getS3Config(),
               kaldbConfig.getCacheConfig(),
               blobFs);
@@ -250,15 +254,16 @@ public class Kaldb {
       final KaldbConfigs.ManagerConfig managerConfig = kaldbConfig.getManagerConfig();
       final int serverPort = managerConfig.getServerConfig().getServerPort();
 
-      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(metadataStore, true);
-      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, true);
+      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
+      SnapshotMetadataStore snapshotMetadataStore =
+          new SnapshotMetadataStore(curatorFramework, true);
       RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-          new RecoveryTaskMetadataStore(metadataStore, true);
+          new RecoveryTaskMetadataStore(curatorFramework, true);
       RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-          new RecoveryNodeMetadataStore(metadataStore, true);
+          new RecoveryNodeMetadataStore(curatorFramework, true);
       CacheSlotMetadataStore cacheSlotMetadataStore =
-          new CacheSlotMetadataStore(metadataStore, true);
-      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+          new CacheSlotMetadataStore(curatorFramework, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
       Duration requestTimeout =
           Duration.ofMillis(kaldbConfig.getManagerConfig().getServerConfig().getRequestTimeoutMs());
@@ -343,7 +348,7 @@ public class Kaldb {
       services.add(armeriaService);
 
       RecoveryService recoveryService =
-          new RecoveryService(kaldbConfig, metadataStore, meterRegistry, blobFs);
+          new RecoveryService(kaldbConfig, curatorFramework, meterRegistry, blobFs);
       services.add(recoveryService);
     }
 
@@ -362,7 +367,11 @@ public class Kaldb {
               .build();
       services.add(armeriaService);
 
-      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+      services.add(
+          new MetadataStoreLifecycleManager(
+              KaldbConfigs.NodeRole.RECOVERY, List.of(datasetMetadataStore)));
+
       PreprocessorService preprocessorService =
           new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
       services.add(preprocessorService);
@@ -394,9 +403,9 @@ public class Kaldb {
       LOG.error("ServiceManager shutdown timed out", e);
     }
     try {
-      metadataStore.close();
+      curatorFramework.unwrap().close();
     } catch (Exception e) {
-      LOG.error("Error while calling metadataStore.close() ", e);
+      LOG.error("Error while closing curatorFramework ", e);
     }
     LOG.info("Shutting down LogManager");
     LogManager.shutdown();

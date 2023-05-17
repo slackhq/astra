@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -28,8 +29,6 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.proto.service.KaldbSearch;
@@ -47,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +55,7 @@ public class KaldbDistributedQueryServiceTest {
 
   private SimpleMeterRegistry metricsRegistry;
 
-  private MetadataStore zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
   private DatasetMetadataStore datasetMetadataStore;
@@ -85,11 +85,11 @@ public class KaldbDistributedQueryServiceTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    zkMetadataStore = spy(ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig));
+    curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, true));
-    searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, true));
-    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
+    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, true));
+    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
     indexer1SearchContext = new SearchContext("indexer_host1", 10000);
     indexer2SearchContext = new SearchContext("indexer_host2", 10001);
@@ -104,7 +104,7 @@ public class KaldbDistributedQueryServiceTest {
     snapshotMetadataStore.close();
     searchMetadataStore.close();
     datasetMetadataStore.close();
-    zkMetadataStore.close();
+    curatorFramework.unwrap().close();
     metricsRegistry.close();
     testZKServer.close();
   }
@@ -201,7 +201,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(chunkIter.next()).isEqualTo(chunk2Name);
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
-    datasetMetadataStore.delete(datasetMetadata.name);
+    datasetMetadataStore.deleteAsync(datasetMetadata.name);
     await().until(() -> datasetMetadataStore.listSync().size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
     datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
@@ -489,7 +489,7 @@ public class KaldbDistributedQueryServiceTest {
     assertThat(chunkIter.next()).isEqualTo(cacheNodeSearchMetada.snapshotName);
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
-    datasetMetadataStore.delete(datasetMetadata.name);
+    datasetMetadataStore.deleteAsync(datasetMetadata.name);
     await().until(() -> datasetMetadataStore.listSync().size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
     datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
@@ -822,10 +822,10 @@ public class KaldbDistributedQueryServiceTest {
 
     // mock the zookeeper responses, as we don't want to test ZK behavior here
     SearchMetadataStore searchMetadataStoreMock = mock(SearchMetadataStore.class);
-    when(searchMetadataStoreMock.getCached())
+    when(searchMetadataStoreMock.getCachedSync())
         .thenReturn(List.of(new SearchMetadata("foo", "snapshot1", "http://127.0.0.1")));
     SnapshotMetadataStore snapshotMetadataStoreMock = mock(SnapshotMetadataStore.class);
-    when(snapshotMetadataStoreMock.getCached())
+    when(snapshotMetadataStoreMock.getCachedSync())
         .thenReturn(
             List.of(
                 new SnapshotMetadata(
@@ -837,7 +837,7 @@ public class KaldbDistributedQueryServiceTest {
                     "1",
                     Metadata.IndexType.LOGS_LUCENE9)));
     DatasetMetadataStore datasetMetadataStoreMock = mock(DatasetMetadataStore.class);
-    when(datasetMetadataStoreMock.getCached())
+    when(datasetMetadataStoreMock.getCachedSync())
         .thenReturn(
             List.of(
                 new DatasetMetadata(

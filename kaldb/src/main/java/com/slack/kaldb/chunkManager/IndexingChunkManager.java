@@ -23,7 +23,6 @@ import com.slack.kaldb.logstore.LogStore;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -35,6 +34,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +58,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private final BlobFs blobFs;
   private final String s3Bucket;
   private final ChunkRollOverStrategy chunkRollOverStrategy;
-  private final MetadataStore metadataStore;
+  private final AsyncCuratorFramework curatorFramework;
   private final SearchContext searchContext;
   private final KaldbConfigs.IndexerConfig indexerConfig;
   private ReadWriteChunk<T> activeChunk;
@@ -115,7 +115,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
       BlobFs blobFs,
       String s3Bucket,
       ListeningExecutorService rollOverExecutorService,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       SearchContext searchContext,
       KaldbConfigs.IndexerConfig indexerConfig) {
 
@@ -133,7 +133,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
     this.s3Bucket = s3Bucket;
     this.rolloverExecutorService = rollOverExecutorService;
     this.rolloverFuture = null;
-    this.metadataStore = metadataStore;
+    this.curatorFramework = curatorFramework;
     this.searchContext = searchContext;
     this.indexerConfig = indexerConfig;
     stopIngestion = true;
@@ -318,8 +318,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting indexing chunk manager");
 
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
 
     stopIngestion = false;
   }
@@ -376,7 +376,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
 
   public static IndexingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       KaldbConfigs.IndexerConfig indexerConfig,
       BlobFs blobFs,
       KaldbConfigs.S3Config s3Config) {
@@ -392,7 +392,7 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
         blobFs,
         s3Config.getS3Bucket(),
         makeDefaultRollOverExecutor(),
-        metadataStore,
+        curatorFramework,
         SearchContext.fromConfig(indexerConfig.getServerConfig()),
         indexerConfig);
   }

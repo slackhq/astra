@@ -20,7 +20,6 @@ import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -35,6 +34,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -59,7 +59,7 @@ public class RecoveryService extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(RecoveryService.class);
 
   private final SearchContext searchContext;
-  private final MetadataStore metadataStore;
+  private final AsyncCuratorFramework curatorFramework;
   private final MeterRegistry meterRegistry;
   private final BlobFs blobFs;
   private final KaldbConfigs.KaldbConfig kaldbConfig;
@@ -89,10 +89,10 @@ public class RecoveryService extends AbstractIdleService {
 
   public RecoveryService(
       KaldbConfigs.KaldbConfig kaldbConfig,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
       BlobFs blobFs) {
-    this.metadataStore = metadataStore;
+    this.curatorFramework = curatorFramework;
     this.searchContext =
         SearchContext.fromConfig(kaldbConfig.getRecoveryConfig().getServerConfig());
     this.meterRegistry = meterRegistry;
@@ -134,10 +134,10 @@ public class RecoveryService extends AbstractIdleService {
   protected void startUp() throws Exception {
     LOG.info("Starting recovery service");
 
-    recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(metadataStore, false);
-    recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(metadataStore, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(curatorFramework, false);
+    recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
     recoveryNodeMetadataStore.createSync(
         new RecoveryNodeMetadata(
@@ -148,7 +148,7 @@ public class RecoveryService extends AbstractIdleService {
     recoveryNodeLastKnownState = Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE;
 
     recoveryNodeListenerMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStore, searchContext.hostname, true);
+        new RecoveryNodeMetadataStore(curatorFramework, searchContext.hostname, true);
     recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener());
   }
 
@@ -160,18 +160,13 @@ public class RecoveryService extends AbstractIdleService {
     // another recovery node so we don't need to wait for processing to complete.
     executorService.shutdownNow();
 
-    searchMetadataStore.close();
-    snapshotMetadataStore.close();
-    recoveryNodeListenerMetadataStore.close();
-    recoveryNodeMetadataStore.close();
-
     LOG.info("Closed the recovery service");
   }
 
   private KaldbMetadataStoreChangeListener recoveryNodeListener() {
     return () -> {
       RecoveryNodeMetadata recoveryNodeMetadata =
-          recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
+          recoveryNodeMetadataStore.getSync(searchContext.hostname);
       Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState =
           recoveryNodeMetadata.recoveryNodeState;
 
@@ -214,7 +209,7 @@ public class RecoveryService extends AbstractIdleService {
     try {
       setRecoveryNodeMetadataState(Metadata.RecoveryNodeMetadata.RecoveryNodeState.RECOVERING);
       RecoveryTaskMetadata recoveryTaskMetadata =
-          recoveryTaskMetadataStore.getNodeSync(recoveryNodeMetadata.recoveryTaskName);
+          recoveryTaskMetadataStore.getSync(recoveryNodeMetadata.recoveryTaskName);
 
       boolean success = handleRecoveryTask(recoveryTaskMetadata);
       if (success) {
@@ -347,7 +342,7 @@ public class RecoveryService extends AbstractIdleService {
   private void setRecoveryNodeMetadataState(
       Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState) {
     RecoveryNodeMetadata recoveryNodeMetadata =
-        recoveryNodeMetadataStore.getNodeSync(searchContext.hostname);
+        recoveryNodeMetadataStore.getSync(searchContext.hostname);
     RecoveryNodeMetadata updatedRecoveryNodeMetadata =
         new RecoveryNodeMetadata(
             recoveryNodeMetadata.name,

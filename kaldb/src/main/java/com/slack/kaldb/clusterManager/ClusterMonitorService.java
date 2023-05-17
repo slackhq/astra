@@ -27,13 +27,17 @@ public class ClusterMonitorService extends AbstractIdleService {
       MeterRegistry meterRegistry) {
 
     meterRegistry.gauge(
-        "cached_replica_nodes_size", replicaMetadataStore, store -> store.getCached().size());
+        "cached_replica_nodes_size", replicaMetadataStore, store -> store.getCachedSync().size());
     meterRegistry.gauge(
-        "cached_snapshots_size", snapshotMetadataStore, store -> store.getCached().size());
+        "cached_snapshots_size", snapshotMetadataStore, store -> store.getCachedSync().size());
     meterRegistry.gauge(
-        "cached_recovery_tasks_size", recoveryTaskMetadataStore, store -> store.getCached().size());
+        "cached_recovery_tasks_size",
+        recoveryTaskMetadataStore,
+        store -> store.getCachedSync().size());
     meterRegistry.gauge(
-        "cached_recovery_nodes_size", recoveryNodeMetadataStore, store -> store.getCached().size());
+        "cached_recovery_nodes_size",
+        recoveryNodeMetadataStore,
+        store -> store.getCachedSync().size());
 
     for (Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState :
         Metadata.CacheSlotMetadata.CacheSlotState.values()) {
@@ -42,16 +46,16 @@ public class ClusterMonitorService extends AbstractIdleService {
           List.of(Tag.of("cacheSlotState", cacheSlotState.toString())),
           cacheSlotMetadataStore,
           store ->
-              store.getCached().stream()
+              store.getCachedSync().stream()
                   .filter(
                       cacheSlotMetadata -> cacheSlotMetadata.cacheSlotState.equals(cacheSlotState))
                   .count());
     }
 
     meterRegistry.gauge(
-        "cached_cache_slots_size", cacheSlotMetadataStore, store -> store.getCached().size());
+        "cached_cache_slots_size", cacheSlotMetadataStore, store -> store.getCachedSync().size());
     meterRegistry.gauge(
-        "cached_service_nodes_size", datasetMetadataStore, store -> store.getCached().size());
+        "cached_service_nodes_size", datasetMetadataStore, store -> store.getCachedSync().size());
   }
 
   @Override

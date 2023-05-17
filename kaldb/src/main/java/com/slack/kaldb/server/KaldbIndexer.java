@@ -10,7 +10,6 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.util.RuntimeHalterImpl;
 import com.slack.kaldb.writer.LogMessageTransformer;
@@ -18,6 +17,7 @@ import com.slack.kaldb.writer.LogMessageWriterImpl;
 import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 public class KaldbIndexer extends AbstractExecutionThreadService {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbIndexer.class);
 
-  private final MetadataStore metadataStore;
+  private final AsyncCuratorFramework curatorFramework;
   private final MeterRegistry meterRegistry;
   private final KaldbConfigs.IndexerConfig indexerConfig;
   private final KaldbConfigs.KafkaConfig kafkaConfig;
@@ -54,12 +54,12 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
    */
   public KaldbIndexer(
       IndexingChunkManager<LogMessage> chunkManager,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       KaldbConfigs.IndexerConfig indexerConfig,
       KaldbConfigs.KafkaConfig kafkaConfig,
       MeterRegistry meterRegistry) {
     checkNotNull(chunkManager, "Chunk manager can't be null");
-    this.metadataStore = metadataStore;
+    this.curatorFramework = curatorFramework;
     this.indexerConfig = indexerConfig;
     this.kafkaConfig = kafkaConfig;
     this.meterRegistry = meterRegistry;
@@ -91,9 +91,10 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
    */
   private long indexerPreStart() throws Exception {
     LOG.info("Starting Kaldb indexer pre start.");
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(metadataStore, false);
+        new RecoveryTaskMetadataStore(curatorFramework, false);
 
     String partitionId = kafkaConfig.getKafkaTopicPartition();
     long maxOffsetDelay = indexerConfig.getMaxOffsetDelayMessages();

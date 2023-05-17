@@ -29,12 +29,11 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ public class RecoveryChunkManagerTest {
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
 
@@ -102,9 +102,9 @@ public class RecoveryChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
+    curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
   }
 
   @AfterEach
@@ -116,7 +116,7 @@ public class RecoveryChunkManagerTest {
     }
     searchMetadataStore.close();
     snapshotMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
     s3Client.close();
     localZkServer.stop();
   }
