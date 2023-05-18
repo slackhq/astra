@@ -21,47 +21,45 @@ public class ZipkinServiceSpanConversionTest {
     String output =
         String.format(
             """
-                        [
-                            {
-                                "traceId": "1",
-                                "parentId": "",
-                                "id": "1",
-                                "kind": "SPAN_KIND_UNSPECIFIED",
-                                "name": "Trace1",
-                                "timestamp": "%d",
-                                "duration": "1",
-                                "remoteEndpoint": {
-                                    "serviceName": "service1",
-                                    "ipv4": "",
-                                    "ipv6": "",
-                                    "port": 0
-                                },
-                                "annotations": [],
-                                "tags": {},
-                                "debug": false,
-                                "shared": false
-                            },
-                            {
-                                "traceId": "1",
-                                "parentId": "1",
-                                "id": "2",
-                                "kind": "SPAN_KIND_UNSPECIFIED",
-                                "name": "Trace2",
-                                "timestamp": "%d",
-                                "duration": "2",
-                                "remoteEndpoint": {
-                                    "serviceName": "service1",
-                                    "ipv4": "",
-                                    "ipv6": "",
-                                    "port": 0
-                                },
-                                "annotations": [],
-                                "tags": {},
-                                "debug": false,
-                                "shared": false
-                            }
-                        ]
-                        """,
+                    [{
+                      "traceId": "1",
+                      "parentId": "",
+                      "id": "1",
+                      "kind": "SPAN_KIND_UNSPECIFIED",
+                      "name": "Trace1",
+                      "timestamp": "%d",
+                      "duration": "1",
+                      "remoteEndpoint": {
+                        "serviceName": "service1",
+                        "ipv4": "",
+                        "ipv6": "",
+                        "port": 0
+                      },
+                      "annotations": [],
+                      "tags": {
+                      },
+                      "debug": false,
+                      "shared": false
+                    },{
+                      "traceId": "1",
+                      "parentId": "1",
+                      "id": "2",
+                      "kind": "SPAN_KIND_UNSPECIFIED",
+                      "name": "Trace2",
+                      "timestamp": "%d",
+                      "duration": "2",
+                      "remoteEndpoint": {
+                        "serviceName": "service1",
+                        "ipv4": "",
+                        "ipv6": "",
+                        "port": 0
+                      },
+                      "annotations": [],
+                      "tags": {
+                      },
+                      "debug": false,
+                      "shared": false
+                    }]""",
             ZipkinService.convertToMicroSeconds(time.plusSeconds(1)),
             ZipkinService.convertToMicroSeconds(time.plusSeconds(2)));
     assertThat(ZipkinService.convertLogWireMessageToZipkinSpan(messages)).isEqualTo(output);
