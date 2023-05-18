@@ -16,8 +16,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javac.target>17</javac.target>
         <uberjar.name>kaldb</uberjar.name>
-        <http.client.version>4.5.13</http.client.version>
-        <http.core.version>4.4.15</http.core.version>
+        <http.client.version>4.5.14</http.client.version>
+        <http.core.version>4.4.16</http.core.version>
         <protobuf.version>3.23.1</protobuf.version>
         <grpc.version>1.55.1</grpc.version>
         <micrometer.version>1.11.0</micrometer.version>
@@ -46,20 +46,17 @@
     </licenses>
 
     <dependencies>
+        <!-- Logging dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>2.0.7</version>
         </dependency>
-
-        <!-- Binding for Log4J -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j2-impl</artifactId>
             <version>${log4j.version}</version>
         </dependency>
-
-        <!-- Log4j2 -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
@@ -74,12 +71,6 @@
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-layout-template-json</artifactId>
             <version>${log4j.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.lmax</groupId>
-            <artifactId>disruptor</artifactId>
-            <version>3.4.4</version>
         </dependency>
 
         <!-- Armeria dependencies -->
@@ -125,6 +116,11 @@
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
+            <version>${curator.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-test</artifactId>
             <version>${curator.version}</version>
         </dependency>
 
@@ -213,13 +209,20 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- YAML config parsing dependencies -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
             <version>${jackson.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Misc -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
@@ -232,7 +235,13 @@
             <version>31.1-jre</version>
         </dependency>
 
-        <!-- micrometer dependencies -->
+        <dependency>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>3.4.4</version>
+        </dependency>
+
+        <!-- Micrometer dependencies -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
@@ -244,12 +253,7 @@
             <version>${micrometer.version}</version>
         </dependency>
 
-        <!-- BlobFs dependencies -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.12.0</version>
-        </dependency>
+        <!-- AWS SDK -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
@@ -294,6 +298,7 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
@@ -355,6 +360,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.9.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
             <version>4.2.0</version>
@@ -372,14 +383,12 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>3.24.2</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -393,21 +402,12 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
-            <version>2.3.1</version>
-            <scope>test</scope>
-        </dependency>
-        
-        <!-- Apache curator dependencies -->
-        <dependency>
-            <groupId>org.apache.curator</groupId>
-            <artifactId>curator-test</artifactId>
-            <version>${curator.version}</version>
-        </dependency>
-
         <!-- BlobFs test dependencies -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.12.0</version>
+        </dependency>
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock-junit5</artifactId>
@@ -435,26 +435,6 @@
                     <artifactId>httpclient</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-xml</artifactId>
-            <version>${jackson.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.codehaus.woodstox</groupId>
-            <artifactId>stax2-api</artifactId>
-            <version>4.2.1</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.github.charithe/kafka-junit -->
@@ -497,19 +477,19 @@
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-instrumentation-grpc</artifactId>
-            <version>5.13.9</version>
+            <version>5.16.0</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.brave</groupId>
             <artifactId>brave-context-log4j2</artifactId>
-            <version>5.13.9</version>
+            <version>5.16.0</version>
         </dependency>
 
         <dependency>
             <groupId>io.zipkin.reporter2</groupId>
             <artifactId>zipkin-sender-urlconnection</artifactId>
-            <version>2.16.3</version>
+            <version>2.16.4</version>
         </dependency>
 
     </dependencies>
