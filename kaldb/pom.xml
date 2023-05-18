@@ -28,7 +28,7 @@
         <lucene.version>9.5.0</lucene.version>
         <opensearch.version>2.7.0</opensearch.version>
         <curator.version>5.4.0</curator.version>
-        <log4j.version>2.17.2</log4j.version>
+        <log4j.version>2.20.0</log4j.version>
         <aws.sdk.version>2.20.67</aws.sdk.version>
         <error.prone.version>2.16</error.prone.version>
     </properties>
@@ -49,13 +49,13 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.36</version>
+            <version>2.0.7</version>
         </dependency>
 
         <!-- Binding for Log4J -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
             <version>${log4j.version}</version>
         </dependency>
 
