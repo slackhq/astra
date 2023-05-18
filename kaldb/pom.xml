@@ -23,8 +23,8 @@
         <micrometer.version>1.9.4</micrometer.version>
         <armeria.version>1.23.1</armeria.version>
         <kafka.version>3.4.0</kafka.version>
-        <jackson.version>2.15.0</jackson.version>
-        <jackson.databind.version>2.14.1</jackson.databind.version>
+        <jackson.version>2.15.1</jackson.version>
+        <jackson.databind.version>2.15.1</jackson.databind.version>
         <lucene.version>9.5.0</lucene.version>
         <opensearch.version>2.7.0</opensearch.version>
         <curator.version>5.4.0</curator.version>
