@@ -22,7 +22,7 @@
         <grpc.version>1.49.1</grpc.version>
         <micrometer.version>1.9.4</micrometer.version>
         <armeria.version>1.22.1</armeria.version>
-        <kafka.version>3.2.3</kafka.version>
+        <kafka.version>3.4.0</kafka.version>
         <jackson.version>2.15.0</jackson.version>
         <jackson.databind.version>2.14.1</jackson.databind.version>
         <lucene.version>9.5.0</lucene.version>
@@ -176,12 +176,6 @@
         </dependency>
 
         <!-- Kafka writer dependencies -->
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-clients</artifactId>
-            <version>${kafka.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-streams</artifactId>
@@ -464,7 +458,7 @@
         <dependency>
             <groupId>com.github.charithe</groupId>
             <artifactId>kafka-junit</artifactId>
-            <version>4.2.3</version>
+            <version>4.2.4</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
