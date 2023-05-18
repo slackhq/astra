@@ -54,7 +54,7 @@ public class JsonLogFormatterTest {
             () ->
                 JsonLogFormatter.fromJsonLog(
                     """
-                                "{"service_name": "my-service"}"""
+                                {"service_name": "my-service"}"""
                         .getBytes(StandardCharsets.UTF_8)));
     assertThatIllegalArgumentException()
         .isThrownBy(
