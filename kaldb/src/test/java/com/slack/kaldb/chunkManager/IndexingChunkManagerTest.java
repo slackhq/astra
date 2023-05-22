@@ -1137,7 +1137,14 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
     }
-    await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
+    if (chunkManager.getActiveChunk() != null) {
+      chunkManager.rollOverActiveChunk();
+    }
+
+    await().until(() -> getCount(ROLLOVERS_INITIATED, metricsRegistry) == 1);
+    await()
+        .atMost(DEFAULT_START_STOP_DURATION.plus(5, ChronoUnit.SECONDS))
+        .until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
     checkMetadata(1, 1, 0, 1, 1);
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
     chunkManager.stopAsync();
