@@ -41,11 +41,13 @@ public class ReplicaMetadataSerializerTest {
     // ensure even though adding expiration field we can still deserialize existing replicas
     // this can likely be removed after this code has shipped to production
     String emptyExpirationAndRestore =
-        "{\n"
-            + "  \"name\": \"name\",\n"
-            + "  \"snapshotId\": \"snapshotId\",\n"
-            + "  \"createdTimeEpochMs\": \"1639677020380\"\n"
-            + "}";
+        """
+                    {
+                        "name": "name",
+                        "snapshotId": "snapshotId",
+                        "createdTimeEpochMs": "1639677020380"
+                    }
+                    """;
     ReplicaMetadata deserializedReplicaMetadata = serDe.fromJsonStr(emptyExpirationAndRestore);
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo("name");
