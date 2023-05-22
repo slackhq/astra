@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.x.async.AsyncCuratorFramework;
-import org.apache.curator.x.async.AsyncStage;
 import org.apache.curator.x.async.api.CreateOption;
 import org.apache.curator.x.async.modeled.ModelSerializer;
 import org.apache.curator.x.async.modeled.ModelSpec;
@@ -69,7 +68,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<String> createAsync(T metadataNode) {
+  public CompletionStage<String> createAsync(T metadataNode) {
     // by passing the version 0, this will throw if we attempt to create and it already exists
     return modeledClient.set(metadataNode, 0);
   }
@@ -84,7 +83,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<T> getAsync(String path) {
+  public CompletionStage<T> getAsync(String path) {
     if (cachedModeledFramework != null) {
       return cachedModeledFramework.withPath(zPath.resolved(path)).readThrough();
     }
@@ -99,7 +98,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<Stat> updateAsync(T metadataNode) {
+  public CompletionStage<Stat> updateAsync(T metadataNode) {
     return modeledClient.update(metadataNode);
   }
 
@@ -113,7 +112,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<Void> deleteAsync(String path) {
+  public CompletionStage<Void> deleteAsync(String path) {
     return modeledClient.withPath(zPath.resolved(path)).delete();
   }
 
@@ -125,7 +124,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<Void> deleteAsync(T metadataNode) {
+  public CompletionStage<Void> deleteAsync(T metadataNode) {
     return modeledClient.withPath(zPath.resolved(metadataNode)).delete();
   }
 
@@ -140,7 +139,7 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public AsyncStage<List<T>> getCachedAsync() {
+  public CompletionStage<List<T>> getCachedAsync() {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
 

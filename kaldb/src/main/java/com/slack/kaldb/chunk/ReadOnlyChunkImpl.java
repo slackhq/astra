@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
+
+  @Deprecated // replace with sync methods, which use DEFAULT_ZK_TIMEOUT_SECS where possible
   private static final int TIMEOUT_MS = 5000;
 
   private ChunkInfo chunkInfo;
