@@ -104,12 +104,12 @@ public class ReplicaEvictionService extends AbstractScheduledService {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
 
     Map<String, ReplicaMetadata> replicaMetadataByReplicaId =
-        replicaMetadataStore.getCached().stream()
+        replicaMetadataStore.getCachedSync().stream()
             .collect(Collectors.toUnmodifiableMap(ReplicaMetadata::getName, Function.identity()));
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaEvictions =
-        cacheSlotMetadataStore.getCached().stream()
+        cacheSlotMetadataStore.getCachedSync().stream()
             .filter(
                 cacheSlotMetadata ->
                     shouldEvictReplica(

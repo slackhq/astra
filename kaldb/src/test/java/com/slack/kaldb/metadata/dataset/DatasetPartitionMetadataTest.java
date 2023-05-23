@@ -6,8 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -16,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 public class DatasetPartitionMetadataTest {
 
   private SimpleMeterRegistry metricsRegistry;
-  private MetadataStore zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private DatasetMetadataStore datasetMetadataStore;
   private TestingServer testZKServer;
 
@@ -44,14 +44,14 @@ public class DatasetPartitionMetadataTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
-    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    this.curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    this.datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
   }
 
   @AfterEach
   public void tearDown() throws Exception {
     datasetMetadataStore.close();
-    zkMetadataStore.close();
+    curatorFramework.unwrap().close();
     testZKServer.close();
     metricsRegistry.close();
   }
@@ -135,7 +135,7 @@ public class DatasetPartitionMetadataTest {
               "testDataset1", "datasetOwner1", throughputBytes, List.of(partition), "testDataset1");
 
       datasetMetadataStore.createSync(datasetMetadata);
-      await().until(() -> datasetMetadataStore.getCached().size() == 1);
+      await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
     }
 
     {
@@ -144,7 +144,7 @@ public class DatasetPartitionMetadataTest {
           new DatasetMetadata(
               "testDataset2", "datasetOwner2", throughputBytes, List.of(partition), "testDataset2");
       datasetMetadataStore.createSync(datasetMetadata);
-      await().until(() -> datasetMetadataStore.getCached().size() == 2);
+      await().until(() -> datasetMetadataStore.getCachedSync().size() == 2);
     }
 
     // Start and end time within query window
@@ -187,7 +187,7 @@ public class DatasetPartitionMetadataTest {
         new DatasetMetadata(name, owner, throughputBytes, List.of(partition), name);
 
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
 
     // Start and end time within query window
     List<DatasetPartitionMetadata> partitionMetadata =
@@ -230,7 +230,7 @@ public class DatasetPartitionMetadataTest {
         new DatasetMetadata(name, owner, throughputBytes, List.of(partition1, partition2), name);
 
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
 
     // Fetch first partition between time 101 and 199
     List<DatasetPartitionMetadata> partitionMetadata =
@@ -271,7 +271,7 @@ public class DatasetPartitionMetadataTest {
         new DatasetMetadata(name, owner, throughputBytes, List.of(partition), name);
 
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.getCached().size() == 1);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
 
     final String name1 = "testDataset1";
     final String owner1 = "datasetOwner1";
@@ -283,7 +283,7 @@ public class DatasetPartitionMetadataTest {
         new DatasetMetadata(name1, owner1, throughputBytes1, List.of(partition1), name1);
 
     datasetMetadataStore.createSync(datasetMetadata1);
-    await().until(() -> datasetMetadataStore.getCached().size() == 2);
+    await().until(() -> datasetMetadataStore.getCachedSync().size() == 2);
 
     List<DatasetPartitionMetadata> partitionMetadata =
         findPartitionsToQuery(datasetMetadataStore, 101, 199, name);

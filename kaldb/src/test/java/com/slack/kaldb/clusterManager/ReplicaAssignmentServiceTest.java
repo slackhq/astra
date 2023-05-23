@@ -7,16 +7,16 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MetricsUtil;
@@ -28,10 +28,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +46,7 @@ public class ReplicaAssignmentServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
 
@@ -62,16 +65,16 @@ public class ReplicaAssignmentServiceTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(metadataStore, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
   }
 
   @AfterEach
   public void shutdown() throws IOException {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
 
     testingServer.close();
     meterRegistry.close();
@@ -185,10 +188,10 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(0);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
@@ -239,10 +242,10 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
@@ -294,7 +297,7 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
@@ -307,7 +310,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -319,11 +322,11 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 5);
-    await().until(() -> replicaMetadataStore.getCached().size() == 3);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 5);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
@@ -375,7 +378,7 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     List<CacheSlotMetadata> unmutatedSlots = new ArrayList<>();
@@ -387,7 +390,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotWithAssignment);
-    cacheSlotMetadataStore.create(cacheSlotWithAssignment);
+    cacheSlotMetadataStore.createAsync(cacheSlotWithAssignment);
 
     CacheSlotMetadata cacheSlotLive =
         new CacheSlotMetadata(
@@ -397,7 +400,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotLive);
-    cacheSlotMetadataStore.create(cacheSlotLive);
+    cacheSlotMetadataStore.createAsync(cacheSlotLive);
 
     CacheSlotMetadata cacheSlotEvicting =
         new CacheSlotMetadata(
@@ -407,7 +410,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
     unmutatedSlots.add(cacheSlotEvicting);
-    cacheSlotMetadataStore.create(cacheSlotEvicting);
+    cacheSlotMetadataStore.createAsync(cacheSlotEvicting);
 
     CacheSlotMetadata cacheSlotFree =
         new CacheSlotMetadata(
@@ -416,20 +419,20 @@ public class ReplicaAssignmentServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotFree);
+    cacheSlotMetadataStore.createAsync(cacheSlotFree);
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 4);
-    await().until(() -> replicaMetadataStore.getCached().size() == 4);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 4);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 4);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(1);
 
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(4);
     assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(4);
-    assertThat(cacheSlotMetadataStore.getCached().containsAll(unmutatedSlots)).isTrue();
+    assertThat(cacheSlotMetadataStore.getCachedSync().containsAll(unmutatedSlots)).isTrue();
 
     List<CacheSlotMetadata> mutatedCacheSlots =
-        cacheSlotMetadataStore.getCached().stream()
+        cacheSlotMetadataStore.getCachedSync().stream()
             .filter(cacheSlotMetadata -> !unmutatedSlots.contains(cacheSlotMetadata))
             .collect(Collectors.toList());
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
@@ -480,7 +483,7 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
@@ -493,11 +496,11 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
-    await().until(() -> replicaMetadataStore.getCached().size() == 5);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 5);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
@@ -549,7 +552,7 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataExpiredList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     // add an expired replica with a value of 0
@@ -562,7 +565,7 @@ public class ReplicaAssignmentServiceTest {
             false,
             LOGS_LUCENE9);
     replicaMetadataExpiredList.add(replicaMetadataZero);
-    replicaMetadataStore.create(replicaMetadataZero);
+    replicaMetadataStore.createAsync(replicaMetadataZero);
 
     for (int i = 0; i < 3; i++) {
       ReplicaMetadata replicaMetadata =
@@ -573,7 +576,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     for (int i = 0; i < 4; i++) {
@@ -584,11 +587,11 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 4);
-    await().until(() -> replicaMetadataStore.getCached().size() == 6);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 4);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 6);
 
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(3);
@@ -662,7 +665,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     for (int i = 0; i < 3; i++) {
@@ -673,16 +676,17 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
 
-    doCallRealMethod()
-        .doReturn(Futures.immediateFailedFuture(new Exception()))
-        .when(cacheSlotMetadataStore)
-        .update(any());
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
+
+    doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
@@ -715,7 +719,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    doCallRealMethod().when(cacheSlotMetadataStore).update(any());
+    doCallRealMethod().when(cacheSlotMetadataStore).updateAsync(any());
 
     int secondAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(secondAssignment).isEqualTo(1);
@@ -779,7 +783,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     for (int i = 0; i < 3; i++) {
@@ -790,26 +794,28 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
 
     replicaAssignmentService.futuresListTimeoutSecs = 2;
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
-    doCallRealMethod()
-        .doReturn(
-            Futures.submit(
+
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(
+            CompletableFuture.runAsync(
                 () -> {
                   try {
                     Thread.sleep(30 * 1000);
                   } catch (InterruptedException ignored) {
                   }
                 },
-                timeoutServiceExecutor))
-        .when(cacheSlotMetadataStore)
-        .update(any());
+                timeoutServiceExecutor));
+
+    doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
@@ -875,7 +881,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     for (int i = 0; i < 3; i++) {
@@ -886,16 +892,17 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
 
-    doCallRealMethod()
-        .doReturn(Futures.immediateFailedFuture(new Exception()))
-        .when(cacheSlotMetadataStore)
-        .update(any());
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
+
+    doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
@@ -958,10 +965,10 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(
             cacheSlotMetadataStore.listSync().stream()
@@ -984,14 +991,14 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCached().stream()
+                cacheSlotMetadataStore.getCachedSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -1001,7 +1008,7 @@ public class ReplicaAssignmentServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCached().stream()
+                cacheSlotMetadataStore.getCachedSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -1054,10 +1061,10 @@ public class ReplicaAssignmentServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
 
     replicaAssignmentService.startAsync();
     replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -1070,14 +1077,14 @@ public class ReplicaAssignmentServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 2);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCached().stream()
+                cacheSlotMetadataStore.getCachedSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -1129,7 +1136,7 @@ public class ReplicaAssignmentServiceTest {
             now.plusSeconds(60).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(olderReplicaMetadata);
+    replicaMetadataStore.createAsync(olderReplicaMetadata);
 
     ReplicaMetadata newerReplicaMetadata =
         new ReplicaMetadata(
@@ -1139,9 +1146,9 @@ public class ReplicaAssignmentServiceTest {
             now.plusSeconds(60).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(newerReplicaMetadata);
+    replicaMetadataStore.createAsync(newerReplicaMetadata);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
 
     replicaAssignmentService.startAsync();
     replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -1154,11 +1161,12 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
 
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()
         .until(
             () -> {
-              List<CacheSlotMetadata> cacheSlotMetadataList = cacheSlotMetadataStore.getCached();
+              List<CacheSlotMetadata> cacheSlotMetadataList =
+                  cacheSlotMetadataStore.getCachedSync();
               return cacheSlotMetadataList.size() == 1
                   && cacheSlotMetadataList.get(0).cacheSlotState
                       == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
@@ -1195,7 +1203,7 @@ public class ReplicaAssignmentServiceTest {
             now.plusSeconds(60).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(olderReplicaMetadata);
+    replicaMetadataStore.createAsync(olderReplicaMetadata);
 
     ReplicaMetadata newerReplicaMetadata =
         new ReplicaMetadata(
@@ -1205,9 +1213,9 @@ public class ReplicaAssignmentServiceTest {
             now.plusSeconds(60).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(newerReplicaMetadata);
+    replicaMetadataStore.createAsync(newerReplicaMetadata);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
 
     replicaAssignmentService.startAsync();
     replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -1221,11 +1229,12 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             suppportedIndexTypes);
 
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()
         .until(
             () -> {
-              List<CacheSlotMetadata> cacheSlotMetadataList = cacheSlotMetadataStore.getCached();
+              List<CacheSlotMetadata> cacheSlotMetadataList =
+                  cacheSlotMetadataStore.getCachedSync();
               return cacheSlotMetadataList.size() == 1
                   && cacheSlotMetadataList.get(0).cacheSlotState
                       == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;

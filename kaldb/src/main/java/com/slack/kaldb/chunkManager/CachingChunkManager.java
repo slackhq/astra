@@ -9,12 +9,12 @@ import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +26,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private static final Logger LOG = LoggerFactory.getLogger(CachingChunkManager.class);
 
   private final MeterRegistry meterRegistry;
-  private final MetadataStore metadataStore;
+  private final AsyncCuratorFramework curatorFramework;
   private final BlobFs blobFs;
   private final SearchContext searchContext;
   private final String s3Bucket;
@@ -40,14 +40,14 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   public CachingChunkManager(
       MeterRegistry registry,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       BlobFs blobFs,
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
       int slotCountPerInstance) {
     this.meterRegistry = registry;
-    this.metadataStore = metadataStore;
+    this.curatorFramework = curatorFramework;
     this.blobFs = blobFs;
     this.searchContext = searchContext;
     this.s3Bucket = s3Bucket;
@@ -71,15 +71,15 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting caching chunk manager");
 
-    replicaMetadataStore = new ReplicaMetadataStore(metadataStore, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    cacheSlotMetadataStore = new CacheSlotMetadataStore(metadataStore, false);
+    replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework, false);
 
     for (int i = 0; i < slotCountPerInstance; i++) {
       chunkList.add(
           new ReadOnlyChunkImpl<>(
-              metadataStore,
+              curatorFramework,
               meterRegistry,
               blobFs,
               searchContext,
@@ -120,14 +120,14 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
 
   public static CachingChunkManager<LogMessage> fromConfig(
       MeterRegistry meterRegistry,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       KaldbConfigs.S3Config s3Config,
       KaldbConfigs.CacheConfig cacheConfig,
       BlobFs blobFs)
       throws Exception {
     return new CachingChunkManager<>(
         meterRegistry,
-        metadataStore,
+        curatorFramework,
         blobFs,
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),

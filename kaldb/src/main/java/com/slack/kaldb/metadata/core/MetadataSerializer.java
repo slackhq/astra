@@ -2,6 +2,7 @@ package com.slack.kaldb.metadata.core;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import org.apache.curator.x.async.modeled.ModelSerializer;
 
 /**
  * An interface that helps us covert protobuf objects to and from json.
@@ -17,4 +18,26 @@ public interface MetadataSerializer<T extends KaldbMetadata> {
   String toJsonStr(T metadata) throws InvalidProtocolBufferException;
 
   T fromJsonStr(String data) throws InvalidProtocolBufferException;
+
+  default ModelSerializer<T> toModelSerializer() {
+    return new ModelSerializer<>() {
+      @Override
+      public byte[] serialize(T model) {
+        try {
+          return toJsonStr(model).getBytes();
+        } catch (Exception e) {
+          throw new IllegalArgumentException(e);
+        }
+      }
+
+      @Override
+      public T deserialize(byte[] bytes) {
+        try {
+          return fromJsonStr(new String(bytes));
+        } catch (Exception e) {
+          throw new IllegalStateException(e);
+        }
+      }
+    };
+  }
 }

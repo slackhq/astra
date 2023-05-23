@@ -11,9 +11,8 @@ import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkrollover.ChunkRollOverStrategy;
 import com.slack.kaldb.chunkrollover.DiskOrMessageCountBasedRolloverStrategy;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.File;
@@ -24,6 +23,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import software.amazon.awssdk.services.s3.S3Client;
 
 /**
@@ -41,7 +41,7 @@ public class ChunkManagerUtil<T> {
   public static final String ZK_PATH_PREFIX = "testZK";
   public final IndexingChunkManager<T> chunkManager;
   private final TestingServer zkServer;
-  private final MetadataStore metadataStore;
+  private final AsyncCuratorFramework curatorFramework;
 
   public static ChunkManagerUtil<LogMessage> makeChunkManagerUtil(
       S3MockExtension s3MockExtension,
@@ -60,7 +60,7 @@ public class ChunkManagerUtil<T> {
             .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(1000)
             .build();
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
     return new ChunkManagerUtil<>(
         s3MockExtension,
@@ -70,7 +70,7 @@ public class ChunkManagerUtil<T> {
         maxBytesPerChunk,
         maxMessagesPerChunk,
         new SearchContext(TEST_HOST, TEST_PORT),
-        metadataStore,
+        curatorFramework,
         indexerConfig);
   }
 
@@ -82,7 +82,7 @@ public class ChunkManagerUtil<T> {
       long maxBytesPerChunk,
       long maxMessagesPerChunk,
       SearchContext searchContext,
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       KaldbConfigs.IndexerConfig indexerConfig)
       throws Exception {
 
@@ -98,7 +98,7 @@ public class ChunkManagerUtil<T> {
         new DiskOrMessageCountBasedRolloverStrategy(
             meterRegistry, maxBytesPerChunk, maxMessagesPerChunk);
 
-    this.metadataStore = metadataStore;
+    this.curatorFramework = curatorFramework;
 
     chunkManager =
         new IndexingChunkManager<>(
@@ -109,7 +109,7 @@ public class ChunkManagerUtil<T> {
             s3BlobFs,
             s3Bucket,
             MoreExecutors.newDirectExecutorService(),
-            metadataStore,
+            curatorFramework,
             searchContext,
             indexerConfig);
   }
@@ -118,7 +118,7 @@ public class ChunkManagerUtil<T> {
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     s3Client.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
     zkServer.close();
     FileUtils.deleteDirectory(tempFolder);
   }
@@ -138,7 +138,7 @@ public class ChunkManagerUtil<T> {
     return afterSnapshots.stream().filter(condition).collect(Collectors.toList());
   }
 
-  public MetadataStore getMetadataStore() {
-    return metadataStore;
+  public AsyncCuratorFramework getCuratorFramework() {
+    return curatorFramework;
   }
 }

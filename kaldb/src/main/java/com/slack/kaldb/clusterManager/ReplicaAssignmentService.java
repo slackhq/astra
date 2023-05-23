@@ -140,7 +140,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     List<CacheSlotMetadata> availableCacheSlots =
-        cacheSlotMetadataStore.getCached().stream()
+        cacheSlotMetadataStore.getCachedSync().stream()
             .filter(
                 cacheSlotMetadata ->
                     cacheSlotMetadata.cacheSlotState.equals(
@@ -153,14 +153,14 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     Collections.shuffle(availableCacheSlots);
 
     Set<String> assignedReplicaIds =
-        cacheSlotMetadataStore.getCached().stream()
+        cacheSlotMetadataStore.getCachedSync().stream()
             .filter(cacheSlotMetadata -> !cacheSlotMetadata.replicaId.isEmpty())
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
     long nowMilli = Instant.now().toEpochMilli();
     List<String> replicaIdsToAssign =
-        replicaMetadataStore.getCached().stream()
+        replicaMetadataStore.getCachedSync().stream()
             // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->

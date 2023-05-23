@@ -1,7 +1,6 @@
-package com.slack.kaldb.metadata.zookeeper;
+package com.slack.kaldb.metadata.core;
 
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.slack.kaldb.metadata.core.CacheableMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import java.util.List;
 import org.slf4j.Logger;
@@ -17,10 +16,10 @@ public class MetadataStoreLifecycleManager extends AbstractIdleService {
   private static final Logger LOG = LoggerFactory.getLogger(MetadataStoreLifecycleManager.class);
 
   private final KaldbConfigs.NodeRole nodeRole;
-  private final List<CacheableMetadataStore<?>> metadataStores;
+  private final List<KaldbMetadataStore<?>> metadataStores;
 
   public MetadataStoreLifecycleManager(
-      KaldbConfigs.NodeRole role, List<CacheableMetadataStore<?>> metadataStores) {
+      KaldbConfigs.NodeRole role, List<KaldbMetadataStore<?>> metadataStores) {
     this.metadataStores = metadataStores;
     this.nodeRole = role;
   }
@@ -31,6 +30,6 @@ public class MetadataStoreLifecycleManager extends AbstractIdleService {
   @Override
   protected void shutDown() throws Exception {
     LOG.info("shutting down MetadataStoreLifecycleManager for role=" + nodeRole.toString());
-    metadataStores.forEach(CacheableMetadataStore::close);
+    metadataStores.forEach(KaldbMetadataStore::close);
   }
 }

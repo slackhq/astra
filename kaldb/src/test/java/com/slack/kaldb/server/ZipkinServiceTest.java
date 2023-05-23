@@ -17,10 +17,10 @@ import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -56,7 +57,7 @@ public class ZipkinServiceTest {
   private static final String KALDB_TEST_CLIENT_1 = "kaldb-test-client1";
 
   private DatasetMetadataStore datasetMetadataStore;
-  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private PrometheusMeterRegistry meterRegistry;
 
   @RegisterExtension
@@ -88,8 +89,8 @@ public class ZipkinServiceTest {
             .setZkConnectionTimeoutMs(1000)
             .setSleepBetweenRetriesMs(1000)
             .build();
-    zkMetadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    datasetMetadataStore = new DatasetMetadataStore(zkMetadataStore, true);
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
     final DatasetPartitionMetadata partition =
         new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("0", "1"));
     final List<DatasetPartitionMetadata> partitionConfigs = Collections.singletonList(partition);
@@ -111,8 +112,8 @@ public class ZipkinServiceTest {
     if (datasetMetadataStore != null) {
       datasetMetadataStore.close();
     }
-    if (zkMetadataStore != null) {
-      zkMetadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (zkServer != null) {
       zkServer.close();

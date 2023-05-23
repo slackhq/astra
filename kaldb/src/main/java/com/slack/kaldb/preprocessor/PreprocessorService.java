@@ -148,7 +148,7 @@ public class PreprocessorService extends AbstractService {
 
       // only attempt to register stream processing on valid dataset configurations
       List<DatasetMetadata> datasetMetadataToProcesses =
-          filterValidDatasetMetadata(datasetMetadataStore.listSync());
+          filterValidDatasetMetadata(datasetMetadataStore.getCachedSync());
 
       if (datasetMetadataToProcesses.size() > 0) {
         Topology topology =

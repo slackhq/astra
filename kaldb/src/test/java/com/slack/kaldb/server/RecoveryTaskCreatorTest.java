@@ -15,27 +15,31 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.google.common.util.concurrent.Futures;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
-import com.slack.kaldb.util.CountingFatalErrorHandler;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +49,7 @@ public class RecoveryTaskCreatorTest {
   private static final long TEST_MAX_MESSAGES_PER_RECOVERY_TASK = 10000;
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
-  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private static final String partitionId = "1";
@@ -55,17 +59,18 @@ public class RecoveryTaskCreatorTest {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
-    zkMetadataStore =
-        new ZookeeperMetadataStoreImpl(
-            testingServer.getConnectString(),
-            "test",
-            1000,
-            1000,
-            new RetryNTimes(1, 500),
-            new CountingFatalErrorHandler(),
-            meterRegistry);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
+
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("test")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(500)
+            .build();
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
   }
 
   @AfterEach
@@ -76,8 +81,8 @@ public class RecoveryTaskCreatorTest {
     if (snapshotMetadataStore != null) {
       snapshotMetadataStore.close();
     }
-    if (zkMetadataStore != null) {
-      zkMetadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (testingServer != null) {
       testingServer.close();
@@ -298,9 +303,11 @@ public class RecoveryTaskCreatorTest {
             meterRegistry);
 
     // Throw exceptions on delete.
-    doReturn(Futures.immediateFailedFuture(new RuntimeException()))
-        .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
+
+    doReturn(asyncStage).when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
 
     if (hasException) {
       assertThatIllegalStateException()
@@ -313,7 +320,7 @@ public class RecoveryTaskCreatorTest {
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
 
     // Clear state but reset the overloaded method.
-    doCallRealMethod().when(snapshotMetadataStore).delete((SnapshotMetadata) any());
+    doCallRealMethod().when(snapshotMetadataStore).deleteAsync((SnapshotMetadata) any());
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
   }
 
@@ -368,24 +375,33 @@ public class RecoveryTaskCreatorTest {
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
-    // allow the first deletion to work, and timeout the second one
-    doCallRealMethod()
-        .doReturn(
-            Futures.submit(
+
+    AsyncStage asyncStage1 = mock(AsyncStage.class);
+    when(asyncStage1.toCompletableFuture())
+        .thenReturn(
+            CompletableFuture.runAsync(
                 () -> {
                   try {
                     Thread.sleep(30 * 1000);
                   } catch (InterruptedException ignored) {
                   }
                 },
-                timeoutServiceExecutor))
+                timeoutServiceExecutor));
+
+    // allow the first deletion to work, and timeout the second one
+    doCallRealMethod()
+        .doReturn(asyncStage1)
         .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
+        .deleteAsync(any(SnapshotMetadata.class));
+
+    AsyncStage asyncStage2 = mock(AsyncStage.class);
+    when(asyncStage2.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
 
     doCallRealMethod()
-        .doReturn(Futures.immediateFailedFuture(new RuntimeException()))
+        .doReturn(asyncStage2)
         .when(snapshotMetadataStore)
-        .delete((SnapshotMetadata) any());
+        .deleteAsync((SnapshotMetadata) any());
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.deleteStaleLiveSnapshots(snapshots));
@@ -1298,8 +1314,7 @@ public class RecoveryTaskCreatorTest {
   }
 
   @Test
-  public void testSnapshotListFailureFailsDetermineStartOffset()
-      throws ExecutionException, InterruptedException {
+  public void testSnapshotListFailureFailsDetermineStartOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
@@ -1338,17 +1353,19 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail snapshot store list creation.
-    doThrow(new RuntimeException()).when(snapshotMetadataStore).listSync();
+    doThrow(new InternalMetadataStoreException(""))
+        .doCallRealMethod()
+        .when(snapshotMetadataStore)
+        .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
     assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
+    assertThat(snapshotMetadataStore.listSync()).containsExactly(partition1);
   }
 
   @Test
-  public void testRecoveryListFailureFailsDetermineStartOffset()
-      throws ExecutionException, InterruptedException {
+  public void testRecoveryListFailureFailsDetermineStartOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
@@ -1387,12 +1404,15 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail a recovery store list.
-    doThrow(new RuntimeException()).when(recoveryTaskStore).listSync();
+    doThrow(new InternalMetadataStoreException(""))
+        .doCallRealMethod()
+        .when(recoveryTaskStore)
+        .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
+    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSync()).containsExactly(partition1);
   }
 
   @Test
@@ -1446,18 +1466,18 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.list().get())
+    assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, livePartition1);
     // Fail deletion on snapshot metadata store.
     doThrow(new IllegalStateException())
         .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
-    doThrow(new IllegalStateException()).when(snapshotMetadataStore).delete(any(String.class));
+        .deleteAsync(any(SnapshotMetadata.class));
+    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any(String.class));
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get())
+    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSync())
         .containsExactlyInAnyOrder(partition1, livePartition1);
   }
 

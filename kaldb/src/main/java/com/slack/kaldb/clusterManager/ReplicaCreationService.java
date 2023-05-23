@@ -9,6 +9,7 @@ import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
@@ -151,7 +152,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     // build a map of snapshot ID to how many replicas currently exist for that snapshot ID
     Map<String, Long> snapshotToReplicas =
-        replicaMetadataStore.getCached().stream()
+        replicaMetadataStore.getCachedSync().stream()
             .collect(
                 Collectors.groupingBy(
                     (replicaMetadata) -> replicaMetadata.snapshotId, Collectors.counting()));
@@ -165,7 +166,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> createdReplicaMetadataList =
-        snapshotMetadataStore.getCached().stream()
+        snapshotMetadataStore.getCachedSync().stream()
             // only attempt to create replicas for snapshots that have not expired, and are not live
             .filter(
                 snapshotMetadata ->
@@ -180,17 +181,23 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                 .getReplicasPerSnapshot())
                         .mapToObj(
                             (i) -> {
+                              // todo - consider refactoring this to return a completable future
+                              // instead
                               ListenableFuture<?> future =
-                                  replicaMetadataStore.create(
-                                      replicaMetadataFromSnapshotId(
-                                          snapshotMetadata.snapshotId,
-                                          Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
-                                              .plus(
-                                                  managerConfig
-                                                      .getReplicaCreationServiceConfig()
-                                                      .getReplicaLifespanMins(),
-                                                  ChronoUnit.MINUTES),
-                                          false));
+                                  JdkFutureAdapters.listenInPoolThread(
+                                      replicaMetadataStore
+                                          .createAsync(
+                                              replicaMetadataFromSnapshotId(
+                                                  snapshotMetadata.snapshotId,
+                                                  Instant.ofEpochMilli(
+                                                          snapshotMetadata.endTimeEpochMs)
+                                                      .plus(
+                                                          managerConfig
+                                                              .getReplicaCreationServiceConfig()
+                                                              .getReplicaLifespanMins(),
+                                                          ChronoUnit.MINUTES),
+                                                  false))
+                                          .toCompletableFuture());
                               addCallback(
                                   future,
                                   successCountingCallback(successCounter),

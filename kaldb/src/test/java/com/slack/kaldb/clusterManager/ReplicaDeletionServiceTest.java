@@ -8,16 +8,16 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.google.common.util.concurrent.Futures;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MetricsUtil;
@@ -28,10 +28,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +44,7 @@ public class ReplicaDeletionServiceTest {
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private CacheSlotMetadataStore cacheSlotMetadataStore;
   private ReplicaMetadataStore replicaMetadataStore;
 
@@ -60,16 +63,16 @@ public class ReplicaDeletionServiceTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(metadataStore, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(metadataStore, true));
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
   }
 
   @AfterEach
   public void shutdown() throws IOException {
     cacheSlotMetadataStore.close();
     replicaMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
 
     testingServer.close();
     meterRegistry.close();
@@ -146,7 +149,7 @@ public class ReplicaDeletionServiceTest {
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(replicaMetadata);
+    replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -155,10 +158,10 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
@@ -167,8 +170,8 @@ public class ReplicaDeletionServiceTest {
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 0);
-    assertThat(cacheSlotMetadataStore.getCached()).containsExactlyInAnyOrder(cacheSlotMetadata);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 0);
+    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(cacheSlotMetadata);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -203,7 +206,7 @@ public class ReplicaDeletionServiceTest {
               false,
               LOGS_LUCENE9);
       replicaMetadataList.add(replicaMetadata);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     CacheSlotMetadata cacheSlotMetadataAssigned =
@@ -213,7 +216,7 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadataAssigned);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataEvict =
         new CacheSlotMetadata(
@@ -222,7 +225,7 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(1).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadataEvict);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvict);
 
     CacheSlotMetadata cacheSlotMetadataEvicting =
         new CacheSlotMetadata(
@@ -231,10 +234,10 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadataEvicting);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvicting);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 3);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 3);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
@@ -243,9 +246,9 @@ public class ReplicaDeletionServiceTest {
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCached())
+    assertThat(replicaMetadataStore.getCachedSync())
         .containsExactlyInAnyOrderElementsOf(replicaMetadataList);
-    assertThat(cacheSlotMetadataStore.getCached())
+    assertThat(cacheSlotMetadataStore.getCachedSync())
         .containsExactlyInAnyOrder(
             cacheSlotMetadataAssigned, cacheSlotMetadataEvict, cacheSlotMetadataEvicting);
 
@@ -279,7 +282,7 @@ public class ReplicaDeletionServiceTest {
             Instant.now().plusSeconds(30).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(replicaMetadata);
+    replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -288,10 +291,10 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
@@ -300,8 +303,8 @@ public class ReplicaDeletionServiceTest {
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
-    assertThat(cacheSlotMetadataStore.getCached()).containsExactlyInAnyOrder(cacheSlotMetadata);
+    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrder(replicaMetadata);
+    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(cacheSlotMetadata);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -333,7 +336,7 @@ public class ReplicaDeletionServiceTest {
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(replicaMetadata);
+    replicaMetadataStore.createAsync(replicaMetadata);
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
@@ -342,24 +345,26 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadata);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 1);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
             cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry);
 
-    doReturn(Futures.immediateFailedFuture(new Exception()))
-        .when(replicaMetadataStore)
-        .delete(any(ReplicaMetadata.class));
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
+
+    doReturn(asyncStage).when(replicaMetadataStore).deleteAsync(any(ReplicaMetadata.class));
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadata);
-    assertThat(cacheSlotMetadataStore.getCached()).containsExactlyInAnyOrder(cacheSlotMetadata);
+    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrder(replicaMetadata);
+    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(cacheSlotMetadata);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -369,14 +374,14 @@ public class ReplicaDeletionServiceTest {
             MetricsUtil.getTimerCount(ReplicaDeletionService.REPLICA_DELETE_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    doCallRealMethod().when(replicaMetadataStore).delete(any(ReplicaMetadata.class));
+    doCallRealMethod().when(replicaMetadataStore).deleteAsync(any(ReplicaMetadata.class));
 
     int replicasDeletedRetry =
         replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeletedRetry).isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 0);
-    assertThat(cacheSlotMetadataStore.getCached()).containsExactlyInAnyOrder(cacheSlotMetadata);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 0);
+    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(cacheSlotMetadata);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(1);
@@ -409,7 +414,7 @@ public class ReplicaDeletionServiceTest {
               Instant.now().minusSeconds(10).toEpochMilli(),
               false,
               LOGS_LUCENE9);
-      replicaMetadataStore.create(replicaMetadata);
+      replicaMetadataStore.createAsync(replicaMetadata);
     }
 
     List<CacheSlotMetadata> cacheSlotMetadataList = new ArrayList<>();
@@ -422,11 +427,11 @@ public class ReplicaDeletionServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES);
       cacheSlotMetadataList.add(cacheSlotMetadata);
-      cacheSlotMetadataStore.create(cacheSlotMetadata);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 2);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
@@ -434,24 +439,28 @@ public class ReplicaDeletionServiceTest {
     replicaDeletionService.futuresListTimeoutSecs = 2;
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
-    doCallRealMethod()
-        .doReturn(
-            Futures.submit(
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(
+            CompletableFuture.runAsync(
                 () -> {
                   try {
                     Thread.sleep(30 * 1000);
                   } catch (InterruptedException ignored) {
                   }
                 },
-                timeoutServiceExecutor))
+                timeoutServiceExecutor));
+
+    doCallRealMethod()
+        .doReturn(asyncStage)
         .when(replicaMetadataStore)
-        .delete(any(ReplicaMetadata.class));
+        .deleteAsync(any(ReplicaMetadata.class));
 
     int replicasDeleted = replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeleted).isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    assertThat(cacheSlotMetadataStore.getCached())
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    assertThat(cacheSlotMetadataStore.getCachedSync())
         .containsExactlyInAnyOrderElementsOf(cacheSlotMetadataList);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
@@ -462,14 +471,14 @@ public class ReplicaDeletionServiceTest {
             MetricsUtil.getTimerCount(ReplicaDeletionService.REPLICA_DELETE_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    doCallRealMethod().when(replicaMetadataStore).delete(any(ReplicaMetadata.class));
+    doCallRealMethod().when(replicaMetadataStore).deleteAsync(any(ReplicaMetadata.class));
 
     int replicasDeletedRetry =
         replicaDeletionService.deleteExpiredUnassignedReplicas(Instant.now());
     assertThat(replicasDeletedRetry).isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 0);
-    assertThat(cacheSlotMetadataStore.getCached())
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 0);
+    assertThat(cacheSlotMetadataStore.getCachedSync())
         .containsExactlyInAnyOrderElementsOf(cacheSlotMetadataList);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))
@@ -504,7 +513,7 @@ public class ReplicaDeletionServiceTest {
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(replicaMetadataUnassigned);
+    replicaMetadataStore.createAsync(replicaMetadataUnassigned);
 
     ReplicaMetadata replicaMetadataAssigned =
         new ReplicaMetadata(
@@ -514,7 +523,7 @@ public class ReplicaDeletionServiceTest {
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
             LOGS_LUCENE9);
-    replicaMetadataStore.create(replicaMetadataAssigned);
+    replicaMetadataStore.createAsync(replicaMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataUnassigned =
         new CacheSlotMetadata(
@@ -523,7 +532,7 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadataUnassigned);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadataUnassigned);
 
     CacheSlotMetadata cacheSlotMetadataAssigned =
         new CacheSlotMetadata(
@@ -532,10 +541,10 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataAssigned.name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES);
-    cacheSlotMetadataStore.create(cacheSlotMetadataAssigned);
+    cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 2);
-    await().until(() -> cacheSlotMetadataStore.getCached().size() == 2);
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 2);
 
     ReplicaDeletionService replicaDeletionService =
         new ReplicaDeletionService(
@@ -544,9 +553,10 @@ public class ReplicaDeletionServiceTest {
     replicaDeletionService.startAsync();
     replicaDeletionService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    await().until(() -> replicaMetadataStore.getCached().size() == 1);
-    assertThat(replicaMetadataStore.getCached()).containsExactlyInAnyOrder(replicaMetadataAssigned);
-    assertThat(cacheSlotMetadataStore.getCached())
+    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    assertThat(replicaMetadataStore.getCachedSync())
+        .containsExactlyInAnyOrder(replicaMetadataAssigned);
+    assertThat(cacheSlotMetadataStore.getCachedSync())
         .containsExactlyInAnyOrder(cacheSlotMetadataUnassigned, cacheSlotMetadataAssigned);
 
     assertThat(MetricsUtil.getCount(ReplicaDeletionService.REPLICA_DELETE_SUCCESS, meterRegistry))

@@ -132,7 +132,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
     List<SnapshotMetadata> snapshotsToRestore = new ArrayList<>();
     Set<String> createdReplicas = new HashSet<>();
 
-    for (ReplicaMetadata replicaMetadata : replicaMetadataStore.getCached()) {
+    for (ReplicaMetadata replicaMetadata : replicaMetadataStore.getCachedSync()) {
       createdReplicas.add(replicaMetadata.snapshotId);
     }
 

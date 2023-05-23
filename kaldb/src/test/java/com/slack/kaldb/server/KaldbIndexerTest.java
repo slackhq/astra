@@ -29,13 +29,12 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.ChunkManagerUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -46,6 +45,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,7 +79,7 @@ public class KaldbIndexerTest {
   private SimpleMeterRegistry metricsRegistry;
   private TestKafkaServer kafkaServer;
   private TestingServer testZKServer;
-  private MetadataStore zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private SearchMetadataStore searchMetadataStore;
@@ -101,7 +101,7 @@ public class KaldbIndexerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    zkMetadataStore = spy(ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig));
+    curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
     chunkManagerUtil =
         new ChunkManagerUtil<>(
@@ -112,15 +112,15 @@ public class KaldbIndexerTest {
             10 * 1024 * 1024 * 1024L,
             100,
             new SearchContext(TEST_HOST, TEST_PORT),
-            zkMetadataStore,
+            curatorFramework,
             indexerConfig);
 
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
-    searchMetadataStore = spy(new SearchMetadataStore(zkMetadataStore, false));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
+    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, false));
 
     kafkaServer = new TestKafkaServer();
   }
@@ -151,8 +151,8 @@ public class KaldbIndexerTest {
     if (recoveryTaskStore != null) {
       recoveryTaskStore.close();
     }
-    if (zkMetadataStore != null) {
-      zkMetadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (testZKServer != null) {
       testZKServer.close();
@@ -170,7 +170,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -213,7 +213,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -264,14 +264,14 @@ public class KaldbIndexerTest {
     snapshotMetadataStore.createSync(livePartition1);
     assertThat(snapshotMetadataStore.listSync()).containsOnly(livePartition1, livePartition0);
 
-    // Throw exception on a list call.
-    doThrow(new RuntimeException()).when(zkMetadataStore).get(any());
+    // Throw exception on initialization
+    doThrow(new RuntimeException()).when(curatorFramework).with(any(), any(), any(), any());
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -319,7 +319,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -381,7 +381,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -445,7 +445,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(50, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -516,7 +516,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(50, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -591,7 +591,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
@@ -633,7 +633,7 @@ public class KaldbIndexerTest {
             10 * 1024 * 1024 * 1024L,
             100,
             new SearchContext(TEST_HOST, TEST_PORT),
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -641,7 +641,7 @@ public class KaldbIndexerTest {
     kaldbIndexer =
         new KaldbIndexer(
             chunkManagerUtil.chunkManager,
-            zkMetadataStore,
+            curatorFramework,
             makeIndexerConfig(1000, "api_log"),
             getKafkaConfig(),
             metricsRegistry);
