@@ -29,7 +29,7 @@
         <opensearch.version>2.7.0</opensearch.version>
         <curator.version>5.4.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
-        <aws.sdk.version>2.20.67</aws.sdk.version>
+        <aws.sdk.version>2.20.77</aws.sdk.version>
         <error.prone.version>2.16</error.prone.version>
     </properties>
 
