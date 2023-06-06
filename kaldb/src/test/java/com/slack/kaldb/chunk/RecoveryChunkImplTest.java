@@ -113,8 +113,8 @@ public class RecoveryChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
-      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
     }
 
     @AfterEach
@@ -131,8 +131,8 @@ public class RecoveryChunkImplTest {
     @Test
     public void testAddAndSearchChunk() {
       // test no metadata stores are created post create.
-      assertThat(searchMetadataStore.listSync()).isEmpty();
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
 
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
@@ -184,8 +184,8 @@ public class RecoveryChunkImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
 
-      assertThat(searchMetadataStore.listSync()).isEmpty();
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
     }
 
     @Test
@@ -467,8 +467,8 @@ public class RecoveryChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
-      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
     }
 
     @AfterEach
@@ -553,8 +553,8 @@ public class RecoveryChunkImplTest {
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
-      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
     }
 
     @AfterEach
@@ -613,8 +613,8 @@ public class RecoveryChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // No live snapshot or search metadata is published since the S3 snapshot failed.
-      assertThat(snapshotMetadataStore.listSync()).isEmpty();
-      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
@@ -671,14 +671,14 @@ public class RecoveryChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       assertThat(s3BlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();
       // Only non-live snapshots. No live snapshots.
       assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
       // No search nodes are added for recovery chunk.
-      assertThat(searchMetadataStore.listSync()).isEmpty();
+      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
 
       chunk.close();
       chunk = null;

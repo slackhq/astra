@@ -218,7 +218,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
   }
 
   @Test
@@ -237,7 +237,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
   }
 
   @Test
@@ -326,7 +326,7 @@ public class ManagerApiGrpcTest {
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
   }
 
   @Test
@@ -467,7 +467,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
   }
 
   @Test
@@ -510,10 +510,10 @@ public class ManagerApiGrpcTest {
                         .setThroughputBytes(0)
                         .build())));
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(2);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(2);
     assertThat(
         datasetMetadataStore
-            .listSync()
+            .listSyncUncached()
             .containsAll(
                 List.of(
                     new DatasetMetadata(
@@ -569,7 +569,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
 
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
   }
 
   @Test
@@ -623,7 +623,7 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(datasetWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
 
     List<SnapshotMetadata> snapshotsWithData =
         ManagerApiGrpc.calculateRequiredSnapshots(
@@ -680,8 +680,8 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 2);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
 
     managerApiStub.restoreReplica(
         ManagerApi.RestoreReplicaRequest.newBuilder()
@@ -690,7 +690,7 @@ public class ManagerApiGrpcTest {
             .setEndTimeEpochMs(end)
             .build());
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
     await()
         .until(
             () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry) == 1);
@@ -728,8 +728,8 @@ public class ManagerApiGrpcTest {
 
     datasetMetadataStore.createSync(serviceWithDataInPartitionA);
 
-    await().until(() -> datasetMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 3);
 
     replicaRestoreService.startAsync();
     replicaRestoreService.awaitRunning();
@@ -741,7 +741,7 @@ public class ManagerApiGrpcTest {
             .setEndTimeEpochMs(end)
             .build());
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
+    await().until(() -> replicaMetadataStore.listSync().size() == 2);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(2);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
@@ -767,7 +767,7 @@ public class ManagerApiGrpcTest {
     snapshotMetadataStore.createSync(snapshotFoo);
     snapshotMetadataStore.createSync(snapshotBar);
     snapshotMetadataStore.createSync(snapshotBaz);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 3);
 
     replicaRestoreService.startAsync();
     replicaRestoreService.awaitRunning();
@@ -777,7 +777,7 @@ public class ManagerApiGrpcTest {
             .addAllIdsToRestore(List.of("foo", "bar", "baz"))
             .build());
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.listSync().size() == 3);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(3);
     assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_FAILED, meterRegistry))
