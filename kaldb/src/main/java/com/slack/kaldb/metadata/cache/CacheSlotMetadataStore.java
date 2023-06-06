@@ -74,7 +74,8 @@ public class CacheSlotMetadataStore extends KaldbMetadataStore<CacheSlotMetadata
             newState,
             replicaId,
             Instant.now().toEpochMilli(),
-            cacheSlotMetadata.supportedIndexTypes);
+            cacheSlotMetadata.supportedIndexTypes,
+            cacheSlotMetadata.hostname);
     // todo - consider refactoring this to return a completable future instead
     return JdkFutureAdapters.listenInPoolThread(
         updateAsync(updatedChunkMetadata).toCompletableFuture());

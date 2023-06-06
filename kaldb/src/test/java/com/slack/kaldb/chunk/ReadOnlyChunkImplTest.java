@@ -473,7 +473,8 @@ public class ReadOnlyChunkImplTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaId,
             Instant.now().toEpochMilli(),
-            List.of(LOGS_LUCENE9));
+            List.of(LOGS_LUCENE9),
+            readOnlyChunk.searchContext.hostname);
     cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
   }
 
