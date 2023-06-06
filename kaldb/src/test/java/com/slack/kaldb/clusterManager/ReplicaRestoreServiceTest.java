@@ -100,11 +100,11 @@ public class ReplicaRestoreServiceTest {
       Thread.sleep(300);
     }
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 7);
+    await().until(() -> replicaMetadataStore.listSync().size() == 7);
     assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
         .isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 10);
+    await().until(() -> replicaMetadataStore.listSync().size() == 10);
     assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
         .isEqualTo(2);
   }
@@ -141,11 +141,11 @@ public class ReplicaRestoreServiceTest {
           });
     }
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 14);
+    await().until(() -> replicaMetadataStore.listSync().size() == 14);
     assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
         .isEqualTo(1);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 20);
+    await().until(() -> replicaMetadataStore.listSync().size() == 20);
     assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
         .isEqualTo(2);
 
@@ -178,7 +178,7 @@ public class ReplicaRestoreServiceTest {
 
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_SKIPPED).count()).isEqualTo(9);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_CREATED).count()).isEqualTo(1);
 
@@ -192,10 +192,10 @@ public class ReplicaRestoreServiceTest {
     replicaRestoreService.queueSnapshotsForRestoration(snapshots);
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 4);
+    await().until(() -> replicaMetadataStore.listSync().size() == 4);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_SKIPPED).count()).isEqualTo(19);
     assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_CREATED).count()).isEqualTo(4);
-    assertThat(replicaMetadataStore.getCachedSync().stream().filter(r -> r.isRestored).count())
+    assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count())
         .isEqualTo(4);
   }
 

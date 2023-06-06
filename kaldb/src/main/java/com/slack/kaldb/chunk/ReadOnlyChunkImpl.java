@@ -128,9 +128,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     LOG.info("Created a new read only chunk - zkSlotId: {}", slotId);
   }
 
-  private KaldbMetadataStoreChangeListener cacheNodeListener() {
-    return () -> {
-      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getSync(slotName);
+  private KaldbMetadataStoreChangeListener<CacheSlotMetadata> cacheNodeListener() {
+    return (cacheSlotMetadata) -> {
       Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
 
       if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {

@@ -23,6 +23,10 @@ public interface MetadataSerializer<T extends KaldbMetadata> {
     return new ModelSerializer<>() {
       @Override
       public byte[] serialize(T model) {
+        if (model == null) {
+          return null;
+        }
+
         try {
           return toJsonStr(model).getBytes();
         } catch (Exception e) {
@@ -32,6 +36,10 @@ public interface MetadataSerializer<T extends KaldbMetadata> {
 
       @Override
       public T deserialize(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+          return null;
+        }
+
         try {
           return fromJsonStr(new String(bytes));
         } catch (Exception e) {

@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadata;
@@ -87,6 +88,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Duration requestTimeout;
   private final Duration defaultQueryTimeout;
 
+  private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
+      (searchMetadata) -> updateStubs();
+
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
   // So this should be replaced cache/index metadata store when that info is present in ZK
@@ -105,7 +109,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     this.requestTimeout = requestTimeout;
     this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
-    this.searchMetadataStore.addListener(this::updateStubs);
+
+    // todo - we need to remove this as well
+    this.searchMetadataStore.addListener(searchMetadataListener);
 
     this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
     this.distributedQueryApdexTolerating =
@@ -126,7 +132,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
       searchMetadataStore
-          .getCachedSync()
+          .listSync()
           .forEach(searchMetadata -> latestSearchServers.add(searchMetadata.url));
 
       int currentSearchMetadataCount = stubs.size();
@@ -209,7 +215,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .startScopedSpan("KaldbDistributedQueryService.getMatchingSearchMetadata");
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
-    for (SearchMetadata searchMetadata : searchMetadataStore.getCachedSync()) {
+    for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
       if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
         continue;
       }
@@ -247,7 +253,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan snapshotsToSearchSpan =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
     Map<String, SnapshotMetadata> snapshotsToSearch = new HashMap<>();
-    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCachedSync()) {
+    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.listSync()) {
       if (containsDataInTimeRange(
               snapshotMetadata.startTimeEpochMs,
               snapshotMetadata.endTimeEpochMs,

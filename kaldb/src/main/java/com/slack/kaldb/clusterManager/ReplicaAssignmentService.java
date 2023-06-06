@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -66,6 +67,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
+  private final KaldbMetadataStoreChangeListener<CacheSlotMetadata> cacheSlotChangeListener =
+      (cacheSlotMetadata) -> runOneIteration();
+  private final KaldbMetadataStoreChangeListener<ReplicaMetadata> replicaChangeListener =
+      (replicaMetadata) -> runOneIteration();
+
   public ReplicaAssignmentService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
@@ -112,12 +118,14 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting replica assignment service");
-    cacheSlotMetadataStore.addListener(this::runOneIteration);
-    replicaMetadataStore.addListener(this::runOneIteration);
+    cacheSlotMetadataStore.addListener(cacheSlotChangeListener);
+    replicaMetadataStore.addListener(replicaChangeListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
+    cacheSlotMetadataStore.removeListener(cacheSlotChangeListener);
+    replicaMetadataStore.removeListener(replicaChangeListener);
     executorService.shutdown();
     LOG.info("Closed replica assignment service");
   }
@@ -140,7 +148,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     List<CacheSlotMetadata> availableCacheSlots =
-        cacheSlotMetadataStore.getCachedSync().stream()
+        cacheSlotMetadataStore.listSync().stream()
             .filter(
                 cacheSlotMetadata ->
                     cacheSlotMetadata.cacheSlotState.equals(
@@ -153,14 +161,14 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     Collections.shuffle(availableCacheSlots);
 
     Set<String> assignedReplicaIds =
-        cacheSlotMetadataStore.getCachedSync().stream()
+        cacheSlotMetadataStore.listSync().stream()
             .filter(cacheSlotMetadata -> !cacheSlotMetadata.replicaId.isEmpty())
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
     long nowMilli = Instant.now().toEpochMilli();
     List<String> replicaIdsToAssign =
-        replicaMetadataStore.getCachedSync().stream()
+        replicaMetadataStore.listSync().stream()
             // only assign replicas that are not expired, and not already assigned
             .filter(
                 replicaMetadata ->

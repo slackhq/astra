@@ -99,13 +99,13 @@ public class ReplicaDeletionService extends AbstractScheduledService {
     Timer.Sample deleteTimer = Timer.start(meterRegistry);
 
     Set<String> replicaIdsWithAssignments =
-        cacheSlotMetadataStore.getCachedSync().stream()
+        cacheSlotMetadataStore.listSync().stream()
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaDeletions =
-        replicaMetadataStore.getCachedSync().stream()
+        replicaMetadataStore.listSync().stream()
             .filter(
                 replicaMetadata ->
                     replicaMetadata.expireAfterEpochMs < deleteOlderThan.toEpochMilli()

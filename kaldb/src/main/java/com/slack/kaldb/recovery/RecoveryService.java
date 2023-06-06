@@ -87,6 +87,9 @@ public class RecoveryService extends AbstractIdleService {
   private final Timer recoveryTaskTimerFailure;
   private SearchMetadataStore searchMetadataStore;
 
+  private final KaldbMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryListener =
+      recoveryNodeListener();
+
   public RecoveryService(
       KaldbConfigs.KaldbConfig kaldbConfig,
       AsyncCuratorFramework curatorFramework,
@@ -149,12 +152,13 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(curatorFramework, searchContext.hostname, true);
-    recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener());
+    recoveryNodeListenerMetadataStore.addListener(recoveryListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Closing the recovery service");
+    recoveryNodeListenerMetadataStore.removeListener(recoveryListener);
 
     // Immediately shutdown recovery tasks. Any incomplete recovery tasks will be picked up by
     // another recovery node so we don't need to wait for processing to complete.
@@ -163,10 +167,8 @@ public class RecoveryService extends AbstractIdleService {
     LOG.info("Closed the recovery service");
   }
 
-  private KaldbMetadataStoreChangeListener recoveryNodeListener() {
-    return () -> {
-      RecoveryNodeMetadata recoveryNodeMetadata =
-          recoveryNodeMetadataStore.getSync(searchContext.hostname);
+  private KaldbMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryNodeListener() {
+    return (recoveryNodeMetadata) -> {
       Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState =
           recoveryNodeMetadata.recoveryNodeState;
 

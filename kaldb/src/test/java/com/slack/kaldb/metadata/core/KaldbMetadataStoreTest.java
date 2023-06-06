@@ -114,11 +114,11 @@ public class KaldbMetadataStoreTest {
       store.createSync(metadata2);
 
       // do a non-cached list to ensure both are persisted
-      List<TestMetadata> metadataListUncached = store.listSync();
+      List<TestMetadata> metadataListUncached = store.listSyncUncached();
       assertThat(metadataListUncached).containsExactlyInAnyOrder(metadata1, metadata2);
 
       // check to see if the cache contains the elements as well
-      await().until(() -> store.getCachedSync().containsAll(List.of(metadata1, metadata2)));
+      await().until(() -> store.listSync().containsAll(List.of(metadata1, metadata2)));
 
       // update the value of one of the nodes
       String updatedValue = "updatedVal1";
@@ -131,7 +131,7 @@ public class KaldbMetadataStoreTest {
       await()
           .until(
               () ->
-                  store.getCachedSync().stream()
+                  store.listSync().stream()
                       .filter(instance -> instance.name.equals("foo"))
                       .findFirst()
                       .get()
@@ -140,13 +140,13 @@ public class KaldbMetadataStoreTest {
 
       // delete a node by object reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata2);
+      assertThat(store.listSyncUncached()).containsExactly(metadata1);
       assertThat(store.listSync()).containsExactly(metadata1);
-      assertThat(store.getCachedSync()).containsExactly(metadata1);
 
       // delete a node by path reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata1.name);
+      assertThat(store.listSyncUncached()).isEmpty();
       assertThat(store.listSync()).isEmpty();
-      assertThat(store.getCachedSync()).isEmpty();
     }
   }
 
@@ -190,15 +190,14 @@ public class KaldbMetadataStoreTest {
       store.createSync(metadata1);
 
       // do a non-cached list to ensure node has been persisted
-      assertThat(store.listSync()).containsExactly(metadata1);
+      assertThat(store.listSyncUncached()).containsExactly(metadata1);
 
       // verify exceptions are thrown attempting to use cached methods
+      assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(store::getCachedSync);
+          .isThrownBy(() -> store.addListener((metadata) -> {}));
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.addListener(() -> {}));
-      assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.removeListener(() -> {}));
+          .isThrownBy(() -> store.removeListener((metadata) -> {}));
     }
   }
 
@@ -232,7 +231,7 @@ public class KaldbMetadataStoreTest {
       persistentStore.createSync(metadata1);
 
       // do a non-cached list to ensure node has been persisted
-      assertThat(persistentStore.listSync()).containsExactly(metadata1);
+      assertThat(persistentStore.listSyncUncached()).containsExactly(metadata1);
     }
 
     TestMetadata metadata2 = new TestMetadata("foo", "val1");
@@ -241,7 +240,7 @@ public class KaldbMetadataStoreTest {
       ephemeralStore.createSync(metadata2);
 
       // do a non-cached list to ensure node has been persisted
-      assertThat(ephemeralStore.listSync()).containsExactly(metadata2);
+      assertThat(ephemeralStore.listSyncUncached()).containsExactly(metadata2);
     }
 
     // close curator, and then instantiate a new copy
@@ -274,7 +273,8 @@ public class KaldbMetadataStoreTest {
 
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
-      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      KaldbMetadataStoreChangeListener<TestMetadata> listener =
+          (testMetadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -312,7 +312,8 @@ public class KaldbMetadataStoreTest {
 
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
-      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      KaldbMetadataStoreChangeListener<TestMetadata> listener =
+          (testMetadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);

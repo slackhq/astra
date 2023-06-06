@@ -149,7 +149,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
     Timer.Sample deletionTimer = Timer.start(meterRegistry);
 
     Set<String> snapshotIdsWithReplicas =
-        replicaMetadataStore.getCachedSync().stream()
+        replicaMetadataStore.listSync().stream()
             .map(replicaMetadata -> replicaMetadata.snapshotId)
             .filter(snapshotId -> snapshotId != null && !snapshotId.isEmpty())
             .collect(Collectors.toUnmodifiableSet());
@@ -163,7 +163,7 @@ public class SnapshotDeletionService extends AbstractScheduledService {
             .toEpochMilli();
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> deletedSnapshotList =
-        snapshotMetadataStore.getCachedSync().stream()
+        snapshotMetadataStore.listSync().stream()
             // only snapshots that only contain data prior to our cutoff, and have no replicas
             .filter(
                 snapshotMetadata ->

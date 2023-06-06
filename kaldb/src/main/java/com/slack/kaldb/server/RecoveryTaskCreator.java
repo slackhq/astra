@@ -150,7 +150,7 @@ public class RecoveryTaskCreator {
       LOG.warn("PartitionId can't be null.");
     }
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots.stream()
             .filter(
@@ -173,7 +173,7 @@ public class RecoveryTaskCreator {
             .collect(Collectors.toUnmodifiableList());
 
     // Get the highest offset that is indexed in durable store.
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSyncUncached();
     long highestDurableOffsetForPartition =
         getHighestDurableOffsetForPartition(
             nonLiveSnapshotsForPartition, recoveryTasks, partitionId);

@@ -30,7 +30,6 @@ import org.apache.zookeeper.data.Stat;
  * performing batch operations and a sync if you are performing a synchronous operation on a node.
  */
 public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
-
   private final String storeFolder;
 
   private final ZPath zPath;
@@ -39,9 +38,18 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
 
   private final CachedModeledFramework<T> cachedModeledFramework;
 
-  private final Map<KaldbMetadataStoreChangeListener, ModeledCacheListener<T>> listenerMap =
+  private final Map<KaldbMetadataStoreChangeListener<T>, ModeledCacheListener<T>> listenerMap =
       new ConcurrentHashMap<>();
 
+  public KaldbMetadataStore(
+      AsyncCuratorFramework curator,
+      CreateMode createMode,
+      ModelSerializer<T> modelSerializer,
+      String storeFolder) {
+    this(curator, createMode, true, modelSerializer, storeFolder);
+  }
+
+  @Deprecated // All stores should switch to caching enabled
   public KaldbMetadataStore(
       AsyncCuratorFramework curator,
       CreateMode createMode,
@@ -55,7 +63,8 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     ModelSpec<T> modelSpec =
         ModelSpec.builder(modelSerializer)
             .withPath(zPath)
-            .withCreateOptions(Set.of(CreateOption.createParentsIfNeeded))
+            .withCreateOptions(
+                Set.of(CreateOption.createParentsIfNeeded, CreateOption.createParentsAsContainers))
             .withCreateMode(createMode)
             .build();
     modeledClient = ModeledFramework.wrap(curator, modelSpec);
@@ -93,6 +102,22 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   public T getSync(String path) {
     try {
       return getAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
+    }
+  }
+
+  public CompletionStage<Stat> hasAsync(String path) {
+    if (cachedModeledFramework != null) {
+      return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
+    }
+    return modeledClient.withPath(zPath.resolved(path)).checkExists();
+  }
+
+  public boolean hasSync(String path) {
+    try {
+      return hasAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS)
+          != null;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -139,22 +164,22 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public CompletionStage<List<T>> getCachedAsync() {
+  public CompletionStage<List<T>> listAsync() {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
 
     return cachedModeledFramework.list();
   }
 
-  public List<T> getCachedSync() {
+  public List<T> listSync() {
     try {
-      return getCachedAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error getting cached nodes", e);
     }
   }
 
-  public CompletionStage<List<T>> listAsync() {
+  private CompletionStage<List<T>> listAsyncUncached() {
     return modeledClient
         .withPath(ZPath.parse(storeFolder))
         .childrenAsZNodes()
@@ -162,37 +187,46 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
             (zNodes) -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()));
   }
 
-  public List<T> listSync() {
-    // todo - consider combining listSync and getCachedSync, forcing the caller to use the cache
-    //  if it exists, as listing sync without a cache is a costly operation
+  /**
+   * Listing an uncached directory is very expensive, and not recommended. For a directory
+   * containing 100 znodes this results in 100 additional zookeeper queries. For any uses that need
+   * listing they should be converted to use a cached implementation.
+   */
+  @Deprecated
+  public List<T> listSyncUncached() {
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsyncUncached()
+          .toCompletableFuture()
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing node", e);
     }
   }
 
-  public void addListener(KaldbMetadataStoreChangeListener watcher) {
+  public void addListener(KaldbMetadataStoreChangeListener<T> watcher) {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
     ModeledCacheListener<T> modeledCacheListener =
-        (type, path, stat, model) -> watcher.onMetadataStoreChanged();
+        (type, path, stat, model) -> watcher.onMetadataStoreChanged(model);
     cachedModeledFramework.listenable().addListener(modeledCacheListener);
     listenerMap.put(watcher, modeledCacheListener);
   }
 
-  public void removeListener(KaldbMetadataStoreChangeListener watcher) {
+  public void removeListener(KaldbMetadataStoreChangeListener<T> watcher) {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
     if (cachedModeledFramework != null) {
+      listenerMap.forEach(
+          ((kaldbMetadataStoreChangeListener, tModeledCacheListener) ->
+              cachedModeledFramework.listenable().removeListener(tModeledCacheListener)));
       cachedModeledFramework.close();
     }
   }

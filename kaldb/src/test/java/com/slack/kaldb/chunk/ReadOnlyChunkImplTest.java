@@ -147,7 +147,7 @@ public class ReadOnlyChunkImplTest {
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
     assertThat(readOnlyChunk.getChunkMetadataState())
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
@@ -177,11 +177,10 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(0);
 
     // ensure we registered a search node for this cache slot
-    await().until(() -> searchMetadataStore.getCachedSync().size() == 1);
-    assertThat(searchMetadataStore.getCachedSync().get(0).snapshotName).isEqualTo(snapshotId);
-    assertThat(searchMetadataStore.getCachedSync().get(0).url)
-        .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCachedSync().get(0).name)
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    assertThat(searchMetadataStore.listSync().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
+    assertThat(searchMetadataStore.listSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // mark the chunk for eviction
@@ -198,7 +197,7 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure the search metadata node was unregistered
-    await().until(() -> searchMetadataStore.getCachedSync().size() == 0);
+    await().until(() -> searchMetadataStore.listSync().size() == 0);
 
     SearchResult<LogMessage> logMessageEmptySearchResult =
         readOnlyChunk.query(
@@ -284,7 +283,7 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    assertThat(searchMetadataStore.getCachedSync().size()).isEqualTo(0);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(0);
 
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
         .isEqualTo(0);
@@ -352,7 +351,7 @@ public class ReadOnlyChunkImplTest {
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
 
     // ensure we did not register a search node
-    assertThat(searchMetadataStore.getCachedSync().size()).isEqualTo(0);
+    assertThat(searchMetadataStore.listSync().size()).isEqualTo(0);
 
     assertThat(meterRegistry.get(CHUNK_ASSIGNMENT_TIMER).tag("successful", "true").timer().count())
         .isEqualTo(0);
@@ -436,11 +435,10 @@ public class ReadOnlyChunkImplTest {
         .isEqualTo(1);
 
     // ensure we registered a search node for this cache slot
-    await().until(() -> searchMetadataStore.getCachedSync().size() == 1);
-    assertThat(searchMetadataStore.getCachedSync().get(0).snapshotName).isEqualTo(snapshotId);
-    assertThat(searchMetadataStore.getCachedSync().get(0).url)
-        .isEqualTo("gproto+http://localhost:8080");
-    assertThat(searchMetadataStore.getCachedSync().get(0).name)
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    assertThat(searchMetadataStore.listSync().get(0).snapshotName).isEqualTo(snapshotId);
+    assertThat(searchMetadataStore.listSync().get(0).url).isEqualTo("gproto+http://localhost:8080");
+    assertThat(searchMetadataStore.listSync().get(0).name)
         .isEqualTo(SearchMetadata.generateSearchContextSnapshotId(snapshotId, "localhost"));
 
     // verify we have files on disk

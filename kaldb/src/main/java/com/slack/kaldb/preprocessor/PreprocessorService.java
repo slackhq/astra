@@ -5,6 +5,7 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static com.slack.kaldb.writer.kafka.KaldbKafkaConsumer.maybeOverride;
 
 import com.google.common.util.concurrent.AbstractService;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -68,6 +69,9 @@ public class PreprocessorService extends AbstractService {
   private final Timer configReloadTimer;
   public static final String CONFIG_RELOAD_TIMER = "preprocessor_config_reload_timer";
 
+  private final KaldbMetadataStoreChangeListener<DatasetMetadata> datasetMetadataListener =
+      (datasetMetadata) -> load();
+
   public PreprocessorService(
       DatasetMetadataStore datasetMetadataStore,
       KaldbConfigs.PreprocessorConfig preprocessorConfig,
@@ -112,7 +116,7 @@ public class PreprocessorService extends AbstractService {
   private void startUp() {
     LOG.info("Starting preprocessor service");
     load();
-    datasetMetadataStore.addListener(this::load);
+    datasetMetadataStore.addListener(datasetMetadataListener);
     LOG.info("Preprocessor service started");
   }
 
@@ -124,7 +128,7 @@ public class PreprocessorService extends AbstractService {
     if (kafkaStreamsMetrics != null) {
       kafkaStreamsMetrics.close();
     }
-    datasetMetadataStore.removeListener(this::load);
+    datasetMetadataStore.removeListener(datasetMetadataListener);
     LOG.info("Preprocessor service closed");
   }
 
@@ -148,7 +152,7 @@ public class PreprocessorService extends AbstractService {
 
       // only attempt to register stream processing on valid dataset configurations
       List<DatasetMetadata> datasetMetadataToProcesses =
-          filterValidDatasetMetadata(datasetMetadataStore.getCachedSync());
+          filterValidDatasetMetadata(datasetMetadataStore.listSync());
 
       if (datasetMetadataToProcesses.size() > 0) {
         Topology topology =
