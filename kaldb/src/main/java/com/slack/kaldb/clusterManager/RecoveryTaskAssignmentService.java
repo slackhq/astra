@@ -137,13 +137,13 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     Set<String> recoveryTasksAlreadyAssigned =
-        recoveryNodeMetadataStore.getCachedSync().stream()
+        recoveryNodeMetadataStore.listSync().stream()
             .map((recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName))
             .filter((recoveryTaskName) -> !recoveryTaskName.isEmpty())
             .collect(Collectors.toUnmodifiableSet());
 
     List<RecoveryTaskMetadata> recoveryTasksThatNeedAssignment =
-        recoveryTaskMetadataStore.getCachedSync().stream()
+        recoveryTaskMetadataStore.listSync().stream()
             .filter(recoveryTask -> !recoveryTasksAlreadyAssigned.contains(recoveryTask.name))
             // We are currently starting with the oldest tasks first in an effort to reduce the
             // possibility of data loss, but this is likely opposite of what most users will
@@ -154,7 +154,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
             .collect(Collectors.toUnmodifiableList());
 
     List<RecoveryNodeMetadata> availableRecoveryNodes =
-        recoveryNodeMetadataStore.getCachedSync().stream()
+        recoveryNodeMetadataStore.listSync().stream()
             .filter(
                 (recoveryNodeMetadata ->
                     recoveryNodeMetadata.recoveryNodeState.equals(

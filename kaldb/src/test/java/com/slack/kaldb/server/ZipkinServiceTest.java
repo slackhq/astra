@@ -98,7 +98,7 @@ public class ZipkinServiceTest {
         new DatasetMetadata(
             TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs, TEST_DATASET_NAME);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
   }
 
   @AfterEach

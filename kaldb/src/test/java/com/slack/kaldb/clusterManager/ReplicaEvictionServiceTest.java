@@ -202,15 +202,14 @@ public class ReplicaEvictionServiceTest {
     cacheSlots.add(cacheSlotLoading);
     cacheSlotMetadataStore.createAsync(cacheSlotLoading);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 5);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 3);
+    await().until(() -> replicaMetadataStore.listSync().size() == 5);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 3);
 
     int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrderElementsOf(replicas);
-    assertThat(cacheSlotMetadataStore.getCachedSync())
-        .containsExactlyInAnyOrderElementsOf(cacheSlots);
+    assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(replicas);
+    assertThat(cacheSlotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(cacheSlots);
 
     assertThat(
             MetricsUtil.getCount(
@@ -266,23 +265,23 @@ public class ReplicaEvictionServiceTest {
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     assertThat(cacheSlotMetadata.supportedIndexTypes.size()).isEqualTo(2);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
-    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCachedSync().get(0);
+    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.listSync().get(0);
     assertThat(updatedCacheSlot.updatedTimeEpochMs)
         .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
     assertThat(updatedCacheSlot.cacheSlotState)
@@ -343,23 +342,23 @@ public class ReplicaEvictionServiceTest {
             HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
-    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCachedSync().get(0);
+    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.listSync().get(0);
     assertThat(updatedCacheSlot.updatedTimeEpochMs)
         .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
     assertThat(updatedCacheSlot.cacheSlotState)
@@ -418,14 +417,14 @@ public class ReplicaEvictionServiceTest {
             HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
-    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactly(cacheSlotMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
+    assertThat(cacheSlotMetadataStore.listSync()).containsExactly(cacheSlotMetadata);
 
     assertThat(
             MetricsUtil.getCount(
@@ -478,14 +477,14 @@ public class ReplicaEvictionServiceTest {
             HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     int replicasMarked = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarked).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
-    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactly(cacheSlotMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
+    assertThat(cacheSlotMetadataStore.listSync()).containsExactly(cacheSlotMetadata);
 
     assertThat(
             MetricsUtil.getCount(
@@ -538,8 +537,8 @@ public class ReplicaEvictionServiceTest {
             HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     AsyncStage asyncStage = mock(AsyncStage.class);
     when(asyncStage.toCompletableFuture())
@@ -550,8 +549,8 @@ public class ReplicaEvictionServiceTest {
     int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedFirstAttempt).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
-    assertThat(cacheSlotMetadataStore.getCachedSync()).containsExactly(cacheSlotMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
+    assertThat(cacheSlotMetadataStore.listSync()).containsExactly(cacheSlotMetadata);
 
     assertThat(
             MetricsUtil.getCount(
@@ -570,18 +569,18 @@ public class ReplicaEvictionServiceTest {
     int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedSecondAttempt).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactly(replicaMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactly(replicaMetadata);
 
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                     .allMatch(
                         cacheSlot ->
                             cacheSlot.cacheSlotState.equals(
                                 Metadata.CacheSlotMetadata.CacheSlotState.EVICT)));
 
-    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.getCachedSync().get(0);
+    CacheSlotMetadata updatedCacheSlot = cacheSlotMetadataStore.listSync().get(0);
     assertThat(updatedCacheSlot.updatedTimeEpochMs)
         .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
     assertThat(updatedCacheSlot.cacheSlotState)
@@ -647,8 +646,8 @@ public class ReplicaEvictionServiceTest {
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 2);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 2);
+    await().until(() -> replicaMetadataStore.listSync().size() == 2);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 2);
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
     AsyncStage asyncStage = mock(AsyncStage.class);
@@ -669,11 +668,11 @@ public class ReplicaEvictionServiceTest {
     int replicasMarkedFirstAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedFirstAttempt).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrderElementsOf(replicas);
+    assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(replicas);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -683,14 +682,14 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
                                     Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
                         .count()
                     == 1);
-    assertThat(cacheSlotMetadataStore.getCachedSync().size()).isEqualTo(2);
+    assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(2);
 
     assertThat(
             MetricsUtil.getCount(
@@ -709,18 +708,18 @@ public class ReplicaEvictionServiceTest {
     int replicasMarkedSecondAttempt = replicaEvictionService.markReplicasForEviction(Instant.now());
     assertThat(replicasMarkedSecondAttempt).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrderElementsOf(replicas);
+    assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(replicas);
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
                                     Metadata.CacheSlotMetadata.CacheSlotState.EVICT))
                         .count()
                     == 2);
-    assertThat(cacheSlotMetadataStore.getCachedSync().size()).isEqualTo(2);
+    assertThat(cacheSlotMetadataStore.listSync().size()).isEqualTo(2);
 
     assertThat(
             MetricsUtil.getCount(
@@ -827,8 +826,8 @@ public class ReplicaEvictionServiceTest {
             HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotFree);
 
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 4);
-    await().until(() -> cacheSlotMetadataStore.getCachedSync().size() == 4);
+    await().until(() -> replicaMetadataStore.listSync().size() == 4);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 4);
 
     ReplicaEvictionService replicaEvictionService =
         new ReplicaEvictionService(
@@ -845,7 +844,7 @@ public class ReplicaEvictionServiceTest {
     await()
         .until(
             () ->
-                cacheSlotMetadataStore.getCachedSync().stream()
+                cacheSlotMetadataStore.listSync().stream()
                         .filter(
                             cacheSlotMetadata ->
                                 cacheSlotMetadata.cacheSlotState.equals(
@@ -853,19 +852,19 @@ public class ReplicaEvictionServiceTest {
                         .count()
                     == 2);
 
-    assertThat(replicaMetadataStore.getCachedSync())
+    assertThat(replicaMetadataStore.listSync())
         .containsExactlyInAnyOrder(
             replicaMetadataExpiredOne,
             replicaMetadataExpiredTwo,
             replicaMetadataUnexpiredOne,
             replicaMetadataUnexpiredTwo);
-    assertThat(cacheSlotMetadataStore.getCachedSync())
+    assertThat(cacheSlotMetadataStore.listSync())
         .contains(cacheSlotReplicaExpireTwo, cacheSlotReplicaUnexpiredOne, cacheSlotFree);
-    assertThat(cacheSlotMetadataStore.getCachedSync()).doesNotContain(cacheSlotReplicaExpiredOne);
+    assertThat(cacheSlotMetadataStore.listSync()).doesNotContain(cacheSlotReplicaExpiredOne);
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     CacheSlotMetadata updatedCacheSlot =
-        cacheSlotMetadataStore.getCachedSync().stream()
+        cacheSlotMetadataStore.listSync().stream()
             .filter(
                 cacheSlotMetadata ->
                     Objects.equals(cacheSlotMetadata.name, cacheSlotReplicaExpiredOne.name))

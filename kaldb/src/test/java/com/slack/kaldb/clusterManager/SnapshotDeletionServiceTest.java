@@ -170,7 +170,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -179,7 +179,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(1);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 0);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 0);
     verify(s3BlobFs, times(1)).delete(eq(path), eq(true));
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
@@ -237,8 +237,8 @@ public class SnapshotDeletionServiceTest {
             LOGS_LUCENE9);
     replicaMetadataStore.createAsync(replicaMetadata);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -249,8 +249,8 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(snapshotMetadata);
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrder(replicaMetadata);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
@@ -290,8 +290,8 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync().size()).isEqualTo(0);
-    assertThat(replicaMetadataStore.getCachedSync().size()).isEqualTo(0);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(0);
+    assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
@@ -338,7 +338,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
     String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
     assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
@@ -349,7 +349,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(snapshotMetadata);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
@@ -410,8 +410,8 @@ public class SnapshotDeletionServiceTest {
             LOGS_LUCENE9);
     replicaMetadataStore.createAsync(replicaMetadata);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
-    await().until(() -> replicaMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 1);
     String[] s3BlobFsFiles = s3BlobFs.listFiles(directoryPath, true);
     assertThat(s3BlobFsFiles.length).isNotEqualTo(0);
 
@@ -422,8 +422,8 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(snapshotMetadata);
-    assertThat(replicaMetadataStore.getCachedSync()).containsExactlyInAnyOrder(replicaMetadata);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
+    assertThat(replicaMetadataStore.listSync()).containsExactlyInAnyOrder(replicaMetadata);
     verify(s3BlobFs, times(0)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEqualTo(s3BlobFsFiles);
 
@@ -473,7 +473,7 @@ public class SnapshotDeletionServiceTest {
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -483,7 +483,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -530,7 +530,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -545,7 +545,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(snapshotMetadata);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
 
@@ -594,7 +594,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -604,7 +604,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
         .isEqualTo(0);
@@ -651,7 +651,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -679,7 +679,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync()).containsExactlyInAnyOrder(snapshotMetadata);
+    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(snapshotMetadata);
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
 
@@ -696,7 +696,7 @@ public class SnapshotDeletionServiceTest {
     int deletesRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletesRetry).isEqualTo(1);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 0);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 0);
     // delete was called once before - should still be only once
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
     assertThat(s3BlobFs.listFiles(directoryPath, true)).isEmpty();
@@ -749,7 +749,7 @@ public class SnapshotDeletionServiceTest {
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -759,7 +759,7 @@ public class SnapshotDeletionServiceTest {
     int deletes = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deletes).isEqualTo(0);
 
-    assertThat(snapshotMetadataStore.getCachedSync().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
     verify(s3BlobFs, times(1)).delete(any(), anyBoolean());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
@@ -774,7 +774,7 @@ public class SnapshotDeletionServiceTest {
     int deleteRetry = snapshotDeletionService.deleteExpiredSnapshotsWithoutReplicas();
     assertThat(deleteRetry).isEqualTo(1);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 0);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 0);
     verify(s3BlobFs, times(2)).delete(any(), anyBoolean());
 
     assertThat(MetricsUtil.getCount(SnapshotDeletionService.SNAPSHOT_DELETE_SUCCESS, meterRegistry))
@@ -821,7 +821,7 @@ public class SnapshotDeletionServiceTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createAsync(snapshotMetadata);
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 1);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 1);
 
     SnapshotDeletionService snapshotDeletionService =
         new SnapshotDeletionService(
@@ -829,7 +829,7 @@ public class SnapshotDeletionServiceTest {
     snapshotDeletionService.startAsync();
     snapshotDeletionService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    await().until(() -> snapshotMetadataStore.getCachedSync().size() == 0);
+    await().until(() -> snapshotMetadataStore.listSync().size() == 0);
     verify(s3BlobFs, times(1)).delete(eq(directoryPath), eq(true));
 
     await()

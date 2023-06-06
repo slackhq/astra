@@ -126,7 +126,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       searchMetadataTotalChangeCounter.increment();
       Set<String> latestSearchServers = new HashSet<>();
       searchMetadataStore
-          .getCachedSync()
+          .listSync()
           .forEach(searchMetadata -> latestSearchServers.add(searchMetadata.url));
 
       int currentSearchMetadataCount = stubs.size();
@@ -209,7 +209,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
             .startScopedSpan("KaldbDistributedQueryService.getMatchingSearchMetadata");
 
     Map<String, List<SearchMetadata>> searchMetadataGroupedByName = new HashMap<>();
-    for (SearchMetadata searchMetadata : searchMetadataStore.getCachedSync()) {
+    for (SearchMetadata searchMetadata : searchMetadataStore.listSync()) {
       if (!snapshotsToSearch.containsKey(searchMetadata.snapshotName)) {
         continue;
       }
@@ -247,7 +247,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     ScopedSpan snapshotsToSearchSpan =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.snapshotsToSearch");
     Map<String, SnapshotMetadata> snapshotsToSearch = new HashMap<>();
-    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.getCachedSync()) {
+    for (SnapshotMetadata snapshotMetadata : snapshotMetadataStore.listSync()) {
       if (containsDataInTimeRange(
               snapshotMetadata.startTimeEpochMs,
               snapshotMetadata.endTimeEpochMs,

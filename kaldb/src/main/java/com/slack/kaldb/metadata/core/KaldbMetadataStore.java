@@ -139,22 +139,22 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public CompletionStage<List<T>> getCachedAsync() {
+  public CompletionStage<List<T>> listAsync() {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
 
     return cachedModeledFramework.list();
   }
 
-  public List<T> getCachedSync() {
+  public List<T> listSync() {
     try {
-      return getCachedAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error getting cached nodes", e);
     }
   }
 
-  public CompletionStage<List<T>> listAsync() {
+  private CompletionStage<List<T>> listAsyncUncached() {
     return modeledClient
         .withPath(ZPath.parse(storeFolder))
         .childrenAsZNodes()
@@ -162,11 +162,19 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
             (zNodes) -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()));
   }
 
-  public List<T> listSync() {
+  /**
+   * Listing an uncached directory is very expensive, and not recommended. For a directory
+   * containing 100 znodes this results in 100 additional zookeeper queries. For any uses that need
+   * listing they should be converted to use a cached implementation.
+   */
+  @Deprecated
+  public List<T> listSyncUncached() {
     // todo - consider combining listSync and getCachedSync, forcing the caller to use the cache
     //  if it exists, as listing sync without a cache is a costly operation
     try {
-      return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+      return listAsyncUncached()
+          .toCompletableFuture()
+          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error listing node", e);
     }

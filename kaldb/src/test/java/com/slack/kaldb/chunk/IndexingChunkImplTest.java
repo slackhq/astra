@@ -73,9 +73,9 @@ public class IndexingChunkImplTest {
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       ReadWriteChunk<LogMessage> chunk) {
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-    final List<SearchMetadata> beforeSearchNodes = searchMetadataStore.listSync();
+    final List<SearchMetadata> beforeSearchNodes = searchMetadataStore.listSyncUncached();
     assertThat(beforeSearchNodes.size()).isEqualTo(1);
     assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -565,9 +565,9 @@ public class IndexingChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
       closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSync();
+      List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSyncUncached();
       assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+      List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
       assertThat(searchNodes.size()).isEqualTo(1);
     }
 
@@ -626,13 +626,13 @@ public class IndexingChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
       assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSync();
+      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -703,7 +703,7 @@ public class IndexingChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSync();
+      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
@@ -715,7 +715,7 @@ public class IndexingChunkImplTest {
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
       assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSync();
+      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));

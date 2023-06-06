@@ -3,13 +3,22 @@
 
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
-            <PatternLayout  pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n" />
+            <PatternLayout  pattern="[%highlight{%level}{FATAL=red, ERROR=red, INFO=normal, WARN=yellow, DEBUG=magenta, TRACE=blue}] %style{%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} -}{bright_black} %highlight{%msg}{FATAL=red, ERROR=red, INFO=normal, WARN=yellow, DEBUG=magenta, TRACE=blue}%n"/>
         </Console>
     </Appenders>
 
     <Loggers>
         <!-- Enable DEBUG logging for all our classes -->
         <Logger name="com.slack.kaldb" level="debug" additivity="false">
+            <appender-ref ref="console" />
+        </Logger>
+        <Logger name="org.apache.curator.framework.recipes.cache.CuratorCacheBridgeBuilderImpl" level="off" additivity="false">
+            <!--
+            This is a warning that is thrown when CuratorCache builder is invoked with an executor instantiated. The
+            cache builder supports both pre 3.6 ZK (requires executor) and post 3.6 (doesn't allow custom executor),
+            and provides a default executor. We use the post 3.6 and don't provide a custom executor, so this can
+            safely be ignored.
+             -->
             <appender-ref ref="console" />
         </Logger>
         <AsyncRoot level="${env:LOG_LEVEL:-info}">
