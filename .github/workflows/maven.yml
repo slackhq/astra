@@ -26,8 +26,8 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - name: Ensure code is formatted
-      run: mvn com.spotify.fmt:fmt-maven-plugin:check --file kaldb/pom.xml
+      run: mvn -B -Dstyle.color=always com.spotify.fmt:fmt-maven-plugin:check --file kaldb/pom.xml
     - name: Ensure jmh benchmark code is formatted
-      run: mvn com.spotify.fmt:fmt-maven-plugin:check --file benchmarks/pom.xml
+      run: mvn -B -Dstyle.color=always com.spotify.fmt:fmt-maven-plugin:check --file benchmarks/pom.xml
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B -Dstyle.color=always package --file pom.xml
