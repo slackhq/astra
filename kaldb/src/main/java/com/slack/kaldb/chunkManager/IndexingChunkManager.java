@@ -85,9 +85,9 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   private boolean stopIngestion;
 
   /** Declare all the data stores used by Chunk manager here. */
-  private SnapshotMetadataStore snapshotMetadataStore;
+  protected SnapshotMetadataStore snapshotMetadataStore;
 
-  private SearchMetadataStore searchMetadataStore;
+  protected SearchMetadataStore searchMetadataStore;
 
   /**
    * For capacity planning, we want to control how many roll overs are in progress at the same time.

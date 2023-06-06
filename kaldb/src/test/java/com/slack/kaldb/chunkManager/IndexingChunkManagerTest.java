@@ -75,6 +75,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -111,8 +112,6 @@ public class IndexingChunkManagerTest {
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
-  private SnapshotMetadataStore snapshotMetadataStore;
-  private SearchMetadataStore searchMetadataStore;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -136,8 +135,6 @@ public class IndexingChunkManagerTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
   }
 
   @AfterEach
@@ -246,8 +243,8 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration.
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+    await().until(() -> chunkManager.snapshotMetadataStore.listSync().size() == 1);
+    await().until(() -> chunkManager.searchMetadataStore.listSync().size() == 1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -274,24 +271,34 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs())
         .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    assertThat(snapshots.size()).isEqualTo(1);
-    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(chunkManager.snapshotMetadataStore.listSync());
+              return snapshots.get().size() == 1;
+            });
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots.get());
     assertThat(liveSnapshots.size()).isEqualTo(1);
-    assertThat(fetchNonLiveSnapshot(snapshots)).isEmpty();
-    assertThat(snapshots.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshots.get(0).maxOffset).isEqualTo(0);
-    assertThat(snapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(snapshots.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshots.get(0).startTimeEpochMs)
+    assertThat(fetchNonLiveSnapshot(snapshots.get())).isEmpty();
+    assertThat(snapshots.get().get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get().get(0).maxOffset).isEqualTo(0);
+    assertThat(snapshots.get().get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(snapshots.get().get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshots.get().get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
-    assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
+    assertThat(snapshots.get().get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
-    assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.get(0).url).contains(TEST_HOST);
-    assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(searchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    AtomicReference<List<SearchMetadata>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(chunkManager.searchMetadataStore.listSync());
+              return searchNodes.get().size() == 1;
+            });
+    assertThat(searchNodes.get().get(0).url).contains(TEST_HOST);
+    assertThat(searchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(searchNodes.get().get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     // Add a message with a very high offset.
     final int veryHighOffset = 1000;
@@ -602,17 +609,28 @@ public class IndexingChunkManagerTest {
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotsCount) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
-    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(chunkManager.snapshotMetadataStore.listSync());
+              return snapshots.get().size() == expectedSnapshotSize;
+            });
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots.get());
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
-    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
-    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(fetchNonLiveSnapshot(snapshots.get()).size()).isEqualTo(expectedNonLiveSnapshotSize);
+    AtomicReference<List<SearchMetadata>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(chunkManager.searchMetadataStore.listSync());
+              return searchNodes.get();
+            },
+            (nodes) -> nodes.size() == expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
+            searchNodes.get().stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.get().stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotsCount);
   }
 
@@ -1037,10 +1055,8 @@ public class IndexingChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, IndexingChunkManager.makeDefaultRollOverExecutor());
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(searchMetadataStore.listSync()).isEmpty();
+    await().until(() -> chunkManager.snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> chunkManager.searchMetadataStore.listSync().isEmpty());
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -1054,17 +1070,29 @@ public class IndexingChunkManagerTest {
             })
         .isInstanceOf(ChunkRollOverException.class);
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    assertThat(snapshots.size()).isEqualTo(2);
-    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(chunkManager.snapshotMetadataStore.listSync());
+              return snapshots.get();
+            },
+            (s) -> s.size() == 2);
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots.get());
     assertThat(liveSnapshots.size()).isGreaterThanOrEqualTo(2);
-    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
-    assertThat(searchNodes.size()).isEqualTo(2);
+    assertThat(fetchNonLiveSnapshot(snapshots.get()).size()).isEqualTo(0);
+
+    AtomicReference<List<SearchMetadata>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(chunkManager.searchMetadataStore.listSync());
+              return searchNodes.get().size() == 2;
+            });
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
+            searchNodes.get().stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.get().stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(2);
   }
 
@@ -1080,6 +1108,9 @@ public class IndexingChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, IndexingChunkManager.makeDefaultRollOverExecutor());
 
+    await().until(() -> chunkManager.snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> chunkManager.searchMetadataStore.listSync().isEmpty());
+
     // Adding a message and close the chunkManager right away should still finish the failed
     // rollover.
     int offset = 1;
@@ -1090,10 +1121,9 @@ public class IndexingChunkManagerTest {
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
 
     await().until(() -> getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry) == 1);
-    checkMetadata(2, 1, 1, 1, 0);
+    checkMetadata(2, 1, 1, 1, 0); // two snapshots, as expected
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
-    chunkManager = null;
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -1101,20 +1131,27 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
     assertThat(rollOverFuture.isDone()).isTrue();
 
-    // The stores are closed so temporarily re-create them so we can query the data in ZK.
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
-    assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
-    assertThat(snapshots.get(0).maxOffset).isEqualTo(offset - 1);
-    assertThat(snapshots.get(0).endTimeEpochMs).isLessThan(MAX_FUTURE_TIME);
-    assertThat(snapshots.get(0).snapshotId).doesNotContain(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    searchMetadataStore.close();
-    snapshotMetadataStore.close();
+    await().until(chunkManager.searchMetadataStore::listSync, (List::isEmpty));
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+
+    try (SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false)) {
+      await()
+          .until(
+              () -> {
+                snapshots.set(snapshotMetadataStore.listSync());
+                return snapshots.get();
+              },
+              (snapshotList) -> snapshotList.size() == 1);
+    }
+    assertThat(fetchNonLiveSnapshot(snapshots.get()).size()).isEqualTo(1);
+    assertThat(fetchLiveSnapshot(snapshots.get())).isEmpty();
+    assertThat(snapshots.get().get(0).maxOffset).isEqualTo(offset - 1);
+    assertThat(snapshots.get().get(0).endTimeEpochMs).isLessThan(MAX_FUTURE_TIME);
+    assertThat(snapshots.get().get(0).snapshotId)
+        .doesNotContain(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+
+    chunkManager = null;
   }
 
   @Test
@@ -1138,12 +1175,12 @@ public class IndexingChunkManagerTest {
       chunkManager.addMessage(m, m.toString().length(), TEST_KAFKA_PARTITION_ID, offset);
       offset++;
     }
+    await().until(() -> !chunkManager.snapshotMetadataStore.listSync().isEmpty());
     await().until(() -> getCount(ROLLOVERS_FAILED, metricsRegistry) == 1);
     checkMetadata(1, 1, 0, 1, 1);
     ListenableFuture<?> rollOverFuture = chunkManager.getRolloverFuture();
     chunkManager.stopAsync();
     chunkManager.awaitTerminated(15, TimeUnit.SECONDS);
-    chunkManager = null;
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry)).isEqualTo(10);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
@@ -1152,16 +1189,20 @@ public class IndexingChunkManagerTest {
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(0);
     assertThat(rollOverFuture.isDone()).isTrue();
 
-    // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    searchMetadataStore.close();
-    snapshotMetadataStore.close();
+    try (SearchMetadataStore searchMetadataStore =
+        new SearchMetadataStore(curatorFramework, true)) {
+      await().until(() -> searchMetadataStore.listSync().isEmpty());
+    }
+
+    try (SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false)) {
+      await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    }
+
     // Data is lost and the indexer, we use recovery indexer to re-index this data.
+
+    chunkManager = null;
   }
 
   @Test
