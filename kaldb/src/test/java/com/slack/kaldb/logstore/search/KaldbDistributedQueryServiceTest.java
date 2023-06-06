@@ -934,6 +934,7 @@ public class KaldbDistributedQueryServiceTest {
     KaldbSearch.SchemaResult schemaResultWrongDataset =
         distributedQueryService.getSchema(schemaRequestWrongDataset);
     assertThat(schemaResultWrongDataset.getFieldDefinitionMap().size()).isEqualTo(0);
+    distributedQueryService.close();
   }
 
   private String createIndexerZKMetadata(
