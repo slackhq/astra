@@ -125,7 +125,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onNext(
           ManagerApi.ListDatasetMetadataResponse.newBuilder()
               .addAllDatasetMetadata(
-                  datasetMetadataStore.listSync().stream()
+                  datasetMetadataStore.listSyncUncached().stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());
@@ -199,7 +199,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
       List<SnapshotMetadata> snapshotsToRestore =
           calculateRequiredSnapshots(
-              snapshotMetadataStore.getCachedSync(),
+              snapshotMetadataStore.listSync(),
               datasetMetadataStore,
               request.getStartTimeEpochMs(),
               request.getEndTimeEpochMs(),
@@ -229,7 +229,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     try {
       List<SnapshotMetadata> snapshotsToRestore =
           calculateRequiredSnapshots(
-              request.getIdsToRestoreList(), snapshotMetadataStore.getCachedSync());
+              request.getIdsToRestoreList(), snapshotMetadataStore.listSync());
 
       replicaRestoreService.queueSnapshotsForRestoration(snapshotsToRestore);
 

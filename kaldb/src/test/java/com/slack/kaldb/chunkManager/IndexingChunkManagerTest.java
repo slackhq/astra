@@ -246,8 +246,8 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration.
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -274,7 +274,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs())
         .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(1);
@@ -287,7 +287,7 @@ public class IndexingChunkManagerTest {
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -602,12 +602,12 @@ public class IndexingChunkManagerTest {
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotsCount) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -1037,10 +1037,10 @@ public class IndexingChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, IndexingChunkManager.makeDefaultRollOverExecutor());
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(searchMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSyncUncached())).isEmpty();
+    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSyncUncached())).isEmpty();
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -1054,12 +1054,12 @@ public class IndexingChunkManagerTest {
             })
         .isInstanceOf(ChunkRollOverException.class);
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(2);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isGreaterThanOrEqualTo(2);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(2);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -1105,8 +1105,8 @@ public class IndexingChunkManagerTest {
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(curatorFramework, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
     assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
@@ -1157,8 +1157,8 @@ public class IndexingChunkManagerTest {
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
     SnapshotMetadataStore snapshotMetadataStore =
         new SnapshotMetadataStore(curatorFramework, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     // Data is lost and the indexer, we use recovery indexer to re-index this data.
