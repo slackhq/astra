@@ -69,8 +69,8 @@ public class RecoveryTaskCreatorTest {
             .setSleepBetweenRetriesMs(500)
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, true));
   }
 
   @AfterEach
@@ -1366,7 +1366,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new InternalMetadataStoreException(""))
         .doCallRealMethod()
         .when(snapshotMetadataStore)
-        .listSyncUncached();
+        .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
@@ -1417,7 +1417,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new InternalMetadataStoreException(""))
         .doCallRealMethod()
         .when(recoveryTaskStore)
-        .listSyncUncached();
+        .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));

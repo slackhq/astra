@@ -150,7 +150,7 @@ public class RecoveryTaskCreator {
       LOG.warn("PartitionId can't be null.");
     }
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots.stream()
             .filter(
@@ -164,16 +164,14 @@ public class RecoveryTaskCreator {
                       && snapshotMetadata.partitionId != null
                       && snapshotMetadata.partitionId.equals(partitionId);
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     List<SnapshotMetadata> deletedSnapshots = deleteStaleLiveSnapshots(snapshotsForPartition);
 
     List<SnapshotMetadata> nonLiveSnapshotsForPartition =
-        snapshotsForPartition.stream()
-            .filter(s -> !deletedSnapshots.contains(s))
-            .collect(Collectors.toUnmodifiableList());
+        snapshotsForPartition.stream().filter(s -> !deletedSnapshots.contains(s)).toList();
 
     // Get the highest offset that is indexed in durable store.
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSyncUncached();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskMetadataStore.listSync();
     long highestDurableOffsetForPartition =
         getHighestDurableOffsetForPartition(
             nonLiveSnapshotsForPartition, recoveryTasks, partitionId);
@@ -287,7 +285,7 @@ public class RecoveryTaskCreator {
                       MoreExecutors.directExecutor());
                   return future;
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     //noinspection UnstableApiUsage
     ListenableFuture<?> futureList = Futures.successfulAsList(deletionFutures);
