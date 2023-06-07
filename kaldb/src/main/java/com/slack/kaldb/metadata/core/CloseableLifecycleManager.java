@@ -36,7 +36,9 @@ public class CloseableLifecycleManager extends AbstractIdleService {
           try {
             closeable.close();
           } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOG.error(
+                "Exception shutting down closeable - {}, ignoring and continuing shutdown",
+                closeable.getClass());
           }
         });
   }
