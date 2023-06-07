@@ -44,6 +44,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -117,10 +118,9 @@ public class KaldbIndexerTest {
 
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
-    searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, false));
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    recoveryTaskStore = new RecoveryTaskMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
     kafkaServer = new TestKafkaServer();
   }
@@ -135,9 +135,6 @@ public class KaldbIndexerTest {
 
   @AfterEach
   public void tearDown() throws Exception {
-    if (chunkManagerUtil != null) {
-      chunkManagerUtil.close();
-    }
     if (kaldbIndexer != null) {
       kaldbIndexer.stopAsync();
       kaldbIndexer.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -151,6 +148,12 @@ public class KaldbIndexerTest {
     if (recoveryTaskStore != null) {
       recoveryTaskStore.close();
     }
+    if (searchMetadataStore != null) {
+      searchMetadataStore.close();
+    }
+    if (chunkManagerUtil != null) {
+      chunkManagerUtil.close();
+    }
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
@@ -163,8 +166,8 @@ public class KaldbIndexerTest {
   public void testIndexFreshConsumerKafkaSearchViaGrpcSearchApi() throws Exception {
     // Start kafka, produce messages to it and start a search server.
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -180,17 +183,17 @@ public class KaldbIndexerTest {
     await().until(() -> kafkaServer.getConnectedConsumerGroups() == 1);
 
     consumeMessagesAndSearchMessagesTest(100, 1);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().size() == 2);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
   }
 
   @Test
   public void testDeleteStaleSnapshotAndStartConsumerKafkaSearchViaGrpcSearchApi()
       throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -207,7 +210,13 @@ public class KaldbIndexerTest {
             "0",
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).containsOnly(livePartition1);
+
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.contains(livePartition1) && snapshotMetadata.size() == 1;
+            });
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -224,17 +233,22 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted.
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(snapshotMetadataStore.listSyncUncached()).doesNotContain(livePartition1);
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.size() == 2 && !snapshotMetadata.contains(livePartition1);
+            });
+
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
   }
 
   @Test
   public void testExceptionOnIndexerStartup() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -262,8 +276,13 @@ public class KaldbIndexerTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.containsAll(List.of(livePartition1, livePartition0))
+                  && snapshotMetadata.size() == 2;
+            });
 
     // Throw exception on initialization
     doThrow(new RuntimeException()).when(curatorFramework).with(any(), any(), any(), any());
@@ -285,8 +304,8 @@ public class KaldbIndexerTest {
   @Test
   public void testWithMultipleLiveSnapshotsOnIndexerStart() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -314,8 +333,14 @@ public class KaldbIndexerTest {
             "1",
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0);
+
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.containsAll(List.of(livePartition1, livePartition0))
+                  && snapshotMetadata.size() == 2;
+            });
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -332,17 +357,21 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted.
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(livePartition1);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.contains(livePartition1) && snapshotMetadata.size() == 3;
+            });
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
   }
 
   @Test
   public void testIndexerStartsWithPreviousOffset() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -376,8 +405,14 @@ public class KaldbIndexerTest {
         new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0, partition0);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.containsAll(
+                      List.of(livePartition1, livePartition0, partition0))
+                  && snapshotMetadata.size() == 3;
+            });
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -394,19 +429,25 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(49, 0);
 
     // Live snapshot is deleted.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots).contains(livePartition1, partition0);
-    assertThat(snapshots).doesNotContain(livePartition0);
-    assertThat(snapshots.size()).isEqualTo(3);
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(snapshotMetadataStore.listSync());
+              return snapshots.get().size() == 3;
+            });
+    assertThat(snapshots.get()).contains(livePartition1, partition0);
+    assertThat(snapshots.get()).doesNotContain(livePartition0);
+
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
   }
 
   @Test
   public void testIndexerCreatesRecoveryTask() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -440,8 +481,14 @@ public class KaldbIndexerTest {
         new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0, partition0);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.containsAll(
+                      List.of(livePartition1, livePartition0, partition0))
+                  && snapshotMetadata.size() == 3;
+            });
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -461,13 +508,25 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted, recovery task is created.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots).contains(livePartition1, partition0);
-    assertThat(snapshots).doesNotContain(livePartition0);
-    assertThat(snapshots.size()).isEqualTo(4);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(recoveryTaskStore.listSyncUncached().size()).isEqualTo(1);
-    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSyncUncached().get(0);
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(snapshotMetadataStore.listSync());
+              return snapshots.get().size() == 4;
+            });
+    assertThat(snapshots.get()).contains(livePartition1, partition0);
+    assertThat(snapshots.get()).doesNotContain(livePartition0);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    AtomicReference<List<RecoveryTaskMetadata>> recoveryTaskMetadata = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              recoveryTaskMetadata.set(recoveryTaskStore.listSync());
+              return recoveryTaskMetadata.get().size() == 1;
+            });
+    RecoveryTaskMetadata recoveryTask1 = recoveryTaskMetadata.get().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(31);
     assertThat(recoveryTask1.endOffset).isEqualTo(99);
     assertThat(recoveryTask1.partitionId).isEqualTo("0");
@@ -476,8 +535,8 @@ public class KaldbIndexerTest {
   @Test
   public void testIndexerShutdownTwice() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -511,8 +570,17 @@ public class KaldbIndexerTest {
         new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0, partition0);
+    AtomicReference<List<SnapshotMetadata>> snapshotMetadata = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshotMetadata.set(snapshotMetadataStore.listSync());
+              return snapshotMetadata
+                      .get()
+                      .containsAll(List.of(livePartition1, livePartition0, partition0))
+                  && snapshotMetadata.get().size() == 3;
+            });
+    assertThat(snapshotMetadata.get()).containsOnly(livePartition1, livePartition0, partition0);
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -532,11 +600,23 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(100, 1);
 
     // Live snapshot is deleted, recovery task is created.
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(livePartition1, partition0);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(4);
-    assertThat(recoveryTaskStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSyncUncached().get(0);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSync();
+              return snapshotMetadataList.containsAll(List.of(livePartition1, partition0))
+                  && snapshotMetadataList.size() == 4;
+            });
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
+
+    AtomicReference<List<RecoveryTaskMetadata>> recoveryTaskMetadata = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              recoveryTaskMetadata.set(recoveryTaskStore.listSync());
+              return recoveryTaskMetadata.get().size() == 1;
+            });
+    RecoveryTaskMetadata recoveryTask1 = recoveryTaskMetadata.get().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(31);
     assertThat(recoveryTask1.endOffset).isEqualTo(99);
     assertThat(recoveryTask1.partitionId).isEqualTo("0");
@@ -550,9 +630,9 @@ public class KaldbIndexerTest {
   @Test
   public void testIndexerRestart() throws Exception {
     startKafkaServer();
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
 
     // Create a live partition for this partiton
     final String name = "testSnapshotId";
@@ -586,8 +666,14 @@ public class KaldbIndexerTest {
         new SnapshotMetadata(name, path, startTimeMs, endTimeMs, maxOffset, "0", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition0);
 
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(livePartition1, livePartition0, partition0);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.containsAll(
+                      List.of(livePartition1, livePartition0, partition0))
+                  && snapshotMetadata.size() == 3;
+            });
 
     // Empty consumer offset since there is no prior consumer.
     kaldbIndexer =
@@ -605,11 +691,19 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(69, 0);
 
     // Live snapshot is deleted, no recovery task is created.
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(livePartition1, partition0);
-    assertThat(snapshotMetadataStore.listSyncUncached()).doesNotContain(livePartition0);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryTaskStore.listSyncUncached().size()).isZero();
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    AtomicReference<List<SnapshotMetadata>> snapshotMetadata = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshotMetadata.set(snapshotMetadataStore.listSync());
+              return snapshotMetadata.get();
+            },
+            (list) -> list.size() == 3);
+    assertThat(snapshotMetadata.get()).contains(livePartition1, partition0);
+    assertThat(snapshotMetadata.get()).doesNotContain(livePartition0);
+
+    await().until(() -> recoveryTaskStore.listSync().size() == 0);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
 
     // Shutting down is idempotent. So, doing it twice shouldn't throw an error.
     kaldbIndexer.stopAsync();
@@ -618,11 +712,19 @@ public class KaldbIndexerTest {
     chunkManagerUtil.chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
 
     // await().until(() -> kafkaServer.getConnectedConsumerGroups() == 0);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(livePartition1, partition0);
-    assertThat(snapshotMetadataStore.listSyncUncached()).doesNotContain(livePartition0);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(recoveryTaskStore.listSyncUncached().size()).isZero();
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+
+    AtomicReference<List<SnapshotMetadata>> snapshotMetadataShutdown = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshotMetadataShutdown.set(snapshotMetadataStore.listSync());
+              return snapshotMetadataShutdown.get().size() == 2;
+            });
+    assertThat(snapshotMetadataShutdown.get()).contains(livePartition1, partition0);
+    assertThat(snapshotMetadataShutdown.get()).doesNotContain(livePartition0);
+
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
 
     // start indexer again. The indexer should index the same data again.
     LOG.info("Starting the indexer again");
@@ -654,10 +756,15 @@ public class KaldbIndexerTest {
     consumeMessagesAndSearchMessagesTest(138, 0);
 
     // Live snapshot is deleted, recovery task is created.
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(livePartition1, partition0);
-    assertThat(snapshotMetadataStore.listSyncUncached()).doesNotContain(livePartition0);
-    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSync();
+              return snapshotMetadataList.containsAll(List.of(livePartition1, partition0))
+                  && !snapshotMetadataList.contains(livePartition0);
+            });
+    await().until(() -> recoveryTaskStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
   }
 
   private void startKafkaServer() throws Exception {
@@ -676,7 +783,10 @@ public class KaldbIndexerTest {
       activeChunk.commit();
     }
 
-    await().until(() -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry) == messagesReceived);
+    await()
+        .until(
+            () -> getCount(MESSAGES_RECEIVED_COUNTER, metricsRegistry),
+            (count) -> count == messagesReceived);
     assertThat(chunkManagerUtil.chunkManager.getChunkList().size()).isEqualTo(1);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, metricsRegistry)).isEqualTo(0);
     if (rolloversCompleted > 0) {

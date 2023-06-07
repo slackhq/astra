@@ -94,7 +94,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of(), "name"));
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(2);
 
@@ -172,7 +172,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(datasetMetadata);
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
     await()
         .until(
             () ->
@@ -197,9 +197,13 @@ public class PreprocessorServiceIntegrationTest {
             () ->
                 MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
                     == 3);
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(datasetMetadataStore.listSyncUncached().get(0).getThroughputBytes())
-        .isEqualTo(Long.MAX_VALUE);
+
+    await()
+        .until(
+            datasetMetadataStore::listSync,
+            (metadataList) ->
+                metadataList.size() == 1
+                    && metadataList.get(0).getThroughputBytes() == Long.MAX_VALUE);
 
     // produce messages to upstream
     final Instant startTime = Instant.now();

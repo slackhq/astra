@@ -34,6 +34,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.AfterEach;
@@ -72,8 +73,7 @@ public class ChunkCleanerServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
+    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), true);
   }
 
   @AfterEach
@@ -124,17 +124,22 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
 
-    List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(afterSnapshots.size()).isEqualTo(2);
-    assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
-    SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots).get(0);
+    AtomicReference<List<SnapshotMetadata>> afterSnapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              afterSnapshots.set(snapshotMetadataStore.listSync());
+              return afterSnapshots.get().size() == 2;
+            });
+    assertThat(afterSnapshots.get()).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+    SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots.get()).get(0);
     assertThat(liveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(liveSnapshot.maxOffset).isEqualTo(9);
     assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(liveSnapshot.snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(liveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
     assertThat(liveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
-    SnapshotMetadata nonLiveSnapshot = fetchNonLiveSnapshot(afterSnapshots).get(0);
+    SnapshotMetadata nonLiveSnapshot = fetchNonLiveSnapshot(afterSnapshots.get()).get(0);
     assertThat(nonLiveSnapshot.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(nonLiveSnapshot.maxOffset).isEqualTo(9);
     assertThat(
@@ -145,11 +150,18 @@ public class ChunkCleanerServiceTest {
     assertThat(nonLiveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
 
-    List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(afterSearchNodes.size()).isEqualTo(1);
-    assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
-    assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(afterSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    AtomicReference<List<SearchMetadata>> afterSearchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              afterSearchNodes.set(searchMetadataStore.listSync());
+              return afterSearchNodes.get();
+            },
+            (nodes) -> nodes.size() == 1);
+    assertThat(afterSearchNodes.get().get(0).url).contains(TEST_HOST);
+    assertThat(afterSearchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(afterSearchNodes.get().get(0).snapshotName)
+        .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
     assertThat(chunk.isReadOnly()).isTrue();
     assertThat(chunk.info().getChunkSnapshotTimeEpochMs()).isNotZero();
@@ -174,10 +186,15 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isZero();
 
     // Check metadata after chunk is deleted.
-    List<SnapshotMetadata> chunkDeletedSnapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(chunkDeletedSnapshots.size()).isEqualTo(1);
+    AtomicReference<List<SnapshotMetadata>> chunkDeletedSnapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              chunkDeletedSnapshots.set(snapshotMetadataStore.listSync());
+              return chunkDeletedSnapshots.get().size() == 1;
+            });
     SnapshotMetadata nonLiveSnapshotAfterChunkDelete =
-        fetchNonLiveSnapshot(chunkDeletedSnapshots).get(0);
+        fetchNonLiveSnapshot(chunkDeletedSnapshots.get()).get(0);
     assertThat(nonLiveSnapshotAfterChunkDelete.partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(nonLiveSnapshotAfterChunkDelete.maxOffset).isEqualTo(9);
     assertThat(
@@ -191,24 +208,38 @@ public class ChunkCleanerServiceTest {
         .isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMs)
         .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
   }
 
   private void testBasicSnapshotMetadata(Instant creationTime) {
-    final List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshotNodes.size()).isEqualTo(1);
-    assertThat(snapshotNodes.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshotNodes.get(0).maxOffset).isEqualTo(0);
-    assertThat(snapshotNodes.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-    assertThat(snapshotNodes.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-    assertThat(snapshotNodes.get(0).startTimeEpochMs)
+    AtomicReference<List<SnapshotMetadata>> snapshotNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshotNodes.set(snapshotMetadataStore.listSync());
+              return snapshotNodes.get().size() == 1;
+            });
+    assertThat(snapshotNodes.get().get(0).snapshotPath)
+        .startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshotNodes.get().get(0).maxOffset).isEqualTo(0);
+    assertThat(snapshotNodes.get().get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+    assertThat(snapshotNodes.get().get(0).snapshotId)
+        .startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshotNodes.get().get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(2500L));
-    assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
-    final List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(searchNodes.size()).isEqualTo(1);
-    assertThat(searchNodes.get(0).url).contains(TEST_HOST);
-    assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(searchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+    assertThat(snapshotNodes.get().get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
+
+    AtomicReference<List<SearchMetadata>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(searchMetadataStore.listSync());
+              return searchNodes.get();
+            },
+            (nodes) -> nodes.size() == 1);
+    assertThat(searchNodes.get().get(0).url).contains(TEST_HOST);
+    assertThat(searchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(searchNodes.get().get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   @Test
@@ -269,12 +300,13 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(2);
 
     checkMetadata(4, 2, 2, 2, 0);
-    assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .collect(Collectors.toList()))
-        .containsExactlyElementsOf(List.of(10L, 10L, 11L, 11L));
+    await()
+        .until(
+            () -> {
+              List<Long> offsets =
+                  snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList();
+              return offsets.containsAll(List.of(10L, 10L, 11L, 11L)) && offsets.size() == 4;
+            });
 
     assertThat(chunk1.isReadOnly()).isTrue();
     assertThat(chunk1.info().getChunkSnapshotTimeEpochMs()).isNotZero();
@@ -304,12 +336,13 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().contains(chunk2)).isFalse();
 
     checkMetadata(3, 1, 2, 1, 0);
-    assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .collect(Collectors.toList()))
-        .containsOnly(10L, 11L, 11L);
+    await()
+        .until(
+            () -> {
+              List<Long> offsets =
+                  snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList();
+              return offsets.containsAll(List.of(10L, 11L, 11L)) && offsets.size() == 3;
+            });
 
     // Delete chunk1.
     assertThat(chunkCleanerService.deleteStaleData(chunk2SnapshotTime.plusSeconds(3600))).isZero();
@@ -319,12 +352,14 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isZero();
 
     checkMetadata(2, 0, 2, 0, 0);
-    assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
-                .map(s -> s.maxOffset)
-                .sorted()
-                .collect(Collectors.toList()))
-        .containsOnly(10L, 11L);
+
+    await()
+        .until(
+            () -> {
+              List<Long> offsets =
+                  snapshotMetadataStore.listSync().stream().map(s -> s.maxOffset).sorted().toList();
+              return offsets.containsAll(List.of(10L, 11L)) && offsets.size() == 2;
+            });
   }
 
   private void checkMetadata(
@@ -333,17 +368,30 @@ public class ChunkCleanerServiceTest {
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotSize) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
-    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
+
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(snapshotMetadataStore.listSync());
+              return snapshots.get().size() == expectedSnapshotSize;
+            });
+
+    List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots.get());
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
-    assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
+    assertThat(fetchNonLiveSnapshot(snapshots.get()).size()).isEqualTo(expectedNonLiveSnapshotSize);
+    AtomicReference<List<SearchMetadata>> searchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              searchNodes.set(searchMetadataStore.listSync());
+              return searchNodes.get();
+            },
+            (nodes) -> nodes.size() == expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
-            searchNodes.stream().map(s -> s.snapshotName).collect(Collectors.toList()));
-    assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
+            searchNodes.get().stream().map(s -> s.snapshotName).collect(Collectors.toList()));
+    assertThat(snapshots.get().stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME).count())
         .isEqualTo(expectedInfinitySnapshotSize);
   }
 

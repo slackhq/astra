@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -30,7 +31,6 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
-import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -41,10 +41,12 @@ import com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -104,7 +106,7 @@ public class RecoveryChunkManagerTest {
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
   }
 
   @AfterEach
@@ -175,8 +177,8 @@ public class RecoveryChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration. No metadata registration until rollover.
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
 
     // Search query
     SearchQuery searchQuery =
@@ -279,12 +281,17 @@ public class RecoveryChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots.size()).isEqualTo(1);
-    assertThat(snapshots.get(0).startTimeEpochMs)
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
+    AtomicReference<List<SnapshotMetadata>> snapshots = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              snapshots.set(snapshotMetadataStore.listSync());
+              return snapshots.get().size() == 1;
+            });
+    assertThat(snapshots.get().get(0).startTimeEpochMs)
         .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
-    assertThat(snapshots.get(0).endTimeEpochMs)
+    assertThat(snapshots.get().get(0).endTimeEpochMs)
         .isGreaterThanOrEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
     // Can't add messages to current chunk after roll over.
@@ -350,13 +357,12 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 1);
 
     // Check metadata.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots.size()).isEqualTo(0);
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    List<SnapshotMetadata> snapshots = new ArrayList<>();
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isZero();
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(searchNodes).isEmpty();
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();
@@ -395,13 +401,12 @@ public class RecoveryChunkManagerTest {
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
-    assertThat(snapshots.size()).isEqualTo(0);
+    await().until(() -> snapshotMetadataStore.listSync().isEmpty());
+    List<SnapshotMetadata> snapshots = new ArrayList<>();
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isZero();
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(searchNodes).isEmpty();
+    await().until(() -> searchMetadataStore.listSync().isEmpty());
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .isEmpty();
     assertThat(snapshots.stream().filter(s -> s.endTimeEpochMs == MAX_FUTURE_TIME)).isEmpty();

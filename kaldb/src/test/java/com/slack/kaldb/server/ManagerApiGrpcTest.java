@@ -218,7 +218,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    await().until(() -> datasetMetadataStore.listSync().isEmpty());
   }
 
   @Test
@@ -237,7 +237,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    await().until(() -> datasetMetadataStore.listSync().isEmpty());
   }
 
   @Test
@@ -326,7 +326,7 @@ public class ManagerApiGrpcTest {
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    await().until(() -> datasetMetadataStore.listSync().isEmpty());
   }
 
   @Test
@@ -467,7 +467,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    await().until(() -> datasetMetadataStore.listSync().isEmpty());
   }
 
   @Test
@@ -479,6 +479,7 @@ public class ManagerApiGrpcTest {
         ManagerApi.CreateDatasetMetadataRequest.newBuilder()
             .setName(datasetName1)
             .setOwner(datasetOwner1)
+            .setServiceNamePattern(datasetName1)
             .build());
 
     String datasetName2 = "testDataset2";
@@ -488,6 +489,7 @@ public class ManagerApiGrpcTest {
         ManagerApi.CreateDatasetMetadataRequest.newBuilder()
             .setName(datasetName2)
             .setOwner(datasetOwner2)
+            .setServiceNamePattern(datasetName2)
             .build());
 
     ManagerApi.ListDatasetMetadataResponse listDatasetMetadataResponse =
@@ -510,16 +512,25 @@ public class ManagerApiGrpcTest {
                         .setThroughputBytes(0)
                         .build())));
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(
-        datasetMetadataStore
-            .listSyncUncached()
-            .containsAll(
-                List.of(
-                    new DatasetMetadata(
-                        datasetName1, datasetOwner1, 0, Collections.emptyList(), datasetName1),
-                    new DatasetMetadata(
-                        datasetName2, datasetOwner2, 0, Collections.emptyList(), datasetName2))));
+    await()
+        .until(
+            () -> datasetMetadataStore.listSync(),
+            (metadata) ->
+                metadata.size() == 2
+                    && metadata.containsAll(
+                        List.of(
+                            new DatasetMetadata(
+                                datasetName1,
+                                datasetOwner1,
+                                0,
+                                Collections.emptyList(),
+                                datasetName1),
+                            new DatasetMetadata(
+                                datasetName2,
+                                datasetOwner2,
+                                0,
+                                Collections.emptyList(),
+                                datasetName2))));
   }
 
   @Test
@@ -569,7 +580,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    await().until(() -> datasetMetadataStore.listSync().isEmpty());
   }
 
   @Test

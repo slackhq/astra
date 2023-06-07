@@ -135,7 +135,7 @@ public class KaldbTest {
             partitionConfigs,
             MessageUtil.TEST_DATASET_NAME);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> datasetMetadataStore.listSync().size() == 1);
   }
 
   @AfterEach

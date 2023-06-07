@@ -108,12 +108,11 @@ public class ReadOnlyChunkImplTest {
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, false);
+        new CacheSlotMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -147,7 +146,7 @@ public class ReadOnlyChunkImplTest {
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> searchMetadataStore.listSync().size() == 1);
     assertThat(readOnlyChunk.getChunkMetadataState())
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
@@ -238,12 +237,11 @@ public class ReadOnlyChunkImplTest {
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, false);
+        new CacheSlotMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -306,12 +304,11 @@ public class ReadOnlyChunkImplTest {
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, false);
+        new CacheSlotMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -374,12 +371,11 @@ public class ReadOnlyChunkImplTest {
             .build();
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
-        new CacheSlotMetadataStore(curatorFramework, false);
+        new CacheSlotMetadataStore(curatorFramework, true);
 
     String replicaId = "foo";
     String snapshotId = "bar";
@@ -478,8 +474,7 @@ public class ReadOnlyChunkImplTest {
 
   private void initializeZkSnapshot(AsyncCuratorFramework curatorFramework, String snapshotId)
       throws Exception {
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,
@@ -494,7 +489,7 @@ public class ReadOnlyChunkImplTest {
   private void initializeZkReplica(
       AsyncCuratorFramework curatorFramework, String replicaId, String snapshotId)
       throws Exception {
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
     replicaMetadataStore.createSync(
         new ReplicaMetadata(
             replicaId,

@@ -14,6 +14,7 @@ import static com.slack.kaldb.testlib.MetricsUtil.getTimerCount;
 import static com.slack.kaldb.testlib.TemporaryLogStoreAndSearcherExtension.MAX_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.awaitility.Awaitility.await;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
@@ -47,6 +48,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.curator.test.TestingServer;
@@ -73,13 +75,28 @@ public class IndexingChunkImplTest {
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       ReadWriteChunk<LogMessage> chunk) {
-    assertThat(snapshotMetadataStore.listSyncUncached())
-        .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-    final List<SearchMetadata> beforeSearchNodes = searchMetadataStore.listSyncUncached();
-    assertThat(beforeSearchNodes.size()).isEqualTo(1);
-    assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
-    assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-    assertThat(beforeSearchNodes.get(0).snapshotName).contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+
+    await()
+        .until(
+            () -> {
+              List<SnapshotMetadata> snapshotMetadata = snapshotMetadataStore.listSync();
+              return snapshotMetadata.contains(
+                      ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX))
+                  && snapshotMetadata.size() == 1;
+            });
+
+    AtomicReference<List<SearchMetadata>> beforeSearchNodes = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              beforeSearchNodes.set(searchMetadataStore.listSync());
+              return beforeSearchNodes.get().size() == 1;
+            });
+
+    assertThat(beforeSearchNodes.get().get(0).url).contains(TEST_HOST);
+    assertThat(beforeSearchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+    assertThat(beforeSearchNodes.get().get(0).snapshotName)
+        .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
   }
 
   @Nested
@@ -111,7 +128,7 @@ public class IndexingChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, false);
+          new SnapshotMetadataStore(curatorFramework, true);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -458,7 +475,7 @@ public class IndexingChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, false);
+          new SnapshotMetadataStore(curatorFramework, true);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -542,7 +559,7 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -565,10 +582,9 @@ public class IndexingChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
       closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSyncUncached();
-      assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
-      assertThat(searchNodes.size()).isEqualTo(1);
+
+      await().until(() -> snapshotMetadataStore.listSync().size() == 1);
+      await().until(() -> searchMetadataStore.listSync().size() == 1);
     }
 
     @AfterEach
@@ -626,17 +642,30 @@ public class IndexingChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
-      assertThat(afterSnapshots.size()).isEqualTo(1);
-      assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
-      assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
-      assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+      AtomicReference<List<SnapshotMetadata>> afterSnapshots = new AtomicReference<>();
+      await()
+          .until(
+              () -> {
+                afterSnapshots.set(snapshotMetadataStore.listSync());
+                return afterSnapshots.get().size() == 1;
+              });
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
-      assertThat(afterSearchNodes.size()).isEqualTo(1);
-      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
+      assertThat(afterSnapshots.get().get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
+      assertThat(afterSnapshots.get().get(0).maxOffset).isEqualTo(0);
+      assertThat(afterSnapshots.get().get(0).snapshotPath)
+          .isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
+
+      AtomicReference<List<SearchMetadata>> afterSearchNodes = new AtomicReference<>();
+      await()
+          .until(
+              () -> {
+                afterSearchNodes.set(searchMetadataStore.listSync());
+                return afterSearchNodes.get().size() == 1;
+              });
+
+      assertThat(afterSearchNodes.get().get(0).url).contains(TEST_HOST);
+      assertThat(afterSearchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(afterSearchNodes.get().get(0).snapshotName)
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     }
 
@@ -703,11 +732,19 @@ public class IndexingChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
-      assertThat(afterSnapshots.size()).isEqualTo(2);
-      assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+      AtomicReference<List<SnapshotMetadata>> afterSnapshots = new AtomicReference<>();
+      await()
+          .until(
+              () -> {
+                afterSnapshots.set(snapshotMetadataStore.listSync());
+                return afterSnapshots.get().size() == 2
+                    && afterSnapshots
+                        .get()
+                        .contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
+              });
+
       SnapshotMetadata liveSnapshot =
-          afterSnapshots.stream()
+          afterSnapshots.get().stream()
               .filter(s -> s.snapshotPath.equals(SnapshotMetadata.LIVE_SNAPSHOT_PATH))
               .findFirst()
               .get();
@@ -715,11 +752,18 @@ public class IndexingChunkImplTest {
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
       assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
-      assertThat(afterSearchNodes.size()).isEqualTo(1);
-      assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
-      assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
-      assertThat(afterSearchNodes.get(0).snapshotName)
+      AtomicReference<List<SearchMetadata>> afterSearchNodes = new AtomicReference<>();
+      await()
+          .until(
+              () -> {
+                afterSearchNodes.set(searchMetadataStore.listSync());
+                return afterSearchNodes.get();
+              },
+              (afterNodes) -> afterNodes.size() == 1);
+      assertThat(afterSearchNodes.get().size()).isEqualTo(1);
+      assertThat(afterSearchNodes.get().get(0).url).contains(TEST_HOST);
+      assertThat(afterSearchNodes.get().get(0).url).contains(String.valueOf(TEST_PORT));
+      assertThat(afterSearchNodes.get().get(0).snapshotName)
           .contains(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       chunk.close();

@@ -4,6 +4,7 @@ import static com.slack.kaldb.proto.metadata.Metadata.CacheSlotMetadata.CacheSlo
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.awaitility.Awaitility.await;
 
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
@@ -27,7 +29,7 @@ public class CacheSlotMetadataStoreTest {
 
   private AsyncCuratorFramework curatorFramework;
   private MeterRegistry meterRegistry;
-  private CacheSlotMetadataStore uncachedStore;
+  private CacheSlotMetadataStore store;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -45,7 +47,7 @@ public class CacheSlotMetadataStoreTest {
             .setSleepBetweenRetriesMs(500)
             .build();
     this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
-    this.uncachedStore = new CacheSlotMetadataStore(curatorFramework, false);
+    this.store = new CacheSlotMetadataStore(curatorFramework, true);
   }
 
   @AfterEach
@@ -73,53 +75,68 @@ public class CacheSlotMetadataStoreTest {
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
-    uncachedStore.createSync(cacheSlotMetadata);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
+    store.createSync(cacheSlotMetadata);
+    await().until(() -> store.listSync().size() == 1);
 
-    uncachedStore
-        .getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.LIVE)
-        .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata liveNode = uncachedStore.getSync(name);
-    assertThat(liveNode.name).isEqualTo(name);
-    assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
-    assertThat(liveNode.replicaId).isEqualTo(replicaId);
-    assertThat(liveNode.updatedTimeEpochMs).isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
-    assertThat(liveNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    store.getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.LIVE).get(1, TimeUnit.SECONDS);
 
-    uncachedStore
-        .getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.EVICT)
-        .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata evictNode = uncachedStore.getSync(name);
-    assertThat(evictNode.name).isEqualTo(name);
-    assertThat(evictNode.cacheSlotState).isEqualTo(CacheSlotState.EVICT);
-    assertThat(evictNode.replicaId).isEqualTo(replicaId);
-    assertThat(evictNode.updatedTimeEpochMs).isGreaterThan(liveNode.updatedTimeEpochMs);
-    assertThat(evictNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    AtomicReference<CacheSlotMetadata> liveNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              liveNode.set(store.getSync(name));
+              return liveNode.get().cacheSlotState == CacheSlotState.LIVE;
+            });
+    assertThat(liveNode.get().name).isEqualTo(name);
+    assertThat(liveNode.get().cacheSlotState).isEqualTo(CacheSlotState.LIVE);
+    assertThat(liveNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(liveNode.get().updatedTimeEpochMs)
+        .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
+    assertThat(liveNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
-    uncachedStore
-        .getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.FREE)
-        .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata freeNode = uncachedStore.getSync(name);
-    assertThat(freeNode.name).isEqualTo(name);
-    assertThat(freeNode.cacheSlotState).isEqualTo(CacheSlotState.FREE);
-    assertThat(freeNode.replicaId).isEmpty();
-    assertThat(freeNode.updatedTimeEpochMs).isGreaterThan(evictNode.updatedTimeEpochMs);
-    assertThat(freeNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    store.getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.EVICT).get(1, TimeUnit.SECONDS);
+
+    AtomicReference<CacheSlotMetadata> evictNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              evictNode.set(store.getSync(name));
+              return evictNode.get().cacheSlotState == CacheSlotState.EVICT;
+            });
+    assertThat(evictNode.get().name).isEqualTo(name);
+    assertThat(evictNode.get().cacheSlotState).isEqualTo(CacheSlotState.EVICT);
+    assertThat(evictNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(evictNode.get().updatedTimeEpochMs).isGreaterThan(liveNode.get().updatedTimeEpochMs);
+    assertThat(evictNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store.getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.FREE).get(1, TimeUnit.SECONDS);
+
+    AtomicReference<CacheSlotMetadata> freeNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              freeNode.set(store.getSync(name));
+              return freeNode.get().cacheSlotState == CacheSlotState.FREE;
+            });
+
+    assertThat(freeNode.get().name).isEqualTo(name);
+    assertThat(freeNode.get().cacheSlotState).isEqualTo(CacheSlotState.FREE);
+    assertThat(freeNode.get().replicaId).isEmpty();
+    assertThat(freeNode.get().updatedTimeEpochMs).isGreaterThan(evictNode.get().updatedTimeEpochMs);
+    assertThat(freeNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     // Only non-free states can be set.
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
-                uncachedStore
+                store
                     .getAndUpdateNonFreeCacheSlotState(name, CacheSlotState.ASSIGNED)
                     .get(1, TimeUnit.SECONDS));
   }
 
   @Test
   public void testNonFreeCacheSlotState() throws Exception {
+    final String hostname = "hostname";
     final String name = "slot1";
     final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
@@ -136,53 +153,73 @@ public class CacheSlotMetadataStoreTest {
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
-    uncachedStore.createSync(cacheSlotMetadata);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
+    store.createSync(cacheSlotMetadata);
+    await().until(() -> store.listSync().size() == 1);
 
-    uncachedStore
+    store
         .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata liveNode = uncachedStore.getSync(name);
-    assertThat(liveNode.name).isEqualTo(name);
-    assertThat(liveNode.cacheSlotState).isEqualTo(CacheSlotState.LIVE);
-    assertThat(liveNode.replicaId).isEqualTo(replicaId);
-    assertThat(liveNode.updatedTimeEpochMs).isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
-    assertThat(liveNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
-    uncachedStore
-        .updateNonFreeCacheSlotState(liveNode, CacheSlotState.EVICT)
-        .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata evictNode = uncachedStore.getSync(name);
-    assertThat(evictNode.name).isEqualTo(name);
-    assertThat(evictNode.cacheSlotState).isEqualTo(CacheSlotState.EVICT);
-    assertThat(evictNode.replicaId).isEqualTo(replicaId);
-    assertThat(evictNode.updatedTimeEpochMs).isGreaterThan(liveNode.updatedTimeEpochMs);
-    assertThat(evictNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    AtomicReference<CacheSlotMetadata> liveNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              liveNode.set(store.getSync(name));
+              return liveNode.get().cacheSlotState == CacheSlotState.LIVE;
+            });
+    assertThat(liveNode.get().name).isEqualTo(name);
+    assertThat(liveNode.get().cacheSlotState).isEqualTo(CacheSlotState.LIVE);
+    assertThat(liveNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(liveNode.get().updatedTimeEpochMs)
+        .isGreaterThan(cacheSlotMetadata.updatedTimeEpochMs);
+    assertThat(liveNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
-    uncachedStore
-        .updateNonFreeCacheSlotState(evictNode, CacheSlotState.FREE)
+    store
+        .updateNonFreeCacheSlotState(liveNode.get(), CacheSlotState.EVICT)
         .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata freeNode = uncachedStore.getSync(name);
-    assertThat(freeNode.name).isEqualTo(name);
-    assertThat(freeNode.cacheSlotState).isEqualTo(CacheSlotState.FREE);
-    assertThat(freeNode.replicaId).isEmpty();
-    assertThat(freeNode.updatedTimeEpochMs).isGreaterThan(evictNode.updatedTimeEpochMs);
-    assertThat(freeNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    AtomicReference<CacheSlotMetadata> evictNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              evictNode.set(store.getSync(name));
+              return evictNode.get().cacheSlotState == CacheSlotState.EVICT;
+            });
+    assertThat(evictNode.get().name).isEqualTo(name);
+    assertThat(evictNode.get().cacheSlotState).isEqualTo(CacheSlotState.EVICT);
+    assertThat(evictNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(evictNode.get().updatedTimeEpochMs).isGreaterThan(liveNode.get().updatedTimeEpochMs);
+    assertThat(evictNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store
+        .updateNonFreeCacheSlotState(evictNode.get(), CacheSlotState.FREE)
+        .get(1, TimeUnit.SECONDS);
+
+    AtomicReference<CacheSlotMetadata> freeNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              freeNode.set(store.getSync(name));
+              return freeNode.get().cacheSlotState == CacheSlotState.FREE;
+            });
+    assertThat(freeNode.get().name).isEqualTo(name);
+    assertThat(freeNode.get().cacheSlotState).isEqualTo(CacheSlotState.FREE);
+    assertThat(freeNode.get().replicaId).isEmpty();
+    assertThat(freeNode.get().updatedTimeEpochMs).isGreaterThan(evictNode.get().updatedTimeEpochMs);
+    assertThat(freeNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     // Only non-free states can be set.
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
-                uncachedStore
-                    .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
+                store
+                    .updateNonFreeCacheSlotState(freeNode.get(), CacheSlotState.ASSIGNED)
                     .get(1, TimeUnit.SECONDS));
   }
 
   @Test
   public void testCacheSlotStateWithReplica() throws Exception {
+    String hostname = "hostname";
     String name = "slot1";
     final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
@@ -205,45 +242,65 @@ public class CacheSlotMetadataStoreTest {
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
-    uncachedStore.createSync(cacheSlotMetadata);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
+    store.createSync(cacheSlotMetadata);
+    await().until(() -> store.listSync().size() == 1);
 
-    uncachedStore
+    store
         .updateCacheSlotStateStateWithReplicaId(cacheSlotMetadata, cacheSlotState, "")
         .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    final CacheSlotMetadata freeNode = uncachedStore.getSync(name);
-    assertThat(freeNode.name).isEqualTo(name);
-    assertThat(freeNode.cacheSlotState).isEqualTo(cacheSlotState);
-    assertThat(freeNode.replicaId).isEqualTo(emptyReplicaId);
-    assertThat(freeNode.updatedTimeEpochMs).isGreaterThan(updatedTimeEpochMs);
-    assertThat(freeNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    AtomicReference<CacheSlotMetadata> freeNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              freeNode.set(store.getSync(name));
+              return freeNode.get().cacheSlotState == cacheSlotState;
+            });
+    assertThat(freeNode.get().name).isEqualTo(name);
+    assertThat(freeNode.get().cacheSlotState).isEqualTo(cacheSlotState);
+    assertThat(freeNode.get().replicaId).isEqualTo(emptyReplicaId);
+    assertThat(freeNode.get().updatedTimeEpochMs).isGreaterThan(updatedTimeEpochMs);
+    assertThat(freeNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     final String replicaId = "1234";
-    uncachedStore
+    store
         .updateCacheSlotStateStateWithReplicaId(
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED, replicaId)
         .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    CacheSlotMetadata assignedNode = uncachedStore.getSync(name);
-    assertThat(assignedNode.name).isEqualTo(name);
-    assertThat(assignedNode.cacheSlotState)
-        .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED);
-    assertThat(assignedNode.replicaId).isEqualTo(replicaId);
-    assertThat(assignedNode.updatedTimeEpochMs).isGreaterThan(freeNode.updatedTimeEpochMs);
-    assertThat(assignedNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
-    uncachedStore
+    AtomicReference<CacheSlotMetadata> assignedNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              assignedNode.set(store.getSync(name));
+              return assignedNode.get().cacheSlotState == CacheSlotState.ASSIGNED;
+            });
+    assertThat(assignedNode.get().name).isEqualTo(name);
+    assertThat(assignedNode.get().cacheSlotState)
+        .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED);
+    assertThat(assignedNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(assignedNode.get().updatedTimeEpochMs)
+        .isGreaterThan(freeNode.get().updatedTimeEpochMs);
+    assertThat(assignedNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+
+    store
         .updateCacheSlotStateStateWithReplicaId(
             cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICT, replicaId)
         .get(1, TimeUnit.SECONDS);
-    assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
-    CacheSlotMetadata evictedNode = uncachedStore.getSync(name);
-    assertThat(evictedNode.name).isEqualTo(name);
-    assertThat(evictedNode.cacheSlotState)
+
+    AtomicReference<CacheSlotMetadata> evictedNode = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              evictedNode.set(store.getSync(name));
+              return evictedNode.get().cacheSlotState == CacheSlotState.EVICT;
+            });
+    assertThat(evictedNode.get().name).isEqualTo(name);
+    assertThat(evictedNode.get().cacheSlotState)
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.EVICT);
-    assertThat(evictedNode.replicaId).isEqualTo(replicaId);
-    assertThat(evictedNode.updatedTimeEpochMs).isGreaterThan(freeNode.updatedTimeEpochMs);
-    assertThat(evictedNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    assertThat(evictedNode.get().replicaId).isEqualTo(replicaId);
+    assertThat(evictedNode.get().updatedTimeEpochMs)
+        .isGreaterThan(freeNode.get().updatedTimeEpochMs);
+    assertThat(evictedNode.get().supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
   }
 }
