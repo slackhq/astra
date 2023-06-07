@@ -132,26 +132,30 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
     return () -> {
-      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getSync(slotName);
-      Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
+      try {
+        CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getSync(slotName);
+        Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
 
-      if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
-        LOG.info("Chunk - ASSIGNED received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
+        if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
+          LOG.info("Chunk - ASSIGNED received");
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
+          }
+          executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
+        } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
+          LOG.info("Chunk - EVICT received");
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
+          }
+          executorService.execute(this::handleChunkEviction);
         }
-        executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
-      } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
-        LOG.info("Chunk - EVICT received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
-        }
-        executorService.execute(this::handleChunkEviction);
+
+        cacheSlotLastKnownState = newSlotState;
+      } catch (Exception e) {
+        LOG.error("Error handling cache node listener", e);
       }
-
-      cacheSlotLastKnownState = newSlotState;
     };
   }
 

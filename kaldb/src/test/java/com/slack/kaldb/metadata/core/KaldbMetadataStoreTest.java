@@ -193,13 +193,6 @@ public class KaldbMetadataStoreTest {
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       store.createSync(metadata1);
 
-      await()
-          .until(
-              () -> {
-                List<TestMetadata> metadata = store.listSync();
-                return metadata.contains(metadata1) && metadata.size() == 1;
-              });
-
       // verify exceptions are thrown attempting to use cached methods
       assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
       assertThatExceptionOfType(UnsupportedOperationException.class)
@@ -216,7 +209,7 @@ public class KaldbMetadataStoreTest {
         super(
             curatorFramework,
             CreateMode.PERSISTENT,
-            false,
+            true,
             new JacksonModelSerializer<>(TestMetadata.class),
             "/persistent");
       }
@@ -227,7 +220,7 @@ public class KaldbMetadataStoreTest {
         super(
             curatorFramework,
             CreateMode.EPHEMERAL,
-            false,
+            true,
             new JacksonModelSerializer<>(TestMetadata.class),
             "/ephemeral");
       }

@@ -72,7 +72,7 @@ public class ChunkCleanerServiceTest {
             KaldbConfigUtil.makeIndexerConfig());
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
-    searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
+    searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), true);
     snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), true);
   }
 

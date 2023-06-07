@@ -119,8 +119,8 @@ public class KaldbIndexerTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
-    recoveryTaskStore = new RecoveryTaskMetadataStore(curatorFramework, false);
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    recoveryTaskStore = new RecoveryTaskMetadataStore(curatorFramework, true);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
     kafkaServer = new TestKafkaServer();
   }

@@ -318,8 +318,8 @@ public class IndexingChunkManager<T> extends ChunkManagerBase<T> {
   protected void startUp() throws Exception {
     LOG.info("Starting indexing chunk manager");
 
-    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
 
     stopIngestion = false;
   }

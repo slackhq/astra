@@ -27,12 +27,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.AsyncStage;
@@ -477,8 +477,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
     assertThat(mutatedCacheSlots.get(0).name).isEqualTo(cacheSlotFree.name);
     assertThat(mutatedCacheSlots.get(0).replicaId).isEqualTo(replicaMetadataList.get(3).name);
-
-    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSyncUncached())).isTrue();
+    await().until(replicaMetadataStore::listSync, replicaMetadataList::containsAll);
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
@@ -545,12 +544,18 @@ public class ReplicaAssignmentServiceTest {
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(0);
 
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(5);
-    assertThat(cacheSlotMetadataStore.listSyncUncached().size()).isEqualTo(3);
+    await()
+        .until(
+            replicaMetadataStore::listSync,
+            (replicaMetadata) ->
+                replicaMetadata.size() == 5 && replicaMetadataList.containsAll(replicaMetadata));
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (cacheSlotMetadata) ->
+                cacheSlotMetadata.size() == 3
+                    && cacheSlotMetadataList.containsAll(cacheSlotMetadata));
 
-    assertThat(cacheSlotMetadataList.containsAll(cacheSlotMetadataStore.listSyncUncached()))
-        .isTrue();
-    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSyncUncached())).isTrue();
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
     assertThat(
@@ -638,9 +643,6 @@ public class ReplicaAssignmentServiceTest {
     int assignments = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(assignments).isEqualTo(3);
 
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(6);
-    assertThat(cacheSlotMetadataStore.listSyncUncached().size()).isEqualTo(4);
-
     await()
         .until(
             () ->
@@ -662,15 +664,17 @@ public class ReplicaAssignmentServiceTest {
                                     Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
                         .count()
                     == 3);
-    assertThat(
-            replicaMetadataExpiredList.containsAll(
-                replicaMetadataStore.listSyncUncached().stream()
-                    .filter(
-                        replicaMetadata ->
-                            replicaMetadata.createdTimeEpochMs
-                                < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
-                    .collect(Collectors.toList())))
-        .isTrue();
+
+    await()
+        .until(
+            () ->
+                replicaMetadataExpiredList.containsAll(
+                    replicaMetadataStore.listSync().stream()
+                        .filter(
+                            replicaMetadata ->
+                                replicaMetadata.createdTimeEpochMs
+                                    < Instant.now().minus(1440, ChronoUnit.MINUTES).toEpochMilli())
+                        .toList()));
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
@@ -877,24 +881,27 @@ public class ReplicaAssignmentServiceTest {
     int firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
     assertThat(firstAssignment).isEqualTo(1);
 
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(cacheSlotMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(
-            cacheSlotMetadataStore.listSyncUncached().stream()
-                .filter(
-                    cacheSlotMetadata ->
-                        cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-                .count())
-        .isEqualTo(2);
-    assertThat(
-            cacheSlotMetadataStore.listSyncUncached().stream()
-                .filter(
-                    cacheSlotMetadata ->
-                        cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
-                .count())
-        .isEqualTo(1);
+    await().until(() -> replicaMetadataStore.listSync().size() == 2);
+
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (cacheSlotMetadataList) ->
+                cacheSlotMetadataList.size() == 3
+                    && cacheSlotMetadataList.stream()
+                            .filter(
+                                cacheSlotMetadata ->
+                                    cacheSlotMetadata.cacheSlotState.equals(
+                                        Metadata.CacheSlotMetadata.CacheSlotState.FREE))
+                            .count()
+                        == 2
+                    && cacheSlotMetadataList.stream()
+                            .filter(
+                                cacheSlotMetadata ->
+                                    cacheSlotMetadata.cacheSlotState.equals(
+                                        Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                            .count()
+                        == 1);
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
@@ -1031,16 +1038,17 @@ public class ReplicaAssignmentServiceTest {
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
-    await().until(() -> cacheSlotMetadataStore.listSync().size() == 3);
-    assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
-    assertThat(
-            cacheSlotMetadataStore.listSyncUncached().stream()
-                .filter(
-                    cacheSlotMetadata ->
-                        cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-                .count())
-        .isEqualTo(3);
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (cacheSlotMetadata) ->
+                cacheSlotMetadata.size() == 3
+                    && cacheSlotMetadata.stream()
+                        .allMatch(
+                            (metadata) ->
+                                metadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.FREE)));
+    await().until(() -> replicaMetadataStore.listSync().size() == 0);
 
     replicaAssignmentService.startAsync();
     replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
@@ -1155,7 +1163,7 @@ public class ReplicaAssignmentServiceTest {
                                     Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
                         .count()
                     == 2);
-    assertThat(replicaMetadataList.containsAll(replicaMetadataStore.listSyncUncached())).isTrue();
+    await().until(() -> replicaMetadataList.containsAll(replicaMetadataStore.listSync()));
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(0);
@@ -1236,9 +1244,14 @@ public class ReplicaAssignmentServiceTest {
                       == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
             });
 
-    List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSyncUncached();
-    assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
-    assertThat(assignedCacheSlot.get(0).supportedIndexTypes).containsAll(SUPPORTED_INDEX_TYPES);
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (metadata) -> Objects.equals(metadata.get(0).replicaId, newerReplicaMetadata.name));
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (metadata) -> metadata.get(0).supportedIndexTypes.containsAll(SUPPORTED_INDEX_TYPES));
   }
 
   @Test
@@ -1304,10 +1317,16 @@ public class ReplicaAssignmentServiceTest {
                       == Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
             });
 
-    List<CacheSlotMetadata> assignedCacheSlot = cacheSlotMetadataStore.listSyncUncached();
-    assertThat(assignedCacheSlot.get(0).replicaId).isEqualTo(newerReplicaMetadata.name);
-    assertThat(assignedCacheSlot.get(0).supportedIndexTypes)
-        .containsExactlyInAnyOrderElementsOf(suppportedIndexTypes);
-    assertThat(assignedCacheSlot.size()).isEqualTo(1);
+    await()
+        .until(
+            cacheSlotMetadataStore::listSync,
+            (cacheSlotMetadataList) ->
+                cacheSlotMetadataList.size() == 1
+                    && Objects.equals(
+                        cacheSlotMetadataList.get(0).replicaId, newerReplicaMetadata.name)
+                    && cacheSlotMetadataList
+                        .get(0)
+                        .supportedIndexTypes
+                        .containsAll(suppportedIndexTypes));
   }
 }

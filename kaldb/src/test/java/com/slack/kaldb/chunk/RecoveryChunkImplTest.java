@@ -93,7 +93,7 @@ public class RecoveryChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(
@@ -448,7 +448,7 @@ public class RecoveryChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
-      searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+      searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
           LuceneIndexStoreImpl.makeLogStore(

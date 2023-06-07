@@ -138,7 +138,6 @@ public class CacheSlotMetadataStoreTest {
   public void testNonFreeCacheSlotState() throws Exception {
     final String hostname = "hostname";
     final String name = "slot1";
-    final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
     final String replicaId = "3456";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
@@ -221,7 +220,6 @@ public class CacheSlotMetadataStoreTest {
   public void testCacheSlotStateWithReplica() throws Exception {
     String hostname = "hostname";
     String name = "slot1";
-    final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     String emptyReplicaId = "";
