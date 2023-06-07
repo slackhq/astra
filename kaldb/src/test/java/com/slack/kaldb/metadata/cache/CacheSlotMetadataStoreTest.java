@@ -58,18 +58,20 @@ public class CacheSlotMetadataStoreTest {
   @Test
   public void testGetAndUpdateNonFreeCacheSlotStateSync() throws Exception {
     final String name = "slot1";
+    final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
     final String replicaId = "3456";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     final CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
     uncachedStore.createSync(cacheSlotMetadata);
     assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
@@ -119,18 +121,20 @@ public class CacheSlotMetadataStoreTest {
   @Test
   public void testNonFreeCacheSlotState() throws Exception {
     final String name = "slot1";
+    final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
     final String replicaId = "3456";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
 
     final CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
     uncachedStore.createSync(cacheSlotMetadata);
     assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);
@@ -180,6 +184,7 @@ public class CacheSlotMetadataStoreTest {
   @Test
   public void testCacheSlotStateWithReplica() throws Exception {
     String name = "slot1";
+    final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     String emptyReplicaId = "";
@@ -187,12 +192,18 @@ public class CacheSlotMetadataStoreTest {
 
     final CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            name, cacheSlotState, emptyReplicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name,
+            cacheSlotState,
+            emptyReplicaId,
+            updatedTimeEpochMs,
+            SUPPORTED_INDEX_TYPES,
+            hostname);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(emptyReplicaId);
     assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
     assertThat(cacheSlotMetadata.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
+    assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
 
     uncachedStore.createSync(cacheSlotMetadata);
     assertThat(uncachedStore.listSyncUncached().size()).isEqualTo(1);

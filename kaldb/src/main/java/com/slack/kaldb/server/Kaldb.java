@@ -21,8 +21,8 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbDistributedQueryService;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.CloseableLifecycleManager;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
-import com.slack.kaldb.metadata.core.MetadataStoreLifecycleManager;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
@@ -198,7 +198,7 @@ public class Kaldb {
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
       services.add(
-          new MetadataStoreLifecycleManager(
+          new CloseableLifecycleManager(
               KaldbConfigs.NodeRole.QUERY,
               List.of(searchMetadataStore, snapshotMetadataStore, datasetMetadataStore)));
 
@@ -284,7 +284,7 @@ public class Kaldb {
       services.add(armeriaService);
 
       services.add(
-          new MetadataStoreLifecycleManager(
+          new CloseableLifecycleManager(
               KaldbConfigs.NodeRole.MANAGER,
               List.of(
                   replicaMetadataStore,
@@ -371,7 +371,7 @@ public class Kaldb {
 
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
       services.add(
-          new MetadataStoreLifecycleManager(
+          new CloseableLifecycleManager(
               KaldbConfigs.NodeRole.RECOVERY, List.of(datasetMetadataStore)));
 
       PreprocessorService preprocessorService =

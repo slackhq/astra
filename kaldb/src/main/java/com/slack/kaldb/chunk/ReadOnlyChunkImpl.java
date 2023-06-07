@@ -59,8 +59,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
-  private final SearchContext searchContext;
+  protected final SearchContext searchContext;
   protected final String slotName;
+  private final String slotId;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final CacheSlotMetadataStore cacheSlotListenerMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
@@ -95,13 +96,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore,
       ExecutorService executorService)
       throws Exception {
-    String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.executorService = executorService;
     this.searchContext = searchContext;
+    this.slotId = UUID.randomUUID().toString();
     this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
@@ -115,7 +116,8 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            List.of(Metadata.IndexType.LOGS_LUCENE9));
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
+            searchContext.hostname);
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
     this.cacheSlotListenerMetadataStore =
