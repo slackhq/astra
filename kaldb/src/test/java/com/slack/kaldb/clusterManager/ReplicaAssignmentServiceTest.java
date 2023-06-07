@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 public class ReplicaAssignmentServiceTest {
 
   private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
+  public static final String HOSTNAME = "hostname";
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -240,7 +241,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -309,7 +311,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
               replicaMetadataList.get(i).name,
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -321,7 +324,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -390,7 +394,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     unmutatedSlots.add(cacheSlotWithAssignment);
     cacheSlotMetadataStore.createAsync(cacheSlotWithAssignment);
 
@@ -400,7 +405,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
             replicaMetadataList.get(1).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     unmutatedSlots.add(cacheSlotLive);
     cacheSlotMetadataStore.createAsync(cacheSlotLive);
 
@@ -410,7 +416,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     unmutatedSlots.add(cacheSlotEvicting);
     cacheSlotMetadataStore.createAsync(cacheSlotEvicting);
 
@@ -420,7 +427,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotFree);
 
     await().until(() -> cacheSlotMetadataStore.listSync().size() == 4);
@@ -496,7 +504,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
               replicaMetadataList.get(i).name,
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -589,7 +598,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -678,7 +688,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -796,7 +807,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -894,7 +906,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -967,7 +980,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -1079,7 +1093,8 @@ public class ReplicaAssignmentServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -1162,7 +1177,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
 
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()
@@ -1229,7 +1245,8 @@ public class ReplicaAssignmentServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            suppportedIndexTypes);
+            suppportedIndexTypes,
+            HOSTNAME);
 
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()

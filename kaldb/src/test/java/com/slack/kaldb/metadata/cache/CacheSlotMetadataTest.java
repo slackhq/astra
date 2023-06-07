@@ -16,6 +16,7 @@ public class CacheSlotMetadataTest {
 
   @Test
   public void testCacheSlotMetadata() {
+    String hostname = "hostname";
     String name = "name";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
@@ -24,8 +25,9 @@ public class CacheSlotMetadataTest {
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
+    assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
@@ -34,6 +36,7 @@ public class CacheSlotMetadataTest {
 
   @Test
   public void testCacheSlotEqualsHashcode() {
+    String hostname = "hostname";
     String name = "name";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
@@ -42,30 +45,45 @@ public class CacheSlotMetadataTest {
 
     CacheSlotMetadata cacheSlot =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     CacheSlotMetadata cacheSlotDuplicate =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     CacheSlotMetadata cacheSlotDifferentState =
         new CacheSlotMetadata(
             name,
             Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
             replicaId,
             updatedTimeEpochMs,
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            hostname);
     CacheSlotMetadata cacheSlotDifferentReplicaId =
         new CacheSlotMetadata(
-            name, cacheSlotState, "321", updatedTimeEpochMs, SUPPORTED_INDEX_TYPES);
+            name, cacheSlotState, "321", updatedTimeEpochMs, SUPPORTED_INDEX_TYPES, hostname);
     CacheSlotMetadata cacheSlotDifferentUpdatedTime =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs + 1, SUPPORTED_INDEX_TYPES);
+            name,
+            cacheSlotState,
+            replicaId,
+            updatedTimeEpochMs + 1,
+            SUPPORTED_INDEX_TYPES,
+            hostname);
     CacheSlotMetadata cacheSlotDifferentSupportedIndexType =
         new CacheSlotMetadata(
             name,
             cacheSlotState,
             replicaId,
             updatedTimeEpochMs + 1,
-            List.of(LOGS_LUCENE9, LOGS_LUCENE9));
+            List.of(LOGS_LUCENE9, LOGS_LUCENE9),
+            hostname);
+    CacheSlotMetadata cacheSlotDifferentHostname =
+        new CacheSlotMetadata(
+            name,
+            cacheSlotState,
+            replicaId,
+            updatedTimeEpochMs,
+            SUPPORTED_INDEX_TYPES,
+            "hostname2");
 
     assertThat(cacheSlot.hashCode()).isEqualTo(cacheSlotDuplicate.hashCode());
     assertThat(cacheSlot).isEqualTo(cacheSlotDuplicate);
@@ -78,6 +96,8 @@ public class CacheSlotMetadataTest {
     assertThat(cacheSlot).isNotEqualTo(cacheSlotDifferentSupportedIndexType);
     assertThat(cacheSlot.hashCode()).isNotEqualTo(cacheSlotDifferentUpdatedTime.hashCode());
     assertThat(cacheSlot.hashCode()).isNotEqualTo(cacheSlotDifferentSupportedIndexType.hashCode());
+    assertThat(cacheSlot).isNotEqualTo(cacheSlotDifferentHostname);
+    assertThat(cacheSlot.hashCode()).isNotEqualTo(cacheSlotDifferentHostname.hashCode());
   }
 
   @Test
@@ -90,7 +110,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "123",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -99,7 +120,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
                     "",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -108,7 +130,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
                     "",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -117,7 +140,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
                     "",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -126,7 +150,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.LOADING,
                     "",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -135,7 +160,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.LIVE,
                     "",
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -144,7 +170,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     "",
                     0,
-                    SUPPORTED_INDEX_TYPES));
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () ->
@@ -153,8 +180,8 @@ public class CacheSlotMetadataTest {
                     Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                     null,
                     Instant.now().toEpochMilli(),
-                    SUPPORTED_INDEX_TYPES));
-
+                    SUPPORTED_INDEX_TYPES,
+                    "hostname"));
     assertThatIllegalArgumentException()
         .isThrownBy(
             () -> {
@@ -163,7 +190,19 @@ public class CacheSlotMetadataTest {
                   Metadata.CacheSlotMetadata.CacheSlotState.FREE,
                   "123",
                   100000,
-                  Collections.emptyList());
+                  Collections.emptyList(),
+                  "hostname");
+            });
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () -> {
+              new CacheSlotMetadata(
+                  "name",
+                  Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+                  "123",
+                  100000,
+                  SUPPORTED_INDEX_TYPES,
+                  "hostname");
             });
   }
 }

@@ -12,6 +12,7 @@ import java.util.List;
  * Make transitions more controlled via a state machine like API.
  */
 public class CacheSlotMetadata extends KaldbMetadata {
+  public final String hostname;
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
   public final long updatedTimeEpochMs;
@@ -22,8 +23,10 @@ public class CacheSlotMetadata extends KaldbMetadata {
       Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState,
       String replicaId,
       long updatedTimeEpochMs,
-      List<Metadata.IndexType> supportedIndexTypes) {
+      List<Metadata.IndexType> supportedIndexTypes,
+      String hostname) {
     super(name);
+    checkArgument(hostname != null && !hostname.isEmpty(), "Hostname cannot be null or empty");
     checkArgument(cacheSlotState != null, "Cache slot state cannot be null");
     checkArgument(updatedTimeEpochMs > 0, "Updated time must be greater than 0");
     checkArgument(
@@ -39,6 +42,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
           "If cache slot is not free, replicaId must not be empty");
     }
 
+    this.hostname = hostname;
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
     this.updatedTimeEpochMs = updatedTimeEpochMs;
@@ -48,12 +52,11 @@ public class CacheSlotMetadata extends KaldbMetadata {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof CacheSlotMetadata)) return false;
+    if (!(o instanceof CacheSlotMetadata that)) return false;
     if (!super.equals(o)) return false;
 
-    CacheSlotMetadata that = (CacheSlotMetadata) o;
-
     if (updatedTimeEpochMs != that.updatedTimeEpochMs) return false;
+    if (!hostname.equals(that.hostname)) return false;
     if (cacheSlotState != that.cacheSlotState) return false;
     if (!replicaId.equals(that.replicaId)) return false;
     return supportedIndexTypes.equals(that.supportedIndexTypes);
@@ -62,6 +65,7 @@ public class CacheSlotMetadata extends KaldbMetadata {
   @Override
   public int hashCode() {
     int result = super.hashCode();
+    result = 31 * result + hostname.hashCode();
     result = 31 * result + cacheSlotState.hashCode();
     result = 31 * result + replicaId.hashCode();
     result = 31 * result + (int) (updatedTimeEpochMs ^ (updatedTimeEpochMs >>> 32));
@@ -72,7 +76,10 @@ public class CacheSlotMetadata extends KaldbMetadata {
   @Override
   public String toString() {
     return "CacheSlotMetadata{"
-        + "cacheSlotState="
+        + "hostname='"
+        + hostname
+        + '\''
+        + ", cacheSlotState="
         + cacheSlotState
         + ", replicaId='"
         + replicaId

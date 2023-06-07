@@ -33,6 +33,9 @@ message CacheSlotMetadata {
 
   // Index types supported by cache slot.
   repeated IndexType supported_index_types = 5;
+
+  // Unique string identifying the host
+  string hostname = 6;
 }
 
 message ReplicaMetadata {

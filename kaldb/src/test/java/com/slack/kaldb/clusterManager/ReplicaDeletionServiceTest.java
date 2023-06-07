@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 
 public class ReplicaDeletionServiceTest {
   public static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
+  public static final String HOSTNAME = "hostname";
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -157,7 +158,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -215,7 +217,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataEvict =
@@ -224,7 +227,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.EVICT,
             replicaMetadataList.get(1).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvict);
 
     CacheSlotMetadata cacheSlotMetadataEvicting =
@@ -233,7 +237,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvicting);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 3);
@@ -290,7 +295,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -344,7 +350,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -425,7 +432,8 @@ public class ReplicaDeletionServiceTest {
               Metadata.CacheSlotMetadata.CacheSlotState.FREE,
               "",
               Instant.now().toEpochMilli(),
-              SUPPORTED_INDEX_TYPES);
+              SUPPORTED_INDEX_TYPES,
+              HOSTNAME);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -531,7 +539,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataUnassigned);
 
     CacheSlotMetadata cacheSlotMetadataAssigned =
@@ -540,7 +549,8 @@ public class ReplicaDeletionServiceTest {
             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
             replicaMetadataAssigned.name,
             Instant.now().toEpochMilli(),
-            SUPPORTED_INDEX_TYPES);
+            SUPPORTED_INDEX_TYPES,
+            HOSTNAME);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 2);
