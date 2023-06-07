@@ -72,8 +72,7 @@ public class ChunkCleanerServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
+    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework());
   }
 
   @AfterEach

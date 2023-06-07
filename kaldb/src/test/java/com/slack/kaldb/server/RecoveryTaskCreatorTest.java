@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
@@ -69,7 +70,7 @@ public class RecoveryTaskCreatorTest {
             .setSleepBetweenRetriesMs(500)
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
   }
 
@@ -700,7 +701,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final SnapshotMetadata partition11 =
@@ -968,7 +969,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1093,7 +1094,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1300,7 +1301,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1348,7 +1349,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1366,7 +1367,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new InternalMetadataStoreException(""))
         .doCallRealMethod()
         .when(snapshotMetadataStore)
-        .listSyncUncached();
+        .listSync();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
@@ -1399,7 +1400,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1451,7 +1452,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
@@ -1482,7 +1483,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new IllegalStateException())
         .when(snapshotMetadataStore)
         .deleteAsync(any(SnapshotMetadata.class));
-    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any(String.class));
+    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any());
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
@@ -1608,7 +1609,7 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
+    await().until(() -> snapshotMetadataStore.listSync().contains(partition1));
     assertThat(
             getHighestDurableOffsetForPartition(
                 snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))

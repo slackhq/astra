@@ -118,7 +118,7 @@ public class KaldbIndexerTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
     searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, false));
 

@@ -2,8 +2,12 @@ package com.slack.kaldb.metadata.snapshot;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.KaldbPartitionedMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
 
 /**
  * The SnapshotMetadata class contains all the metadata related to a snapshot.
@@ -18,7 +22,7 @@ import com.slack.kaldb.proto.metadata.Metadata;
  * for now, this should be fine. If this is inconvenient, consider adding a startOffset field also
  * here.
  */
-public class SnapshotMetadata extends KaldbMetadata {
+public class SnapshotMetadata extends KaldbPartitionedMetadata {
   public static final String LIVE_SNAPSHOT_PATH = "LIVE";
 
   public static boolean isLive(SnapshotMetadata snapshotMetadata) {
@@ -141,5 +145,23 @@ public class SnapshotMetadata extends KaldbMetadata {
         + ", indexType="
         + indexType
         + '}';
+  }
+
+  @Override
+  public String nodeName() {
+    return name;
+  }
+
+  @Override
+  public String getPartition() {
+    if (isLive(this)) {
+      return "LIVE";
+    } else {
+      ZonedDateTime snapshotTime = Instant.ofEpochMilli(startTimeEpochMs).atZone(ZoneOffset.UTC);
+      return String.format(
+          "%s_%s",
+          snapshotTime.getLong(ChronoField.EPOCH_DAY),
+          snapshotTime.getLong(ChronoField.HOUR_OF_DAY));
+    }
   }
 }

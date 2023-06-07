@@ -247,7 +247,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             .toCompletableFuture()
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     return snapshotMetadataStore
-        .getAsync(replicaMetadata.snapshotId)
+        .findAsync(replicaMetadata.snapshotId)
         .toCompletableFuture()
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }

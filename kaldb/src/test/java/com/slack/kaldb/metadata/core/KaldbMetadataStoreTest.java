@@ -189,8 +189,12 @@ public class KaldbMetadataStoreTest {
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       store.createSync(metadata1);
 
-      // do a non-cached list to ensure node has been persisted
-      assertThat(store.listSyncUncached()).containsExactly(metadata1);
+      await()
+          .until(
+              () -> {
+                List<TestMetadata> metadata = store.listSyncUncached();
+                return metadata.contains(metadata1) && metadata.size() == 1;
+              });
 
       // verify exceptions are thrown attempting to use cached methods
       assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
@@ -274,7 +278,7 @@ public class KaldbMetadataStoreTest {
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       KaldbMetadataStoreChangeListener<TestMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          (metadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -313,7 +317,7 @@ public class KaldbMetadataStoreTest {
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
       KaldbMetadataStoreChangeListener<TestMetadata> listener =
-          (testMetadata) -> counter.incrementAndGet();
+          (metadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);

@@ -55,7 +55,8 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     ModelSpec<T> modelSpec =
         ModelSpec.builder(modelSerializer)
             .withPath(zPath)
-            .withCreateOptions(Set.of(CreateOption.createParentsIfNeeded))
+            .withCreateOptions(
+                Set.of(CreateOption.createParentsIfNeeded, CreateOption.createParentsAsContainers))
             .withCreateMode(createMode)
             .build();
     modeledClient = ModeledFramework.wrap(curator, modelSpec);
@@ -93,6 +94,22 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   public T getSync(String path) {
     try {
       return getAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
+    }
+  }
+
+  public CompletionStage<Stat> hasAsync(String path) {
+    if (cachedModeledFramework != null) {
+      return cachedModeledFramework.withPath(zPath.resolved(path)).checkExists();
+    }
+    return modeledClient.withPath(zPath.resolved(path)).checkExists();
+  }
+
+  public boolean hasSync(String path) {
+    try {
+      return hasAsync(path).toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS)
+          != null;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error fetching node at path " + path, e);
     }
@@ -199,8 +216,11 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
     if (cachedModeledFramework != null) {
+      listenerMap.forEach(
+          ((kaldbMetadataStoreChangeListener, tModeledCacheListener) ->
+              cachedModeledFramework.listenable().removeListener(tModeledCacheListener)));
       cachedModeledFramework.close();
     }
   }

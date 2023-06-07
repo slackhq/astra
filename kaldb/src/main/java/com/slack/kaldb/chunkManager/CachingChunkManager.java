@@ -72,7 +72,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     LOG.info("Starting caching chunk manager");
 
     replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
     cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework, false);
 

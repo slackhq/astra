@@ -150,7 +150,7 @@ public class RecoveryTaskCreator {
       LOG.warn("PartitionId can't be null.");
     }
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
     List<SnapshotMetadata> snapshotsForPartition =
         snapshots.stream()
             .filter(

@@ -91,8 +91,7 @@ public class KaldbIndexer extends AbstractExecutionThreadService {
    */
   private long indexerPreStart() throws Exception {
     LOG.info("Starting Kaldb indexer pre start.");
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
         new RecoveryTaskMetadataStore(curatorFramework, false);
 
