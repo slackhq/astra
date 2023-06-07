@@ -339,6 +339,7 @@ public class ReadOnlyChunkImplTest {
             () ->
                 readOnlyChunk.getChunkMetadataState()
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
@@ -407,6 +408,7 @@ public class ReadOnlyChunkImplTest {
             () ->
                 readOnlyChunk.getChunkMetadataState()
                     == Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 1);
 
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 

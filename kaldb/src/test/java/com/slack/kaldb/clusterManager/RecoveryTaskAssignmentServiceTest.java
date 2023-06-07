@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -149,8 +150,8 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().isEmpty()).isTrue();
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().isEmpty()).isTrue();
+    await().until(() -> recoveryTaskMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryNodeMetadataStore.listSync().isEmpty());
 
     assertThat(
             MetricsUtil.getCount(
@@ -200,8 +201,8 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().isEmpty()).isTrue();
+    await().until(() -> recoveryTaskMetadataStore.listSync().size() == 3);
+    await().until(() -> recoveryNodeMetadataStore.listSync().isEmpty());
 
     assertThat(
             MetricsUtil.getCount(
@@ -278,18 +279,21 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().containsAll(ineligibleRecoveryNodes))
-        .isTrue();
-    assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
-                .filter(
-                    recoveryNodeMetadata ->
-                        recoveryNodeMetadata.recoveryNodeState.equals(
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
-                .count())
-        .isEqualTo(2);
+    await().until(() -> recoveryTaskMetadataStore.listSync().size() == 3);
+
+    await()
+        .until(
+            recoveryNodeMetadataStore::listSync,
+            (recoveryNodeMetadataList) ->
+                recoveryNodeMetadataList.size() == 3
+                    && recoveryNodeMetadataList.containsAll(ineligibleRecoveryNodes)
+                    && recoveryNodeMetadataList.stream()
+                            .filter(
+                                recoveryNodeMetadata ->
+                                    recoveryNodeMetadata.recoveryNodeState.equals(
+                                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
+                            .count()
+                        == 2);
 
     assertThat(
             MetricsUtil.getCount(
@@ -342,8 +346,8 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().isEmpty()).isTrue();
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(3);
+    await().until(() -> recoveryTaskMetadataStore.listSync().isEmpty());
+    await().until(() -> recoveryNodeMetadataStore.listSync().size() == 3);
 
     assertThat(
             MetricsUtil.getCount(
@@ -409,12 +413,16 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryTaskName)
-        .isEqualTo(oldTask.name);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryNodeState)
-        .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED);
+    await().until(() -> recoveryTaskMetadataStore.listSync().size() == 2);
+    await()
+        .until(
+            recoveryNodeMetadataStore::listSync,
+            (recoveryNodeMetadataList) ->
+                recoveryNodeMetadataList.size() == 1
+                    && Objects.equals(
+                        recoveryNodeMetadataList.get(0).recoveryTaskName, oldTask.name)
+                    && recoveryNodeMetadataList.get(0).recoveryNodeState
+                        == Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED);
 
     assertThat(
             MetricsUtil.getCount(
@@ -612,22 +620,24 @@ public class RecoveryTaskAssignmentServiceTest {
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
-                .filter(
-                    recoveryNodeMetadata ->
-                        recoveryNodeMetadata.recoveryNodeState.equals(
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
-                .count())
-        .isEqualTo(1);
-    assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
-                .filter(
-                    recoveryNodeMetadata ->
-                        recoveryNodeMetadata.recoveryNodeState.equals(
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
-                .count())
-        .isEqualTo(1);
+    await()
+        .until(
+            recoveryNodeMetadataStore::listSync,
+            (recoveryNodeMetadataList) ->
+                recoveryNodeMetadataList.stream()
+                            .filter(
+                                recoveryNodeMetadata ->
+                                    recoveryNodeMetadata.recoveryNodeState.equals(
+                                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
+                            .count()
+                        == 1
+                    && recoveryNodeMetadataList.stream()
+                            .filter(
+                                recoveryNodeMetadata ->
+                                    recoveryNodeMetadata.recoveryNodeState.equals(
+                                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
+                            .count()
+                        == 1);
 
     timeoutServiceExecutor.shutdown();
   }
@@ -696,22 +706,24 @@ public class RecoveryTaskAssignmentServiceTest {
                 RecoveryTaskAssignmentService.RECOVERY_TASK_ASSIGNMENT_TIMER, meterRegistry))
         .isEqualTo(1);
 
-    assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
-                .filter(
-                    recoveryNodeMetadata ->
-                        recoveryNodeMetadata.recoveryNodeState.equals(
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
-                .count())
-        .isEqualTo(1);
-    assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
-                .filter(
-                    recoveryNodeMetadata ->
-                        recoveryNodeMetadata.recoveryNodeState.equals(
-                            Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
-                .count())
-        .isEqualTo(1);
+    await()
+        .until(
+            recoveryNodeMetadataStore::listSync,
+            (recoveryNodeMetadataList) ->
+                recoveryNodeMetadataList.stream()
+                            .filter(
+                                recoveryNodeMetadata ->
+                                    recoveryNodeMetadata.recoveryNodeState.equals(
+                                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED))
+                            .count()
+                        == 1
+                    && recoveryNodeMetadataList.stream()
+                            .filter(
+                                recoveryNodeMetadata ->
+                                    recoveryNodeMetadata.recoveryNodeState.equals(
+                                        Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE))
+                            .count()
+                        == 1);
   }
 
   @Test
