@@ -125,7 +125,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onNext(
           ManagerApi.ListDatasetMetadataResponse.newBuilder()
               .addAllDatasetMetadata(
-                  datasetMetadataStore.listSyncUncached().stream()
+                  datasetMetadataStore.listSync().stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());

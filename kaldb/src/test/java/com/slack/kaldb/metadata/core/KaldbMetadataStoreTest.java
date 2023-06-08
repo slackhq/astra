@@ -114,7 +114,7 @@ public class KaldbMetadataStoreTest {
       store.createSync(metadata2);
 
       // do a non-cached list to ensure both are persisted
-      List<TestMetadata> metadataListUncached = store.listSyncUncached();
+      List<TestMetadata> metadataListUncached = KaldbMetadataTestUtils.listSyncUncached(store);
       assertThat(metadataListUncached).containsExactlyInAnyOrder(metadata1, metadata2);
 
       // check to see if the cache contains the elements as well
@@ -140,12 +140,12 @@ public class KaldbMetadataStoreTest {
 
       // delete a node by object reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata2);
-      assertThat(store.listSyncUncached()).containsExactly(metadata1);
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(store)).containsExactly(metadata1);
       assertThat(store.listSync()).containsExactly(metadata1);
 
       // delete a node by path reference, and ensure that list and cache both reflect the change
       store.deleteSync(metadata1.name);
-      assertThat(store.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(store)).isEmpty();
       assertThat(store.listSync()).isEmpty();
     }
   }
@@ -189,8 +189,12 @@ public class KaldbMetadataStoreTest {
       TestMetadata metadata1 = new TestMetadata("foo", "val1");
       store.createSync(metadata1);
 
-      // do a non-cached list to ensure node has been persisted
-      assertThat(store.listSyncUncached()).containsExactly(metadata1);
+      await()
+          .until(
+              () -> {
+                List<TestMetadata> metadata = KaldbMetadataTestUtils.listSyncUncached(store);
+                return metadata.contains(metadata1) && metadata.size() == 1;
+              });
 
       // verify exceptions are thrown attempting to use cached methods
       assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
@@ -231,7 +235,8 @@ public class KaldbMetadataStoreTest {
       persistentStore.createSync(metadata1);
 
       // do a non-cached list to ensure node has been persisted
-      assertThat(persistentStore.listSyncUncached()).containsExactly(metadata1);
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(persistentStore))
+          .containsExactly(metadata1);
     }
 
     TestMetadata metadata2 = new TestMetadata("foo", "val1");
@@ -240,7 +245,8 @@ public class KaldbMetadataStoreTest {
       ephemeralStore.createSync(metadata2);
 
       // do a non-cached list to ensure node has been persisted
-      assertThat(ephemeralStore.listSyncUncached()).containsExactly(metadata2);
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(ephemeralStore))
+          .containsExactly(metadata2);
     }
 
     // close curator, and then instantiate a new copy

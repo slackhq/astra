@@ -29,6 +29,7 @@ import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.schema.ChunkSchema;
@@ -109,8 +110,7 @@ public class ReadOnlyChunkImplTest {
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, false);
@@ -147,7 +147,7 @@ public class ReadOnlyChunkImplTest {
     assignReplicaToChunk(cacheSlotMetadataStore, replicaId, readOnlyChunk);
 
     // ensure that the chunk was marked LIVE
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
     assertThat(readOnlyChunk.getChunkMetadataState())
         .isEqualTo(Metadata.CacheSlotMetadata.CacheSlotState.LIVE);
 
@@ -239,8 +239,7 @@ public class ReadOnlyChunkImplTest {
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, false);
@@ -307,8 +306,7 @@ public class ReadOnlyChunkImplTest {
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, false);
@@ -375,8 +373,7 @@ public class ReadOnlyChunkImplTest {
 
     AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, false);
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
     CacheSlotMetadataStore cacheSlotMetadataStore =
         new CacheSlotMetadataStore(curatorFramework, false);
@@ -478,8 +475,7 @@ public class ReadOnlyChunkImplTest {
 
   private void initializeZkSnapshot(AsyncCuratorFramework curatorFramework, String snapshotId)
       throws Exception {
-    SnapshotMetadataStore snapshotMetadataStore =
-        new SnapshotMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
     snapshotMetadataStore.createSync(
         new SnapshotMetadata(
             snapshotId,

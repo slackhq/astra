@@ -26,6 +26,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -73,9 +74,10 @@ public class IndexingChunkImplTest {
       SnapshotMetadataStore snapshotMetadataStore,
       SearchMetadataStore searchMetadataStore,
       ReadWriteChunk<LogMessage> chunk) {
-    assertThat(snapshotMetadataStore.listSyncUncached())
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
         .containsOnly(ChunkInfo.toSnapshotMetadata(chunk.info(), LIVE_SNAPSHOT_PREFIX));
-    final List<SearchMetadata> beforeSearchNodes = searchMetadataStore.listSyncUncached();
+    final List<SearchMetadata> beforeSearchNodes =
+        KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(beforeSearchNodes.size()).isEqualTo(1);
     assertThat(beforeSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(beforeSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -111,7 +113,7 @@ public class IndexingChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, false);
+          new SnapshotMetadataStore(curatorFramework, true);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -458,7 +460,7 @@ public class IndexingChunkImplTest {
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
       SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, false);
+          new SnapshotMetadataStore(curatorFramework, true);
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -542,7 +544,7 @@ public class IndexingChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -565,9 +567,11 @@ public class IndexingChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
       closeChunk = true;
-      List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSyncUncached();
+      List<SnapshotMetadata> snapshotNodes =
+          KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
       assertThat(snapshotNodes.size()).isEqualTo(1);
-      List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
+      List<SearchMetadata> searchNodes =
+          KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
       assertThat(searchNodes.size()).isEqualTo(1);
     }
 
@@ -626,13 +630,15 @@ public class IndexingChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
+      List<SnapshotMetadata> afterSnapshots =
+          KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
       assertThat(afterSnapshots.get(0).maxOffset).isEqualTo(0);
       assertThat(afterSnapshots.get(0).snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
+      List<SearchMetadata> afterSearchNodes =
+          KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -703,7 +709,8 @@ public class IndexingChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
+      List<SnapshotMetadata> afterSnapshots =
+          KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
       assertThat(afterSnapshots.size()).isEqualTo(2);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       SnapshotMetadata liveSnapshot =
@@ -715,7 +722,8 @@ public class IndexingChunkImplTest {
       assertThat(liveSnapshot.maxOffset).isEqualTo(offset - 1);
       assertThat(liveSnapshot.snapshotPath).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
-      List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
+      List<SearchMetadata> afterSearchNodes =
+          KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
       assertThat(afterSearchNodes.size()).isEqualTo(1);
       assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
       assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));

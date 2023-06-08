@@ -30,6 +30,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -104,7 +105,7 @@ public class RecoveryChunkManagerTest {
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
   }
 
   @AfterEach
@@ -175,8 +176,8 @@ public class RecoveryChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration. No metadata registration until rollover.
-    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
 
     // Search query
     SearchQuery searchQuery =
@@ -279,8 +280,9 @@ public class RecoveryChunkManagerTest {
     assertThat(getCount(ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_COMPLETED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
+    List<SnapshotMetadata> snapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(snapshots.get(0).startTimeEpochMs)
         .isEqualTo(messages.get(0).getTimestamp().toEpochMilli());
@@ -350,12 +352,13 @@ public class RecoveryChunkManagerTest {
     testChunkManagerSearch(chunkManager, "Message100", 1);
 
     // Check metadata.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(0);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isZero();
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
+    List<SearchMetadata> searchNodes = KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(searchNodes).isEmpty();
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .isEmpty();
@@ -395,12 +398,13 @@ public class RecoveryChunkManagerTest {
                     MessageUtil.makeMessage(1000), 100, TEST_KAFKA_PARTITION_ID, 1000));
 
     // Check metadata.
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(0);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isZero();
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
+    List<SearchMetadata> searchNodes = KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(searchNodes).isEmpty();
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .isEmpty();

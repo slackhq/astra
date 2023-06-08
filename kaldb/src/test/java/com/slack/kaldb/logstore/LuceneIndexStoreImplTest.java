@@ -528,12 +528,15 @@ public class LuceneIndexStoreImplTest {
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(100);
       assertThat(getCount(MESSAGES_FAILED_COUNTER, testLogStore.metricsRegistry)).isEqualTo(0);
-      assertThat(getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry))
-          .isGreaterThanOrEqualTo(1)
-          .isLessThanOrEqualTo(3);
-      assertThat(getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry))
-          .isGreaterThanOrEqualTo(1)
-          .isLessThanOrEqualTo(3);
+
+      await()
+          .until(
+              () -> getTimerCount(REFRESHES_TIMER, testLogStore.metricsRegistry),
+              (value) -> value >= 1 && value <= 3);
+      await()
+          .until(
+              () -> getTimerCount(COMMITS_TIMER, testLogStore.metricsRegistry),
+              (value) -> value >= 1 && value <= 3);
     }
   }
 }
