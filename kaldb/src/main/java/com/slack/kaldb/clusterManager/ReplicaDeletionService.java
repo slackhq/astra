@@ -7,6 +7,7 @@ import static com.slack.kaldb.util.TimeUtils.nanosToMillis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
@@ -98,20 +99,23 @@ public class ReplicaDeletionService extends AbstractScheduledService {
     Timer.Sample deleteTimer = Timer.start(meterRegistry);
 
     Set<String> replicaIdsWithAssignments =
-        cacheSlotMetadataStore.getCached().stream()
+        cacheSlotMetadataStore.listSync().stream()
             .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
             .collect(Collectors.toUnmodifiableSet());
 
     AtomicInteger successCounter = new AtomicInteger(0);
     List<ListenableFuture<?>> replicaDeletions =
-        replicaMetadataStore.getCached().stream()
+        replicaMetadataStore.listSync().stream()
             .filter(
                 replicaMetadata ->
                     replicaMetadata.expireAfterEpochMs < deleteOlderThan.toEpochMilli()
                         && !replicaIdsWithAssignments.contains(replicaMetadata.name))
             .map(
                 (replicaMetadata) -> {
-                  ListenableFuture<?> future = replicaMetadataStore.delete(replicaMetadata);
+                  // todo - consider refactoring this to return a completable future instead
+                  ListenableFuture<?> future =
+                      JdkFutureAdapters.listenInPoolThread(
+                          replicaMetadataStore.deleteAsync(replicaMetadata).toCompletableFuture());
                   addCallback(
                       future,
                       FutureUtils.successCountingCallback(successCounter),

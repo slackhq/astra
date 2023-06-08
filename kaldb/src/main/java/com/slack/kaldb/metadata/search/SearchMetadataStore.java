@@ -1,22 +1,26 @@
 package com.slack.kaldb.metadata.search;
 
-import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.slack.kaldb.metadata.core.KaldbMetadataStore;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.data.Stat;
 
-public class SearchMetadataStore extends EphemeralMutableMetadataStore<SearchMetadata> {
+public class SearchMetadataStore extends KaldbMetadataStore<SearchMetadata> {
   public static final String SEARCH_METADATA_STORE_ZK_PATH = "/search";
 
-  private static final Logger LOG = LoggerFactory.getLogger(SearchMetadataStore.class);
-
-  public SearchMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
+  public SearchMetadataStore(AsyncCuratorFramework curatorFramework, boolean shouldCache)
+      throws Exception {
     super(
+        curatorFramework,
+        CreateMode.EPHEMERAL,
         shouldCache,
-        false,
-        SEARCH_METADATA_STORE_ZK_PATH,
-        metadataStore,
-        new SearchMetadataSerializer(),
-        LOG);
+        new SearchMetadataSerializer().toModelSerializer(),
+        SEARCH_METADATA_STORE_ZK_PATH);
+  }
+
+  @Override
+  public AsyncStage<Stat> updateAsync(SearchMetadata metadataNode) {
+    throw new UnsupportedOperationException("Updates are not permitted for search metadata");
   }
 }

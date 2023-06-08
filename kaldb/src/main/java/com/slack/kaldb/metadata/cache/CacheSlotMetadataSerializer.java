@@ -14,7 +14,8 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
             cacheSlotMetadataProto.getCacheSlotState().name()),
         cacheSlotMetadataProto.getReplicaId(),
         cacheSlotMetadataProto.getUpdatedTimeEpochMs(),
-        cacheSlotMetadataProto.getSupportedIndexTypesList());
+        cacheSlotMetadataProto.getSupportedIndexTypesList(),
+        cacheSlotMetadataProto.getHostname());
   }
 
   private static Metadata.CacheSlotMetadata toCacheSlotMetadataProto(CacheSlotMetadata metadata) {
@@ -24,6 +25,7 @@ public class CacheSlotMetadataSerializer implements MetadataSerializer<CacheSlot
         .setCacheSlotState(metadata.cacheSlotState)
         .setUpdatedTimeEpochMs(metadata.updatedTimeEpochMs)
         .addAllSupportedIndexTypes(metadata.supportedIndexTypes)
+        .setHostname(metadata.hostname)
         .build();
   }
 

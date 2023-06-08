@@ -16,6 +16,7 @@ public class CacheSlotMetadataSerializerTest {
   @Test
   public void testCacheSlotMetadataSerializer() throws InvalidProtocolBufferException {
     String name = "name";
+    String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
     String replicaId = "123";
@@ -24,7 +25,7 @@ public class CacheSlotMetadataSerializerTest {
 
     CacheSlotMetadata cacheSlotMetadata =
         new CacheSlotMetadata(
-            name, cacheSlotState, replicaId, updatedTimeEpochMs, supportedIndexTypes);
+            name, cacheSlotState, replicaId, updatedTimeEpochMs, supportedIndexTypes, hostname);
 
     String serializedCacheSlotMetadata = serDe.toJsonStr(cacheSlotMetadata);
     assertThat(serializedCacheSlotMetadata).isNotEmpty();
@@ -34,6 +35,7 @@ public class CacheSlotMetadataSerializerTest {
     assertThat(deserializedCacheSlotMetadata).isEqualTo(cacheSlotMetadata);
 
     assertThat(deserializedCacheSlotMetadata.name).isEqualTo(name);
+    assertThat(deserializedCacheSlotMetadata.hostname).isEqualTo(hostname);
     assertThat(deserializedCacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(deserializedCacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(deserializedCacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);

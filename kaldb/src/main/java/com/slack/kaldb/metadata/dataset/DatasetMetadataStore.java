@@ -1,23 +1,19 @@
 package com.slack.kaldb.metadata.dataset;
 
-import com.slack.kaldb.metadata.core.PersistentMutableMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.slack.kaldb.metadata.core.KaldbMetadataStore;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.zookeeper.CreateMode;
 
-public class DatasetMetadataStore extends PersistentMutableMetadataStore<DatasetMetadata> {
+public class DatasetMetadataStore extends KaldbMetadataStore<DatasetMetadata> {
   // TODO: The path should be dataset, but leaving it as /service for backwards compatibility.
   public static final String DATASET_METADATA_STORE_ZK_PATH = "/service";
 
-  private static final Logger LOG = LoggerFactory.getLogger(DatasetMetadataStore.class);
-
-  public DatasetMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
+  public DatasetMetadataStore(AsyncCuratorFramework curator, boolean shouldCache) throws Exception {
     super(
+        curator,
+        CreateMode.PERSISTENT,
         shouldCache,
-        true,
-        DATASET_METADATA_STORE_ZK_PATH,
-        metadataStore,
-        new DatasetMetadataSerializer(),
-        LOG);
+        new DatasetMetadataSerializer().toModelSerializer(),
+        DATASET_METADATA_STORE_ZK_PATH);
   }
 }

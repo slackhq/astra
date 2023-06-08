@@ -18,18 +18,18 @@
         <uberjar.name>kaldb</uberjar.name>
         <http.client.version>4.5.14</http.client.version>
         <http.core.version>4.4.16</http.core.version>
-        <protobuf.version>3.23.1</protobuf.version>
+        <protobuf.version>3.23.2</protobuf.version>
         <grpc.version>1.55.1</grpc.version>
         <micrometer.version>1.11.0</micrometer.version>
         <armeria.version>1.23.1</armeria.version>
         <kafka.version>3.4.0</kafka.version>
-        <jackson.version>2.15.1</jackson.version>
+        <jackson.version>2.15.2</jackson.version>
         <jackson.databind.version>2.15.1</jackson.databind.version>
         <lucene.version>9.5.0</lucene.version>
         <opensearch.version>2.7.0</opensearch.version>
         <curator.version>5.4.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
-        <aws.sdk.version>2.20.67</aws.sdk.version>
+        <aws.sdk.version>2.20.77</aws.sdk.version>
         <error.prone.version>2.16</error.prone.version>
     </properties>
 
@@ -121,6 +121,11 @@
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
+            <version>${curator.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-x-async</artifactId>
             <version>${curator.version}</version>
         </dependency>
         <dependency>
@@ -374,6 +379,11 @@
             <artifactId>junit-jupiter-api</artifactId>
             <version>5.9.1</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.9.3</version>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>

@@ -1,1633 +1,387 @@
 package com.slack.kaldb.metadata.core;
 
-import static com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore.SNAPSHOT_METADATA_STORE_ZK_PATH;
-import static com.slack.kaldb.metadata.zookeeper.ZookeeperCachedMetadataStoreImpl.CACHE_ERROR_COUNTER;
-import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
-import static com.slack.kaldb.testlib.MetricsUtil.getCount;
-import static com.slack.kaldb.testlib.ZkUtils.closeZookeeperClientConnection;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.awaitility.Awaitility.await;
 
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
-import com.slack.kaldb.metadata.snapshot.SnapshotMetadataSerializer;
-import com.slack.kaldb.metadata.zookeeper.InternalMetadataStoreException;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.NoNodeException;
-import com.slack.kaldb.metadata.zookeeper.NodeExistsException;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
-import com.slack.kaldb.util.CountingFatalErrorHandler;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
-import org.apache.zookeeper.ZooKeeper;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.modeled.JacksonModelSerializer;
+import org.apache.curator.x.async.modeled.ModelSerializer;
+import org.apache.zookeeper.CreateMode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class KaldbMetadataStoreTest {
-  private static final SnapshotMetadata ROOT_SNAPSHOT = makeSnapshot("defaultRootSnapshot");
-  private static final SnapshotMetadataSerializer snapshotMetadataSerializer =
-      new SnapshotMetadataSerializer();
 
-  static SnapshotMetadata makeSnapshot(String name) {
-    return makeSnapshot(name, 100);
+  private TestingServer testingServer;
+  private MeterRegistry meterRegistry;
+
+  private AsyncCuratorFramework curatorFramework;
+
+  private KaldbConfigs.ZookeeperConfig zookeeperConfig;
+
+  @BeforeEach
+  public void setUp() throws Exception {
+    meterRegistry = new SimpleMeterRegistry();
+    // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
+    // flaky.
+    testingServer = new TestingServer();
+
+    zookeeperConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("Test")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(500)
+            .build();
+    this.curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
   }
 
-  static SnapshotMetadata makeSnapshot(String name, long maxOffset) {
-    final String snapshotPath = "s3://snapshots/path";
-    final long startTimeUtc = 12345;
-    final long endTimeUtc = 123456;
-    final String partitionId = "1";
-
-    return new SnapshotMetadata(
-        name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
+  @AfterEach
+  public void tearDown() throws Exception {
+    curatorFramework.unwrap().close();
+    testingServer.close();
+    meterRegistry.close();
   }
 
-  @Nested
-  public class TestPersistentCreatableUpdatableCacheableMetadataStore {
-    private ZooKeeper zooKeeper;
+  private static class TestMetadata extends KaldbMetadata {
+    private String value;
 
-    private class DummyPersistentCreatableUpdatableCacheableMetadataStore
-        extends PersistentMutableMetadataStore<SnapshotMetadata> {
-      public DummyPersistentCreatableUpdatableCacheableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
+    @JsonCreator
+    public TestMetadata(@JsonProperty("name") String name, @JsonProperty("value") String value) {
+      super(name);
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+
+    public void setValue(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof TestMetadata)) return false;
+      if (!super.equals(o)) return false;
+
+      TestMetadata metadata = (TestMetadata) o;
+
+      return value.equals(metadata.value);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = super.hashCode();
+      result = 31 * result + value.hashCode();
+      return result;
+    }
+  }
+
+  private static final String STORE_FOLDER = "/testMetadata";
+
+  @Test
+  public void testCrudOperations() {
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            true,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
       }
     }
 
-    private final Logger LOG =
-        LoggerFactory.getLogger(DummyPersistentCreatableUpdatableCacheableMetadataStore.class);
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      // create two metadata
+      TestMetadata metadata1 = new TestMetadata("foo", "val1");
+      TestMetadata metadata2 = new TestMetadata("bar", "val2");
+      store.createSync(metadata1);
+      store.createSync(metadata2);
 
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyPersistentCreatableUpdatableCacheableMetadataStore store;
-    private int expectedCacheErrorCounter = 0;
+      // do a non-cached list to ensure both are persisted
+      List<TestMetadata> metadataListUncached = store.listSyncUncached();
+      assertThat(metadataListUncached).containsExactlyInAnyOrder(metadata1, metadata2);
 
-    @BeforeEach
-    public void setUp() throws Exception {
-      expectedCacheErrorCounter = 0;
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
-      this.store =
-          new DummyPersistentCreatableUpdatableCacheableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-      zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
-    }
+      // check to see if the cache contains the elements as well
+      await().until(() -> store.listSync().containsAll(List.of(metadata1, metadata2)));
 
-    @AfterEach
-    public void tearDown() throws IOException {
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
+      // update the value of one of the nodes
+      String updatedValue = "updatedVal1";
+      metadata1.setValue(updatedValue);
+      store.updateSync(metadata1);
 
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
+      // check that the node was updated using both a sync get, and checking the cache as well
+      await().until(() -> Objects.equals(store.getSync(metadata1.name).getValue(), updatedValue));
 
-    @Test
-    public void testCreateGetDelete() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshotId";
-      final String snapshotPath = "s3://snapshots/path";
-      final long startTimeUtc = 12345;
-      final long endTimeUtc = 123456;
-      final long maxOffset = 100;
-      final String partitionId = "1";
+      await()
+          .until(
+              () ->
+                  store.listSync().stream()
+                      .filter(instance -> instance.name.equals("foo"))
+                      .findFirst()
+                      .get()
+                      .getValue()
+                      .equals(updatedValue));
 
-      final SnapshotMetadata snapshot =
-          new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
+      // delete a node by object reference, and ensure that list and cache both reflect the change
+      store.deleteSync(metadata2);
+      assertThat(store.listSyncUncached()).containsExactly(metadata1);
+      assertThat(store.listSync()).containsExactly(metadata1);
 
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot);
-
-      SnapshotMetadata metadata = store.getNode(name).get();
-      assertThat(metadata.name).isEqualTo(name);
-      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
-      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-      assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-      final SnapshotMetadata newSnapshot =
-          new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc + 1,
-              endTimeUtc + 1,
-              maxOffset + 100,
-              partitionId,
-              LOGS_LUCENE9);
-      assertThat(store.update(newSnapshot).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(newSnapshot);
-      SnapshotMetadata newMetadata = store.getNode(name).get();
-      assertThat(newMetadata.name).isEqualTo(name);
-      assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(newMetadata.snapshotId).isEqualTo(name);
-      assertThat(newMetadata.startTimeEpochMs).isEqualTo(startTimeUtc + 1);
-      assertThat(newMetadata.endTimeEpochMs).isEqualTo(endTimeUtc + 1);
-      assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
-      assertThat(newMetadata.partitionId).isEqualTo(partitionId);
-
-      assertThat(store.delete(name).get()).isNull();
-      assertThat(store.list().get()).isEmpty();
-    }
-
-    @Test
-    public void testMultipleCreates() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      assertThat(store.update(newSnapshot1).get()).isNull();
-      assertThat(store.list().get()).containsOnly(newSnapshot1, snapshot2);
-
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(newSnapshot1);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
-    }
-
-    @Test
-    public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshotId";
-      final String snapshotPath = "s3://snapshots/path";
-      final long startTimeUtc = 12345;
-      final long endTimeUtc = 123456;
-      final long maxOffset = 100;
-      final String partitionId = "1";
-
-      final SnapshotMetadata testSnapshot =
-          new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
-      assertThat(store.create(testSnapshot).get()).isNull();
-
-      SnapshotMetadata metadata = store.getNode(name).get();
-      assertThat(metadata.name).isEqualTo(name);
-      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
-      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-      assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-      Throwable duplicateCreateEx = catchThrowable(() -> store.create(testSnapshot).get());
-      assertThat(duplicateCreateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name).get()).isNull();
-
-      Throwable getMissingNodeEx = catchThrowable(() -> store.getNode(name).get());
-      assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-
-      Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
-      assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-    }
-
-    @Test
-    public void testSyncStoreOperationsOnStoppedServer()
-        throws IOException, NoSuchFieldException, IllegalAccessException {
-      assertThat(store.listSync().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      store.createSync(snapshot1);
-      assertThat(store.listSync()).containsOnly(snapshot1);
-      assertThat(store.listSync().size()).isEqualTo(1);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      store.createSync(snapshot2);
-      assertThat(store.listSync()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot2);
-
-      SnapshotMetadata snapshot21 = makeSnapshot(name2, 100000);
-      store.updateSync(snapshot21);
-      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
-      assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
-
-      store.deleteSync(snapshot21);
-      assertThat(store.listSync()).containsOnly(snapshot1);
-
-      store.deleteSync(name1);
+      // delete a node by path reference, and ensure that list and cache both reflect the change
+      store.deleteSync(metadata1.name);
+      assertThat(store.listSyncUncached()).isEmpty();
       assertThat(store.listSync()).isEmpty();
-
-      // Stop the ZK server
-      testingServer.stop();
-
-      // store.createSync(snapshot1);
-      Throwable createEx = catchThrowable(() -> store.createSync(snapshot1));
-      assertThat(createEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
-      assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot21));
-      assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
-      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable listEx = catchThrowable(() -> store.listSync());
-      assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable getEx = catchThrowable(() -> store.getNodeSync(name1));
-      assertThat(getEx).isInstanceOf(InternalMetadataStoreException.class);
-      closeZookeeperClientConnection(zooKeeper);
-    }
-
-    @Test
-    public void testStoreOperationsOnStoppedServer()
-        throws ExecutionException, InterruptedException, IOException, NoSuchFieldException,
-            IllegalAccessException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.list().get().size()).isEqualTo(1);
-
-      // Stop the ZK server
-      testingServer.stop();
-
-      Throwable createEx = catchThrowable(() -> store.create(snapshot1).get());
-      assertThat(createEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable updateEx = catchThrowable(() -> store.update(snapshot1).get());
-      assertThat(updateEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable listEx = catchThrowable(() -> store.list().get());
-      assertThat(listEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-      closeZookeeperClientConnection(zooKeeper);
-    }
-
-    @Test
-    public void testNotificationFiresOnCreate() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void testNotificationFiresOnDataChange()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 30000);
-
-      assertThat(store.update(newSnapshot1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().contains(newSnapshot1));
-      assertThat(store.getCached()).containsOnly(newSnapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(newSnapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void testNotificationFiresOnRemove() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      assertThat(store.delete(name1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(ROOT_SNAPSHOT);
-      assertThat(store.list().get().isEmpty()).isTrue();
-      assertThat(notificationCounter.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void testMultipleWatchersOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener testListener1 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(testListener1);
-
-      final CountDownLatch notificationCountDownLatch2 = new CountDownLatch(1);
-      final KaldbMetadataStoreChangeListener testListener2 =
-          () -> {
-            notificationCountDownLatch2.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(testListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      notificationCountDownLatch2.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(2);
-    }
-
-    @Test
-    public void testThrowingListenerOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final KaldbMetadataStoreChangeListener throwingListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-            throw new RuntimeException("test exception");
-          };
-      store.addListener(throwingListener);
-
-      final KaldbMetadataStoreChangeListener regularListener2 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(3);
-    }
-
-    @Test
-    public void testRemoveListenerOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final KaldbMetadataStoreChangeListener regularListener2 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      await().until(() -> store.getCached().contains(snapshot2));
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(2);
-
-      // Remove listener
-      store.removeListener(regularListener2);
-      assertThat(store.delete(name2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(3);
-
-      Throwable getEx = catchThrowable(() -> store.getNode(name2).get());
-      assertThat(getEx.getCause()).isInstanceOf(NoNodeException.class);
-    }
-
-    @Test
-    @Disabled // flakey test
-    public void testCorruptZkMetadata() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(2);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      // Corrupt the metadata store.
-      assertThat(zkMetadataStore.put("/snapshot/" + name1, "corrupt").get()).isNull();
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCounter);
-
-      // Get throws exception but store is fine.
-      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(null, snapshot2);
-      expectedCacheErrorCounter = 1;
     }
   }
 
-  @Nested
-  public class TestPersistentCreatableCacheableMetadataStore {
-    private class DummyPersistentCreatableCacheableMetadataStore
-        extends PersistentMutableMetadataStore<SnapshotMetadata> {
-      public DummyPersistentCreatableCacheableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void testDuplicateCreate() {
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            true,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
       }
     }
 
-    private final Logger LOG =
-        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
-
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyPersistentCreatableCacheableMetadataStore store;
-
-    @BeforeEach
-    public void setUp() throws Exception {
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
-      this.store =
-          new DummyPersistentCreatableCacheableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-    }
-
-    @AfterEach
-    public void tearDown() throws IOException {
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
-
-    @Test
-    public void testCrudOperations() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-
-      // Updates throw an exception.
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
-      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      TestMetadata metadata1 = new TestMetadata("foo", "val1");
+      store.createSync(metadata1);
+      assertThatExceptionOfType(InternalMetadataStoreException.class)
+          .isThrownBy(() -> store.createSync(metadata1));
     }
   }
 
-  @Nested
-  public class TestPersistentCreatableMetadataStore {
-    private class DummyPersistentCreatableMetadataStore
-        extends PersistentMutableMetadataStore<SnapshotMetadata> {
-      public DummyPersistentCreatableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void testUncachedStoreAttemptingCacheOperations() {
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            false,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
       }
     }
 
-    private final Logger LOG =
-        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      // create metadata
+      TestMetadata metadata1 = new TestMetadata("foo", "val1");
+      store.createSync(metadata1);
 
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyPersistentCreatableMetadataStore store;
+      // do a non-cached list to ensure node has been persisted
+      assertThat(store.listSyncUncached()).containsExactly(metadata1);
 
-    @BeforeEach
-    public void setUp() throws Exception {
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      this.store =
-          new DummyPersistentCreatableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-    }
-
-    @AfterEach
-    public void tearDown() throws IOException {
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
-
-    @Test
-    public void testCrudOperationsAndCache() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      // Caching is disabled.
-      Throwable getCacheEx = catchThrowable(() -> store.getCached());
-      assertThat(getCacheEx).isInstanceOf(UnsupportedOperationException.class);
-
-      // Updates throw an exception.
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
-      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      // All cache operations are disabled.
-      Throwable getCacheEx2 = catchThrowable(() -> store.getCached());
-      KaldbMetadataStoreChangeListener listener = () -> {};
-      assertThat(getCacheEx2).isInstanceOf(UnsupportedOperationException.class);
-      Throwable addListenerEx = catchThrowable(() -> store.addListener(listener));
-      assertThat(addListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      Throwable removeListenerEx = catchThrowable(() -> store.removeListener(listener));
-      assertThat(removeListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      // store.close() works and is idempotent when cache is disabled.
-      store.close();
-      store.close();
-
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+      // verify exceptions are thrown attempting to use cached methods
+      assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
+      assertThatExceptionOfType(UnsupportedOperationException.class)
+          .isThrownBy(() -> store.addListener(() -> {}));
+      assertThatExceptionOfType(UnsupportedOperationException.class)
+          .isThrownBy(() -> store.removeListener(() -> {}));
     }
   }
 
-  public static class TestEphemeralCreatableUpdatableCacheableMetadataStore {
-    private ZooKeeper zooKeeper;
-
-    private static class DummyEphemeralCreatableUpdatableCacheableMetadataStore
-        extends EphemeralMutableMetadataStore<SnapshotMetadata> {
-      public DummyEphemeralCreatableUpdatableCacheableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(true, true, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void testEphemeralNodeBehavior() {
+    class PersistentMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public PersistentMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            false,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            "/persistent");
       }
     }
 
-    private static final Logger LOG =
-        LoggerFactory.getLogger(DummyEphemeralCreatableUpdatableCacheableMetadataStore.class);
-
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyEphemeralCreatableUpdatableCacheableMetadataStore store;
-    private int expectedCacheErrorCount = 0;
-
-    @BeforeEach
-    public void setUp() throws Exception {
-      expectedCacheErrorCount = 0;
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
-      this.store =
-          new DummyEphemeralCreatableUpdatableCacheableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-      zooKeeper = zkMetadataStore.getCurator().getZookeeperClient().getZooKeeper();
+    class EphemeralMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public EphemeralMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.EPHEMERAL,
+            false,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            "/ephemeral");
+      }
     }
 
-    @AfterEach
-    public void tearDown() throws IOException {
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(expectedCacheErrorCount);
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
+    TestMetadata metadata1 = new TestMetadata("foo", "val1");
+    try (KaldbMetadataStore<TestMetadata> persistentStore = new PersistentMetadataStore()) {
+      // create metadata
+      persistentStore.createSync(metadata1);
+
+      // do a non-cached list to ensure node has been persisted
+      assertThat(persistentStore.listSyncUncached()).containsExactly(metadata1);
     }
 
-    @Test
-    public void testCreateGetDelete() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshotId";
-      final String snapshotPath = "s3://snapshots/path";
-      final long startTimeUtc = 12345;
-      final long endTimeUtc = 123456;
-      final long maxOffset = 100;
-      final String partitionId = "1";
+    TestMetadata metadata2 = new TestMetadata("foo", "val1");
+    try (KaldbMetadataStore<TestMetadata> ephemeralStore = new EphemeralMetadataStore()) {
+      // create metadata
+      ephemeralStore.createSync(metadata2);
 
-      final SnapshotMetadata snapshot =
-          new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
-
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot);
-
-      SnapshotMetadata metadata = store.getNode(name).get();
-      assertThat(metadata.name).isEqualTo(name);
-      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
-      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-      assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-      final SnapshotMetadata newSnapshot =
-          new SnapshotMetadata(
-              name,
-              snapshotPath,
-              startTimeUtc + 1,
-              endTimeUtc + 1,
-              maxOffset + 100,
-              partitionId,
-              LOGS_LUCENE9);
-      assertThat(store.update(newSnapshot).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(newSnapshot);
-      SnapshotMetadata newMetadata = store.getNode(name).get();
-      assertThat(newMetadata.name).isEqualTo(name);
-      assertThat(newMetadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(newMetadata.snapshotId).isEqualTo(name);
-      assertThat(newMetadata.startTimeEpochMs).isEqualTo(startTimeUtc + 1);
-      assertThat(newMetadata.endTimeEpochMs).isEqualTo(endTimeUtc + 1);
-      assertThat(newMetadata.maxOffset).isEqualTo(maxOffset + 100);
-      assertThat(newMetadata.partitionId).isEqualTo(partitionId);
-
-      assertThat(store.delete(newMetadata).get()).isNull();
-      assertThat(store.list().get()).isEmpty();
+      // do a non-cached list to ensure node has been persisted
+      assertThat(ephemeralStore.listSyncUncached()).containsExactly(metadata2);
     }
 
-    @Test
-    public void testMultipleCreates() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+    // close curator, and then instantiate a new copy
+    // This is because we cannot restart the closed curator.
+    curatorFramework.unwrap().close();
+    curatorFramework = CuratorBuilder.build(meterRegistry, zookeeperConfig);
 
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      assertThat(store.update(newSnapshot1).get()).isNull();
-      assertThat(store.list().get()).containsOnly(newSnapshot1, snapshot2);
-
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(newSnapshot1);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+    try (KaldbMetadataStore<TestMetadata> persistentStore = new PersistentMetadataStore()) {
+      assertThat(persistentStore.getSync("foo")).isEqualTo(metadata1);
     }
 
-    @Test
-    public void testDuplicateCreateNode() throws ExecutionException, InterruptedException {
-      final String name = "testSnapshotId";
-      final String snapshotPath = "s3://snapshots/path";
-      final long startTimeUtc = 12345;
-      final long endTimeUtc = 123456;
-      final long maxOffset = 100;
-      final String partitionId = "1";
-
-      final SnapshotMetadata testSnapshot =
-          new SnapshotMetadata(
-              name, snapshotPath, startTimeUtc, endTimeUtc, maxOffset, partitionId, LOGS_LUCENE9);
-      assertThat(store.create(testSnapshot).get()).isNull();
-
-      SnapshotMetadata metadata = store.getNode(name).get();
-      assertThat(metadata.name).isEqualTo(name);
-      assertThat(metadata.snapshotPath).isEqualTo(snapshotPath);
-      assertThat(metadata.snapshotId).isEqualTo(name);
-      assertThat(metadata.startTimeEpochMs).isEqualTo(startTimeUtc);
-      assertThat(metadata.endTimeEpochMs).isEqualTo(endTimeUtc);
-      assertThat(metadata.maxOffset).isEqualTo(maxOffset);
-      assertThat(metadata.partitionId).isEqualTo(partitionId);
-
-      Throwable duplicateCreateEx = catchThrowable(() -> store.create(testSnapshot).get());
-      assertThat(duplicateCreateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name).get()).isNull();
-
-      Throwable getMissingNodeEx = catchThrowable(() -> store.getNode(name).get());
-      assertThat(getMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-
-      Throwable deleteMissingNodeEx = catchThrowable(() -> store.delete(name).get());
-      assertThat(deleteMissingNodeEx.getCause()).isInstanceOf(NoNodeException.class);
-    }
-
-    @Test
-    public void testSyncStoreOperationsOnStoppedServer()
-        throws IOException, NoSuchFieldException, IllegalAccessException {
-      assertThat(store.listSync().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      store.createSync(snapshot1);
-      assertThat(store.listSync()).containsOnly(snapshot1);
-      assertThat(store.listSync().size()).isEqualTo(1);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      store.createSync(snapshot2);
-      assertThat(store.listSync()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot2);
-
-      SnapshotMetadata snapshot21 = makeSnapshot(name2, 100000);
-      store.updateSync(snapshot21);
-      assertThat(store.getNodeSync(name2)).isEqualTo(snapshot21);
-      assertThat(store.listSync()).containsOnly(snapshot1, snapshot21);
-
-      store.deleteSync(snapshot2);
-      assertThat(store.listSync()).containsOnly(snapshot1);
-
-      store.deleteSync(name1);
-      assertThat(store.listSync()).isEmpty();
-
-      // Stop the ZK server
-      testingServer.stop();
-
-      // store.createSync(snapshot1);
-      Throwable createEx = catchThrowable(() -> store.createSync(snapshot1));
-      assertThat(createEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable updateEx = catchThrowable(() -> store.updateSync(snapshot1));
-      assertThat(updateEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deleteEx = catchThrowable(() -> store.deleteSync(snapshot1));
-      assertThat(deleteEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deletePathEx = catchThrowable(() -> store.deleteSync(name1));
-      assertThat(deletePathEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable listEx = catchThrowable(() -> store.listSync());
-      assertThat(listEx).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable getEx = catchThrowable(() -> store.getNodeSync(name1));
-      assertThat(getEx).isInstanceOf(InternalMetadataStoreException.class);
-      closeZookeeperClientConnection(zooKeeper);
-    }
-
-    @Test
-    public void testStoreOperationsOnStoppedServer()
-        throws ExecutionException, InterruptedException, IOException, NoSuchFieldException,
-            IllegalAccessException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.list().get().size()).isEqualTo(1);
-
-      // Stop the ZK server
-      testingServer.stop();
-
-      Throwable createEx = catchThrowable(() -> store.create(snapshot1).get());
-      assertThat(createEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable updateEx = catchThrowable(() -> store.update(snapshot1).get());
-      assertThat(updateEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable listEx = catchThrowable(() -> store.list().get());
-      assertThat(listEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-
-      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(InternalMetadataStoreException.class);
-      closeZookeeperClientConnection(zooKeeper);
-    }
-
-    @Test
-    public void testNotificationFiresOnCreate() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void testNotificationFiresOnDataChange()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 30000);
-
-      assertThat(store.update(newSnapshot1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().contains(newSnapshot1));
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(newSnapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(newSnapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void testNotificationFiresOnRemove() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener testListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-
-      store.addListener(testListener);
-
-      assertThat(store.delete(name1).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 1);
-      assertThat(store.getCached()).containsOnly(ROOT_SNAPSHOT);
-      assertThat(store.list().get().isEmpty()).isTrue();
-      await().until(() -> notificationCounter.get() == 1);
-    }
-
-    @Test
-    public void testMultipleWatchersOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(1);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener testListener1 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(testListener1);
-
-      final CountDownLatch notificationCountDownLatch2 = new CountDownLatch(1);
-      final KaldbMetadataStoreChangeListener testListener2 =
-          () -> {
-            notificationCountDownLatch2.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(testListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      notificationCountDownLatch2.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(2);
-    }
-
-    @Test
-    public void testThrowingListenerOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final KaldbMetadataStoreChangeListener throwingListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-            throw new RuntimeException("test exception");
-          };
-      store.addListener(throwingListener);
-
-      final KaldbMetadataStoreChangeListener regularListener2 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(3);
-    }
-
-    @Test
-    public void testRemoveListenerOnMetadataStore()
-        throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(3);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final KaldbMetadataStoreChangeListener regularListener2 =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener2);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      await().until(() -> store.getCached().contains(snapshot2));
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-      assertThat(notificationCounter.get()).isEqualTo(2);
-
-      // Remove listener
-      store.removeListener(regularListener2);
-      assertThat(store.delete(name2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      assertThat(store.getNode(name1).get()).isEqualTo(snapshot1);
-      assertThat(notificationCounter.get()).isEqualTo(3);
-
-      Throwable getEx = catchThrowable(() -> store.getNode(name2).get());
-      assertThat(getEx.getCause()).isInstanceOf(NoNodeException.class);
-    }
-
-    @Test
-    public void testCorruptZkMetadata() throws ExecutionException, InterruptedException {
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      final CountDownLatch notificationCountDownLatch = new CountDownLatch(2);
-      final AtomicInteger notificationCounter = new AtomicInteger(0);
-      final KaldbMetadataStoreChangeListener regularListener =
-          () -> {
-            notificationCountDownLatch.countDown();
-            notificationCounter.incrementAndGet();
-          };
-      store.addListener(regularListener);
-
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      assertThat(store.create(snapshot1).get()).isNull();
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
-      assertThat(store.create(snapshot2).get()).isNull();
-      notificationCountDownLatch.await();
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
-      // Corrupt the metadata store.
-      assertThat(zkMetadataStore.put("/snapshot/" + name1, "corrupt").get()).isNull();
-
-      // Get throws exception but store is fine.
-      Throwable getEx = catchThrowable(() -> store.getNode(name1).get());
-      assertThat(getEx.getCause()).isInstanceOf(IllegalStateException.class);
-      assertThat(store.getNode(name2).get()).isEqualTo(snapshot2);
-
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot2, ROOT_SNAPSHOT);
-      assertThat(store.list().get()).containsOnly(null, snapshot2);
-      expectedCacheErrorCount = 1;
+    try (KaldbMetadataStore<TestMetadata> ephemeralStore = new EphemeralMetadataStore()) {
+      assertThatExceptionOfType(InternalMetadataStoreException.class)
+          .isThrownBy(() -> ephemeralStore.getSync("foo"));
     }
   }
 
-  public static class TestEphemeralCreatableCacheableMetadataStore {
-    private static class DummyEphemeralCreatableCacheableMetadataStore
-        extends EphemeralMutableMetadataStore<SnapshotMetadata> {
-      public DummyEphemeralCreatableCacheableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void testListenersWithZkReconnect() throws Exception {
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            true,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
       }
     }
 
-    private static final Logger LOG =
-        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      AtomicInteger counter = new AtomicInteger(0);
+      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      store.addListener(listener);
 
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyEphemeralCreatableCacheableMetadataStore store;
+      await().until(() -> counter.get() == 0);
 
-    @BeforeEach
-    public void setUp() throws Exception {
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
-      this.store =
-          new DummyEphemeralCreatableCacheableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-    }
+      // create metadata
+      TestMetadata metadata1 = new TestMetadata("foo", "val1");
+      store.createSync(metadata1);
 
-    @AfterEach
-    public void tearDown() throws IOException {
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
+      await().until(() -> counter.get() == 1);
 
-    @Test
-    public void testCrudOperations() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      testingServer.restart();
 
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
+      assertThat(store.getSync(metadata1.name)).isEqualTo(metadata1);
+      assertThat(counter.get()).isEqualTo(1);
 
-      // Updates throw an exception.
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
-      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
-      await().until(() -> store.getCached().size() == 3);
-      assertThat(store.getCached()).containsOnly(snapshot1, snapshot2, ROOT_SNAPSHOT);
+      metadata1.setValue("val2");
+      store.updateSync(metadata1);
 
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-      await().until(() -> store.getCached().size() == 2);
-      assertThat(store.getCached()).containsOnly(snapshot1, ROOT_SNAPSHOT);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+      await().until(() -> counter.get() == 2);
     }
   }
 
-  public static class TestEphemeralCreatableMetadataStore {
-    private static class DummyEphemeralCreatableMetadataStore
-        extends EphemeralMutableMetadataStore<SnapshotMetadata> {
-      public DummyEphemeralCreatableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(false, false, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void testAddRemoveListener() throws Exception {
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            true,
+            new JacksonModelSerializer<>(TestMetadata.class),
+            STORE_FOLDER);
       }
     }
 
-    private static final Logger LOG =
-        LoggerFactory.getLogger(TestPersistentCreatableCacheableMetadataStore.class);
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      AtomicInteger counter = new AtomicInteger(0);
+      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      store.addListener(listener);
 
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-    private DummyEphemeralCreatableMetadataStore store;
+      await().until(() -> counter.get() == 0);
 
-    @BeforeEach
-    public void setUp() throws Exception {
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
-      this.store =
-          new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
-    }
+      // create metadata
+      TestMetadata metadata1 = new TestMetadata("foo", "val1");
+      store.createSync(metadata1);
 
-    @AfterEach
-    public void tearDown() throws IOException {
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
+      await().until(() -> counter.get() == 1);
 
-    @Test
-    public void testCrudOperationsAndCache() throws ExecutionException, InterruptedException {
-      final String name1 = "snapshot1";
-      SnapshotMetadata snapshot1 = makeSnapshot(name1);
-      final String name2 = "snapshot2";
-      SnapshotMetadata snapshot2 = makeSnapshot(name2);
+      assertThat(store.getSync(metadata1.name)).isEqualTo(metadata1);
+      assertThat(counter.get()).isEqualTo(1);
 
-      assertThat(store.list().get()).isEmpty();
-      assertThat(store.create(snapshot1).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.create(snapshot2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(2);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      metadata1.setValue("val2");
+      store.updateSync(metadata1);
 
-      // Caching is disabled.
-      Throwable getCacheEx = catchThrowable(() -> store.getCached());
-      assertThat(getCacheEx).isInstanceOf(UnsupportedOperationException.class);
+      await().until(() -> counter.get() == 2);
 
-      // Updates throw an exception.
-      SnapshotMetadata newSnapshot1 = makeSnapshot(name1, 300);
-      Throwable updateEx = catchThrowable(() -> store.update(newSnapshot1).get());
-      assertThat(updateEx).isInstanceOf(UnsupportedOperationException.class);
-      assertThat(store.list().get()).containsOnly(snapshot1, snapshot2);
+      store.removeListener(listener);
+      metadata1.setValue("val3");
+      store.updateSync(metadata1);
 
-      // All cache operations are disabled.
-      Throwable getCacheEx2 = catchThrowable(() -> store.getCached());
-      KaldbMetadataStoreChangeListener listener = () -> {};
-      assertThat(getCacheEx2).isInstanceOf(UnsupportedOperationException.class);
-      Throwable addListenerEx = catchThrowable(() -> store.addListener(listener));
-      assertThat(addListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      Throwable removeListenerEx = catchThrowable(() -> store.removeListener(listener));
-      assertThat(removeListenerEx).isInstanceOf(UnsupportedOperationException.class);
-      // store.close() works and is idempotent when cache is disabled.
-      store.close();
-      store.close();
-
-      // Adding a snapshot with the same name but different values throws exception.
-      SnapshotMetadata duplicateSnapshot2 = makeSnapshot(name2, 300);
-      Throwable duplicateEx = catchThrowable(() -> store.create(duplicateSnapshot2).get());
-      assertThat(duplicateEx.getCause()).isInstanceOf(NodeExistsException.class);
-
-      assertThat(store.delete(name2).get()).isNull();
-      assertThat(store.list().get().size()).isEqualTo(1);
-      assertThat(store.list().get()).containsOnly(snapshot1);
-
-      assertThat(store.delete(name1).get()).isNull();
-      assertThat(store.list().get().isEmpty()).isTrue();
-
-      Throwable deleteEx = catchThrowable(() -> store.delete(name1).get());
-      assertThat(deleteEx.getCause()).isInstanceOf(NoNodeException.class);
+      Thread.sleep(2000);
+      assertThat(counter.get()).isEqualTo(2);
     }
   }
 
-  public static class TestAbstractMetadataStore {
-    private static class DummyEphemeralCreatableMetadataStore
-        extends EphemeralMutableMetadataStore<SnapshotMetadata> {
-      public DummyEphemeralCreatableMetadataStore(
-          String storeFolder,
-          MetadataStore metadataStore,
-          MetadataSerializer<SnapshotMetadata> metadataSerializer,
-          Logger logger)
-          throws Exception {
-        super(true, false, storeFolder, metadataStore, metadataSerializer, logger);
+  @Test
+  public void serializeAndDeserializeOnlyInvokeOnce() {
+    AtomicInteger serializeCounter = new AtomicInteger(0);
+    AtomicInteger deserializeCounter = new AtomicInteger(0);
+
+    class CountingSerializer implements ModelSerializer<TestMetadata> {
+      final JacksonModelSerializer<TestMetadata> serializer =
+          new JacksonModelSerializer<>(TestMetadata.class);
+
+      @Override
+      public byte[] serialize(TestMetadata model) {
+        serializeCounter.incrementAndGet();
+        return serializer.serialize(model);
+      }
+
+      @Override
+      public TestMetadata deserialize(byte[] bytes) {
+        deserializeCounter.incrementAndGet();
+        return serializer.deserialize(bytes);
       }
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger(TestAbstractMetadataStore.class);
-
-    private TestingServer testingServer;
-    private ZookeeperMetadataStoreImpl zkMetadataStore;
-    private MeterRegistry meterRegistry;
-
-    @BeforeEach
-    public void setUp() throws Exception {
-      meterRegistry = new SimpleMeterRegistry();
-      // NOTE: Sometimes the ZK server fails to start. Handle it more gracefully, if tests are
-      // flaky.
-      testingServer = new TestingServer();
-      CountingFatalErrorHandler countingFatalErrorHandler = new CountingFatalErrorHandler();
-      zkMetadataStore =
-          new ZookeeperMetadataStoreImpl(
-              testingServer.getConnectString(),
-              "test",
-              1000,
-              1000,
-              new RetryNTimes(1, 500),
-              countingFatalErrorHandler,
-              meterRegistry);
-      assertThat(
-              zkMetadataStore
-                  .create(
-                      SNAPSHOT_METADATA_STORE_ZK_PATH,
-                      snapshotMetadataSerializer.toJsonStr(ROOT_SNAPSHOT),
-                      true)
-                  .get())
-          .isNull();
+    class TestMetadataStore extends KaldbMetadataStore<TestMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework, CreateMode.PERSISTENT, true, new CountingSerializer(), STORE_FOLDER);
+      }
     }
 
-    @AfterEach
-    public void tearDown() throws IOException {
-      assertThat(getCount(CACHE_ERROR_COUNTER, meterRegistry)).isEqualTo(0);
-      zkMetadataStore.close();
-      testingServer.close();
-      meterRegistry.close();
-    }
+    try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
+      TestMetadata metadata = new TestMetadata("name", "value");
+      store.createSync(metadata);
 
-    @Test
-    public void shouldAllowMultipleInstantiationsConcurrently() throws Exception {
-      // Attempt to instantiate multiple metadata stores at the same path
-      DummyEphemeralCreatableMetadataStore metadataStore1 =
-          new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+      Thread.sleep(500);
 
-      // this is not expected to throw an exception on instantiation
-      DummyEphemeralCreatableMetadataStore metadataStore2 =
-          new DummyEphemeralCreatableMetadataStore(
-              SNAPSHOT_METADATA_STORE_ZK_PATH, zkMetadataStore, snapshotMetadataSerializer, LOG);
+      store.getSync("name");
+      store.getSync("name");
 
-      SnapshotMetadata snapshotMetadata1 = makeSnapshot("defaultRootSnapshot");
-      metadataStore1.create(snapshotMetadata1).get(10, TimeUnit.SECONDS);
+      assertThat(serializeCounter.get()).isEqualTo(1);
+      assertThat(deserializeCounter.get()).isEqualTo(1);
 
-      await().until(() -> metadataStore2.getCached().size() > 0);
-
-      SnapshotMetadata snapshotMetadata2 = metadataStore2.getCached().get(0);
-      assertThat(snapshotMetadata1).isEqualTo(snapshotMetadata2);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
 }

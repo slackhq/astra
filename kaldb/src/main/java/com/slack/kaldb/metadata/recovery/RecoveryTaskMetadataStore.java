@@ -1,23 +1,19 @@
 package com.slack.kaldb.metadata.recovery;
 
-import com.slack.kaldb.metadata.core.PersistentMutableMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.slack.kaldb.metadata.core.KaldbMetadataStore;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.zookeeper.CreateMode;
 
-public class RecoveryTaskMetadataStore
-    extends PersistentMutableMetadataStore<RecoveryTaskMetadata> {
-  private static final Logger LOG = LoggerFactory.getLogger(RecoveryTaskMetadataStore.class);
+public class RecoveryTaskMetadataStore extends KaldbMetadataStore<RecoveryTaskMetadata> {
   public static final String RECOVERY_TASK_ZK_PATH = "/recoveryTask";
 
-  public RecoveryTaskMetadataStore(MetadataStore metadataStore, boolean shouldCache)
+  public RecoveryTaskMetadataStore(AsyncCuratorFramework curatorFramework, boolean shouldCache)
       throws Exception {
     super(
+        curatorFramework,
+        CreateMode.PERSISTENT,
         shouldCache,
-        false,
-        RECOVERY_TASK_ZK_PATH,
-        metadataStore,
-        new RecoveryTaskMetadataSerializer(),
-        LOG);
+        new RecoveryTaskMetadataSerializer().toModelSerializer(),
+        RECOVERY_TASK_ZK_PATH);
   }
 }

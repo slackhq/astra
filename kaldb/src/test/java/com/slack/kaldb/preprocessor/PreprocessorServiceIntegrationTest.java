@@ -4,11 +4,10 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.testlib.MetricsUtil;
 import com.slack.kaldb.testlib.TestKafkaServer;
@@ -19,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Properties;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -60,8 +60,8 @@ public class PreprocessorServiceIntegrationTest {
             .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(30000)
             .build();
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
     KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
         KaldbConfigs.PreprocessorConfig.KafkaStreamConfig.newBuilder()
@@ -94,7 +94,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of(), "name"));
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(2);
 
@@ -103,7 +103,7 @@ public class PreprocessorServiceIntegrationTest {
 
     // close out the metadata stores
     datasetMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 
   // Ignore flaky test. This test can be potentially merged with the above test.
@@ -120,8 +120,8 @@ public class PreprocessorServiceIntegrationTest {
             .setZkConnectionTimeoutMs(30000)
             .setSleepBetweenRetriesMs(30000)
             .build();
-    MetadataStore metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
-    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(metadataStore, true);
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
     // initialize the downstream topic
     String downstreamTopic = "test-topic-out";
@@ -172,7 +172,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(datasetMetadata);
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSync().size() == 1);
+    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
     await()
         .until(
             () ->
@@ -197,8 +197,8 @@ public class PreprocessorServiceIntegrationTest {
             () ->
                 MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
                     == 3);
-    assertThat(datasetMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(datasetMetadataStore.listSync().get(0).getThroughputBytes())
+    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(datasetMetadataStore.listSyncUncached().get(0).getThroughputBytes())
         .isEqualTo(Long.MAX_VALUE);
 
     // produce messages to upstream
@@ -249,6 +249,6 @@ public class PreprocessorServiceIntegrationTest {
 
     // close out the metadata stores
     datasetMetadataStore.close();
-    metadataStore.close();
+    curatorFramework.unwrap().close();
   }
 }

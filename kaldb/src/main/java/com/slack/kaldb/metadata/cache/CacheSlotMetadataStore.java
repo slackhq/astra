@@ -1,29 +1,28 @@
 package com.slack.kaldb.metadata.cache;
 
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.slack.kaldb.metadata.core.EphemeralMutableMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
+import com.slack.kaldb.metadata.core.KaldbMetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.zookeeper.CreateMode;
 
-public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheSlotMetadata> {
-  private static final Logger LOG = LoggerFactory.getLogger(CacheSlotMetadataStore.class);
+public class CacheSlotMetadataStore extends KaldbMetadataStore<CacheSlotMetadata> {
   public static final String CACHE_SLOT_ZK_PATH = "/cacheSlot";
 
   /**
    * Initializes a cache slot metadata store at the CACHE_SLOT_ZK_PATH. This should be used to
    * create/update the cache slots, and for listening to all cache slot events.
    */
-  public CacheSlotMetadataStore(MetadataStore metadataStore, boolean shouldCache) throws Exception {
+  public CacheSlotMetadataStore(AsyncCuratorFramework curatorFramework, boolean shouldCache)
+      throws Exception {
     super(
+        curatorFramework,
+        CreateMode.EPHEMERAL,
         shouldCache,
-        true,
-        CACHE_SLOT_ZK_PATH,
-        metadataStore,
-        new CacheSlotMetadataSerializer(),
-        LOG);
+        new CacheSlotMetadataSerializer().toModelSerializer(),
+        CACHE_SLOT_ZK_PATH);
   }
 
   /**
@@ -32,20 +31,20 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
    * nodes.
    */
   public CacheSlotMetadataStore(
-      MetadataStore metadataStore, String cacheSlotName, boolean shouldCache) throws Exception {
+      AsyncCuratorFramework curatorFramework, String cacheSlotName, boolean shouldCache)
+      throws Exception {
     super(
+        curatorFramework,
+        CreateMode.EPHEMERAL,
         shouldCache,
-        false,
-        String.format("%s/%s", CACHE_SLOT_ZK_PATH, cacheSlotName),
-        metadataStore,
-        new CacheSlotMetadataSerializer(),
-        LOG);
+        new CacheSlotMetadataSerializer().toModelSerializer(),
+        String.format("%s/%s", CACHE_SLOT_ZK_PATH, cacheSlotName));
   }
 
   /** Fetch the node given a slotName and update the slot state. */
   public ListenableFuture<?> getAndUpdateNonFreeCacheSlotState(
       String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
-    CacheSlotMetadata cacheSlotMetadata = getNodeSync(slotName);
+    CacheSlotMetadata cacheSlotMetadata = getSync(slotName);
     return updateNonFreeCacheSlotState(cacheSlotMetadata, slotState);
   }
 
@@ -75,7 +74,10 @@ public class CacheSlotMetadataStore extends EphemeralMutableMetadataStore<CacheS
             newState,
             replicaId,
             Instant.now().toEpochMilli(),
-            cacheSlotMetadata.supportedIndexTypes);
-    return update(updatedChunkMetadata);
+            cacheSlotMetadata.supportedIndexTypes,
+            cacheSlotMetadata.hostname);
+    // todo - consider refactoring this to return a completable future instead
+    return JdkFutureAdapters.listenInPoolThread(
+        updateAsync(updatedChunkMetadata).toCompletableFuture());
   }
 }

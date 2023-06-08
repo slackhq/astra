@@ -27,13 +27,13 @@ import com.google.common.collect.Maps;
 import com.slack.kaldb.blobfs.BlobFs;
 import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.BlobFsUtils;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
@@ -83,7 +84,7 @@ public class RecoveryServiceTest {
   private TestKafkaServer kafkaServer;
   private S3Client s3Client;
   private RecoveryService recoveryService;
-  private ZookeeperMetadataStoreImpl metadataStore;
+  private AsyncCuratorFramework curatorFramework;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -101,8 +102,8 @@ public class RecoveryServiceTest {
       recoveryService.stopAsync();
       recoveryService.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    if (metadataStore != null) {
-      metadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (blobFs != null) {
       blobFs.close();
@@ -149,12 +150,11 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTask() throws Exception {
     KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(TEST_S3_BUCKET);
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, curatorFramework, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -162,13 +162,14 @@ public class RecoveryServiceTest {
     final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
     assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
@@ -187,9 +188,8 @@ public class RecoveryServiceTest {
     TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
@@ -235,12 +235,13 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+        new RecoveryService(kaldbCfg, curatorFramework, components.meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
     long startOffset = 1;
@@ -256,7 +257,7 @@ public class RecoveryServiceTest {
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry))
         .isEqualTo(endOffset - startOffset + 1);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(0);
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(0);
     assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isEmpty();
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
@@ -271,9 +272,8 @@ public class RecoveryServiceTest {
     TestKafkaServer.KafkaComponents components = getKafkaTestServer(S3_MOCK_EXTENSION);
     KaldbConfigs.KaldbConfig kaldbCfg =
         makeKaldbConfig(components.testKafkaServer, TEST_S3_BUCKET, topicPartition.topic());
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            components.meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     KaldbConfigs.KafkaConfig kafkaConfig =
         KaldbConfigs.KafkaConfig.newBuilder()
@@ -318,12 +318,13 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
     // Start recovery service
     recoveryService =
-        new RecoveryService(kaldbCfg, metadataStore, components.meterRegistry, blobFs);
+        new RecoveryService(kaldbCfg, curatorFramework, components.meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -340,7 +341,7 @@ public class RecoveryServiceTest {
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isTrue();
     assertThat(getCount(RECORDS_NO_LONGER_AVAILABLE, components.meterRegistry)).isEqualTo(50);
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, components.meterRegistry)).isEqualTo(51);
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(blobFs.listFiles(BlobFsUtils.createURI(TEST_S3_BUCKET, "/", ""), true)).isNotEmpty();
     assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
@@ -356,12 +357,11 @@ public class RecoveryServiceTest {
   public void testShouldHandleRecoveryTaskFailure() throws Exception {
     String fakeS3Bucket = "fakeBucket";
     KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(fakeS3Bucket);
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, curatorFramework, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -372,8 +372,9 @@ public class RecoveryServiceTest {
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
@@ -394,12 +395,11 @@ public class RecoveryServiceTest {
   @Test
   public void testShouldHandleRecoveryTaskAssignmentSuccess() throws Exception {
     KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(TEST_S3_BUCKET);
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, curatorFramework, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -409,24 +409,25 @@ public class RecoveryServiceTest {
 
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(metadataStore, false);
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
+        new RecoveryTaskMetadataStore(curatorFramework, false);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.createSync(recoveryTask);
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().get(0)).isEqualTo(recoveryTask);
 
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStore, false);
-    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSync();
+        new RecoveryNodeMetadataStore(curatorFramework, false);
+    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSyncUncached();
     assertThat(recoveryNodes.size()).isEqualTo(1);
     RecoveryNodeMetadata recoveryNodeMetadata = recoveryNodes.get(0);
     assertThat(recoveryNodeMetadata.recoveryNodeState)
@@ -437,7 +438,7 @@ public class RecoveryServiceTest {
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
             recoveryTask.getName(),
             Instant.now().toEpochMilli()));
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(1);
 
     await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry) == 1);
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
@@ -448,13 +449,13 @@ public class RecoveryServiceTest {
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
 
     // Post recovery checks
-    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
+    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
 
     // 1 snapshot is published
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(1);
     assertThat(blobFs.exists(URI.create(snapshots.get(0).snapshotPath))).isTrue();
     assertThat(blobFs.listFiles(URI.create(snapshots.get(0).snapshotPath), false).length)
         .isGreaterThan(1);
@@ -470,12 +471,11 @@ public class RecoveryServiceTest {
   public void testShouldHandleRecoveryTaskAssignmentFailure() throws Exception {
     String fakeS3Bucket = "fakeS3Bucket";
     KaldbConfigs.KaldbConfig kaldbCfg = makeKaldbConfig(fakeS3Bucket);
-    metadataStore =
-        ZookeeperMetadataStoreImpl.fromConfig(
-            meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
+    curatorFramework =
+        CuratorBuilder.build(meterRegistry, kaldbCfg.getMetadataStoreConfig().getZookeeperConfig());
 
     // Start recovery service
-    recoveryService = new RecoveryService(kaldbCfg, metadataStore, meterRegistry, blobFs);
+    recoveryService = new RecoveryService(kaldbCfg, curatorFramework, meterRegistry, blobFs);
     recoveryService.startAsync();
     recoveryService.awaitRunning(DEFAULT_START_STOP_DURATION);
 
@@ -486,24 +486,25 @@ public class RecoveryServiceTest {
     // fakeS3Bucket is not present.
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
     // Create a recovery task
     RecoveryTaskMetadataStore recoveryTaskMetadataStore =
-        new RecoveryTaskMetadataStore(metadataStore, false);
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isZero();
+        new RecoveryTaskMetadataStore(curatorFramework, false);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isZero();
     RecoveryTaskMetadata recoveryTask =
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
     recoveryTaskMetadataStore.createSync(recoveryTask);
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().get(0)).isEqualTo(recoveryTask);
 
     // Assign the recovery task to node.
     RecoveryNodeMetadataStore recoveryNodeMetadataStore =
-        new RecoveryNodeMetadataStore(metadataStore, false);
-    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSync();
+        new RecoveryNodeMetadataStore(curatorFramework, false);
+    List<RecoveryNodeMetadata> recoveryNodes = recoveryNodeMetadataStore.listSyncUncached();
     assertThat(recoveryNodes.size()).isEqualTo(1);
     RecoveryNodeMetadata recoveryNodeMetadata = recoveryNodes.get(0);
     assertThat(recoveryNodeMetadata.recoveryNodeState)
@@ -514,7 +515,7 @@ public class RecoveryServiceTest {
             Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED,
             recoveryTask.getName(),
             Instant.now().toEpochMilli()));
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(1);
 
     await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
@@ -525,16 +526,16 @@ public class RecoveryServiceTest {
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
 
     // Post recovery checks
-    assertThat(recoveryNodeMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(recoveryNodeMetadataStore.listSync().get(0).recoveryNodeState)
+    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE);
 
     // Recovery task still exists for re-assignment.
-    assertThat(recoveryTaskMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSync().get(0)).isEqualTo(recoveryTask);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(recoveryTaskMetadataStore.listSyncUncached().get(0)).isEqualTo(recoveryTask);
 
     // No snapshots are published on failure.
-    assertThat(snapshotMetadataStore.listSync().size()).isZero();
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isZero();
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);

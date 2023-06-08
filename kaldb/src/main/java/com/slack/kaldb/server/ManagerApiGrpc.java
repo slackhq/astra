@@ -66,7 +66,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
               Collections.emptyList(),
               request.getServiceNamePattern()));
       responseObserver.onNext(
-          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error creating new dataset", e);
@@ -81,7 +81,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       StreamObserver<Metadata.DatasetMetadata> responseObserver) {
 
     try {
-      DatasetMetadata existingDatasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
+      DatasetMetadata existingDatasetMetadata = datasetMetadataStore.getSync(request.getName());
 
       DatasetMetadata updatedDatasetMetadata =
           new DatasetMetadata(
@@ -107,7 +107,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
     try {
       responseObserver.onNext(
-          toDatasetMetadataProto(datasetMetadataStore.getNodeSync(request.getName())));
+          toDatasetMetadataProto(datasetMetadataStore.getSync(request.getName())));
       responseObserver.onCompleted();
     } catch (Exception e) {
       LOG.error("Error getting dataset", e);
@@ -125,7 +125,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
       responseObserver.onNext(
           ManagerApi.ListDatasetMetadataResponse.newBuilder()
               .addAllDatasetMetadata(
-                  datasetMetadataStore.listSync().stream()
+                  datasetMetadataStore.listSyncUncached().stream()
                       .map(DatasetMetadataSerializer::toDatasetMetadataProto)
                       .collect(Collectors.toList()))
               .build());
@@ -155,7 +155,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
           request.getPartitionIdsList().stream().noneMatch(String::isBlank),
           "PartitionIds list must not contain blank strings");
 
-      DatasetMetadata datasetMetadata = datasetMetadataStore.getNodeSync(request.getName());
+      DatasetMetadata datasetMetadata = datasetMetadataStore.getSync(request.getName());
       ImmutableList<DatasetPartitionMetadata> updatedDatasetPartitionMetadata =
           addNewPartition(datasetMetadata.getPartitionConfigs(), request.getPartitionIdsList());
 
@@ -199,7 +199,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
 
       List<SnapshotMetadata> snapshotsToRestore =
           calculateRequiredSnapshots(
-              snapshotMetadataStore.getCached(),
+              snapshotMetadataStore.listSync(),
               datasetMetadataStore,
               request.getStartTimeEpochMs(),
               request.getEndTimeEpochMs(),
@@ -229,7 +229,7 @@ public class ManagerApiGrpc extends ManagerApiServiceGrpc.ManagerApiServiceImplB
     try {
       List<SnapshotMetadata> snapshotsToRestore =
           calculateRequiredSnapshots(
-              request.getIdsToRestoreList(), snapshotMetadataStore.getCached());
+              request.getIdsToRestoreList(), snapshotMetadataStore.listSync());
 
       replicaRestoreService.queueSnapshotsForRestoration(snapshotsToRestore);
 

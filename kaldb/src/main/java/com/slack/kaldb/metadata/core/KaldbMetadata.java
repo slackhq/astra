@@ -2,7 +2,9 @@ package com.slack.kaldb.metadata.core;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public abstract class KaldbMetadata {
+import org.apache.curator.x.async.modeled.NodeName;
+
+public abstract class KaldbMetadata implements NodeName {
   public final String name;
 
   public KaldbMetadata(String name) {
@@ -25,5 +27,10 @@ public abstract class KaldbMetadata {
   @Override
   public int hashCode() {
     return name.hashCode();
+  }
+
+  @Override
+  public String nodeName() {
+    return name;
   }
 }

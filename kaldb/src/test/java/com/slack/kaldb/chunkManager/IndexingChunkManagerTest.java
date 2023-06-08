@@ -47,13 +47,12 @@ import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.schema.FieldType;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -78,6 +77,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,7 +110,7 @@ public class IndexingChunkManagerTest {
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
@@ -135,9 +135,9 @@ public class IndexingChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
   }
 
   @AfterEach
@@ -147,7 +147,7 @@ public class IndexingChunkManagerTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    metadataStore.close();
+    curatorFramework.unwrap().close();
     s3Client.close();
     localZkServer.stop();
   }
@@ -167,7 +167,7 @@ public class IndexingChunkManagerTest {
             s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
-            metadataStore,
+            curatorFramework,
             searchContext,
             KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
     chunkManager.startAsync();
@@ -246,8 +246,8 @@ public class IndexingChunkManagerTest {
     assertThat(getValue(LIVE_BYTES_INDEXED, metricsRegistry)).isEqualTo(actualChunkSize);
 
     // Check metadata registration.
-    assertThat(snapshotMetadataStore.listSync().size()).isEqualTo(1);
-    assertThat(searchMetadataStore.listSync().size()).isEqualTo(1);
+    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
 
     SearchQuery searchQuery =
         new SearchQuery(
@@ -274,7 +274,7 @@ public class IndexingChunkManagerTest {
     assertThat(chunkInfo.getDataEndTimeEpochMs())
         .isEqualTo(messages.get(99).getTimestamp().toEpochMilli());
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(1);
@@ -287,7 +287,7 @@ public class IndexingChunkManagerTest {
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(5000L));
     assertThat(snapshots.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
 
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -602,12 +602,12 @@ public class IndexingChunkManagerTest {
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotsCount) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -1037,10 +1037,10 @@ public class IndexingChunkManagerTest {
     initChunkManager(
         chunkRollOverStrategy, S3_TEST_BUCKET, IndexingChunkManager.makeDefaultRollOverExecutor());
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSync())).isEmpty();
-    assertThat(searchMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(fetchLiveSnapshot(snapshotMetadataStore.listSyncUncached())).isEmpty();
+    assertThat(fetchNonLiveSnapshot(snapshotMetadataStore.listSyncUncached())).isEmpty();
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
 
     // Adding a messages very quickly when running a rollover in background would result in an
     // exception.
@@ -1054,12 +1054,12 @@ public class IndexingChunkManagerTest {
             })
         .isInstanceOf(ChunkRollOverException.class);
 
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(2);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isGreaterThanOrEqualTo(2);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(0);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSync();
+    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
     assertThat(searchNodes.size()).isEqualTo(2);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(
@@ -1102,10 +1102,11 @@ public class IndexingChunkManagerTest {
     assertThat(rollOverFuture.isDone()).isTrue();
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSync();
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(snapshots.size()).isEqualTo(1);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(1);
     assertThat(fetchLiveSnapshot(snapshots)).isEmpty();
@@ -1153,10 +1154,11 @@ public class IndexingChunkManagerTest {
 
     // The stores are closed so temporarily re-create them so we can query the data in ZK.
     // All ephemeral data is ZK is deleted and no data or metadata is persisted.
-    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(metadataStore, false);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    assertThat(searchMetadataStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
+    SnapshotMetadataStore snapshotMetadataStore =
+        new SnapshotMetadataStore(curatorFramework, false);
+    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     // Data is lost and the indexer, we use recovery indexer to re-index this data.

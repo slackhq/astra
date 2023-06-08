@@ -17,7 +17,6 @@ import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -34,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
 public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyChunkImpl.class);
+
+  @Deprecated // replace with sync methods, which use DEFAULT_ZK_TIMEOUT_SECS where possible
   private static final int TIMEOUT_MS = 5000;
 
   private ChunkInfo chunkInfo;
@@ -57,8 +59,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private final String dataDirectoryPrefix;
   private final String s3Bucket;
-  private final SearchContext searchContext;
+  protected final SearchContext searchContext;
   protected final String slotName;
+  private final String slotId;
   private final CacheSlotMetadataStore cacheSlotMetadataStore;
   private final ReplicaMetadataStore replicaMetadataStore;
   private final SnapshotMetadataStore snapshotMetadataStore;
@@ -77,7 +80,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private final Timer chunkEvictionTimerFailure;
 
   public ReadOnlyChunkImpl(
-      MetadataStore metadataStore,
+      AsyncCuratorFramework curatorFramework,
       MeterRegistry meterRegistry,
       BlobFs blobFs,
       SearchContext searchContext,
@@ -89,13 +92,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchMetadataStore searchMetadataStore,
       ExecutorService executorService)
       throws Exception {
-    String slotId = UUID.randomUUID().toString();
     this.meterRegistry = meterRegistry;
     this.blobFs = blobFs;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
     this.executorService = executorService;
     this.searchContext = searchContext;
+    this.slotId = UUID.randomUUID().toString();
     this.slotName = String.format("%s-%s", searchContext.hostname, slotId);
 
     this.cacheSlotMetadataStore = cacheSlotMetadataStore;
@@ -109,11 +112,12 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             Metadata.CacheSlotMetadata.CacheSlotState.FREE,
             "",
             Instant.now().toEpochMilli(),
-            List.of(Metadata.IndexType.LOGS_LUCENE9));
+            List.of(Metadata.IndexType.LOGS_LUCENE9),
+            searchContext.hostname);
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
 
     CacheSlotMetadataStore cacheSlotListenerMetadataStore =
-        new CacheSlotMetadataStore(metadataStore, slotName, true);
+        new CacheSlotMetadataStore(curatorFramework, slotName, true);
     cacheSlotListenerMetadataStore.addListener(cacheNodeListener());
     cacheSlotLastKnownState = Metadata.CacheSlotMetadata.CacheSlotState.FREE;
 
@@ -128,7 +132,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   private KaldbMetadataStoreChangeListener cacheNodeListener() {
     return () -> {
-      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getNodeSync(slotName);
+      CacheSlotMetadata cacheSlotMetadata = cacheSlotMetadataStore.getSync(slotName);
       Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
 
       if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
@@ -163,14 +167,20 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
                 snapshotName, cacheSearchContext.hostname),
             snapshotName,
             cacheSearchContext.toUrl());
-    searchMetadataStore.create(metadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    searchMetadataStore
+        .createAsync(metadata)
+        .toCompletableFuture()
+        .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     return metadata;
   }
 
   private void unregisterSearchMetadata()
       throws ExecutionException, InterruptedException, TimeoutException {
     if (this.searchMetadata != null) {
-      searchMetadataStore.delete(searchMetadata).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      searchMetadataStore
+          .deleteAsync(searchMetadata)
+          .toCompletableFuture()
+          .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     }
   }
 
@@ -232,9 +242,13 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private SnapshotMetadata getSnapshotMetadata(String replicaId)
       throws ExecutionException, InterruptedException, TimeoutException {
     ReplicaMetadata replicaMetadata =
-        replicaMetadataStore.getNode(replicaId).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        replicaMetadataStore
+            .getAsync(replicaId)
+            .toCompletableFuture()
+            .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     return snapshotMetadataStore
-        .getNode(replicaMetadata.snapshotId)
+        .getAsync(replicaMetadata.snapshotId)
+        .toCompletableFuture()
         .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
@@ -297,7 +311,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @VisibleForTesting
   public Metadata.CacheSlotMetadata.CacheSlotState getChunkMetadataState() {
-    return cacheSlotMetadataStore.getNodeSync(slotName).cacheSlotState;
+    return cacheSlotMetadataStore.getSync(slotName).cacheSlotState;
   }
 
   @VisibleForTesting

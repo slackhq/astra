@@ -21,10 +21,9 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.KaldbLocalQueryService;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.MetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.service.KaldbSearch;
 import com.slack.kaldb.testlib.KaldbConfigUtil;
@@ -39,6 +38,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -68,7 +68,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private static final String ZK_PATH_PREFIX = "testZK";
   private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
-  private MetadataStore metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private SearchMetadataStore searchMetadataStore;
 
@@ -95,9 +95,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(metadataStore, false);
-    searchMetadataStore = new SearchMetadataStore(metadataStore, false);
+    curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
   }
 
   @AfterEach
@@ -107,8 +107,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
       chunkManager.stopAsync();
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
-    if (metadataStore != null) {
-      metadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (s3Client != null) {
       s3Client.close();
@@ -133,7 +133,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
-            metadataStore,
+            curatorFramework,
             searchContext,
             KaldbConfigUtil.makeIndexerConfig(TEST_PORT, 1000, "log_message", 100));
     chunkManager.startAsync();

@@ -15,27 +15,31 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import brave.Tracing;
-import com.google.common.util.concurrent.Futures;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
-import com.slack.kaldb.util.CountingFatalErrorHandler;
+import com.slack.kaldb.proto.config.KaldbConfigs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
+import org.apache.curator.x.async.AsyncStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +49,7 @@ public class RecoveryTaskCreatorTest {
   private static final long TEST_MAX_MESSAGES_PER_RECOVERY_TASK = 10000;
   private SimpleMeterRegistry meterRegistry;
   private TestingServer testingServer;
-  private ZookeeperMetadataStoreImpl zkMetadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
   private RecoveryTaskMetadataStore recoveryTaskStore;
   private static final String partitionId = "1";
@@ -55,17 +59,18 @@ public class RecoveryTaskCreatorTest {
     Tracing.newBuilder().build();
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
-    zkMetadataStore =
-        new ZookeeperMetadataStoreImpl(
-            testingServer.getConnectString(),
-            "test",
-            1000,
-            1000,
-            new RetryNTimes(1, 500),
-            new CountingFatalErrorHandler(),
-            meterRegistry);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(zkMetadataStore, false));
-    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(zkMetadataStore, false));
+
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(testingServer.getConnectString())
+            .setZkPathPrefix("test")
+            .setZkSessionTimeoutMs(1000)
+            .setZkConnectionTimeoutMs(1000)
+            .setSleepBetweenRetriesMs(500)
+            .build();
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, false));
+    recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, false));
   }
 
   @AfterEach
@@ -76,8 +81,8 @@ public class RecoveryTaskCreatorTest {
     if (snapshotMetadataStore != null) {
       snapshotMetadataStore.close();
     }
-    if (zkMetadataStore != null) {
-      zkMetadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     if (testingServer != null) {
       testingServer.close();
@@ -208,7 +213,7 @@ public class RecoveryTaskCreatorTest {
       int deletedSnapshotSize,
       List<SnapshotMetadata> expectedSnapshots) {
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskCreator recoveryTaskCreator =
@@ -221,7 +226,7 @@ public class RecoveryTaskCreatorTest {
             meterRegistry);
     assertThat(recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots).size())
         .isEqualTo(deletedSnapshotSize);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
     // Clear state
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
@@ -285,7 +290,7 @@ public class RecoveryTaskCreatorTest {
       boolean hasException) {
 
     actualSnapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrderElementsOf(actualSnapshots);
 
     RecoveryTaskCreator recoveryTaskCreator =
@@ -298,9 +303,11 @@ public class RecoveryTaskCreatorTest {
             meterRegistry);
 
     // Throw exceptions on delete.
-    doReturn(Futures.immediateFailedFuture(new RuntimeException()))
-        .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
+    AsyncStage asyncStage = mock(AsyncStage.class);
+    when(asyncStage.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
+
+    doReturn(asyncStage).when(snapshotMetadataStore).deleteAsync(any(SnapshotMetadata.class));
 
     if (hasException) {
       assertThatIllegalStateException()
@@ -309,11 +316,11 @@ public class RecoveryTaskCreatorTest {
       assertThat(recoveryTaskCreator.deleteStaleLiveSnapshots(actualSnapshots)).isEmpty();
     }
 
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrderElementsOf(expectedSnapshots);
 
     // Clear state but reset the overloaded method.
-    doCallRealMethod().when(snapshotMetadataStore).delete((SnapshotMetadata) any());
+    doCallRealMethod().when(snapshotMetadataStore).deleteAsync((SnapshotMetadata) any());
     expectedSnapshots.forEach(snapshot -> snapshotMetadataStore.deleteSync(snapshot));
   }
 
@@ -355,7 +362,8 @@ public class RecoveryTaskCreatorTest {
         List.of(partition1, livePartition1, livePartition11, partition2, livePartition2);
 
     snapshots.forEach(snapshot -> snapshotMetadataStore.createSync(snapshot));
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrderElementsOf(snapshots);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrderElementsOf(snapshots);
 
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
@@ -368,30 +376,39 @@ public class RecoveryTaskCreatorTest {
 
     // Pass first call, fail second call.
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
-    // allow the first deletion to work, and timeout the second one
-    doCallRealMethod()
-        .doReturn(
-            Futures.submit(
+
+    AsyncStage asyncStage1 = mock(AsyncStage.class);
+    when(asyncStage1.toCompletableFuture())
+        .thenReturn(
+            CompletableFuture.runAsync(
                 () -> {
                   try {
                     Thread.sleep(30 * 1000);
                   } catch (InterruptedException ignored) {
                   }
                 },
-                timeoutServiceExecutor))
+                timeoutServiceExecutor));
+
+    // allow the first deletion to work, and timeout the second one
+    doCallRealMethod()
+        .doReturn(asyncStage1)
         .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
+        .deleteAsync(any(SnapshotMetadata.class));
+
+    AsyncStage asyncStage2 = mock(AsyncStage.class);
+    when(asyncStage2.toCompletableFuture())
+        .thenReturn(CompletableFuture.failedFuture(new Exception()));
 
     doCallRealMethod()
-        .doReturn(Futures.immediateFailedFuture(new RuntimeException()))
+        .doReturn(asyncStage2)
         .when(snapshotMetadataStore)
-        .delete((SnapshotMetadata) any());
+        .deleteAsync((SnapshotMetadata) any());
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.deleteStaleLiveSnapshots(snapshots));
 
     // Either liveSnapshot1 or liveSnapshot11 remain but not both.
-    List<SnapshotMetadata> actualSnapshots = snapshotMetadataStore.listSync();
+    List<SnapshotMetadata> actualSnapshots = snapshotMetadataStore.listSyncUncached();
     assertThat(actualSnapshots.size()).isEqualTo(4);
     assertThat(actualSnapshots).contains(partition1, partition2, livePartition2);
     assertThat(
@@ -666,8 +683,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
@@ -683,14 +700,14 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
             name + "1", path, endTime + 1, endTime * 2, maxOffset * 2, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition11);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1, partition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
 
     final String recoveryTaskName = "recoveryTask";
@@ -705,7 +722,7 @@ public class RecoveryTaskCreatorTest {
             recoveryStartOffset * 2,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1);
     assertThat(recoveryTaskCreator.determineStartingOffset(0)).isNegative();
   }
 
@@ -720,8 +737,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
@@ -737,7 +754,7 @@ public class RecoveryTaskCreatorTest {
             recoveryStartOffset * 2,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1);
     assertThat(recoveryTaskCreator.determineStartingOffset(850))
         .isEqualTo((recoveryStartOffset * 2) + 1);
     assertThatIllegalStateException()
@@ -751,15 +768,15 @@ public class RecoveryTaskCreatorTest {
             recoveryStartOffset * 3,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1, recoveryTask11);
     assertThat(recoveryTaskCreator.determineStartingOffset(1201))
         .isEqualTo((recoveryStartOffset * 3) + 1);
     assertThat(recoveryTaskCreator.determineStartingOffset(1200))
         .isEqualTo((recoveryStartOffset * 3) + 1);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1150));
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1, recoveryTask11);
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
   }
 
   @Test
@@ -773,8 +790,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
@@ -790,11 +807,11 @@ public class RecoveryTaskCreatorTest {
             recoveryStartOffset * 2,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask1);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1);
     final long currentHeadOffset = 4000;
     assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(2);
     assertThat(recoveryTasks).contains(recoveryTask1);
     Optional<RecoveryTaskMetadata> newRecoveryTask =
@@ -803,7 +820,7 @@ public class RecoveryTaskCreatorTest {
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 2 + 1);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset - 1);
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
   }
 
   @Test
@@ -817,8 +834,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
@@ -842,12 +859,12 @@ public class RecoveryTaskCreatorTest {
             recoveryStartOffset * 3,
             createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask11);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask11);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1, recoveryTask11);
 
     final long currentHeadOffset = 4000;
     assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(3);
     assertThat(recoveryTasks).contains(recoveryTask1, recoveryTask11);
     Optional<RecoveryTaskMetadata> newRecoveryTask =
@@ -856,7 +873,7 @@ public class RecoveryTaskCreatorTest {
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo(recoveryStartOffset * 3 + 1);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset - 1);
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
   }
 
   @Test
@@ -870,8 +887,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
@@ -907,13 +924,13 @@ public class RecoveryTaskCreatorTest {
         new RecoveryTaskMetadata(
             recoveryTaskName + "21", "2", recoveryStartOffset * 4 + 1, 50000, createdTimeUtc);
     recoveryTaskStore.createSync(recoveryTask21);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .contains(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21);
 
     final long currentHeadOffset = 4000;
     assertThat(recoveryTaskCreator.determineStartingOffset(currentHeadOffset))
         .isEqualTo(currentHeadOffset);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(5);
     assertThat(recoveryTasks)
         .contains(recoveryTask1, recoveryTask11, recoveryTask2, recoveryTask21);
@@ -923,7 +940,7 @@ public class RecoveryTaskCreatorTest {
     RecoveryTaskMetadata recoveryTask = newRecoveryTask.get();
     assertThat(recoveryTask.startOffset).isEqualTo((recoveryStartOffset * 3) + 1);
     assertThat(recoveryTask.endOffset).isEqualTo(currentHeadOffset - 1);
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
   }
 
   @Test
@@ -937,8 +954,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -951,13 +968,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(150)).isEqualTo(101);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
@@ -966,12 +983,13 @@ public class RecoveryTaskCreatorTest {
             name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId, LOGS_LUCENE9);
 
     snapshotMetadataStore.createSync(partition11);
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
     assertThat(recoveryTaskCreator.determineStartingOffset(201)).isEqualTo(201);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(150));
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
@@ -986,10 +1004,12 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .contains(partition1, partition11, livePartition1);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
@@ -1005,11 +1025,12 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition11);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
 
@@ -1020,11 +1041,11 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(
             name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition2);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(5);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
@@ -1036,11 +1057,11 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(
             name + "3", path, startTime, endTime, maxOffset * 3, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition2);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(250)).isEqualTo(201);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(7);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(0);
@@ -1058,8 +1079,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -1072,13 +1093,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
@@ -1089,17 +1110,18 @@ public class RecoveryTaskCreatorTest {
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(1);
     // clean up recovery task.
     recoveryTaskStore.deleteSync(recoveryTasks1.get(0).name);
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     final SnapshotMetadata partition11 =
         new SnapshotMetadata(
             name + "11", path, endTime + 1, endTime * 2, maxOffset * 2, partitionId, LOGS_LUCENE9);
 
     snapshotMetadataStore.createSync(partition11);
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
-    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
-    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSync().get(0);
+    assertThat(recoveryTaskStore.listSyncUncached().size()).isEqualTo(1);
+    RecoveryTaskMetadata recoveryTask1 = recoveryTaskStore.listSyncUncached().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(201);
     assertThat(recoveryTask1.endOffset).isEqualTo(1249);
     assertThat(recoveryTask1.partitionId).isEqualTo(partitionId);
@@ -1108,7 +1130,7 @@ public class RecoveryTaskCreatorTest {
     assertThat(recoveryTaskCreator.determineStartingOffset(1249)).isEqualTo(1250);
     assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
     assertThat(recoveryTaskCreator.determineStartingOffset(1251)).isEqualTo(1250);
-    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(1);
+    assertThat(recoveryTaskStore.listSyncUncached().size()).isEqualTo(1);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(0);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(2);
 
@@ -1123,20 +1145,22 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTask1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1, partition11, livePartition1);
+    assertThat(recoveryTaskStore.listSyncUncached()).containsExactly(recoveryTask1);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .contains(partition1, partition11, livePartition1);
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(250));
     assertThat(recoveryTaskCreator.determineStartingOffset(1450)).isEqualTo(1450);
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
-    List<RecoveryTaskMetadata> recoveryTasks2 = recoveryTaskStore.listSync();
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
+    List<RecoveryTaskMetadata> recoveryTasks2 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks2.size()).isEqualTo(2);
     RecoveryTaskMetadata recoveryTask2 =
         recoveryTasks2.stream().filter(r -> !recoveryTask1.equals(r)).findFirst().get();
     assertThat(recoveryTask2.startOffset).isEqualTo(1250);
     assertThat(recoveryTask2.endOffset).isEqualTo(1449);
     assertThat(recoveryTask2.partitionId).isEqualTo(partitionId);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(1);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(3);
@@ -1153,24 +1177,26 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition11);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition11);
     assertThat(recoveryTaskCreator.determineStartingOffset(1500)).isEqualTo(1450);
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
-    assertThat(recoveryTaskStore.listSync()).contains(recoveryTask1, recoveryTask2);
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
+    assertThat(recoveryTaskStore.listSyncUncached()).contains(recoveryTask1, recoveryTask2);
     assertThat(recoveryTaskCreator.determineStartingOffset(1650)).isEqualTo(1650);
-    assertThat(snapshotMetadataStore.listSync()).containsExactlyInAnyOrder(partition1, partition11);
-    List<RecoveryTaskMetadata> recoveryTasks3 = recoveryTaskStore.listSync();
+    assertThat(snapshotMetadataStore.listSyncUncached())
+        .containsExactlyInAnyOrder(partition1, partition11);
+    List<RecoveryTaskMetadata> recoveryTasks3 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks3.size()).isEqualTo(3);
     RecoveryTaskMetadata recoveryTask3 =
-        recoveryTaskStore.listSync().stream()
+        recoveryTaskStore.listSyncUncached().stream()
             .filter(r -> !r.equals(recoveryTask1) && !r.equals(recoveryTask2))
             .findFirst()
             .get();
     assertThat(recoveryTask3.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTask3.startOffset).isEqualTo(1450);
     assertThat(recoveryTask3.endOffset).isEqualTo(1649);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(3);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(4);
@@ -1182,27 +1208,27 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(
             name + "2", LIVE_SNAPSHOT_PATH, startTime, endTime, maxOffset * 5, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition2);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(1660)).isEqualTo(1650);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(1850)).isEqualTo(1850);
-    List<RecoveryTaskMetadata> recoveryTasks4 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks4 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks4.size()).isEqualTo(4);
     RecoveryTaskMetadata recoveryTask4 =
-        recoveryTaskStore.listSync().stream()
+        recoveryTaskStore.listSyncUncached().stream()
             .filter(r -> !recoveryTasks3.contains(r))
             .findFirst()
             .get();
     assertThat(recoveryTask4.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTask4.startOffset).isEqualTo(1650);
     assertThat(recoveryTask4.endOffset).isEqualTo(1849);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4);
     assertThat(getCount(STALE_SNAPSHOT_DELETE_SUCCESS, meterRegistry)).isEqualTo(5);
     assertThat(getCount(RECOVERY_TASKS_CREATED, meterRegistry)).isEqualTo(5);
@@ -1214,7 +1240,7 @@ public class RecoveryTaskCreatorTest {
         new SnapshotMetadata(
             name + "3", path, startTime, endTime, maxOffset * 3, "2", LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition2);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .contains(partition1, partition11, livePartition1, livePartition2, partition2);
     final RecoveryTaskMetadata recoveryTaskPartition2 =
         new RecoveryTaskMetadata("basicRecovery" + "2", "2", 10000, 20000, 1000);
@@ -1222,22 +1248,22 @@ public class RecoveryTaskCreatorTest {
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1650));
     assertThat(recoveryTaskCreator.determineStartingOffset(1900)).isEqualTo(1850);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(
             recoveryTask1, recoveryTask2, recoveryTask3, recoveryTask4, recoveryTaskPartition2);
     assertThat(recoveryTaskCreator.determineStartingOffset(2050)).isEqualTo(2050);
-    assertThat(recoveryTaskStore.listSync().size()).isEqualTo(6);
+    assertThat(recoveryTaskStore.listSyncUncached().size()).isEqualTo(6);
     RecoveryTaskMetadata recoveryTask5 =
-        recoveryTaskStore.listSync().stream()
+        recoveryTaskStore.listSyncUncached().stream()
             .filter(r -> !recoveryTasks4.contains(r) && !r.equals(recoveryTaskPartition2))
             .findFirst()
             .get();
     assertThat(recoveryTask5.partitionId).isEqualTo(partitionId);
     assertThat(recoveryTask5.startOffset).isEqualTo(1850);
     assertThat(recoveryTask5.endOffset).isEqualTo(2049);
-    assertThat(snapshotMetadataStore.listSync())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, partition11, livePartition2, partition2);
-    assertThat(recoveryTaskStore.listSync())
+    assertThat(recoveryTaskStore.listSyncUncached())
         .containsExactlyInAnyOrder(
             recoveryTask1,
             recoveryTask2,
@@ -1260,8 +1286,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -1274,13 +1300,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
@@ -1293,13 +1319,12 @@ public class RecoveryTaskCreatorTest {
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(recoveryTaskStore.listSyncUncached()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
   }
 
   @Test
-  public void testSnapshotListFailureFailsDetermineStartOffset()
-      throws ExecutionException, InterruptedException {
+  public void testSnapshotListFailureFailsDetermineStartOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
@@ -1309,8 +1334,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -1323,13 +1348,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
@@ -1338,17 +1363,19 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail snapshot store list creation.
-    doThrow(new RuntimeException()).when(snapshotMetadataStore).listSync();
+    doThrow(new InternalMetadataStoreException(""))
+        .doCallRealMethod()
+        .when(snapshotMetadataStore)
+        .listSyncUncached();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.listSync()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
+    assertThat(recoveryTaskStore.listSyncUncached()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSyncUncached()).containsExactly(partition1);
   }
 
   @Test
-  public void testRecoveryListFailureFailsDetermineStartOffset()
-      throws ExecutionException, InterruptedException {
+  public void testRecoveryListFailureFailsDetermineStartOffset() {
     RecoveryTaskCreator recoveryTaskCreator =
         new RecoveryTaskCreator(
             snapshotMetadataStore,
@@ -1358,8 +1385,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -1372,13 +1399,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
@@ -1387,12 +1414,15 @@ public class RecoveryTaskCreatorTest {
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(50));
 
     // Fail a recovery store list.
-    doThrow(new RuntimeException()).when(recoveryTaskStore).listSync();
+    doThrow(new InternalMetadataStoreException(""))
+        .doCallRealMethod()
+        .when(recoveryTaskStore)
+        .listSyncUncached();
 
     assertThatExceptionOfType(RuntimeException.class)
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get()).containsExactly(partition1);
+    assertThat(recoveryTaskStore.listSyncUncached()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSyncUncached()).containsExactly(partition1);
   }
 
   @Test
@@ -1407,8 +1437,8 @@ public class RecoveryTaskCreatorTest {
             TEST_MAX_MESSAGES_PER_RECOVERY_TASK,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
 
@@ -1421,13 +1451,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(1);
     assertThat(recoveryTasks1.get(0).startOffset).isEqualTo(101);
     assertThat(recoveryTasks1.get(0).endOffset).isEqualTo(1149);
@@ -1446,18 +1476,18 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    assertThat(snapshotMetadataStore.list().get())
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, livePartition1);
     // Fail deletion on snapshot metadata store.
     doThrow(new IllegalStateException())
         .when(snapshotMetadataStore)
-        .delete(any(SnapshotMetadata.class));
-    doThrow(new IllegalStateException()).when(snapshotMetadataStore).delete(any(String.class));
+        .deleteAsync(any(SnapshotMetadata.class));
+    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any(String.class));
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));
-    assertThat(recoveryTaskStore.list().get()).containsExactly(recoveryTasks1.get(0));
-    assertThat(snapshotMetadataStore.list().get())
+    assertThat(recoveryTaskStore.listSyncUncached()).containsExactly(recoveryTasks1.get(0));
+    assertThat(snapshotMetadataStore.listSyncUncached())
         .containsExactlyInAnyOrder(partition1, livePartition1);
   }
 
@@ -1474,9 +1504,9 @@ public class RecoveryTaskCreatorTest {
             meterRegistry);
 
     // Long range - 1 chunk
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     recoveryTaskCreator.createRecoveryTasks("1", 10, 100, maxMessagesPerRecoveryTask);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(1);
     assertThat(recoveryTasks.get(0).startOffset).isEqualTo(10);
     assertThat(recoveryTasks.get(0).endOffset).isEqualTo(100);
@@ -1497,9 +1527,9 @@ public class RecoveryTaskCreatorTest {
             maxMessagesPerRecoveryTask,
             meterRegistry);
 
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     recoveryTaskCreator.createRecoveryTasks(testPartitionId, 100, 101, maxMessagesPerRecoveryTask);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(1);
     assertThat(recoveryTasks.get(0).startOffset).isEqualTo(100);
     assertThat(recoveryTasks.get(0).endOffset).isEqualTo(101);
@@ -1514,9 +1544,9 @@ public class RecoveryTaskCreatorTest {
         new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, testPartitionId, 100, 2, meterRegistry);
 
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     recoveryTaskCreator.createRecoveryTasks(testPartitionId, 100, 105, 2);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(3);
     assertThat(recoveryTasks.stream().mapToLong(r -> r.startOffset).sorted().toArray())
         .containsExactly(100, 102, 104);
@@ -1535,9 +1565,9 @@ public class RecoveryTaskCreatorTest {
         new RecoveryTaskCreator(
             snapshotMetadataStore, recoveryTaskStore, partitionId, 100, 2, meterRegistry);
 
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     recoveryTaskCreator.createRecoveryTasks(partitionId, 100, 104, 2);
-    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks.size()).isEqualTo(3);
     assertThat(recoveryTasks.stream().mapToLong(r -> r.startOffset).sorted().toArray())
         .containsExactly(100, 102, 104);
@@ -1563,11 +1593,11 @@ public class RecoveryTaskCreatorTest {
             maxMessagesPerRecoveryTask,
             meterRegistry);
 
-    assertThat(snapshotMetadataStore.listSync()).isEmpty();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
     // When there is no data return -1.
     assertThat(recoveryTaskCreator.determineStartingOffset(1000)).isNegative();
-    assertThat(recoveryTaskStore.listSync()).isEmpty();
+    assertThat(recoveryTaskStore.listSyncUncached()).isEmpty();
 
     final String name = "testSnapshotId";
     final String path = "/testPath_" + name;
@@ -1578,13 +1608,13 @@ public class RecoveryTaskCreatorTest {
     final SnapshotMetadata partition1 =
         new SnapshotMetadata(name, path, startTime, endTime, maxOffset, partitionId, LOGS_LUCENE9);
     snapshotMetadataStore.createSync(partition1);
-    assertThat(snapshotMetadataStore.listSync()).contains(partition1);
+    assertThat(snapshotMetadataStore.listSyncUncached()).contains(partition1);
     assertThat(
             getHighestDurableOffsetForPartition(
-                snapshotMetadataStore.listSync(), Collections.emptyList(), partitionId))
+                snapshotMetadataStore.listSyncUncached(), Collections.emptyList(), partitionId))
         .isEqualTo(100);
     assertThat(recoveryTaskCreator.determineStartingOffset(1150)).isEqualTo(1150);
-    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSync();
+    List<RecoveryTaskMetadata> recoveryTasks1 = recoveryTaskStore.listSyncUncached();
     assertThat(recoveryTasks1.size()).isEqualTo(3);
     assertThat(recoveryTasks1.stream().mapToLong(r -> r.startOffset).sorted().toArray())
         .containsExactly(101, 601, 1101);

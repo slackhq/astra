@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
@@ -136,13 +137,13 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
     Set<String> recoveryTasksAlreadyAssigned =
-        recoveryNodeMetadataStore.getCached().stream()
+        recoveryNodeMetadataStore.listSync().stream()
             .map((recoveryNodeMetadata -> recoveryNodeMetadata.recoveryTaskName))
             .filter((recoveryTaskName) -> !recoveryTaskName.isEmpty())
             .collect(Collectors.toUnmodifiableSet());
 
     List<RecoveryTaskMetadata> recoveryTasksThatNeedAssignment =
-        recoveryTaskMetadataStore.getCached().stream()
+        recoveryTaskMetadataStore.listSync().stream()
             .filter(recoveryTask -> !recoveryTasksAlreadyAssigned.contains(recoveryTask.name))
             // We are currently starting with the oldest tasks first in an effort to reduce the
             // possibility of data loss, but this is likely opposite of what most users will
@@ -153,7 +154,7 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
             .collect(Collectors.toUnmodifiableList());
 
     List<RecoveryNodeMetadata> availableRecoveryNodes =
-        recoveryNodeMetadataStore.getCached().stream()
+        recoveryNodeMetadataStore.listSync().stream()
             .filter(
                 (recoveryNodeMetadata ->
                     recoveryNodeMetadata.recoveryNodeState.equals(
@@ -187,7 +188,11 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
                           Instant.now().toEpochMilli());
 
                   ListenableFuture<?> future =
-                      recoveryNodeMetadataStore.update(recoveryNodeAssigned);
+                      // todo - consider refactoring this to return a completable future instead
+                      JdkFutureAdapters.listenInPoolThread(
+                          recoveryNodeMetadataStore
+                              .updateAsync(recoveryNodeAssigned)
+                              .toCompletableFuture());
                   addCallback(
                       future,
                       FutureUtils.successCountingCallback(successCounter),

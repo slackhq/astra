@@ -10,7 +10,7 @@ import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.logstore.LogMessage;
-import com.slack.kaldb.metadata.zookeeper.ZookeeperMetadataStoreImpl;
+import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import com.slack.kaldb.testlib.MessageUtil;
@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.curator.test.TestingServer;
+import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ public class CachingChunkManagerTest {
           .withSecureConnection(false)
           .build();
 
-  private ZookeeperMetadataStoreImpl metadataStore;
+  private AsyncCuratorFramework curatorFramework;
   private CachingChunkManager<LogMessage> cachingChunkManager;
 
   @BeforeEach
@@ -61,9 +62,8 @@ public class CachingChunkManagerTest {
       cachingChunkManager.stopAsync();
       cachingChunkManager.awaitTerminated(15, TimeUnit.SECONDS);
     }
-    if (metadataStore != null) {
-
-      metadataStore.close();
+    if (curatorFramework != null) {
+      curatorFramework.unwrap().close();
     }
     s3BlobFs.close();
     testingServer.close();
@@ -105,12 +105,12 @@ public class CachingChunkManagerTest {
             .setSleepBetweenRetriesMs(1000)
             .build();
 
-    metadataStore = ZookeeperMetadataStoreImpl.fromConfig(meterRegistry, zkConfig);
+    curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
 
     CachingChunkManager<LogMessage> cachingChunkManager =
         new CachingChunkManager<>(
             meterRegistry,
-            metadataStore,
+            curatorFramework,
             s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
