@@ -1,5 +1,5 @@
 package com.slack.kaldb.metadata.core;
 
-public interface KaldbMetadataStoreChangeListener {
-  void onMetadataStoreChanged();
+public interface KaldbMetadataStoreChangeListener<T> {
+  void onMetadataStoreChanged(T model);
 }

@@ -87,6 +87,9 @@ public class RecoveryService extends AbstractIdleService {
   private final Timer recoveryTaskTimerFailure;
   private SearchMetadataStore searchMetadataStore;
 
+  private final KaldbMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryNodeListener =
+      this::recoveryNodeListener;
+
   public RecoveryService(
       KaldbConfigs.KaldbConfig kaldbConfig,
       AsyncCuratorFramework curatorFramework,
@@ -149,12 +152,19 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeListenerMetadataStore =
         new RecoveryNodeMetadataStore(curatorFramework, searchContext.hostname, true);
-    recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener());
+    recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Closing the recovery service");
+
+    recoveryNodeListenerMetadataStore.addListener(recoveryNodeListener);
+
+    recoveryNodeMetadataStore.close();
+    recoveryTaskMetadataStore.close();
+    snapshotMetadataStore.close();
+    searchMetadataStore.close();
 
     // Immediately shutdown recovery tasks. Any incomplete recovery tasks will be picked up by
     // another recovery node so we don't need to wait for processing to complete.
@@ -163,27 +173,23 @@ public class RecoveryService extends AbstractIdleService {
     LOG.info("Closed the recovery service");
   }
 
-  private KaldbMetadataStoreChangeListener recoveryNodeListener() {
-    return () -> {
-      RecoveryNodeMetadata recoveryNodeMetadata =
-          recoveryNodeMetadataStore.getSync(searchContext.hostname);
-      Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState =
-          recoveryNodeMetadata.recoveryNodeState;
+  private void recoveryNodeListener(RecoveryNodeMetadata recoveryNodeMetadata) {
+    Metadata.RecoveryNodeMetadata.RecoveryNodeState newRecoveryNodeState =
+        recoveryNodeMetadata.recoveryNodeState;
 
-      if (newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)) {
-        LOG.info("Recovery node - ASSIGNED received");
-        recoveryNodeAssignmentReceived.increment();
-        if (!recoveryNodeLastKnownState.equals(
-            Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}",
-              recoveryNodeLastKnownState,
-              newRecoveryNodeState);
-        }
-        executorService.execute(() -> handleRecoveryTaskAssignment(recoveryNodeMetadata));
+    if (newRecoveryNodeState.equals(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED)) {
+      LOG.info("Recovery node - ASSIGNED received");
+      recoveryNodeAssignmentReceived.increment();
+      if (!recoveryNodeLastKnownState.equals(
+          Metadata.RecoveryNodeMetadata.RecoveryNodeState.FREE)) {
+        LOG.warn(
+            "Unexpected state transition from {} to {}",
+            recoveryNodeLastKnownState,
+            newRecoveryNodeState);
       }
-      recoveryNodeLastKnownState = newRecoveryNodeState;
-    };
+      executorService.execute(() -> handleRecoveryTaskAssignment(recoveryNodeMetadata));
+    }
+    recoveryNodeLastKnownState = newRecoveryNodeState;
   }
 
   /**

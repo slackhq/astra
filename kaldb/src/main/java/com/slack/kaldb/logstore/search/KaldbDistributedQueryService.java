@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadata;
@@ -22,6 +23,7 @@ import com.slack.kaldb.proto.service.KaldbServiceGrpc;
 import com.slack.kaldb.server.KaldbQueryServiceBase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.io.Closeable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +49,7 @@ import org.slf4j.LoggerFactory;
  * of queries we support are - searches and date range histograms In the future we want to query
  * each chunk from the distributed query service and perform the aggregation here
  */
-public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
+public class KaldbDistributedQueryService extends KaldbQueryServiceBase implements Closeable {
 
   private static final Logger LOG = LoggerFactory.getLogger(KaldbDistributedQueryService.class);
 
@@ -87,6 +89,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
   private final Duration requestTimeout;
   private final Duration defaultQueryTimeout;
 
+  private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
+      (searchMetadata) -> updateStubs();
+
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
   // So this should be replaced cache/index metadata store when that info is present in ZK
@@ -105,8 +110,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
     this.requestTimeout = requestTimeout;
     this.defaultQueryTimeout = defaultQueryTimeout;
     searchMetadataTotalChangeCounter = meterRegistry.counter(SEARCH_METADATA_TOTAL_CHANGE_COUNTER);
-    this.searchMetadataStore.addListener(this::updateStubs);
-
+    this.searchMetadataStore.addListener(searchMetadataListener);
     this.distributedQueryApdexSatisfied = meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_SATISFIED);
     this.distributedQueryApdexTolerating =
         meterRegistry.counter(DISTRIBUTED_QUERY_APDEX_TOLERATING);
@@ -514,5 +518,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase {
       LOG.info("Finished distributed search for request: {}", distribSchemaReq);
       span.finish();
     }
+  }
+
+  @Override
+  public void close() {
+    this.searchMetadataStore.removeListener(searchMetadataListener);
   }
 }

@@ -153,19 +153,19 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
     }
   }
 
-  public void addListener(KaldbMetadataStoreChangeListener watcher) {
+  public void addListener(KaldbMetadataStoreChangeListener<T> watcher) {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
 
     // this mapping exists because the remove is by reference, and the listener is a different
     // object type
     ModeledCacheListener<T> modeledCacheListener =
-        (type, path, stat, model) -> watcher.onMetadataStoreChanged();
+        (type, path, stat, model) -> watcher.onMetadataStoreChanged(model);
     cachedModeledFramework.listenable().addListener(modeledCacheListener);
     listenerMap.put(watcher, modeledCacheListener);
   }
 
-  public void removeListener(KaldbMetadataStoreChangeListener watcher) {
+  public void removeListener(KaldbMetadataStoreChangeListener<T> watcher) {
     if (cachedModeledFramework == null)
       throw new UnsupportedOperationException("Caching is disabled");
     cachedModeledFramework.listenable().removeListener(listenerMap.remove(watcher));

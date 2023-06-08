@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -65,6 +66,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
+  private final KaldbMetadataStoreChangeListener<SnapshotMetadata> snapshotListener =
+      (snapshotMetadata) -> runOneIteration();
+
   public ReplicaCreationService(
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
@@ -93,12 +97,13 @@ public class ReplicaCreationService extends AbstractScheduledService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting replica creator service");
-    snapshotMetadataStore.addListener(this::runOneIteration);
+    snapshotMetadataStore.addListener(snapshotListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
     LOG.info("Closing replica create service");
+    snapshotMetadataStore.removeListener(snapshotListener);
     executorService.shutdownNow();
     LOG.info("Closed replica create service");
   }

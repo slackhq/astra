@@ -199,9 +199,9 @@ public class KaldbMetadataStoreTest {
       // verify exceptions are thrown attempting to use cached methods
       assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(store::listSync);
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.addListener(() -> {}));
+          .isThrownBy(() -> store.addListener((metadata) -> {}));
       assertThatExceptionOfType(UnsupportedOperationException.class)
-          .isThrownBy(() -> store.removeListener(() -> {}));
+          .isThrownBy(() -> store.removeListener((metadata) -> {}));
     }
   }
 
@@ -279,7 +279,8 @@ public class KaldbMetadataStoreTest {
 
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
-      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      KaldbMetadataStoreChangeListener<TestMetadata> listener =
+          (testMetadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);
@@ -317,7 +318,8 @@ public class KaldbMetadataStoreTest {
 
     try (KaldbMetadataStore<TestMetadata> store = new TestMetadataStore()) {
       AtomicInteger counter = new AtomicInteger(0);
-      KaldbMetadataStoreChangeListener listener = counter::incrementAndGet;
+      KaldbMetadataStoreChangeListener<TestMetadata> listener =
+          (testMetadata) -> counter.incrementAndGet();
       store.addListener(listener);
 
       await().until(() -> counter.get() == 0);

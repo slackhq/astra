@@ -212,6 +212,8 @@ public class Kaldb {
               meterRegistry,
               requestTimeout,
               Duration.ofMillis(kaldbConfig.getQueryConfig().getDefaultQueryTimeoutMs()));
+      // todo - close the kaldbDistributedQueryService once done (depends on
+      // https://github.com/slackhq/kaldb/pull/564)
       final int serverPort = kaldbConfig.getQueryConfig().getServerConfig().getServerPort();
 
       ArmeriaService armeriaService =

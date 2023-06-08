@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
@@ -67,6 +68,11 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
+  private final KaldbMetadataStoreChangeListener<RecoveryNodeMetadata> recoveryNodeListener =
+      (recoveryNodeMetadata) -> runOneIteration();
+  private final KaldbMetadataStoreChangeListener<RecoveryTaskMetadata> recoveryTaskListener =
+      (recoveryTaskListener) -> runOneIteration();
+
   public RecoveryTaskAssignmentService(
       RecoveryTaskMetadataStore recoveryTaskMetadataStore,
       RecoveryNodeMetadataStore recoveryNodeMetadataStore,
@@ -104,12 +110,14 @@ public class RecoveryTaskAssignmentService extends AbstractScheduledService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting recovery task assignment service");
-    recoveryTaskMetadataStore.addListener(this::runOneIteration);
-    recoveryNodeMetadataStore.addListener(this::runOneIteration);
+    recoveryTaskMetadataStore.addListener(recoveryTaskListener);
+    recoveryNodeMetadataStore.addListener(recoveryNodeListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
+    recoveryTaskMetadataStore.removeListener(recoveryTaskListener);
+    recoveryNodeMetadataStore.removeListener(recoveryNodeListener);
     executorService.shutdown();
     LOG.info("Closed recovery task assignment service");
   }
