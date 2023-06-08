@@ -18,6 +18,7 @@ import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.logstore.LogMessage;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.search.SearchMetadata;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -72,8 +73,7 @@ public class ChunkCleanerServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
-    snapshotMetadataStore =
-        new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
+    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), true);
   }
 
   @AfterEach
@@ -124,7 +124,8 @@ public class ChunkCleanerServiceTest {
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_INITIATED, metricsRegistry)).isEqualTo(1);
     assertThat(getCount(RollOverChunkTask.ROLLOVERS_FAILED, metricsRegistry)).isEqualTo(0);
 
-    List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> afterSnapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(afterSnapshots.size()).isEqualTo(2);
     assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
     SnapshotMetadata liveSnapshot = fetchLiveSnapshot(afterSnapshots).get(0);
@@ -145,7 +146,8 @@ public class ChunkCleanerServiceTest {
     assertThat(nonLiveSnapshot.startTimeEpochMs).isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshot.endTimeEpochMs).isEqualTo(startTime.plusSeconds(8).toEpochMilli());
 
-    List<SearchMetadata> afterSearchNodes = searchMetadataStore.listSyncUncached();
+    List<SearchMetadata> afterSearchNodes =
+        KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(afterSearchNodes.size()).isEqualTo(1);
     assertThat(afterSearchNodes.get(0).url).contains(TEST_HOST);
     assertThat(afterSearchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -174,7 +176,8 @@ public class ChunkCleanerServiceTest {
     assertThat(chunkManager.getChunkList().size()).isZero();
 
     // Check metadata after chunk is deleted.
-    List<SnapshotMetadata> chunkDeletedSnapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> chunkDeletedSnapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(chunkDeletedSnapshots.size()).isEqualTo(1);
     SnapshotMetadata nonLiveSnapshotAfterChunkDelete =
         fetchNonLiveSnapshot(chunkDeletedSnapshots).get(0);
@@ -191,11 +194,12 @@ public class ChunkCleanerServiceTest {
         .isEqualTo(startTime.toEpochMilli());
     assertThat(nonLiveSnapshotAfterChunkDelete.endTimeEpochMs)
         .isEqualTo(startTime.plusSeconds(8).toEpochMilli());
-    assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
   }
 
   private void testBasicSnapshotMetadata(Instant creationTime) {
-    final List<SnapshotMetadata> snapshotNodes = snapshotMetadataStore.listSyncUncached();
+    final List<SnapshotMetadata> snapshotNodes =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshotNodes.size()).isEqualTo(1);
     assertThat(snapshotNodes.get(0).snapshotPath).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).maxOffset).isEqualTo(0);
@@ -204,7 +208,8 @@ public class ChunkCleanerServiceTest {
     assertThat(snapshotNodes.get(0).startTimeEpochMs)
         .isCloseTo(creationTime.toEpochMilli(), Offset.offset(2500L));
     assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
-    final List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
+    final List<SearchMetadata> searchNodes =
+        KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(searchNodes.size()).isEqualTo(1);
     assertThat(searchNodes.get(0).url).contains(TEST_HOST);
     assertThat(searchNodes.get(0).url).contains(String.valueOf(TEST_PORT));
@@ -270,7 +275,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(4, 2, 2, 2, 0);
     assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))
@@ -305,7 +310,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(3, 1, 2, 1, 0);
     assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))
@@ -320,7 +325,7 @@ public class ChunkCleanerServiceTest {
 
     checkMetadata(2, 0, 2, 0, 0);
     assertThat(
-            snapshotMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).stream()
                 .map(s -> s.maxOffset)
                 .sorted()
                 .collect(Collectors.toList()))
@@ -333,12 +338,13 @@ public class ChunkCleanerServiceTest {
       int expectedNonLiveSnapshotSize,
       int expectedSearchNodeSize,
       int expectedInfinitySnapshotSize) {
-    List<SnapshotMetadata> snapshots = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshots =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshots.size()).isEqualTo(expectedSnapshotSize);
     List<SnapshotMetadata> liveSnapshots = fetchLiveSnapshot(snapshots);
     assertThat(liveSnapshots.size()).isEqualTo(expectedLiveSnapshotSize);
     assertThat(fetchNonLiveSnapshot(snapshots).size()).isEqualTo(expectedNonLiveSnapshotSize);
-    List<SearchMetadata> searchNodes = searchMetadataStore.listSyncUncached();
+    List<SearchMetadata> searchNodes = KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);
     assertThat(searchNodes.size()).isEqualTo(expectedSearchNodeSize);
     assertThat(liveSnapshots.stream().map(s -> s.snapshotId).collect(Collectors.toList()))
         .containsExactlyInAnyOrderElementsOf(

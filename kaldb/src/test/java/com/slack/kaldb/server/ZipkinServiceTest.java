@@ -18,6 +18,7 @@ import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -98,7 +99,7 @@ public class ZipkinServiceTest {
         new DatasetMetadata(
             TEST_DATASET_NAME, "serviceOwner", 1000, partitionConfigs, TEST_DATASET_NAME);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
   }
 
   @AfterEach

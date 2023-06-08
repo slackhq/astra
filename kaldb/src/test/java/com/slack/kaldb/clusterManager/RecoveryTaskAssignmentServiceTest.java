@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadata;
 import com.slack.kaldb.metadata.recovery.RecoveryNodeMetadataStore;
 import com.slack.kaldb.metadata.recovery.RecoveryTaskMetadata;
@@ -149,8 +150,10 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().isEmpty()).isTrue();
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().isEmpty()).isTrue();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).isEmpty())
+        .isTrue();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).isEmpty())
+        .isTrue();
 
     assertThat(
             MetricsUtil.getCount(
@@ -200,8 +203,10 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().isEmpty()).isTrue();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
+        .isEqualTo(3);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).isEmpty())
+        .isTrue();
 
     assertThat(
             MetricsUtil.getCount(
@@ -278,12 +283,16 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(3);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().containsAll(ineligibleRecoveryNodes))
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
+        .isEqualTo(3);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
+        .isEqualTo(3);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
+                .containsAll(ineligibleRecoveryNodes))
         .isTrue();
     assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -342,8 +351,10 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(0);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().isEmpty()).isTrue();
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(3);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).isEmpty())
+        .isTrue();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
+        .isEqualTo(3);
 
     assertThat(
             MetricsUtil.getCount(
@@ -409,11 +420,19 @@ public class RecoveryTaskAssignmentServiceTest {
     int assignments = recoveryTaskAssignmentService.assignRecoveryTasksToNodes();
 
     assertThat(assignments).isEqualTo(1);
-    assertThat(recoveryTaskMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryTaskName)
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
+        .isEqualTo(2);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
+        .isEqualTo(1);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
+                .get(0)
+                .recoveryTaskName)
         .isEqualTo(oldTask.name);
-    assertThat(recoveryNodeMetadataStore.listSyncUncached().get(0).recoveryNodeState)
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore)
+                .get(0)
+                .recoveryNodeState)
         .isEqualTo(Metadata.RecoveryNodeMetadata.RecoveryNodeState.ASSIGNED);
 
     assertThat(
@@ -613,7 +632,7 @@ public class RecoveryTaskAssignmentServiceTest {
         .isEqualTo(1);
 
     assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -621,7 +640,7 @@ public class RecoveryTaskAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
     assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -697,7 +716,7 @@ public class RecoveryTaskAssignmentServiceTest {
         .isEqualTo(1);
 
     assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(
@@ -705,7 +724,7 @@ public class RecoveryTaskAssignmentServiceTest {
                 .count())
         .isEqualTo(1);
     assertThat(
-            recoveryNodeMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).stream()
                 .filter(
                     recoveryNodeMetadata ->
                         recoveryNodeMetadata.recoveryNodeState.equals(

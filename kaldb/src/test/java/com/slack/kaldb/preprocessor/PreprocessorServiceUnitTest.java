@@ -499,7 +499,7 @@ public class PreprocessorServiceUnitTest {
   @Test
   public void shouldHandleEmptyDatasetMetadata() throws TimeoutException {
     DatasetMetadataStore datasetMetadataStore = mock(DatasetMetadataStore.class);
-    when(datasetMetadataStore.listSyncUncached()).thenReturn(List.of());
+    when(datasetMetadataStore.listSync()).thenReturn(List.of());
 
     KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
         KaldbConfigs.PreprocessorConfig.KafkaStreamConfig.newBuilder()

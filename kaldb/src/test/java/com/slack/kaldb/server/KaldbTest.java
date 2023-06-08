@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableMap;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -135,7 +136,7 @@ public class KaldbTest {
             partitionConfigs,
             MessageUtil.TEST_DATASET_NAME);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
   }
 
   @AfterEach
