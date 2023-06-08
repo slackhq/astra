@@ -353,4 +353,30 @@ public class OpenSearchRequestTest {
     assertThat(movAvgAggBuilder.getType()).isEqualTo("moving_avg");
     assertThat(movAvgAggBuilder.getPipeline().getBucketsPath()).isEqualTo("_count");
   }
+
+  @Test
+  public void testFilters() throws IOException {
+    String rawRequest = getRawQueryString("filters");
+
+    OpenSearchRequest openSearchRequest = new OpenSearchRequest();
+    List<KaldbSearch.SearchRequest> parsedRequestList =
+        openSearchRequest.parseHttpPostBody(rawRequest);
+    assertThat(parsedRequestList.size()).isEqualTo(1);
+
+    KaldbSearch.SearchRequest.SearchAggregation filtersAggregation =
+        parsedRequestList.get(0).getAggregations();
+
+    assertThat(filtersAggregation.getName()).isEqualTo("2");
+    assertThat(filtersAggregation.getFilters().getFiltersCount()).isEqualTo(2);
+    assertThat(filtersAggregation.getFilters().getFiltersMap().containsKey("foo")).isTrue();
+    assertThat(filtersAggregation.getFilters().getFiltersMap().containsKey("bar")).isTrue();
+    assertThat(filtersAggregation.getFilters().getFiltersMap().get("foo").getQueryString())
+        .isEqualTo("*:*");
+    assertThat(filtersAggregation.getFilters().getFiltersMap().get("foo").getAnalyzeWildcard())
+        .isEqualTo(true);
+    assertThat(filtersAggregation.getFilters().getFiltersMap().get("bar").getQueryString())
+        .isEqualTo("*");
+    assertThat(filtersAggregation.getFilters().getFiltersMap().get("bar").getAnalyzeWildcard())
+        .isEqualTo(false);
+  }
 }

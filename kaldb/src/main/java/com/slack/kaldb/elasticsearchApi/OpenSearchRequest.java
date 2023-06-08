@@ -12,6 +12,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.FiltersAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -140,6 +141,32 @@ public class OpenSearchRequest {
                                               .setFormat(getDateHistogramFormat(dateHistogram))
                                               .setOffset(getDateHistogramOffset(dateHistogram))
                                               .build())
+                                      .build());
+                        } else if (aggregationObject.equals(FiltersAggBuilder.TYPE)) {
+                          JsonNode filters = aggs.get(aggregationName).get(aggregationObject);
+
+                          Map<String, KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation>
+                              filtersAggregationMap = new HashMap<>();
+                          for (Map.Entry<String, FilterRequest> stringFilterAggEntry :
+                              getFiltersMap(filters).entrySet()) {
+                            filtersAggregationMap.put(
+                                stringFilterAggEntry.getKey(),
+                                KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation
+                                    .newBuilder()
+                                    .setQueryString(
+                                        stringFilterAggEntry.getValue().getQueryString())
+                                    .setAnalyzeWildcard(
+                                        stringFilterAggEntry.getValue().isAnalyzeWildcard())
+                                    .build());
+                          }
+
+                          aggBuilder
+                              .setType(FiltersAggBuilder.TYPE)
+                              .setName(aggregationName)
+                              .setFilters(
+                                  KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation
+                                      .newBuilder()
+                                      .putAllFilters(filtersAggregationMap)
                                       .build());
                         } else if (aggregationObject.equals(HistogramAggBuilder.TYPE)) {
                           JsonNode histogram = aggs.get(aggregationName).get(aggregationObject);
@@ -458,6 +485,22 @@ public class OpenSearchRequest {
     return null;
   }
 
+  private static Map<String, FilterRequest> getFiltersMap(JsonNode filters) {
+    Map<String, FilterRequest> filtersMap = new HashMap<>();
+    filters
+        .get("filters")
+        .fieldNames()
+        .forEachRemaining(
+            filterName -> {
+              JsonNode filter = filters.get("filters").get(filterName).get("query_string");
+              filtersMap.put(
+                  filterName,
+                  new FilterRequest(
+                      filter.get("query").asText(), filter.get("analyze_wildcard").asBoolean()));
+            });
+    return filtersMap;
+  }
+
   private static List<Double> getPercentiles(JsonNode percentiles) {
     List<Double> percentileList = new ArrayList<>();
     percentiles.get("percents").forEach(percentile -> percentileList.add(percentile.asDouble()));
@@ -588,5 +631,25 @@ public class OpenSearchRequest {
         .fieldNames()
         .forEachRemaining(fieldName -> orderMap.put(fieldName, order.get(fieldName).asText()));
     return orderMap;
+  }
+
+  private static class FilterRequest {
+
+    private final String queryString;
+
+    private final boolean analyzeWildcard;
+
+    public FilterRequest(String queryString, boolean analyzeWildcard) {
+      this.queryString = queryString;
+      this.analyzeWildcard = analyzeWildcard;
+    }
+
+    public String getQueryString() {
+      return queryString;
+    }
+
+    public boolean isAnalyzeWildcard() {
+      return analyzeWildcard;
+    }
   }
 }

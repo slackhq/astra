@@ -16,6 +16,8 @@ import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
+import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilters;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
@@ -68,7 +70,6 @@ public class OpenSearchInternalAggregation {
   private static final NamedWriteableRegistry NAMED_WRITEABLE_REGISTRY =
       new NamedWriteableRegistry(
           Arrays.asList(
-              // todo - add additional aggregations as needed
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   DateHistogramAggregationBuilder.NAME,
@@ -77,6 +78,12 @@ public class OpenSearchInternalAggregation {
                   InternalAggregation.class,
                   DateHistogramAggregationBuilder.NAME,
                   InternalDateHistogram::new),
+              new NamedWriteableRegistry.Entry(
+                  AggregationBuilder.class,
+                  FiltersAggregationBuilder.NAME,
+                  FiltersAggregationBuilder::new),
+              new NamedWriteableRegistry.Entry(
+                  InternalAggregation.class, FiltersAggregationBuilder.NAME, InternalFilters::new),
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   HistogramAggregationBuilder.NAME,
@@ -162,7 +169,6 @@ public class OpenSearchInternalAggregation {
                   InternalSimpleValue.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
               new NamedWriteableRegistry.Entry(
                   InternalAggregation.class, InternalSimpleValue.NAME, InternalSimpleValue::new),
-              // todo - rest of registerPipelineAggregation
               new NamedWriteableRegistry.Entry(
                   AggregationBuilder.class,
                   PercentilesAggregationBuilder.NAME,
