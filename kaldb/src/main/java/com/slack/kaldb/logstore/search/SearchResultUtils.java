@@ -13,6 +13,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.FiltersAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -212,6 +213,13 @@ public class SearchResultUtils {
           searchAggregation.getSubAggregationsList().stream()
               .map(SearchResultUtils::fromSearchAggregations)
               .collect(Collectors.toList()));
+    } else if (searchAggregation.getType().equals(FiltersAggBuilder.TYPE)) {
+      return new FiltersAggBuilder(
+          searchAggregation.getName(),
+          searchAggregation.getSubAggregationsList().stream()
+              .map(SearchResultUtils::fromSearchAggregations)
+              .collect(Collectors.toList()),
+          fromFiltersAggregation(searchAggregation.getFilters()));
     } else if (searchAggregation.getType().equals(HistogramAggBuilder.TYPE)) {
       return new HistogramAggBuilder(
           searchAggregation.getName(),
@@ -512,6 +520,18 @@ public class SearchResultUtils {
                   .setDateHistogram(dateHistogramAggregationBuilder.build())
                   .build())
           .build();
+    } else if (aggBuilder instanceof FiltersAggBuilder) {
+      FiltersAggBuilder filtersAggBuilder = (FiltersAggBuilder) aggBuilder;
+
+      return KaldbSearch.SearchRequest.SearchAggregation.newBuilder()
+          .setType(FiltersAggBuilder.TYPE)
+          .setName(filtersAggBuilder.getName())
+          .addAllSubAggregations(
+              filtersAggBuilder.getSubAggregations().stream()
+                  .map(SearchResultUtils::toSearchAggregationProto)
+                  .collect(Collectors.toList()))
+          .setFilters(toFiltersAggregation(filtersAggBuilder.getFilterAggMap()))
+          .build();
     } else if (aggBuilder instanceof HistogramAggBuilder) {
       HistogramAggBuilder histogramAggBuilder = (HistogramAggBuilder) aggBuilder;
 
@@ -539,6 +559,43 @@ public class SearchResultUtils {
     } else {
       throw new NotImplementedException();
     }
+  }
+
+  public static Map<String, FiltersAggBuilder.FilterAgg> fromFiltersAggregation(
+      KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation searchFiltersAggregation) {
+    Map<String, FiltersAggBuilder.FilterAgg> filterAggMap = new HashMap<>();
+
+    for (Map.Entry<String, KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation>
+        stringFilterAggregationEntry : searchFiltersAggregation.getFiltersMap().entrySet()) {
+      KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation entry =
+          stringFilterAggregationEntry.getValue();
+      filterAggMap.put(
+          stringFilterAggregationEntry.getKey(),
+          new FiltersAggBuilder.FilterAgg(entry.getQueryString(), entry.getAnalyzeWildcard()));
+    }
+
+    return filterAggMap;
+  }
+
+  public static KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation toFiltersAggregation(
+      Map<String, FiltersAggBuilder.FilterAgg> filterAggMap) {
+    Map<String, KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation>
+        filterAggregationMap = new HashMap<>();
+
+    for (Map.Entry<String, FiltersAggBuilder.FilterAgg> stringFilterAggEntry :
+        filterAggMap.entrySet()) {
+      FiltersAggBuilder.FilterAgg filterAgg = stringFilterAggEntry.getValue();
+      KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation filterAggregation =
+          KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation.newBuilder()
+              .setQueryString(filterAgg.getQueryString())
+              .setAnalyzeWildcard(filterAgg.isAnalyzeWildcard())
+              .build();
+      filterAggregationMap.put(stringFilterAggEntry.getKey(), filterAggregation);
+    }
+
+    return KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation.newBuilder()
+        .putAllFilters(filterAggregationMap)
+        .build();
   }
 
   public static SearchQuery fromSearchRequest(KaldbSearch.SearchRequest searchRequest) {

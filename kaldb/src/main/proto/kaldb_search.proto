@@ -30,11 +30,26 @@ message SearchRequest {
     // and have sibling aggregations
     repeated SearchAggregation sub_aggregations = 4;
 
-    // For aggregations operating on a field
-    ValueSourceAggregation value_source = 5;
+    oneof aggregation_type {
+      // For aggregations operating on a field
+      ValueSourceAggregation value_source = 5;
 
-    // For aggregations operating on another bucket path
-    PipelineAggregation pipeline = 6;
+      // For aggregations operating on another bucket path
+      PipelineAggregation pipeline = 6;
+
+      // For filter aggregations as they are the only aggregation that is neither value source or pipeline based
+      FiltersAggregation filters = 7;
+    }
+
+    message FiltersAggregation {
+      map<string, FilterAggregation> filters = 1;
+    }
+
+    message FilterAggregation {
+      string query_string = 1;
+
+      bool analyze_wildcard = 2;
+    }
 
     message ValueSourceAggregation {
       // Field name to use in aggregation
@@ -46,7 +61,7 @@ message SearchRequest {
       // Script to execute, expected to be a string or null
       Value script = 3;
 
-      oneof type {
+      oneof value_source_type {
         DateHistogramAggregation date_histogram = 11;
         TermsAggregation terms = 12;
         HistogramAggregation histogram = 13;

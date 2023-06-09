@@ -10,6 +10,7 @@ import com.slack.kaldb.logstore.search.aggregations.CumulativeSumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DerivativeAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.FiltersAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.HistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
@@ -422,5 +423,29 @@ public class SearchResultUtilsTest {
 
     KaldbSearch.SchemaResult schemaResultOut = SearchResultUtils.toSchemaResultProto(fromMap);
     assertThat(schemaResult).isEqualTo(schemaResultOut);
+  }
+
+  @Test
+  public void shouldConvertFiltersAggregationToFromProto() {
+    KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation filterAggregation =
+        KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation.newBuilder()
+            .putAllFilters(
+                Map.of(
+                    "foo",
+                    KaldbSearch.SearchRequest.SearchAggregation.FilterAggregation.newBuilder()
+                        .setQueryString("*:*")
+                        .setAnalyzeWildcard(true)
+                        .build()))
+            .build();
+
+    Map<String, FiltersAggBuilder.FilterAgg> filterAggMap =
+        SearchResultUtils.fromFiltersAggregation(filterAggregation);
+    KaldbSearch.SearchRequest.SearchAggregation.FiltersAggregation fromMap =
+        SearchResultUtils.toFiltersAggregation(filterAggMap);
+
+    assertThat(filterAggregation).isEqualTo(fromMap);
+    assertThat(filterAggregation.getFiltersMap().size()).isEqualTo(1);
+    assertThat(filterAggregation.getFiltersMap().get("foo").getQueryString()).isEqualTo("*:*");
+    assertThat(filterAggregation.getFiltersMap().get("foo").getAnalyzeWildcard()).isEqualTo(true);
   }
 }

@@ -19,6 +19,7 @@ import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.search.aggregations.AvgAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.ExtendedStatsAggBuilder;
+import com.slack.kaldb.logstore.search.aggregations.FiltersAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MaxAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MinAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.MovingAvgAggBuilder;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilters;
 import org.opensearch.search.aggregations.bucket.histogram.InternalAutoDateHistogram;
 import org.opensearch.search.aggregations.bucket.histogram.InternalDateHistogram;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
@@ -700,6 +702,51 @@ public class LogIndexSearcherImplTest {
             1000,
             new AvgAggBuilder("1", TEST_SOURCE_LONG_PROPERTY, 0, "return 9;"));
     assertThat(((InternalAvg) scripted.internalAggregation).value()).isEqualTo(9);
+  }
+
+  @Test
+  public void testFilterAggregations() {
+    Instant time = Instant.ofEpochSecond(1593365471);
+    loadTestData(time);
+
+    SearchResult<LogMessage> scriptNull =
+        strictLogStore.logSearcher.search(
+            TEST_DATASET_NAME,
+            "",
+            0,
+            MAX_TIME,
+            1000,
+            new FiltersAggBuilder(
+                "1",
+                List.of(),
+                Map.of(
+                    "foo",
+                        new FiltersAggBuilder.FilterAgg(
+                            String.format(
+                                "%s:<=%s",
+                                LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                                time.plusSeconds(2).toEpochMilli()),
+                            true),
+                    "bar",
+                        new FiltersAggBuilder.FilterAgg(
+                            String.format(
+                                "%s:>%s",
+                                LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+                                time.plusSeconds(2).toEpochMilli()),
+                            true))));
+
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().size()).isEqualTo(2);
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getDocCount())
+        .isEqualTo(2);
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getKey())
+        .isIn(List.of("foo", "bar"));
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getDocCount())
+        .isEqualTo(2);
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getKey())
+        .isIn(List.of("foo", "bar"));
+    assertThat(((InternalFilters) scriptNull.internalAggregation).getBuckets().get(0).getKey())
+        .isNotEqualTo(
+            ((InternalFilters) scriptNull.internalAggregation).getBuckets().get(1).getKey());
   }
 
   @Test
