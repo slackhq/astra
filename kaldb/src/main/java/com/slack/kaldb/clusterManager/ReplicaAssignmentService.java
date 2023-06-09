@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadata;
 import com.slack.kaldb.metadata.cache.CacheSlotMetadataStore;
+import com.slack.kaldb.metadata.core.KaldbMetadataStoreChangeListener;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
@@ -66,6 +67,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       Executors.newSingleThreadScheduledExecutor();
   private ScheduledFuture<?> pendingTask;
 
+  private final KaldbMetadataStoreChangeListener<CacheSlotMetadata> cacheSlotListener =
+      (cacheSlotMetadata) -> runOneIteration();
+  private final KaldbMetadataStoreChangeListener<ReplicaMetadata> replicaListener =
+      (replicaMetadata) -> runOneIteration();
+
   public ReplicaAssignmentService(
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
@@ -112,12 +118,14 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   @Override
   protected void startUp() throws Exception {
     LOG.info("Starting replica assignment service");
-    cacheSlotMetadataStore.addListener(this::runOneIteration);
-    replicaMetadataStore.addListener(this::runOneIteration);
+    cacheSlotMetadataStore.addListener(cacheSlotListener);
+    replicaMetadataStore.addListener(replicaListener);
   }
 
   @Override
   protected void shutDown() throws Exception {
+    cacheSlotMetadataStore.removeListener(cacheSlotListener);
+    replicaMetadataStore.removeListener(replicaListener);
     executorService.shutdown();
     LOG.info("Closed replica assignment service");
   }
