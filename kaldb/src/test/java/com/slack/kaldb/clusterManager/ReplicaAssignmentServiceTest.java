@@ -442,7 +442,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(cacheSlotMetadataStore.listSync().containsAll(unmutatedSlots)).isTrue();
 
     List<CacheSlotMetadata> mutatedCacheSlots =
-        cacheSlotMetadataStore.listSync().stream()
+        cacheSlotMetadataStore.listSyncUncached().stream()
             .filter(cacheSlotMetadata -> !unmutatedSlots.contains(cacheSlotMetadata))
             .collect(Collectors.toList());
     assertThat(mutatedCacheSlots.size()).isEqualTo(1);
