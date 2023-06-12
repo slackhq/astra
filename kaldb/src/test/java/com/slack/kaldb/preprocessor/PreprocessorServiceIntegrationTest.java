@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -94,7 +95,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(new DatasetMetadata("name", "owner", 0, List.of(), "name"));
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
     assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
         .isEqualTo(2);
 
@@ -172,7 +173,7 @@ public class PreprocessorServiceIntegrationTest {
     datasetMetadataStore.createSync(datasetMetadata);
 
     // wait for the cache to be updated
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
     await()
         .until(
             () ->
@@ -197,8 +198,11 @@ public class PreprocessorServiceIntegrationTest {
             () ->
                 MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry)
                     == 3);
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(1);
-    assertThat(datasetMetadataStore.listSyncUncached().get(0).getThroughputBytes())
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(1);
+    assertThat(
+            KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore)
+                .get(0)
+                .getThroughputBytes())
         .isEqualTo(Long.MAX_VALUE);
 
     // produce messages to upstream

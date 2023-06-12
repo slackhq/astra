@@ -13,6 +13,7 @@ import brave.Tracing;
 import com.slack.kaldb.clusterManager.ReplicaRestoreService;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.core.InternalMetadataStoreException;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -218,7 +219,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable3.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
   }
 
   @Test
@@ -237,7 +238,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwable.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwable.getStatus().getDescription()).isEqualTo("owner must not be null or blank");
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
   }
 
   @Test
@@ -326,7 +327,7 @@ public class ManagerApiGrpcTest {
     Status status = throwable.getStatus();
     assertThat(status.getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
   }
 
   @Test
@@ -467,7 +468,7 @@ public class ManagerApiGrpcTest {
                             .build()));
     assertThat(throwable1.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
   }
 
   @Test
@@ -510,10 +511,9 @@ public class ManagerApiGrpcTest {
                         .setThroughputBytes(0)
                         .build())));
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(2);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(2);
     assertThat(
-        datasetMetadataStore
-            .listSyncUncached()
+        KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore)
             .containsAll(
                 List.of(
                     new DatasetMetadata(
@@ -569,7 +569,7 @@ public class ManagerApiGrpcTest {
     assertThat(throwableUpdate.getStatus().getCode()).isEqualTo(Status.UNKNOWN.getCode());
     assertThat(throwableUpdate.getStatus().getDescription()).contains(datasetName);
 
-    assertThat(datasetMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size()).isEqualTo(0);
   }
 
   @Test

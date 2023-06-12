@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import brave.Tracing;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
@@ -169,7 +170,7 @@ public class ReplicaCreationServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(0);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().size()).isEqualTo(0);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
 
@@ -215,7 +216,7 @@ public class ReplicaCreationServiceTest {
             () ->
                 MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry) == 4);
 
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(4);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(4);
     await().until(() -> replicaMetadataStore.listSync().size() == 4);
     assertThat(
             (int)
@@ -377,7 +378,8 @@ public class ReplicaCreationServiceTest {
     Collections.shuffle(snapshotList);
     snapshotList.parallelStream()
         .forEach((snapshotMetadata -> snapshotMetadataStore.createSync(snapshotMetadata)));
-    List<SnapshotMetadata> snapshotMetadataList = snapshotMetadataStore.listSyncUncached();
+    List<SnapshotMetadata> snapshotMetadataList =
+        KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
     assertThat(snapshotMetadataList.size()).isEqualTo(snapshotList.size());
 
     ReplicaCreationService replicaCreationService =
@@ -387,7 +389,11 @@ public class ReplicaCreationServiceTest {
     int replicasCreated = replicaCreationService.createReplicasForUnassignedSnapshots();
     int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
 
-    await().until(() -> replicaMetadataStore.listSyncUncached().size() == expectedReplicas);
+    await()
+        .until(
+            () ->
+                KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()
+                    == expectedReplicas);
     await().until(() -> replicaMetadataStore.listSync().size() == expectedReplicas);
 
     assertThat(replicasCreated).isEqualTo(expectedReplicas);
@@ -395,14 +401,15 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
         .isZero();
-    assertThat(snapshotMetadataList).isEqualTo(snapshotMetadataStore.listSyncUncached());
+    assertThat(snapshotMetadataList)
+        .isEqualTo(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore));
 
     List<String> eligibleSnapshotIds =
         eligibleSnapshots.stream()
             .map(snapshotMetadata -> snapshotMetadata.snapshotId)
             .collect(Collectors.toList());
     assertThat(
-            replicaMetadataStore.listSyncUncached().stream()
+            KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).stream()
                 .allMatch(
                     (replicaMetadata) -> eligibleSnapshotIds.contains(replicaMetadata.snapshotId)))
         .isTrue();
@@ -433,7 +440,7 @@ public class ReplicaCreationServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isZero();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isZero();
     assertThat(replicaMetadataStore.listSync().size()).isZero();
 
     // create a snapshot - we expect this to fire an event, and after the
@@ -485,7 +492,7 @@ public class ReplicaCreationServiceTest {
 
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(0);
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isZero();
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isZero();
     assertThat(replicaMetadataStore.listSync().size()).isZero();
 
     ExecutorService timeoutServiceExecutor = Executors.newSingleThreadExecutor();
@@ -600,7 +607,7 @@ public class ReplicaCreationServiceTest {
 
     int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
     assertThat(successfulReplicas).isEqualTo(1);
-    assertThat(replicaMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(1);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(1);

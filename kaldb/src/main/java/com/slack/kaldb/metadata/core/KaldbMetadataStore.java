@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.api.CreateOption;
 import org.apache.curator.x.async.modeled.ModelSerializer;
@@ -31,11 +30,11 @@ import org.apache.zookeeper.data.Stat;
  */
 public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
 
-  private final String storeFolder;
+  protected final String storeFolder;
 
   private final ZPath zPath;
 
-  private final ModeledFramework<T> modeledClient;
+  protected final ModeledFramework<T> modeledClient;
 
   private final CachedModeledFramework<T> cachedModeledFramework;
 
@@ -151,32 +150,6 @@ public class KaldbMetadataStore<T extends KaldbMetadata> implements Closeable {
       return listAsync().toCompletableFuture().get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new InternalMetadataStoreException("Error getting cached nodes", e);
-    }
-  }
-
-  private CompletionStage<List<T>> listAsyncUncached() {
-    return modeledClient
-        .withPath(ZPath.parse(storeFolder))
-        .childrenAsZNodes()
-        .thenApply(
-            (zNodes) -> zNodes.stream().map(znode -> znode.model()).collect(Collectors.toList()));
-  }
-
-  /**
-   * Listing an uncached directory is very expensive, and not recommended. For a directory
-   * containing 100 znodes this results in 100 additional zookeeper queries. For any uses that need
-   * listing they should be converted to use a cached implementation.
-   */
-  @Deprecated
-  public List<T> listSyncUncached() {
-    // todo - consider combining listSync and getCachedSync, forcing the caller to use the cache
-    //  if it exists, as listing sync without a cache is a costly operation
-    try {
-      return listAsyncUncached()
-          .toCompletableFuture()
-          .get(DEFAULT_ZK_TIMEOUT_SECS, TimeUnit.SECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new InternalMetadataStoreException("Error listing node", e);
     }
   }
 

@@ -22,6 +22,7 @@ import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
 import com.slack.kaldb.metadata.dataset.DatasetMetadataStore;
 import com.slack.kaldb.metadata.dataset.DatasetPartitionMetadata;
@@ -116,8 +117,8 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunk1EndTime = Instant.ofEpochMilli(200);
     String chunk1Name =
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 2);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
 
     // we don't have any dataset metadata entry, so we shouldn't be able to find any snapshot
     Map<String, List<String>> searchNodes =
@@ -134,7 +135,7 @@ public class KaldbDistributedQueryServiceTest {
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     // now we can find the snapshot
     searchNodes =
@@ -167,8 +168,8 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunk2EndTime = Instant.ofEpochMilli(300);
     String chunk2Name =
         createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 4);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
     searchNodes =
         getSearchNodesToQuery(
             snapshotMetadataStore, searchMetadataStore, datasetMetadataStore, 0, 300, indexName);
@@ -202,11 +203,11 @@ public class KaldbDistributedQueryServiceTest {
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
     datasetMetadataStore.deleteAsync(datasetMetadata.name);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 0);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
     datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     // we can't find snapshot since the time window doesn't match any dataset metadata
     searchNodes =
@@ -231,14 +232,14 @@ public class KaldbDistributedQueryServiceTest {
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     Instant chunk1CreationTime = Instant.ofEpochMilli(100);
     Instant chunk1EndTime = Instant.ofEpochMilli(200);
     String snapshot1Name =
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
 
     AtomicReference<Map<String, List<String>>> searchNodes = new AtomicReference<>();
     await()
@@ -267,7 +268,7 @@ public class KaldbDistributedQueryServiceTest {
     SearchMetadata cacheNodeSearchMetada =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
     searchNodes.set(
         getSearchNodesToQuery(
@@ -289,7 +290,7 @@ public class KaldbDistributedQueryServiceTest {
     SearchMetadata snapshot1Cache2SearchMetadata =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache2SearchContext, snapshot1Name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 3);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     searchNodes.set(
         getSearchNodesToQuery(
@@ -318,13 +319,13 @@ public class KaldbDistributedQueryServiceTest {
     await()
         .until(
             () ->
-                snapshotMetadataStore.listSyncUncached().size()
+                KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1(live + non_live) + snapshot2
 
     SearchMetadata snapshot2Cache2SearchMetadata =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
 
     Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
     Instant snapshot3EndTime = Instant.ofEpochMilli(250);
@@ -333,13 +334,13 @@ public class KaldbDistributedQueryServiceTest {
     await()
         .until(
             () ->
-                snapshotMetadataStore.listSyncUncached().size()
+                KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 4); // snapshot1(live + non_live) + snapshot2 + snapshot3
 
     SearchMetadata snapshot3Cache1SearchMetadata =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 5);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 5);
 
     searchNodes.set(
         getSearchNodesToQuery(
@@ -396,14 +397,14 @@ public class KaldbDistributedQueryServiceTest {
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     Instant chunk1CreationTime = Instant.ofEpochMilli(100);
     Instant chunk1EndTime = Instant.ofEpochMilli(200);
     String snapshot1Name =
         createIndexerZKMetadata(chunk1CreationTime, chunk1EndTime, "1", indexer1SearchContext);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(2);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(1);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(2);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(1);
 
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
@@ -424,8 +425,8 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunk2EndTime = Instant.ofEpochMilli(300);
     String snapshot2Name =
         createIndexerZKMetadata(chunk2CreationTime, chunk2EndTime, "1", indexer1SearchContext);
-    assertThat(snapshotMetadataStore.listSyncUncached().size()).isEqualTo(4);
-    assertThat(searchMetadataStore.listSyncUncached().size()).isEqualTo(2);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isEqualTo(4);
+    assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size()).isEqualTo(2);
 
     searchNodes =
         getSearchNodesToQuery(
@@ -471,7 +472,7 @@ public class KaldbDistributedQueryServiceTest {
     SearchMetadata cacheNodeSearchMetada =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache1SearchContext, snapshot1Name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 3);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     searchNodes =
         getSearchNodesToQuery(
@@ -490,11 +491,11 @@ public class KaldbDistributedQueryServiceTest {
 
     // re-add dataset metadata with a different time window that doesn't match any snapshot
     datasetMetadataStore.deleteAsync(datasetMetadata.name);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 0);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 0);
     partition = new DatasetPartitionMetadata(1, 99, List.of("1"));
     datasetMetadata = new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     // we can't find snapshot since the time window doesn't match any dataset metadata
     searchNodes =
@@ -518,19 +519,19 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunkCreationTime = Instant.ofEpochMilli(100);
     Instant chunkEndTime = Instant.ofEpochMilli(200);
     SnapshotMetadata snapshotMetadata = createSnapshot(chunkCreationTime, chunkEndTime, false, "1");
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
 
     // create first search metadata hosted by cache1
     SearchMetadata cache1NodeSearchMetada =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 500, List.of("1"));
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName, "testOwner", 1, List.of(partition), indexName);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     // assert search will always find cache1
     Map<String, List<String>> searchNodes =
@@ -552,7 +553,7 @@ public class KaldbDistributedQueryServiceTest {
     SearchMetadata cache2NodeSearchMetada =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
     // assert search will always find cache1 or cache2
     searchNodes =
@@ -584,12 +585,15 @@ public class KaldbDistributedQueryServiceTest {
     SnapshotMetadata snapshot2Metadata =
         createSnapshot(snapshot2CreationTime, snapshot2EndTime, false, "1");
     await()
-        .until(() -> snapshotMetadataStore.listSyncUncached().size() == 2); // snapshot1 + snapshot2
+        .until(
+            () ->
+                KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
+                    == 2); // snapshot1 + snapshot2
 
     SearchMetadata snapshot2Cache2SearchMetadata =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache2SearchContext, snapshot2Metadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 3);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     // now add snapshot3 to cache1
     Instant snapshot3CreationTime = Instant.ofEpochMilli(151);
@@ -599,13 +603,13 @@ public class KaldbDistributedQueryServiceTest {
     await()
         .until(
             () ->
-                snapshotMetadataStore.listSyncUncached().size()
+                KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()
                     == 3); // snapshot1 + snapshot2 + snapshot3
 
     SearchMetadata snapshot3Cache1SearchMetadata =
         ReadOnlyChunkImpl.registerSearchMetadata(
             searchMetadataStore, cache1SearchContext, snapshot3Metadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
 
     // assert search will always find cache1 AND cache2
     searchNodes =
@@ -660,17 +664,17 @@ public class KaldbDistributedQueryServiceTest {
     // dataset1 snapshots/search-metadata/partitions
     SnapshotMetadata snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "1");
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 1);
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache1SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
 
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "2");
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache2SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
     final String name = "testDataset";
     final String owner = "DatasetOwner";
@@ -684,22 +688,22 @@ public class KaldbDistributedQueryServiceTest {
         new DatasetMetadata(name, owner, throughputBytes, List.of(partition11, partition12), name);
 
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     // dataset2 snapshots/search-metadata/partitions
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(100), Instant.ofEpochMilli(200), false, "2");
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 3);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 3);
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache3SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 3);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 3);
 
     snapshotMetadata =
         createSnapshot(Instant.ofEpochMilli(201), Instant.ofEpochMilli(300), false, "1");
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
     ReadOnlyChunkImpl.registerSearchMetadata(
         searchMetadataStore, cache4SearchContext, snapshotMetadata.name);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 4);
 
     final String name1 = "testDataset1";
     final String owner1 = "DatasetOwner1";
@@ -713,7 +717,7 @@ public class KaldbDistributedQueryServiceTest {
         new DatasetMetadata(
             name1, owner1, throughputBytes1, List.of(partition21, partition22), name1);
     datasetMetadataStore.createSync(datasetMetadata1);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 2);
 
     // find search nodes that will be queries for the first dataset
     Map<String, List<String>> searchNodes =
@@ -763,14 +767,14 @@ public class KaldbDistributedQueryServiceTest {
     Instant chunkCreationTime = Instant.ofEpochMilli(100);
     Instant chunkEndTime = Instant.ofEpochMilli(200);
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "1", indexer1SearchContext);
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 2);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 1);
 
     DatasetPartitionMetadata partition = new DatasetPartitionMetadata(1, 200, List.of("1"));
     DatasetMetadata datasetMetadata =
         new DatasetMetadata(indexName1, "testOwner1", 1, List.of(partition), indexName1);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 1);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 1);
 
     Map<String, List<String>> searchNodes =
         getSearchNodesToQuery(
@@ -785,14 +789,14 @@ public class KaldbDistributedQueryServiceTest {
 
     // search for partition "2" only
     createIndexerZKMetadata(chunkCreationTime, chunkEndTime, "2", indexer2SearchContext);
-    await().until(() -> snapshotMetadataStore.listSyncUncached().size() == 4);
-    await().until(() -> searchMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size() == 4);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore).size() == 2);
 
     partition = new DatasetPartitionMetadata(1, 101, List.of("2"));
     datasetMetadata =
         new DatasetMetadata(indexName2, "testOwner2", 1, List.of(partition), indexName2);
     datasetMetadataStore.createSync(datasetMetadata);
-    await().until(() -> datasetMetadataStore.listSyncUncached().size() == 2);
+    await().until(() -> KaldbMetadataTestUtils.listSyncUncached(datasetMetadataStore).size() == 2);
 
     searchNodes =
         getSearchNodesToQuery(

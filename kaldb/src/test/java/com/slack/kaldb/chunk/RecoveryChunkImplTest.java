@@ -23,6 +23,7 @@ import com.slack.kaldb.logstore.search.SearchQuery;
 import com.slack.kaldb.logstore.search.SearchResult;
 import com.slack.kaldb.logstore.search.aggregations.DateHistogramAggBuilder;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
+import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.search.SearchMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadataStore;
@@ -90,7 +91,7 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
       final LuceneIndexStoreImpl logStore =
@@ -113,8 +114,8 @@ public class RecoveryChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     }
 
     @AfterEach
@@ -131,8 +132,8 @@ public class RecoveryChunkImplTest {
     @Test
     public void testAddAndSearchChunk() {
       // test no metadata stores are created post create.
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
 
       List<LogMessage> messages = MessageUtil.makeMessagesWithTimeDifference(1, 100);
       int offset = 1;
@@ -184,8 +185,8 @@ public class RecoveryChunkImplTest {
       assertThat(getTimerCount(REFRESHES_TIMER, registry)).isEqualTo(1);
       assertThat(getTimerCount(COMMITS_TIMER, registry)).isEqualTo(1);
 
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
     }
 
     @Test
@@ -445,7 +446,7 @@ public class RecoveryChunkImplTest {
               .build();
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
       final LuceneIndexStoreImpl logStore =
@@ -467,8 +468,8 @@ public class RecoveryChunkImplTest {
               TEST_KAFKA_PARTITION_ID);
 
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     }
 
     @AfterEach
@@ -531,7 +532,7 @@ public class RecoveryChunkImplTest {
 
       curatorFramework = CuratorBuilder.build(registry, zkConfig);
 
-      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+      snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
       searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
 
       final LuceneIndexStoreImpl logStore =
@@ -553,8 +554,8 @@ public class RecoveryChunkImplTest {
               new SearchContext(TEST_HOST, TEST_PORT),
               TEST_KAFKA_PARTITION_ID);
       chunk.postCreate();
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     }
 
     @AfterEach
@@ -613,8 +614,8 @@ public class RecoveryChunkImplTest {
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // No live snapshot or search metadata is published since the S3 snapshot failed.
-      assertThat(snapshotMetadataStore.listSyncUncached()).isEmpty();
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore)).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
     }
 
     // TODO: Add a test to check that the data is deleted from the file system on cleanup.
@@ -671,14 +672,15 @@ public class RecoveryChunkImplTest {
       chunk.postSnapshot();
 
       // Metadata checks
-      List<SnapshotMetadata> afterSnapshots = snapshotMetadataStore.listSyncUncached();
+      List<SnapshotMetadata> afterSnapshots =
+          KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore);
       assertThat(afterSnapshots.size()).isEqualTo(1);
       assertThat(afterSnapshots).contains(ChunkInfo.toSnapshotMetadata(chunk.info(), ""));
       assertThat(s3BlobFs.exists(URI.create(afterSnapshots.get(0).snapshotPath))).isTrue();
       // Only non-live snapshots. No live snapshots.
       assertThat(afterSnapshots.stream().filter(SnapshotMetadata::isLive).count()).isZero();
       // No search nodes are added for recovery chunk.
-      assertThat(searchMetadataStore.listSyncUncached()).isEmpty();
+      assertThat(KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore)).isEmpty();
 
       chunk.close();
       chunk = null;
