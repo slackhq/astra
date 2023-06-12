@@ -2,49 +2,31 @@ package com.slack.kaldb.metadata.cache;
 
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.slack.kaldb.metadata.core.KaldbMetadataStore;
+import com.slack.kaldb.metadata.core.KaldbPartitioningMetadataStore;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.time.Instant;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.zookeeper.CreateMode;
 
-public class CacheSlotMetadataStore extends KaldbMetadataStore<CacheSlotMetadata> {
-  public static final String CACHE_SLOT_ZK_PATH = "/cacheSlot";
+public class CacheSlotMetadataStore extends KaldbPartitioningMetadataStore<CacheSlotMetadata> {
+  public static final String CACHE_SLOT_ZK_PATH = "/partitioned_cacheSlot";
 
   /**
    * Initializes a cache slot metadata store at the CACHE_SLOT_ZK_PATH. This should be used to
    * create/update the cache slots, and for listening to all cache slot events.
    */
-  public CacheSlotMetadataStore(AsyncCuratorFramework curatorFramework, boolean shouldCache)
-      throws Exception {
+  public CacheSlotMetadataStore(AsyncCuratorFramework curatorFramework) throws Exception {
     super(
         curatorFramework,
         CreateMode.EPHEMERAL,
-        shouldCache,
         new CacheSlotMetadataSerializer().toModelSerializer(),
         CACHE_SLOT_ZK_PATH);
   }
 
-  /**
-   * Initializes a cache slot metadata store at CACHE_SLOT_ZK_PATH/{cacheSlotName}. This should be
-   * used to add listeners to specific cache slots, and is not expected to be used for mutating any
-   * nodes.
-   */
-  public CacheSlotMetadataStore(
-      AsyncCuratorFramework curatorFramework, String cacheSlotName, boolean shouldCache)
-      throws Exception {
-    super(
-        curatorFramework,
-        CreateMode.EPHEMERAL,
-        shouldCache,
-        new CacheSlotMetadataSerializer().toModelSerializer(),
-        String.format("%s/%s", CACHE_SLOT_ZK_PATH, cacheSlotName));
-  }
-
   /** Fetch the node given a slotName and update the slot state. */
   public ListenableFuture<?> getAndUpdateNonFreeCacheSlotState(
-      String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
-    CacheSlotMetadata cacheSlotMetadata = getSync(slotName);
+      String partition, String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+    CacheSlotMetadata cacheSlotMetadata = getSync(partition, slotName);
     return updateNonFreeCacheSlotState(cacheSlotMetadata, slotState);
   }
 

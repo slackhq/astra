@@ -96,7 +96,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
   }
 

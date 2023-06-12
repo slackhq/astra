@@ -71,7 +71,7 @@ public class RecoveryTaskCreatorTest {
             .setSleepBetweenRetriesMs(500)
             .build();
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     recoveryTaskStore = spy(new RecoveryTaskMetadataStore(curatorFramework, true));
   }
 
@@ -1180,7 +1180,12 @@ public class RecoveryTaskCreatorTest {
             partitionId,
             LOGS_LUCENE9);
     snapshotMetadataStore.createSync(livePartition1);
-    await().until(() -> snapshotMetadataStore.listSync().contains(livePartition1));
+    await()
+        .until(
+            () ->
+                snapshotMetadataStore
+                    .listSync()
+                    .containsAll(List.of(partition1, partition11, livePartition1)));
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore))
         .containsExactly(recoveryTask1);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore))
@@ -1559,7 +1564,7 @@ public class RecoveryTaskCreatorTest {
     doThrow(new IllegalStateException())
         .when(snapshotMetadataStore)
         .deleteAsync(any(SnapshotMetadata.class));
-    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any(String.class));
+    doThrow(new IllegalStateException()).when(snapshotMetadataStore).deleteAsync(any());
 
     assertThatIllegalStateException()
         .isThrownBy(() -> recoveryTaskCreator.determineStartingOffset(1350));

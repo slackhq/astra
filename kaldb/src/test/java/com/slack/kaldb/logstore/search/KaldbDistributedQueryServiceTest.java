@@ -88,7 +88,7 @@ public class KaldbDistributedQueryServiceTest {
 
     curatorFramework = spy(CuratorBuilder.build(metricsRegistry, zkConfig));
 
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
     searchMetadataStore = spy(new SearchMetadataStore(curatorFramework, true));
     datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 

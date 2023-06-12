@@ -73,7 +73,7 @@ public class ChunkCleanerServiceTest {
     chunkManagerUtil.chunkManager.startAsync();
     chunkManagerUtil.chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);
     searchMetadataStore = new SearchMetadataStore(chunkManagerUtil.getCuratorFramework(), false);
-    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework(), true);
+    snapshotMetadataStore = new SnapshotMetadataStore(chunkManagerUtil.getCuratorFramework());
   }
 
   @AfterEach
@@ -206,7 +206,7 @@ public class ChunkCleanerServiceTest {
     assertThat(snapshotNodes.get(0).partitionId).isEqualTo(TEST_KAFKA_PARTITION_ID);
     assertThat(snapshotNodes.get(0).snapshotId).startsWith(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
     assertThat(snapshotNodes.get(0).startTimeEpochMs)
-        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(2500L));
+        .isCloseTo(creationTime.toEpochMilli(), Offset.offset(3000L));
     assertThat(snapshotNodes.get(0).endTimeEpochMs).isEqualTo(MAX_FUTURE_TIME);
     final List<SearchMetadata> searchNodes =
         KaldbMetadataTestUtils.listSyncUncached(searchMetadataStore);

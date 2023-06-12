@@ -78,8 +78,8 @@ public class ManagerApiGrpcTest {
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
     datasetMetadataStore = spy(new DatasetMetadataStore(curatorFramework, true));
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
 
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
@@ -351,6 +351,13 @@ public class ManagerApiGrpcTest {
             .setThroughputBytes(throughputBytes)
             .addAllPartitionIds(List.of("1", "2"))
             .build());
+    await()
+        .until(
+            () ->
+                datasetMetadataStore.listSync().size() == 1
+                    && datasetMetadataStore.listSync().get(0).getThroughputBytes()
+                        == throughputBytes);
+
     Metadata.DatasetMetadata firstAssignment =
         managerApiStub.getDatasetMetadata(
             ManagerApi.GetDatasetMetadataRequest.newBuilder().setName(datasetName).build());

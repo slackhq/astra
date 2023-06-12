@@ -68,7 +68,7 @@ public class ReplicaRestoreServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
   }
 
   @AfterEach
