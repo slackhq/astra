@@ -112,6 +112,15 @@ public class RecoveryChunkManager<T> extends ChunkManagerBase<T> {
             if (success == null || !success) {
               LOG.warn("Roll over failed");
               rollOverFailed = true;
+            } else {
+              try {
+                // make sure to close the rolled over chunk
+                // this ensures that the directory is appropriately cleaned up
+                // todo - this may need to be adapted to account for failed rollovers as well
+                currentChunk.close();
+              } catch (IOException e) {
+                LOG.warn("Roll over failed to close chunk", e);
+              }
             }
           }
 
