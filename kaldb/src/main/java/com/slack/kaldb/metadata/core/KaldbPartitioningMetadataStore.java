@@ -125,9 +125,21 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
                       Sets.difference(metadataStoreMap.keySet(), Sets.newHashSet(partitions));
                   partitionsToRemove.forEach(
                       partition -> {
-                        LOG.info("Closing unused store for partition - {}", partition);
-                        KaldbMetadataStore<T> store = metadataStoreMap.remove(partition);
-                        store.close();
+                        int cachedSize = metadataStoreMap.get(partition).listSync().size();
+                        if (cachedSize == 0) {
+                          LOG.info("Closing unused store for partition - {}", partition);
+                          KaldbMetadataStore<T> store = metadataStoreMap.remove(partition);
+                          store.close();
+                        } else {
+                          // This extra check is to prevent a race condition where multiple items
+                          // are being quickly added. This can result in a scenario where the
+                          // watcher is triggered, but we haven't persisted the items to ZK yet.
+                          // When this happens it results in a premature close of the local cache.
+                          LOG.warn(
+                              "Skipping metadata store close for partition {}, still has {} cached elements",
+                              partition,
+                              cachedSize);
+                        }
                       });
                 });
       }

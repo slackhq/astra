@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
 import org.apache.curator.x.async.AsyncStage;
@@ -1154,9 +1155,15 @@ public class RecoveryTaskCreatorTest {
     snapshotMetadataStore.createSync(partition11);
     await().until(() -> snapshotMetadataStore.listSync().contains(partition11));
     assertThat(recoveryTaskCreator.determineStartingOffset(1250)).isEqualTo(1250);
-    assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore).size()).isEqualTo(1);
-    RecoveryTaskMetadata recoveryTask1 =
-        KaldbMetadataTestUtils.listSyncUncached(recoveryTaskStore).get(0);
+
+    AtomicReference<List<RecoveryTaskMetadata>> recoveryTasks = new AtomicReference<>();
+    await()
+        .until(
+            () -> {
+              recoveryTasks.set(recoveryTaskStore.listSync());
+              return recoveryTasks.get().size() == 1;
+            });
+    RecoveryTaskMetadata recoveryTask1 = recoveryTasks.get().get(0);
     assertThat(recoveryTask1.startOffset).isEqualTo(201);
     assertThat(recoveryTask1.endOffset).isEqualTo(1249);
     assertThat(recoveryTask1.partitionId).isEqualTo(partitionId);
