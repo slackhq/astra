@@ -118,11 +118,10 @@ class KaldbPartitioningMetadataStoreTest {
 
   @AfterEach
   public void tearDown() throws IOException {
+    System.setProperty(ZNODE_CONTAINER_CHECK_INTERVAL_MS, String.valueOf(checkInterval));
     curatorFramework.unwrap().close();
     testingServer.close();
     meterRegistry.close();
-
-    System.setProperty(ZNODE_CONTAINER_CHECK_INTERVAL_MS, String.valueOf(checkInterval));
   }
 
   @Test
