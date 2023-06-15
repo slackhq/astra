@@ -193,8 +193,7 @@ public class Kaldb {
 
     if (roles.contains(KaldbConfigs.NodeRole.QUERY)) {
       SearchMetadataStore searchMetadataStore = new SearchMetadataStore(curatorFramework, true);
-      SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, true);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
       services.add(
@@ -256,15 +255,13 @@ public class Kaldb {
       final KaldbConfigs.ManagerConfig managerConfig = kaldbConfig.getManagerConfig();
       final int serverPort = managerConfig.getServerConfig().getServerPort();
 
-      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
-      SnapshotMetadataStore snapshotMetadataStore =
-          new SnapshotMetadataStore(curatorFramework, true);
+      ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
+      SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
       RecoveryTaskMetadataStore recoveryTaskMetadataStore =
           new RecoveryTaskMetadataStore(curatorFramework, true);
       RecoveryNodeMetadataStore recoveryNodeMetadataStore =
           new RecoveryNodeMetadataStore(curatorFramework, true);
-      CacheSlotMetadataStore cacheSlotMetadataStore =
-          new CacheSlotMetadataStore(curatorFramework, true);
+      CacheSlotMetadataStore cacheSlotMetadataStore = new CacheSlotMetadataStore(curatorFramework);
       DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
 
       Duration requestTimeout =

@@ -2,15 +2,19 @@ package com.slack.kaldb.metadata.replica;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.KaldbPartitionedMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
 
 /**
  * The replica metadata is used to allow associating multiple cache nodes to a single snapshot. The
  * cluster manager will create one (or more) replicas per snapshot, depending on configuration and
  * expected/observed query load.
  */
-public class ReplicaMetadata extends KaldbMetadata {
+public class ReplicaMetadata extends KaldbPartitionedMetadata {
 
   public final String snapshotId;
   public final long createdTimeEpochMs;
@@ -99,5 +103,16 @@ public class ReplicaMetadata extends KaldbMetadata {
         + ", indexType="
         + indexType
         + '}';
+  }
+
+  @Override
+  public String getPartition() {
+    // We use the expireAfterEpochMs as this is derived from the snapshot end time. This ensures a
+    // better distribution of snapshots in the event of a major recovery of replica nodes (ie, path
+    // deleted)
+    ZonedDateTime snapshotTime = Instant.ofEpochMilli(expireAfterEpochMs).atZone(ZoneOffset.UTC);
+    return String.format(
+        "%s_%s",
+        snapshotTime.getLong(ChronoField.EPOCH_DAY), snapshotTime.getLong(ChronoField.HOUR_OF_DAY));
   }
 }

@@ -139,7 +139,7 @@ public class RecoveryService extends AbstractIdleService {
 
     recoveryNodeMetadataStore = new RecoveryNodeMetadataStore(curatorFramework, false);
     recoveryTaskMetadataStore = new RecoveryTaskMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, false);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
 
     recoveryNodeMetadataStore.createSync(

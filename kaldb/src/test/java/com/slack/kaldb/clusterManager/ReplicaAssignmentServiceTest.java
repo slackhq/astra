@@ -68,8 +68,8 @@ public class ReplicaAssignmentServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
+    cacheSlotMetadataStore = spy(new CacheSlotMetadataStore(curatorFramework));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
   }
 
   @AfterEach
@@ -726,22 +726,28 @@ public class ReplicaAssignmentServiceTest {
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(3);
-    assertThat(
-            KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).stream()
-                .filter(
-                    cacheSlotMetadata ->
-                        cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-                .count())
-        .isEqualTo(2);
-    assertThat(
-            KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).stream()
-                .filter(
-                    cacheSlotMetadata ->
-                        cacheSlotMetadata.cacheSlotState.equals(
-                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
-                .count())
-        .isEqualTo(1);
+
+    await()
+        .until(
+            () ->
+                cacheSlotMetadataStore.listSync().stream()
+                        .filter(
+                            cacheSlotMetadata ->
+                                cacheSlotMetadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.FREE))
+                        .count()
+                    == 2);
+
+    await()
+        .until(
+            () ->
+                cacheSlotMetadataStore.listSync().stream()
+                        .filter(
+                            cacheSlotMetadata ->
+                                cacheSlotMetadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                        .count()
+                    == 1);
 
     assertThat(MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_FAILED, meterRegistry))
         .isEqualTo(1);
