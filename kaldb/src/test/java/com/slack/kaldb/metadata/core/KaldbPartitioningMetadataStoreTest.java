@@ -531,6 +531,7 @@ class KaldbPartitioningMetadataStoreTest {
       metadata1.setExtraField("val3");
       store.updateSync(metadata1);
 
+      // Sleep here to verify that we're not still firing and it's just slow / another thread
       Thread.sleep(2000);
       assertThat(counter.get()).isEqualTo(2);
     }
