@@ -148,10 +148,15 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       SnapshotDeletionPolicy snapshotDeletionPolicy,
       LuceneIndexStoreConfig config,
       MeterRegistry metricsRegistry) {
+
+    int coreCount = Runtime.getRuntime().availableProcessors();
+    KalDBMergeScheduler mergeScheduler = new KalDBMergeScheduler(metricsRegistry);
+    mergeScheduler.setMaxMergesAndThreads(coreCount * 2, Math.min(1, coreCount - 1));
+
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
-            .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setMergeScheduler(mergeScheduler)
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time
             .setIndexSort(
