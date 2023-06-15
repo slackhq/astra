@@ -2,7 +2,7 @@ package com.slack.kaldb.metadata.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.slack.kaldb.metadata.core.KaldbMetadata;
+import com.slack.kaldb.metadata.core.KaldbPartitionedMetadata;
 import com.slack.kaldb.proto.metadata.Metadata;
 import java.util.Collections;
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.List;
  * TODO: Currently, application code directly manipulates cache slot states which is error prone.
  * Make transitions more controlled via a state machine like API.
  */
-public class CacheSlotMetadata extends KaldbMetadata {
+public class CacheSlotMetadata extends KaldbPartitionedMetadata {
   public final String hostname;
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
@@ -92,5 +92,10 @@ public class CacheSlotMetadata extends KaldbMetadata {
         + name
         + '\''
         + '}';
+  }
+
+  @Override
+  public String getPartition() {
+    return hostname;
   }
 }

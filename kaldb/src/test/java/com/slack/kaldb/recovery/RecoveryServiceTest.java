@@ -43,6 +43,7 @@ import com.slack.kaldb.writer.kafka.KaldbKafkaConsumer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -163,7 +164,7 @@ public class RecoveryServiceTest {
     final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
     // Start recovery
     RecoveryTaskMetadata recoveryTask =
@@ -236,7 +237,7 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
@@ -319,7 +320,7 @@ public class RecoveryServiceTest {
     await()
         .until(() -> localTestConsumer.getEndOffSetForPartition() == msgsToProduce + msgsToProduce);
 
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery service
@@ -373,7 +374,7 @@ public class RecoveryServiceTest {
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     // Start recovery
@@ -409,7 +410,7 @@ public class RecoveryServiceTest {
 
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
@@ -494,7 +495,7 @@ public class RecoveryServiceTest {
     // fakeS3Bucket is not present.
     assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
     assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
@@ -528,7 +529,9 @@ public class RecoveryServiceTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryTaskMetadataStore).size())
         .isEqualTo(1);
 
-    await().until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
+    await()
+        .atMost(Duration.ofSeconds(20))
+        .until(() -> getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry) == 1);
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_RECEIVED, meterRegistry)).isEqualTo(1);
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry)).isZero();
 

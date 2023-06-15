@@ -105,7 +105,7 @@ public class RecoveryChunkManagerTest {
 
     curatorFramework = CuratorBuilder.build(metricsRegistry, zkConfig);
     searchMetadataStore = new SearchMetadataStore(curatorFramework, false);
-    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
   }
 
   @AfterEach

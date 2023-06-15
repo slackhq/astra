@@ -68,8 +68,8 @@ public class ReplicaCreationServiceTest {
             .build();
 
     curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
-    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework, true));
-    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework, true));
+    snapshotMetadataStore = spy(new SnapshotMetadataStore(curatorFramework));
+    replicaMetadataStore = spy(new ReplicaMetadataStore(curatorFramework));
   }
 
   @AfterEach
@@ -84,8 +84,8 @@ public class ReplicaCreationServiceTest {
 
   @Test
   public void shouldDoNothingIfReplicasAlreadyExist() throws Exception {
-    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework, true);
-    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework, true);
+    ReplicaMetadataStore replicaMetadataStore = new ReplicaMetadataStore(curatorFramework);
+    SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
 
     SnapshotMetadata snapshotA =
         new SnapshotMetadata(
@@ -541,7 +541,7 @@ public class ReplicaCreationServiceTest {
         .until(
             () -> MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry) == 1);
 
-    // reset the replica metdata store to work as expected
+    // reset the replica metadata store to work as expected
     doCallRealMethod().when(replicaMetadataStore).createAsync(any(ReplicaMetadata.class));
 
     // manually trigger the next run and see if it creates the missing replica
