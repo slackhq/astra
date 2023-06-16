@@ -143,6 +143,24 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         "Created a lucene index {} at: {}", id, indexDirectory.getDirectory().toAbsolutePath());
   }
 
+  /**
+   * Attempts to determine an optimal ram buffer size based on the size of the heap. The target of
+   * 10% matches that of the defaults of ES.
+   *
+   * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/indexing-buffer.html
+   */
+  protected static long getRAMBufferSizeMB(long heapMaxBytes) {
+    long targetBufferSize = 256;
+    if (heapMaxBytes != Long.MAX_VALUE) {
+      targetBufferSize = Math.min(2048, Math.round(heapMaxBytes / 1e6 * 0.10));
+    }
+    LOG.warn(
+        "Setting max ram buffer size to {}mb, heap max bytes detected as {}",
+        targetBufferSize,
+        heapMaxBytes);
+    return targetBufferSize;
+  }
+
   private IndexWriterConfig buildIndexWriterConfig(
       Analyzer analyzer,
       SnapshotDeletionPolicy snapshotDeletionPolicy,
@@ -152,6 +170,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setRAMBufferSizeMB(getRAMBufferSizeMB(Runtime.getRuntime().maxMemory()))
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time
             .setIndexSort(

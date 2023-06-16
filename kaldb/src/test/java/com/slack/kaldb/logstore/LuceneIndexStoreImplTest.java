@@ -539,4 +539,11 @@ public class LuceneIndexStoreImplTest {
               (value) -> value >= 1 && value <= 3);
     }
   }
+
+  @Test
+  public void testMaxRamBufferCalculations() {
+    assertThat(LuceneIndexStoreImpl.getRAMBufferSizeMB((long) 8e+9)).isEqualTo(800);
+    assertThat(LuceneIndexStoreImpl.getRAMBufferSizeMB(Long.MAX_VALUE)).isEqualTo(256);
+    assertThat(LuceneIndexStoreImpl.getRAMBufferSizeMB((long) 24e+9)).isEqualTo(2048);
+  }
 }
