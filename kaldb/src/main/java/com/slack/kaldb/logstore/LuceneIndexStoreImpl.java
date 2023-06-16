@@ -62,6 +62,8 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
 
+  private final String MAX_RAM_BUFFER_SIZE_MB = "maxRamBufferSizeMb";
+
   // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
@@ -148,10 +150,14 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       SnapshotDeletionPolicy snapshotDeletionPolicy,
       LuceneIndexStoreConfig config,
       MeterRegistry metricsRegistry) {
+    int ramBufferSizeMb = Integer.getInteger(MAX_RAM_BUFFER_SIZE_MB, 1024);
+    boolean useCFSFiles = ramBufferSizeMb <= 128;
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setRAMBufferSizeMB(ramBufferSizeMb)
+            .setUseCompoundFile(useCFSFiles)
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time
             .setIndexSort(
@@ -161,6 +167,12 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
                         SortField.Type.LONG,
                         true)))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
+
+    // See
+    // https://lucene.apache.org/core/9_5_0/core/org/apache/lucene/index/IndexWriterConfig.html#setUseCompoundFile(boolean)
+    if (ramBufferSizeMb >= 128) {
+      indexWriterCfg.getMergePolicy().setNoCFSRatio(0.0);
+    }
 
     if (config.enableTracing) {
       indexWriterCfg.setInfoStream(System.out);
