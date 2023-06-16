@@ -27,8 +27,8 @@ public class LogMessageTest {
 
   @Test
   public void testReservedField() {
-    assertThat(ReservedField.values().length).isEqualTo(12);
-    assertThat(ReservedField.reservedFieldNames.size()).isEqualTo(12);
+    assertThat(ReservedField.values().length).isEqualTo(13);
+    assertThat(ReservedField.reservedFieldNames.size()).isEqualTo(13);
     assertThat(ReservedField.isReservedField("hostname")).isTrue();
     for (LogMessage.ReservedField f : LogMessage.ReservedField.values()) {
       assertThat(f.name().toLowerCase()).isEqualTo(f.fieldName);
