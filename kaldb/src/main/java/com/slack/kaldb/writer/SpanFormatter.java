@@ -124,17 +124,23 @@ public class SpanFormatter {
     return Base64.getEncoder().encodeToString(binaryTagValue.toByteArray());
   }
 
-  public static void validateTimestamp(String id, Instant timestamp, Instant currentTime) {
-    if (timestamp.toEpochMilli() <= 0) {
-      throw new IllegalArgumentException(
-          "span id=" + id + " has incorrect timestamp=" + timestamp.toEpochMilli());
-    }
+  /**
+   * Determines if provided timestamp is a reasonable value, or is too far in the past/future for
+   * use. This can happen when using user-provided timestamp (such as on a mobile client).
+   */
+  // Todo - this should be moved to the edge, in the preprocessor pipeline instead of
+  //  using it here as part of the toLogMessage. Also consider making these values config options.
+  @SuppressWarnings("RedundantIfStatement")
+  public static boolean isValidTimestamp(Instant timestamp) {
     // cannot be in the future by more than 1 hour
-    if (timestamp.isAfter(currentTime)
-        && timestamp.minus(1, ChronoUnit.HOURS).isAfter(currentTime)) {
-      throw new IllegalArgumentException(
-          "span id=" + id + " is more than 1 hour ahead timestamp=" + timestamp.toEpochMilli());
+    if (timestamp.isAfter(Instant.now().plus(1, ChronoUnit.HOURS))) {
+      return false;
     }
+    // cannot be in the past by more than 168 hours
+    if (timestamp.isBefore(Instant.now().minus(168, ChronoUnit.HOURS))) {
+      return false;
+    }
+    return true;
   }
 
   // TODO: Make this function more memory efficient?
@@ -155,7 +161,12 @@ public class SpanFormatter {
 
     // TODO: Use a microsecond resolution, instead of millisecond resolution.
     Instant timestamp = Instant.ofEpochMilli(span.getTimestamp() / 1000);
-    validateTimestamp(id, timestamp, Instant.now());
+    if (!isValidTimestamp(timestamp)) {
+      // we use an attribute here so we can find the offending logs easily
+      jsonMap.put(LogMessage.ReservedField.KALDB_INVALID_TIMESTAMP.fieldName, span.getTimestamp());
+      // set the timestamp to ingest time
+      timestamp = Instant.now();
+    }
 
     String indexName = "";
     String msgType = DEFAULT_LOG_MESSAGE_TYPE;
