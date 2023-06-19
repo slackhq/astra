@@ -12,7 +12,7 @@ public class LuceneIndexStoreConfigTest {
         .isThrownBy(
             () ->
                 new LuceneIndexStoreConfig(
-                    Duration.ZERO, Duration.ofSeconds(10), "indexRoot", "logfile", true, false));
+                    Duration.ZERO, Duration.ofSeconds(10), "indexRoot", "logfile", true, true));
   }
 
   @Test
@@ -21,7 +21,7 @@ public class LuceneIndexStoreConfigTest {
         .isThrownBy(
             () ->
                 new LuceneIndexStoreConfig(
-                    Duration.ofSeconds(10), Duration.ZERO, "indexRoot", "logfile", true, false));
+                    Duration.ofSeconds(10), Duration.ZERO, "indexRoot", "logfile", true, true));
   }
 
   @Test
@@ -35,7 +35,7 @@ public class LuceneIndexStoreConfigTest {
                     "indexRoot",
                     "logfile",
                     true,
-                    false));
+                    true));
   }
 
   @Test
@@ -49,6 +49,6 @@ public class LuceneIndexStoreConfigTest {
                     "indexRoot",
                     "logfile",
                     true,
-                    false));
+                    true));
   }
 }
