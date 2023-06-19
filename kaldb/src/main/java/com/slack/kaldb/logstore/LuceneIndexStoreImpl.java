@@ -73,6 +73,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         LuceneIndexStoreConfig.getCommitDuration(luceneConfig.getCommitDurationSecs()),
         LuceneIndexStoreConfig.getRefreshDuration(luceneConfig.getRefreshDurationSecs()),
         luceneConfig.getEnableFullTextSearch(),
+        luceneConfig.getThrottleMerges(),
         SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
         metricsRegistry);
   }
@@ -82,6 +83,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       Duration commitInterval,
       Duration refreshInterval,
       boolean enableFullTextSearch,
+      boolean throttleMerges,
       SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy fieldConflictPolicy,
       MeterRegistry metricsRegistry)
       throws IOException {
@@ -89,7 +91,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false);
+            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false, true);
 
     return new LuceneIndexStoreImpl(
         indexStoreCfg,
@@ -155,7 +157,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
-            .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry, config.throttleMerges))
             .setRAMBufferSizeMB(ramBufferSizeMb)
             .setUseCompoundFile(useCFSFiles)
             // we sort by timestamp descending, as that is the order we expect to return results the

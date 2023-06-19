@@ -121,6 +121,7 @@ public class IndexingChunkImplTest {
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
+              false,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
               registry);
@@ -467,6 +468,7 @@ public class IndexingChunkImplTest {
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
+              false,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.RAISE_ERROR,
               registry);
       chunk =
@@ -551,6 +553,7 @@ public class IndexingChunkImplTest {
               COMMIT_INTERVAL,
               REFRESH_INTERVAL,
               true,
+              false,
               SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy
                   .CONVERT_VALUE_AND_DUPLICATE_FIELD,
               registry);

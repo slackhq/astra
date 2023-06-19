@@ -55,6 +55,7 @@ public class IndexingBenchmark {
             commitInterval,
             refreshInterval,
             true,
+            true,
             CONVERT_VALUE_AND_DUPLICATE_FIELD,
             registry);
 

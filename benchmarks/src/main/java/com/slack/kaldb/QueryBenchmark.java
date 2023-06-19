@@ -70,6 +70,7 @@ public class QueryBenchmark {
             commitInterval,
             refreshInterval,
             true,
+            true,
             SchemaAwareLogDocumentBuilderImpl.FieldConflictPolicy.CONVERT_VALUE_AND_DUPLICATE_FIELD,
             registry);
 

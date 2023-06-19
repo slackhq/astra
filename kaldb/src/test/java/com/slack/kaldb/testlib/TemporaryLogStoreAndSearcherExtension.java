@@ -98,7 +98,7 @@ public class TemporaryLogStoreAndSearcherExtension implements AfterEachCallback 
   public static LuceneIndexStoreConfig getIndexStoreConfig(
       Duration commitInterval, Duration refreshInterval, File tempFolder) throws IOException {
     return new LuceneIndexStoreConfig(
-        commitInterval, refreshInterval, tempFolder.getCanonicalPath(), false);
+        commitInterval, refreshInterval, tempFolder.getCanonicalPath(), false, true);
   }
 
   @Override

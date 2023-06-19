@@ -469,7 +469,8 @@ public class SearchResultAggregatorImplTest {
             Duration.of(1, ChronoUnit.MINUTES),
             Duration.of(1, ChronoUnit.MINUTES),
             tempFolder.getCanonicalPath(),
-            false);
+            false,
+            true);
     MeterRegistry metricsRegistry = new SimpleMeterRegistry();
     DocumentBuilder<LogMessage> documentBuilder =
         SchemaAwareLogDocumentBuilderImpl.build(

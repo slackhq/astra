@@ -7,6 +7,7 @@ indexerConfig:
     commitDurationSecs: ${INDEXER_COMMIT_DURATION_SECS:-10}
     refreshDurationSecs: ${INDEXER_REFRESH_DURATION_SECS:-11}
     enableFullTextSearch: ${INDEXER_ENABLE_FULL_TEXT_SEARCH:-false}
+    throttleMerges: ${INDEXER_THROTTLE_MERGES:-true}
   staleDurationSecs: ${INDEXER_STALE_DURATION_SECS:-7200}
   dataTransformer: ${INDEXER_DATA_TRANSFORMER:-trace_span}
   dataDirectory: ${INDEXER_DATA_DIR:-/tmp}

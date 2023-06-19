@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(KalDBMergeScheduler.class);
+  private final boolean throttleMerges;
   private MeterRegistry metricsRegistry;
 
   public static final String STALL_TIME = "kaldb_index_merge_stall_time_ms";
@@ -23,11 +24,12 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
   public static final String MERGE_COUNTER = "kaldb_index_merge_count";
   private final Counter mergeCounter;
 
-  public KalDBMergeScheduler(MeterRegistry metricsRegistry) {
+  public KalDBMergeScheduler(MeterRegistry metricsRegistry, boolean throttleMerges) {
     this.metricsRegistry = metricsRegistry;
     stallCounter = this.metricsRegistry.counter(STALL_TIME);
     activeStallThreadsCount = this.metricsRegistry.gauge(STALL_THREADS, new AtomicInteger());
     this.mergeCounter = this.metricsRegistry.counter(MERGE_COUNTER);
+    this.throttleMerges = throttleMerges;
   }
 
   protected void doMerge(MergeSource mergeSource, MergePolicy.OneMerge merge) throws IOException {
@@ -48,6 +50,7 @@ public class KalDBMergeScheduler extends ConcurrentMergeScheduler {
    * has details on why Lucene added auto IO throttle
    */
   protected synchronized boolean maybeStall(MergeSource mergeSource) {
+    if (!throttleMerges) return false;
     long startTime = System.nanoTime();
     activeStallThreadsCount.incrementAndGet();
 

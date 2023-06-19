@@ -29,6 +29,9 @@ public class LuceneIndexStoreConfig {
   // A flag that turns on internal logging.
   public final boolean enableTracing;
 
+  // setting for the merge scheduler
+  public final boolean throttleMerges;
+
   // TODO: Tweak the default values once in prod.
   static final Duration defaultCommitDuration = Duration.ofSeconds(15);
   static final Duration defaultRefreshDuration = Duration.ofSeconds(15);
@@ -44,8 +47,18 @@ public class LuceneIndexStoreConfig {
   }
 
   public LuceneIndexStoreConfig(
-      Duration commitDuration, Duration refreshDuration, String indexRoot, boolean enableTracing) {
-    this(commitDuration, refreshDuration, indexRoot, DEFAULT_LOG_FILE_NAME, enableTracing);
+      Duration commitDuration,
+      Duration refreshDuration,
+      String indexRoot,
+      boolean enableTracing,
+      boolean throttleMerges) {
+    this(
+        commitDuration,
+        refreshDuration,
+        indexRoot,
+        DEFAULT_LOG_FILE_NAME,
+        enableTracing,
+        throttleMerges);
   }
 
   public LuceneIndexStoreConfig(
@@ -53,7 +66,8 @@ public class LuceneIndexStoreConfig {
       Duration refreshDuration,
       String indexRoot,
       String logFileName,
-      boolean enableTracing) {
+      boolean enableTracing,
+      boolean throttleMerges) {
     ensureTrue(
         !(commitDuration.isZero() || commitDuration.isNegative()),
         "Commit duration should be greater than zero");
@@ -65,6 +79,7 @@ public class LuceneIndexStoreConfig {
     this.indexRoot = indexRoot;
     this.logFileName = logFileName;
     this.enableTracing = enableTracing;
+    this.throttleMerges = throttleMerges;
   }
 
   public File indexFolder(String id) {
