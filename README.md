@@ -11,7 +11,7 @@ cost-effective, and scale to petabytes of data.
 - Native support for log, trace, audit use cases.
 - Aggressively prioritize ingest of recent data over older data.
 - Full-text search capability.
-- Fist-class Kubernetes support for all components.
+- First-class Kubernetes support for all components.
 - Autoscaling of ingest and query capacity.
 - Coordination free ingestion, so failure of a single node does not impact ingestion.
 - Works out of the box with sensible defaults.
