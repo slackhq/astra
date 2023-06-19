@@ -89,7 +89,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     // TODO: Chunk should create log store?
     LuceneIndexStoreConfig indexStoreCfg =
         new LuceneIndexStoreConfig(
-            commitInterval, refreshInterval, dataDirectory.getAbsolutePath(), false, true);
+            commitInterval,
+            refreshInterval,
+            dataDirectory.getAbsolutePath(),
+            false,
+            throttleMerges);
 
     return new LuceneIndexStoreImpl(
         indexStoreCfg,
