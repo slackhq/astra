@@ -63,7 +63,7 @@ public class PreprocessorService extends AbstractService {
   private final MeterRegistry meterRegistry;
   private final int kafkaPartitionStickyTimeoutMs;
 
-  private KafkaStreams kafkaStreams;
+  protected KafkaStreams kafkaStreams;
   private KafkaStreamsMetrics kafkaStreamsMetrics;
 
   private final Timer configReloadTimer;
@@ -166,6 +166,14 @@ public class PreprocessorService extends AbstractService {
         kafkaStreams = new KafkaStreams(topology, kafkaProperties);
         kafkaStreamsMetrics = new KafkaStreamsMetrics(kafkaStreams);
         kafkaStreamsMetrics.bindTo(meterRegistry);
+        kafkaStreams.setStateListener(
+            (newState, oldState) -> {
+              if (newState == KafkaStreams.State.ERROR) {
+                LOG.warn("Kafka stream has shutdown unexpectedly, notifying Guava service");
+                notifyFailed(
+                    new IllegalStateException("Unexpected error in Kafka stream application"));
+              }
+            });
         kafkaStreams.start();
         LOG.info("Kafka stream processor config loaded successfully");
       } else {

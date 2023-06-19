@@ -4,6 +4,7 @@ import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.google.common.util.concurrent.Service;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
 import com.slack.kaldb.metadata.dataset.DatasetMetadata;
@@ -24,6 +25,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.streams.KafkaStreams;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -48,6 +50,70 @@ public class PreprocessorServiceIntegrationTest {
   public void teardown() throws Exception {
     kafkaServer.close();
     zkServer.close();
+  }
+
+  @Test
+  public void shouldHandleStreamError() throws Exception {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    KaldbConfigs.ZookeeperConfig zkConfig =
+        KaldbConfigs.ZookeeperConfig.newBuilder()
+            .setZkConnectString(zkServer.getConnectString())
+            .setZkPathPrefix("test")
+            .setZkSessionTimeoutMs(100)
+            .setZkConnectionTimeoutMs(100)
+            .setSleepBetweenRetriesMs(100)
+            .build();
+    AsyncCuratorFramework curatorFramework = CuratorBuilder.build(meterRegistry, zkConfig);
+    DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+
+    KaldbConfigs.PreprocessorConfig.KafkaStreamConfig kafkaStreamConfig =
+        KaldbConfigs.PreprocessorConfig.KafkaStreamConfig.newBuilder()
+            .setApplicationId("applicationId")
+            .setBootstrapServers(kafkaServer.getBroker().getBrokerList().get())
+            .setNumStreamThreads(1)
+            .setProcessingGuarantee("at_least_once")
+            .build();
+    KaldbConfigs.ServerConfig serverConfig =
+        KaldbConfigs.ServerConfig.newBuilder()
+            .setServerPort(8080)
+            .setServerAddress("localhost")
+            .build();
+    KaldbConfigs.PreprocessorConfig preprocessorConfig =
+        KaldbConfigs.PreprocessorConfig.newBuilder()
+            .setKafkaStreamConfig(kafkaStreamConfig)
+            .setServerConfig(serverConfig)
+            .setPreprocessorInstanceCount(1)
+            .setDataTransformer("api_log")
+            .setRateLimiterMaxBurstSeconds(1)
+            .addAllUpstreamTopics(List.of("foo"))
+            .setDownstreamTopic("bar")
+            .build();
+
+    PreprocessorService preprocessorService =
+        new PreprocessorService(datasetMetadataStore, preprocessorConfig, meterRegistry);
+
+    datasetMetadataStore.createSync(
+        new DatasetMetadata(
+            "name",
+            "owner",
+            1,
+            List.of(new DatasetPartitionMetadata(1, Long.MAX_VALUE, List.of("1"))),
+            "name"));
+    await().until(() -> datasetMetadataStore.listSync().size(), (size) -> size == 1);
+
+    preprocessorService.startAsync();
+    preprocessorService.awaitRunning(DEFAULT_START_STOP_DURATION);
+    assertThat(MetricsUtil.getTimerCount(PreprocessorService.CONFIG_RELOAD_TIMER, meterRegistry))
+        .isEqualTo(1);
+
+    // restarting ZK should cause a stream application error due to missing source topics
+    zkServer.restart();
+
+    await()
+        .until(
+            () -> preprocessorService.kafkaStreams.state(),
+            KafkaStreams.State::hasCompletedShutdown);
+    await().until(preprocessorService::state, (state) -> state.equals(Service.State.FAILED));
   }
 
   @Test
