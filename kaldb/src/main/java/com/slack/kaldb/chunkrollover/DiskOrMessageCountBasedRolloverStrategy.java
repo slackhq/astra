@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,15 +34,14 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
   private final long maxBytesPerChunk;
   private final long maxMessagesPerChunk;
 
-  private long approximateDirectoryBytes = 0;
-
   @VisibleForTesting public static int DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 1000 * 10;
 
   private final ScheduledExecutorService directorySizeExecutorService =
       Executors.newScheduledThreadPool(
           1, new ThreadFactoryBuilder().setNameFormat("directory-size-%d").build());
 
-  private volatile File activeChunkDirectory;
+  private final AtomicReference<File> activeChunkDirectory = new AtomicReference<>();
+  private final AtomicLong approximateDirectoryBytes = new AtomicLong(0);
 
   public static DiskOrMessageCountBasedRolloverStrategy fromConfig(
       MeterRegistry meterRegistry, KaldbConfigs.IndexerConfig indexerConfig) {
@@ -67,9 +67,9 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
 
   @Override
   public boolean shouldRollOver(long currentBytesIndexed, long currentMessagesIndexed) {
-    liveBytesDirGauge.set(approximateDirectoryBytes);
+    liveBytesDirGauge.set(approximateDirectoryBytes.get());
     boolean shouldRollover =
-        (approximateDirectoryBytes >= maxBytesPerChunk)
+        (approximateDirectoryBytes.get() >= maxBytesPerChunk)
             || (currentMessagesIndexed >= maxMessagesPerChunk);
     if (shouldRollover) {
       LOG.info(
@@ -87,13 +87,18 @@ public class DiskOrMessageCountBasedRolloverStrategy implements ChunkRollOverStr
 
   @Override
   public void setActiveChunkDirectory(File activeChunkDirectory) {
-    this.activeChunkDirectory = activeChunkDirectory;
-    approximateDirectoryBytes = 0;
+    this.activeChunkDirectory.set(activeChunkDirectory);
+    this.approximateDirectoryBytes.set(0);
   }
 
   public void calculateDirectorySize() {
-    if (activeChunkDirectory != null && activeChunkDirectory.exists()) {
-      approximateDirectoryBytes = FileUtils.sizeOf(activeChunkDirectory);
+    try {
+      File activeChunkDir = activeChunkDirectory.get();
+      if (activeChunkDir != null && activeChunkDir.exists()) {
+        approximateDirectoryBytes.set(FileUtils.sizeOf(activeChunkDir));
+      }
+    } catch (Exception e) {
+      LOG.error("Error calculating the directory size", e);
     }
   }
 
