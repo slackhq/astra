@@ -132,24 +132,32 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private void cacheNodeListener(CacheSlotMetadata cacheSlotMetadata) {
     if (Objects.equals(cacheSlotMetadata.name, slotId)) {
       Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
-
-      if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
-        LOG.info("Chunk - ASSIGNED received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
+      if (newSlotState != cacheSlotLastKnownState) {
+        if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
+          LOG.info("Chunk - ASSIGNED received - {}", cacheSlotMetadata);
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {} - {}",
+                cacheSlotLastKnownState,
+                newSlotState,
+                cacheSlotMetadata);
+          }
+          executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
+        } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
+          LOG.info("Chunk - EVICT received - {}", cacheSlotMetadata);
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {} - {}",
+                cacheSlotLastKnownState,
+                newSlotState,
+                cacheSlotMetadata);
+          }
+          executorService.execute(() -> handleChunkEviction(cacheSlotMetadata));
         }
-        executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
-      } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
-        LOG.info("Chunk - EVICT received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
-        }
-        executorService.execute(() -> handleChunkEviction(cacheSlotMetadata));
+        cacheSlotLastKnownState = newSlotState;
+      } else {
+        LOG.info("Cache node listener fired but slot state was the same - {}", cacheSlotMetadata);
       }
-
-      cacheSlotLastKnownState = newSlotState;
     }
   }
 

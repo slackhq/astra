@@ -73,6 +73,18 @@ class KaldbPartitioningMetadataStoreTest {
       // Use up to 10 partitions
       return String.valueOf(Math.abs(name.hashCode() % 10));
     }
+
+    @Override
+    public String toString() {
+      return "ExampleMetadata{"
+          + "extraField='"
+          + extraField
+          + '\''
+          + ", name='"
+          + name
+          + '\''
+          + '}';
+    }
   }
 
   private static class ExampleMetadataSerializer implements MetadataSerializer<ExampleMetadata> {
@@ -91,6 +103,72 @@ class KaldbPartitioningMetadataStoreTest {
     public ExampleMetadata fromJsonStr(String data) {
       try {
         return objectMapper.readValue(data, ExampleMetadata.class);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  static class FixedPartitionExampleMetadata extends KaldbPartitionedMetadata {
+
+    private String extraField = null;
+
+    public FixedPartitionExampleMetadata(String name) {
+      super(name);
+    }
+
+    @JsonCreator
+    public FixedPartitionExampleMetadata(
+        @JsonProperty("name") String name, @JsonProperty("extraField") String extraField) {
+      super(name);
+      this.extraField = extraField;
+    }
+
+    public void setExtraField(String extraField) {
+      this.extraField = extraField;
+    }
+
+    public String getExtraField() {
+      return extraField;
+    }
+
+    @Override
+    @JsonIgnore
+    public String getPartition() {
+      // use a fixed partition
+      return "1";
+    }
+
+    @Override
+    public String toString() {
+      return "FixedPartitionExampleMetadata{"
+          + "extraField='"
+          + extraField
+          + '\''
+          + ", name='"
+          + name
+          + '\''
+          + '}';
+    }
+  }
+
+  static class FixedPartitionMetadataSerializer
+      implements MetadataSerializer<FixedPartitionExampleMetadata> {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Override
+    public String toJsonStr(FixedPartitionExampleMetadata metadata) {
+      try {
+        return objectMapper.writeValueAsString(metadata);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public FixedPartitionExampleMetadata fromJsonStr(String data) {
+      try {
+        return objectMapper.readValue(data, FixedPartitionExampleMetadata.class);
       } catch (JsonProcessingException e) {
         throw new RuntimeException(e);
       }
@@ -534,6 +612,68 @@ class KaldbPartitioningMetadataStoreTest {
       // Sleep here to verify that we're not still firing and it's just slow / another thread
       Thread.sleep(2000);
       assertThat(counter.get()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  void testListenerNotDuplicatedAddingBeforeDuring() throws Exception {
+    class TestMetadataStore extends KaldbPartitioningMetadataStore<FixedPartitionExampleMetadata> {
+      public TestMetadataStore() {
+        super(
+            curatorFramework,
+            CreateMode.PERSISTENT,
+            new FixedPartitionMetadataSerializer().toModelSerializer(),
+            "/partitioned_duplicate_listeners");
+      }
+    }
+
+    try (KaldbPartitioningMetadataStore<FixedPartitionExampleMetadata> store =
+        new TestMetadataStore()) {
+      AtomicInteger beforeCounter = new AtomicInteger(0);
+      KaldbMetadataStoreChangeListener<FixedPartitionExampleMetadata> beforeListener =
+          (testMetadata) -> {
+            LOG.info("testMetadata - {}", testMetadata);
+            beforeCounter.incrementAndGet();
+          };
+      store.addListener(beforeListener);
+
+      AtomicInteger afterCounter = new AtomicInteger(0);
+      FixedPartitionExampleMetadata metadata0 = new FixedPartitionExampleMetadata("foo0", "val1");
+      store.createSync(metadata0);
+
+      FixedPartitionExampleMetadata metadata1 = new FixedPartitionExampleMetadata("foo1", "val1");
+      store.createSync(metadata1);
+
+      // create metadata
+      for (int i = 2; i < 10; i++) {
+        FixedPartitionExampleMetadata otherMetadata =
+            new FixedPartitionExampleMetadata("foo" + i, "val1");
+        store.createSync(otherMetadata);
+      }
+
+      await()
+          .until(
+              () -> store.listSync().size(),
+              (size) -> {
+                LOG.info("size - {}", size);
+                return size == 10;
+              });
+
+      KaldbMetadataStoreChangeListener<FixedPartitionExampleMetadata> afterListener =
+          (testMetadata) -> {
+            LOG.info("testMetadata - {}", testMetadata);
+            afterCounter.incrementAndGet();
+          };
+      store.addListener(afterListener);
+
+      metadata0.setExtraField("val2");
+      store.updateSync(metadata0);
+
+      metadata1.setExtraField("val2");
+      store.updateSync(metadata1);
+
+      await().until(beforeCounter::get, (value) -> value == 12);
+      await().until(afterCounter::get, (value) -> value == 2);
     }
   }
 }

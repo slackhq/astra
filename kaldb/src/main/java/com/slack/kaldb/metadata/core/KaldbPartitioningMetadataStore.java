@@ -291,8 +291,10 @@ public class KaldbPartitioningMetadataStore<T extends KaldbPartitionedMetadata>
   }
 
   public void addListener(KaldbMetadataStoreChangeListener<T> watcher) {
+    // add this watcher to the list for new stores to add
     listeners.add(watcher);
-    metadataStoreMap.forEach((partition, store) -> listeners.forEach(store::addListener));
+    // add this watcher to existing stores
+    metadataStoreMap.forEach((partition, store) -> store.addListener(watcher));
   }
 
   public void removeListener(KaldbMetadataStoreChangeListener<T> watcher) {
