@@ -23,17 +23,11 @@ public class CacheSlotMetadataStore extends KaldbPartitioningMetadataStore<Cache
         CACHE_SLOT_ZK_PATH);
   }
 
-  /** Fetch the node given a slotName and update the slot state. */
-  public ListenableFuture<?> getAndUpdateNonFreeCacheSlotState(
-      String partition, String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
-    CacheSlotMetadata cacheSlotMetadata = getSync(partition, slotName);
-    return updateNonFreeCacheSlotState(cacheSlotMetadata, slotState);
-  }
-
   /** Update the cache slot state, if the slot is not FREE. */
   public ListenableFuture<?> updateNonFreeCacheSlotState(
       final CacheSlotMetadata cacheSlotMetadata,
       final Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+
     if (cacheSlotMetadata.cacheSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
       throw new IllegalArgumentException(
           "Current state of slot can't be free: " + cacheSlotMetadata.name);
