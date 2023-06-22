@@ -1,5 +1,13 @@
-- name: Code Review
-  uses: fchen/code-review@v0.1
-  with:
-    model: gpt-3.5-turbo
-    openai-key: ${{ secrets.OPENAI_API_KEY }}
+on: [pull_request]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: fchen/code-review@v0.1
+        with:
+          model: 'gpt-3.5-turbo-16k'
+          openai-key: ${{ secrets.OPENAI_API_KEY }}
