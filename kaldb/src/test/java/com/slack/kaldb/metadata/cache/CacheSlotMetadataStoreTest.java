@@ -58,7 +58,7 @@ public class CacheSlotMetadataStoreTest {
   }
 
   @Test
-  public void testGetAndUpdateNonFreeCacheSlotStateSync() throws Exception {
+  public void testUpdateNonFreeCacheSlotStateSync() throws Exception {
     final String name = "slot1";
     final String hostname = "hostname";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
@@ -79,7 +79,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(KaldbMetadataTestUtils.listSyncUncached(store).size()).isEqualTo(1);
 
     store
-        .getAndUpdateNonFreeCacheSlotState(hostname, name, CacheSlotState.LIVE)
+        .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.LIVE)
         .get(1, TimeUnit.SECONDS);
     await()
         .until(
@@ -94,7 +94,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(liveNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     store
-        .getAndUpdateNonFreeCacheSlotState(hostname, name, CacheSlotState.EVICT)
+        .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.EVICT)
         .get(1, TimeUnit.SECONDS);
     await()
         .until(
@@ -109,7 +109,7 @@ public class CacheSlotMetadataStoreTest {
     assertThat(evictNode.supportedIndexTypes).isEqualTo(SUPPORTED_INDEX_TYPES);
 
     store
-        .getAndUpdateNonFreeCacheSlotState(hostname, name, CacheSlotState.FREE)
+        .updateNonFreeCacheSlotState(cacheSlotMetadata, CacheSlotState.FREE)
         .get(1, TimeUnit.SECONDS);
     await()
         .until(
@@ -128,7 +128,7 @@ public class CacheSlotMetadataStoreTest {
         .isThrownBy(
             () ->
                 store
-                    .getAndUpdateNonFreeCacheSlotState(hostname, name, CacheSlotState.ASSIGNED)
+                    .updateNonFreeCacheSlotState(freeNode, CacheSlotState.ASSIGNED)
                     .get(1, TimeUnit.SECONDS));
   }
 
