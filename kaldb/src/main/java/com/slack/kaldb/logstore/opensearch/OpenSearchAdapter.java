@@ -112,7 +112,8 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(OpenSearchAdapter.class);
 
-  private final QueryShardContext queryShardContext;
+  private final IndexSettings indexSettings;
+  private final SimilarityService similarityService;
 
   private final MapperService mapperService;
 
@@ -123,12 +124,9 @@ public class OpenSearchAdapter {
   private static final int TOTAL_FIELDS_LIMIT = 2500;
 
   public OpenSearchAdapter(Map<String, LuceneFieldDef> chunkSchema) {
-    IndexSettings indexSettings = buildIndexSettings();
-    SimilarityService similarityService = new SimilarityService(indexSettings, null, emptyMap());
+    this.indexSettings = buildIndexSettings();
+    this.similarityService = new SimilarityService(indexSettings, null, emptyMap());
     this.mapperService = buildMapperService(indexSettings, similarityService);
-    this.queryShardContext =
-        buildQueryShardContext(
-            KaldbBigArrays.getInstance(), indexSettings, similarityService, mapperService);
     this.chunkSchema = chunkSchema;
   }
 
@@ -143,9 +141,20 @@ public class OpenSearchAdapter {
    *     parsing ES docs</a>
    */
   public Query buildQuery(
-      String dataset, String queryStr, long startTimeMsEpoch, long endTimeMsEpoch)
+      String dataset,
+      String queryStr,
+      long startTimeMsEpoch,
+      long endTimeMsEpoch,
+      IndexSearcher indexSearcher)
       throws IOException {
     LOG.trace("Query raw input string: '{}'", queryStr);
+    QueryShardContext queryShardContext =
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(),
+            indexSettings,
+            indexSearcher,
+            similarityService,
+            mapperService);
     try {
       BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
@@ -180,7 +189,6 @@ public class OpenSearchAdapter {
 
         boolQueryBuilder.must(queryStringQueryBuilder);
       }
-
       return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     } catch (Exception e) {
       LOG.error("Query parse exception", e);
@@ -359,6 +367,7 @@ public class OpenSearchAdapter {
   private static QueryShardContext buildQueryShardContext(
       BigArrays bigArrays,
       IndexSettings indexSettings,
+      IndexSearcher indexSearcher,
       SimilarityService similarityService,
       MapperService mapperService) {
     final ValuesSourceRegistry valuesSourceRegistry = buildValueSourceRegistry();
@@ -380,7 +389,7 @@ public class OpenSearchAdapter {
         null,
         null,
         null,
-        null,
+        indexSearcher,
         () -> Instant.now().toEpochMilli(),
         null,
         s -> false,
@@ -428,6 +437,13 @@ public class OpenSearchAdapter {
    */
   public Aggregator buildAggregatorUsingContext(
       AggBuilder builder, IndexSearcher indexSearcher, Query query) throws IOException {
+    QueryShardContext queryShardContext =
+        buildQueryShardContext(
+            KaldbBigArrays.getInstance(),
+            indexSettings,
+            indexSearcher,
+            similarityService,
+            mapperService);
     SearchContext searchContext =
         new KaldbSearchContext(
             KaldbBigArrays.getInstance(), queryShardContext, indexSearcher, query);
