@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -1525,13 +1526,15 @@ public class LogIndexSearcherImplTest {
     assertThat(histogram.getBuckets().get(0).getDocCount()).isEqualTo(1);
     assertThat(histogram.getBuckets().get(1).getDocCount()).isEqualTo(1);
 
-    assertThat(
-            Long.parseLong(histogram.getBuckets().get(0).getKeyAsString()) >= time.toEpochMilli())
-        .isTrue();
-    assertThat(
-            Long.parseLong(histogram.getBuckets().get(1).getKeyAsString())
-                <= time.plusSeconds(10).toEpochMilli())
-        .isTrue();
+    DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT;
+    long bucket1AsLong =
+        Instant.from(formatter.parse(histogram.getBuckets().get(0).getKeyAsString()))
+            .toEpochMilli();
+    long bucket2AsLong =
+        Instant.from(formatter.parse((histogram.getBuckets().get(1).getKeyAsString())))
+            .toEpochMilli();
+    assertThat(bucket1AsLong >= time.toEpochMilli()).isTrue();
+    assertThat(bucket2AsLong <= time.plusSeconds(10).toEpochMilli()).isTrue();
   }
 
   @Test

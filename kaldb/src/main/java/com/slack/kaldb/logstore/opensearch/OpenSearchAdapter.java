@@ -205,7 +205,11 @@ public class OpenSearchAdapter {
     //  this needs to be adapted to include other field types once we have support
     for (Map.Entry<String, LuceneFieldDef> entry : chunkSchema.entrySet()) {
       try {
-        if (entry.getValue().fieldType == FieldType.TEXT) {
+        // currently Kaldb doesn't have support for date fields
+        // This is a quick workaround to ensure we can do data range queries on the timestamp field
+        if (entry.getValue().name.equals(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)) {
+          tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "date"));
+        } else if (entry.getValue().fieldType == FieldType.TEXT) {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "text"));
         } else if (entry.getValue().fieldType == FieldType.STRING) {
           tryRegisterField(mapperService, entry.getValue().name, b -> b.field("type", "keyword"));
