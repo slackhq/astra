@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -91,6 +92,8 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
 
   private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
       (searchMetadata) -> updateStubs();
+
+  private final Random random = new Random();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
@@ -198,6 +201,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         nodeUrlToSnapshotNames.put(searchMetadata.url, snapshotNames);
       }
     }
+    getQueryNodesSpan.tag("nodes_to_query", String.valueOf(nodeUrlToSnapshotNames.size()));
     getQueryNodesSpan.finish();
     return nodeUrlToSnapshotNames;
   }
@@ -466,10 +470,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
     List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
-    int count = 0;
+
     for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
-      if (count++ > 5) {
-        break;
+      // Sample about 1/10th of the nodes if number of nodes is more than 10
+      if (nodesAndSnapshotsToQuery.size() > 10 && random.nextInt(10) != 0) {
+        continue;
       }
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
       if (stub == null) {
@@ -490,21 +495,15 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
               .schema(localSearchReq);
       queryServers.add(schemaRequest);
     }
-    ScopedSpan span1 =
-        Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.search");
     ListenableFuture<List<KaldbSearch.SchemaResult>> searchFuture =
         Futures.successfulAsList(queryServers);
     try {
       List<KaldbSearch.SchemaResult> searchResults =
           searchFuture.get(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
-      span1.finish();
       KaldbSearch.SchemaResult.Builder schemaBuilder = KaldbSearch.SchemaResult.newBuilder();
-      ScopedSpan span2 =
-          Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.searchMerge");
       searchResults.forEach(
           schemaResult ->
               schemaBuilder.putAllFieldDefinition(schemaResult.getFieldDefinitionMap()));
-      span2.finish();
       return schemaBuilder.build();
     } catch (TimeoutException e) {
       // We provide a deadline to the stub of "defaultQueryTimeout" - if this is sufficiently lower
