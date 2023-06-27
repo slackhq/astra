@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -92,8 +91,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
 
   private final KaldbMetadataStoreChangeListener<SearchMetadata> searchMetadataListener =
       (searchMetadata) -> updateStubs();
-
-  private final Random random = new Random();
 
   // For now we will use SearchMetadataStore to populate servers
   // But this is wasteful since we add snapshots more often than we add/remove nodes ( hopefully )
