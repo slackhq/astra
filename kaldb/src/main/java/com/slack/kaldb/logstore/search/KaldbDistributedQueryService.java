@@ -466,7 +466,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
     List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
+    int count = 0;
     for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
+      if (count++ > 5) {
+        break;
+      }
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
       if (stub == null) {
         // TODO: insert a failed result in the results object that we return from this method
