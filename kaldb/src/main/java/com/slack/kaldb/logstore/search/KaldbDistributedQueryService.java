@@ -57,6 +57,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final DatasetMetadataStore datasetMetadataStore;
 
+  // There can be 100s of nodes to query the schema. Tecnically asking 1 node is enough.
+  // But to be in the safe we query upto 5 nodes
+  private static final Integer LIMIT_SCHEMA_NODES_TO_QUERY = 5;
+
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
       "search_metadata_total_change_counter";
@@ -468,12 +472,9 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
 
     List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
 
-    int count = 0;
-    for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
-      // limit to 5 nodes
-      if (count++ > 5) {
-        break;
-      }
+    List<Map.Entry<String, List<String>>> limitedNodesToQuery =
+        nodesAndSnapshotsToQuery.entrySet().stream().limit(LIMIT_SCHEMA_NODES_TO_QUERY).toList();
+    for (Map.Entry<String, List<String>> searchNode : limitedNodesToQuery) {
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
       if (stub == null) {
         // TODO: insert a failed result in the results object that we return from this method
