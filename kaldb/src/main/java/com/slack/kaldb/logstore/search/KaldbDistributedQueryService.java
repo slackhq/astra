@@ -471,10 +471,11 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
 
     List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
 
+    int count = 0;
     for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
-      // Sample about 1/10th of the nodes if number of nodes is more than 10
-      if (nodesAndSnapshotsToQuery.size() > 10 && random.nextInt(10) != 0) {
-        continue;
+      // limit to 5 nodes
+      if (count++ > 5) {
+        break;
       }
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
       if (stub == null) {
