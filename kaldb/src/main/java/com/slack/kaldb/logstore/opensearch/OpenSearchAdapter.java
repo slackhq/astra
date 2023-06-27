@@ -330,6 +330,8 @@ public class OpenSearchAdapter {
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_7_0)
             .put(
                 MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
+            .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
+            .put("index.sort.order", "desc")
             .build();
     return new IndexSettings(
         IndexMetadata.builder("index").settings(settings).build(), Settings.EMPTY);
