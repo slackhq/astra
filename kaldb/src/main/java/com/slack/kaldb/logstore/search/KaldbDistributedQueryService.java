@@ -514,6 +514,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
       LOG.error(
           "Schema failed with timeout exception. This is potentially due to CPU saturation of the query node.",
           e);
+      span.error(e);
       return KaldbSearch.SchemaResult.newBuilder().build();
     } catch (Exception e) {
       LOG.error("Schema failed with ", e);
