@@ -132,24 +132,32 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private void cacheNodeListener(CacheSlotMetadata cacheSlotMetadata) {
     if (Objects.equals(cacheSlotMetadata.name, slotId)) {
       Metadata.CacheSlotMetadata.CacheSlotState newSlotState = cacheSlotMetadata.cacheSlotState;
-
-      if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
-        LOG.info("Chunk - ASSIGNED received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
+      if (newSlotState != cacheSlotLastKnownState) {
+        if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED)) {
+          LOG.info("Chunk - ASSIGNED received - {}", cacheSlotMetadata);
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {} - {}",
+                cacheSlotLastKnownState,
+                newSlotState,
+                cacheSlotMetadata);
+          }
+          executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
+        } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
+          LOG.info("Chunk - EVICT received - {}", cacheSlotMetadata);
+          if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+            LOG.warn(
+                "Unexpected state transition from {} to {} - {}",
+                cacheSlotLastKnownState,
+                newSlotState,
+                cacheSlotMetadata);
+          }
+          executorService.execute(() -> handleChunkEviction(cacheSlotMetadata));
         }
-        executorService.execute(() -> handleChunkAssignment(cacheSlotMetadata));
-      } else if (newSlotState.equals(Metadata.CacheSlotMetadata.CacheSlotState.EVICT)) {
-        LOG.info("Chunk - EVICT received");
-        if (!cacheSlotLastKnownState.equals(Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
-          LOG.warn(
-              "Unexpected state transition from {} to {}", cacheSlotLastKnownState, newSlotState);
-        }
-        executorService.execute(this::handleChunkEviction);
+        cacheSlotLastKnownState = newSlotState;
+      } else {
+        LOG.info("Cache node listener fired but slot state was the same - {}", cacheSlotMetadata);
       }
-
-      cacheSlotLastKnownState = newSlotState;
     }
   }
 
@@ -187,8 +195,9 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
   private synchronized void handleChunkAssignment(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample assignmentTimer = Timer.start(meterRegistry);
     try {
+      ///
       if (!setChunkMetadataState(
-          searchContext.hostname, slotId, Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
+          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.LOADING)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
@@ -223,7 +232,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       // we first mark the slot LIVE before registering the search metadata as available
       if (!setChunkMetadataState(
-          searchContext.hostname, slotId, Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
+          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.LIVE)) {
         throw new InterruptedException("Failed to set chunk metadata state to loading");
       }
 
@@ -233,8 +242,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     } catch (Exception e) {
       // if any error occurs during the chunk assignment, try to release the slot for re-assignment,
       // disregarding any errors
-      setChunkMetadataState(
-          searchContext.hostname, slotId, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
+      setChunkMetadataState(cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.FREE);
       LOG.error("Error handling chunk assignment", e);
       assignmentTimer.stop(chunkAssignmentTimerFailure);
     }
@@ -255,11 +263,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   // We synchronize access when manipulating the chunk, as the close()
   // can run concurrently with an eviction
-  private synchronized void handleChunkEviction() {
+  private synchronized void handleChunkEviction(CacheSlotMetadata cacheSlotMetadata) {
     Timer.Sample evictionTimer = Timer.start(meterRegistry);
     try {
       if (!setChunkMetadataState(
-          searchContext.hostname, slotId, Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
+          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.EVICTING)) {
         throw new InterruptedException("Failed to set chunk metadata state to evicting");
       }
 
@@ -275,7 +283,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
       cleanDirectory();
       if (!setChunkMetadataState(
-          searchContext.hostname, slotId, Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
+          cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState.FREE)) {
         throw new InterruptedException("Failed to set chunk metadata state to free");
       }
 
@@ -288,12 +296,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
     }
   }
 
-  /** Fetch the node given a slotName and update the slot state. */
   private boolean setChunkMetadataState(
-      String partition, String slotName, Metadata.CacheSlotMetadata.CacheSlotState slotState) {
+      CacheSlotMetadata cacheSlotMetadata, Metadata.CacheSlotMetadata.CacheSlotState newState) {
     try {
       cacheSlotMetadataStore
-          .getAndUpdateNonFreeCacheSlotState(partition, slotName, slotState)
+          .updateNonFreeCacheSlotState(cacheSlotMetadata, newState)
           .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
       return true;
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -348,10 +355,11 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
 
   @Override
   public void close() throws IOException {
-    if (cacheSlotMetadataStore.getSync(searchContext.hostname, slotId).cacheSlotState
-        != Metadata.CacheSlotMetadata.CacheSlotState.FREE) {
+    CacheSlotMetadata cacheSlotMetadata =
+        cacheSlotMetadataStore.getSync(searchContext.hostname, slotId);
+    if (cacheSlotMetadata.cacheSlotState != Metadata.CacheSlotMetadata.CacheSlotState.FREE) {
       // Attempt to evict the chunk
-      handleChunkEviction();
+      handleChunkEviction(cacheSlotMetadata);
     }
     cacheSlotMetadataStore.removeListener(cacheSlotListener);
     cacheSlotMetadataStore.close();

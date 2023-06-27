@@ -105,14 +105,14 @@ public class LogIndexSearcherImpl implements LogIndexSearcher<LogMessage> {
 
     Stopwatch elapsedTime = Stopwatch.createStarted();
     try {
-      Query query =
-          openSearchAdapter.buildQuery(dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch);
-      span.tag("lucene_query", query.toString());
-
       // Acquire an index searcher from searcher manager.
       // This is a useful optimization for indexes that are static.
-
       IndexSearcher searcher = searcherManager.acquire();
+
+      Query query =
+          openSearchAdapter.buildQuery(
+              dataset, queryStr, startTimeMsEpoch, endTimeMsEpoch, searcher);
+      span.tag("lucene_query", query.toString());
       try {
         List<LogMessage> results;
         InternalAggregation internalAggregation = null;
