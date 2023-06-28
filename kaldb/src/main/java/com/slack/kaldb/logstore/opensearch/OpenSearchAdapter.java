@@ -330,6 +330,13 @@ public class OpenSearchAdapter {
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.V_2_7_0)
             .put(
                 MapperService.INDEX_MAPPING_TOTAL_FIELDS_LIMIT_SETTING.getKey(), TOTAL_FIELDS_LIMIT)
+
+            // Kaldb time sorts the indexes while building it
+            // {LuceneIndexStoreImpl#buildIndexWriterConfig}
+            // When we were using the lucene query parser the sort info was leveraged by lucene
+            // automatically ( as the sort info persists in the segment info ) at query time.
+            // However the OpenSearch query parser has a custom implementation which relies on the
+            // index sort info to be present as a setting here.
             .put("index.sort.field", LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
             .put("index.sort.order", "desc")
             .build();
