@@ -1,0 +1,22 @@
+name: Code Review
+
+on:
+  pull_request: # Filter out draft pull requests
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - uses: fxchen/code-review@v0.2.3-alpha
+        with:
+          model: 'gpt-3.5-turbo-16k'
+          openai-key: ${{ secrets.OPENAI_API_KEY }}
