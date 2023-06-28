@@ -1,7 +1,7 @@
 name: Code Review
 
 on:
-  pull_request: # Filter out draft pull requests
+  pull_request:
     types:
       - opened
       - reopened
@@ -20,4 +20,3 @@ jobs:
         with:
           model: 'gpt-3.5-turbo-16k'
           openai-key: ${{ secrets.OPENAI_API_KEY }}
-          include-full-files: 'true'
