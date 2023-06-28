@@ -20,3 +20,4 @@ jobs:
         with:
           model: 'gpt-3.5-turbo-16k'
           openai-key: ${{ secrets.OPENAI_API_KEY }}
+          include-full-files: 'true'
