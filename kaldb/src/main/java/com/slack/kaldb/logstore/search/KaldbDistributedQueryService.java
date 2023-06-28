@@ -57,6 +57,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
   private final SnapshotMetadataStore snapshotMetadataStore;
   private final DatasetMetadataStore datasetMetadataStore;
 
+  // There can be 100s of nodes to query the schema. Tecnically asking 1 node is enough.
+  // But to be in the safe we query upto 5 nodes
+  private static final Integer LIMIT_SCHEMA_NODES_TO_QUERY = 5;
+
   // Number of times the listener is fired
   public static final String SEARCH_METADATA_TOTAL_CHANGE_COUNTER =
       "search_metadata_total_change_counter";
@@ -198,6 +202,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         nodeUrlToSnapshotNames.put(searchMetadata.url, snapshotNames);
       }
     }
+    getQueryNodesSpan.tag("nodes_to_query", String.valueOf(nodeUrlToSnapshotNames.size()));
     getQueryNodesSpan.finish();
     return nodeUrlToSnapshotNames;
   }
@@ -324,7 +329,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
 
   private List<SearchResult<LogMessage>> distributedSearch(
       final KaldbSearch.SearchRequest distribSearchReq) {
-    LOG.info("Starting distributed search for request: {}", distribSearchReq);
+    LOG.debug("Starting distributed search for request: {}", distribSearchReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSearch");
 
@@ -403,7 +408,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
       // always request future cancellation, so that any exceptions or incomplete futures don't
       // continue to consume CPU on work that will not be used
       searchFuture.cancel(false);
-      LOG.info("Finished distributed search for request: {}", distribSearchReq);
+      LOG.debug("Finished distributed search for request: {}", distribSearchReq);
       span.finish();
     }
   }
@@ -444,7 +449,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
     //  and would benefit from refactoring the current "distributedSearch" abstraction to support
     //  different types of requests
 
-    LOG.info("Starting distributed search for schema request: {}", distribSchemaReq);
+    LOG.debug("Starting distributed search for schema request: {}", distribSchemaReq);
     ScopedSpan span =
         Tracing.currentTracer().startScopedSpan("KaldbDistributedQueryService.distributedSchema");
 
@@ -466,7 +471,10 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
         getNodesAndSnapshotsToQuery(searchMetadataNodesMatchingQuery);
 
     List<ListenableFuture<KaldbSearch.SchemaResult>> queryServers = new ArrayList<>(stubs.size());
-    for (Map.Entry<String, List<String>> searchNode : nodesAndSnapshotsToQuery.entrySet()) {
+
+    List<Map.Entry<String, List<String>>> limitedNodesToQuery =
+        nodesAndSnapshotsToQuery.entrySet().stream().limit(LIMIT_SCHEMA_NODES_TO_QUERY).toList();
+    for (Map.Entry<String, List<String>> searchNode : limitedNodesToQuery) {
       KaldbServiceGrpc.KaldbServiceFutureStub stub = getStub(searchNode.getKey());
       if (stub == null) {
         // TODO: insert a failed result in the results object that we return from this method
@@ -486,7 +494,6 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
               .schema(localSearchReq);
       queryServers.add(schemaRequest);
     }
-
     ListenableFuture<List<KaldbSearch.SchemaResult>> searchFuture =
         Futures.successfulAsList(queryServers);
     try {
@@ -506,6 +513,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
       LOG.error(
           "Schema failed with timeout exception. This is potentially due to CPU saturation of the query node.",
           e);
+      span.error(e);
       return KaldbSearch.SchemaResult.newBuilder().build();
     } catch (Exception e) {
       LOG.error("Schema failed with ", e);
@@ -515,7 +523,7 @@ public class KaldbDistributedQueryService extends KaldbQueryServiceBase implemen
       // always request future cancellation, so that any exceptions or incomplete futures don't
       // continue to consume CPU on work that will not be used
       searchFuture.cancel(false);
-      LOG.info("Finished distributed search for request: {}", distribSchemaReq);
+      LOG.debug("Finished distributed search for request: {}", distribSchemaReq);
       span.finish();
     }
   }
