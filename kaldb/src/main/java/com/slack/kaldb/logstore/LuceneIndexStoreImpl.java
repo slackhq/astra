@@ -62,7 +62,10 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
 
-  private final String MAX_RAM_BUFFER_SIZE_MB = "maxRamBufferSizeMb";
+  // We think if the segments being flushed to disk are smaller than this then we should use
+  // compound files or not.
+  // If we ever revisit this - the value was picked thinking it's a good "default"
+  private final Integer CFS_FILES_SIZE_MB_CUTOFF = 128;
 
   // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
@@ -156,7 +159,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
     if (heapMaxBytes != Long.MAX_VALUE) {
       targetBufferSize = Math.min(2048, Math.round(heapMaxBytes / 1e6 * 0.10));
     }
-    LOG.warn(
+    LOG.info(
         "Setting max ram buffer size to {}mb, heap max bytes detected as {}",
         targetBufferSize,
         heapMaxBytes);
@@ -169,7 +172,7 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
       LuceneIndexStoreConfig config,
       MeterRegistry metricsRegistry) {
     long ramBufferSizeMb = getRAMBufferSizeMB(Runtime.getRuntime().maxMemory());
-    boolean useCFSFiles = ramBufferSizeMb <= 128;
+    boolean useCFSFiles = ramBufferSizeMb <= CFS_FILES_SIZE_MB_CUTOFF;
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
@@ -186,9 +189,9 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
                         true)))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
 
-    // See
-    // https://lucene.apache.org/core/9_5_0/core/org/apache/lucene/index/IndexWriterConfig.html#setUseCompoundFile(boolean)
-    if (ramBufferSizeMb >= 128) {
+    // This applies to segments when they are being merged
+    // Use the default in case the ramBufferSize is below the cutoff
+    if (!useCFSFiles) {
       indexWriterCfg.getMergePolicy().setNoCFSRatio(0.0);
     }
 
