@@ -51,67 +51,42 @@ public class SchemaAwareLogDocumentBuilderImpl implements DocumentBuilder<LogMes
   private static ImmutableMap<String, LuceneFieldDef> getDefaultLuceneFieldDefinitions(
       boolean enableFullTextSearch) {
     ImmutableMap.Builder<String, LuceneFieldDef> fieldDefBuilder = ImmutableMap.builder();
+
     addTextField(fieldDefBuilder, LogMessage.SystemField.SOURCE.fieldName, true, false);
+    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
     if (enableFullTextSearch) {
       addTextField(fieldDefBuilder, LogMessage.SystemField.ALL.fieldName, false, true);
     }
-    fieldDefBuilder.put(
-        LogMessage.SystemField.ID.fieldName,
-        new LuceneFieldDef(
-            LogMessage.SystemField.ID.fieldName, FieldType.STRING.name, false, true, true));
-    fieldDefBuilder.put(
-        LogMessage.SystemField.INDEX.fieldName,
-        new LuceneFieldDef(
-            LogMessage.SystemField.INDEX.fieldName, FieldType.TEXT.name, false, true, false));
 
-    fieldDefBuilder.put(
-        LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-        new LuceneFieldDef(
-            LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
-            FieldType.LONG.name,
-            false,
-            true,
-            true));
-    fieldDefBuilder.put(
-        LogMessage.ReservedField.TYPE.fieldName,
-        new LuceneFieldDef(
-            LogMessage.ReservedField.TYPE.fieldName, FieldType.STRING.name, false, true, true));
+    String[] fieldsAsString = {
+      LogMessage.SystemField.ID.fieldName,
+      LogMessage.SystemField.INDEX.fieldName,
+      LogMessage.ReservedField.TYPE.fieldName,
+      LogMessage.ReservedField.HOSTNAME.fieldName,
+      LogMessage.ReservedField.PACKAGE.fieldName,
+      LogMessage.ReservedField.TAG.fieldName,
+      LogMessage.ReservedField.USERNAME.fieldName,
+      LogMessage.ReservedField.PAYLOAD.fieldName,
+      LogMessage.ReservedField.NAME.fieldName,
+      LogMessage.ReservedField.SERVICE_NAME.fieldName,
+      LogMessage.ReservedField.TRACE_ID.fieldName,
+      LogMessage.ReservedField.PARENT_ID.fieldName
+    };
 
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.HOSTNAME.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PACKAGE.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.MESSAGE.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.TAG.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.USERNAME.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.PAYLOAD.fieldName, false, true);
-    addTextField(fieldDefBuilder, LogMessage.ReservedField.NAME.fieldName, false, true);
-    fieldDefBuilder.put(
-        LogMessage.ReservedField.SERVICE_NAME.fieldName,
-        new LuceneFieldDef(
-            LogMessage.ReservedField.SERVICE_NAME.fieldName,
-            FieldType.STRING.name,
-            false,
-            true,
-            true));
-    fieldDefBuilder.put(
-        LogMessage.ReservedField.DURATION_MS.fieldName,
-        new LuceneFieldDef(
-            LogMessage.ReservedField.DURATION_MS.fieldName,
-            FieldType.LONG.name,
-            false,
-            true,
-            true));
-    fieldDefBuilder.put(
-        LogMessage.ReservedField.TRACE_ID.fieldName,
-        new LuceneFieldDef(
-            LogMessage.ReservedField.TRACE_ID.fieldName, FieldType.STRING.name, false, true, true));
-    fieldDefBuilder.put(
-        LogMessage.ReservedField.PARENT_ID.fieldName,
-        new LuceneFieldDef(
-            LogMessage.ReservedField.PARENT_ID.fieldName,
-            FieldType.STRING.name,
-            false,
-            true,
-            true));
+    for (String fieldName : fieldsAsString) {
+      fieldDefBuilder.put(
+          fieldName, new LuceneFieldDef(fieldName, FieldType.STRING.name, false, true, true));
+    }
+
+    String[] fieldsAsLong = {
+      LogMessage.ReservedField.DURATION_MS.fieldName,
+      LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName,
+    };
+
+    for (String fieldName : fieldsAsLong) {
+      fieldDefBuilder.put(
+          fieldName, new LuceneFieldDef(fieldName, FieldType.LONG.name, false, true, true));
+    }
 
     return fieldDefBuilder.build();
   }
