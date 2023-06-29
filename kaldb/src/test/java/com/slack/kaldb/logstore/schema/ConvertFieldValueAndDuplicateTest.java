@@ -69,7 +69,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(22);
+    assertThat(testDocument.getFields().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().size()).isEqualTo(23);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -125,7 +125,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument = docBuilder.fromMessage(message);
-    assertThat(testDocument.getFields().size()).isEqualTo(21);
+    assertThat(testDocument.getFields().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().size()).isEqualTo(22);
     assertThat(docBuilder.getSchema().keySet())
         .containsAll(
@@ -177,7 +177,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
@@ -207,7 +207,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.INTEGER);
     // Value converted and new field is added.
     assertThat(
@@ -272,7 +272,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 true));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
@@ -302,7 +302,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 "random"));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.STRING);
     // Value converted and new field is added.
     assertThat(
@@ -360,7 +360,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 additionalCreatedFieldName,
                 true));
     Document msg3Doc = convertFieldBuilder.fromMessage(msg3);
-    assertThat(msg3Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg3Doc.getFields().size()).isEqualTo(19);
     assertThat(
             msg3Doc.getFields().stream()
                 .filter(
@@ -415,7 +415,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
@@ -446,7 +446,7 @@ public class ConvertFieldValueAndDuplicateTest {
                 conflictingFieldName,
                 conflictingFloatValue));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(16);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(19);
     String additionalCreatedFieldName = makeNewFieldOfType(conflictingFieldName, FieldType.FLOAT);
     // Value converted and new field is added.
     assertThat(
@@ -516,7 +516,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 22;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
@@ -627,7 +627,7 @@ public class ConvertFieldValueAndDuplicateTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 22;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);

@@ -261,7 +261,7 @@ public class LuceneIndexStoreImplTest {
       logStore.logStore.refresh();
 
       Collection<LogMessage> results =
-          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo", 1000);
+          findAllMessages(logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "tag:foo-bar", 1000);
       assertThat(results.size()).isEqualTo(1);
 
       Collection<LogMessage> results2 =
@@ -287,19 +287,9 @@ public class LuceneIndexStoreImplTest {
               logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc", 1000);
       assertThat(results5.size()).isEqualTo(0);
 
-      Collection<LogMessage> results6 =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc.com", 1000);
-      assertThat(results6.size()).isEqualTo(1);
-
-      Collection<LogMessage> results7 =
-          findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:host1-dc2", 1000);
-      assertThat(results7.size()).isEqualTo(1);
-
       Collection<LogMessage> results8 =
           findAllMessages(
-              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:com.abc", 1000);
+              logStore.logSearcher, MessageUtil.TEST_DATASET_NAME, "hostname:abc.com", 1000);
       assertThat(results8.size()).isEqualTo(0);
 
       assertThat(getCount(MESSAGES_RECEIVED_COUNTER, logStore.metricsRegistry)).isEqualTo(1);

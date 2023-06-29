@@ -56,7 +56,7 @@ public class RaiseErrorFieldValueTest {
                 1));
 
     Document msg1Doc = docBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
@@ -120,7 +120,7 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().get(conflictingFieldName).fieldType)
         .isEqualTo(FieldType.INTEGER);
     assertThat(docBuilder.getSchema().get(LogMessage.ReservedField.HOSTNAME.fieldName).fieldType)
-        .isEqualTo(FieldType.TEXT);
+        .isEqualTo(FieldType.STRING);
 
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
@@ -140,7 +140,7 @@ public class RaiseErrorFieldValueTest {
     assertThat(docBuilder.getSchema().keySet()).contains(LogMessage.SystemField.ALL.fieldName);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
-    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
 
     LogMessage msg1 =
         new LogMessage(
@@ -160,7 +160,7 @@ public class RaiseErrorFieldValueTest {
         .isInstanceOf(FieldDefMismatchException.class);
     assertThat(docBuilder.getSchema().size()).isEqualTo(17);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
-    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
@@ -175,7 +175,7 @@ public class RaiseErrorFieldValueTest {
         .doesNotContain(LogMessage.SystemField.ALL.fieldName);
     final String hostNameField = LogMessage.ReservedField.HOSTNAME.fieldName;
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
-    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
 
     LogMessage msg1 =
         new LogMessage(
@@ -195,7 +195,7 @@ public class RaiseErrorFieldValueTest {
         .isInstanceOf(FieldDefMismatchException.class);
     assertThat(docBuilder.getSchema().size()).isEqualTo(16);
     assertThat(docBuilder.getSchema().keySet()).contains(hostNameField);
-    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.TEXT);
+    assertThat(docBuilder.getSchema().get(hostNameField).fieldType).isEqualTo(FieldType.STRING);
     assertThat(MetricsUtil.getCount(DROP_FIELDS_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_FIELD_VALUE_COUNTER, meterRegistry)).isZero();
     assertThat(MetricsUtil.getCount(CONVERT_AND_DUPLICATE_FIELD_COUNTER, meterRegistry)).isZero();
