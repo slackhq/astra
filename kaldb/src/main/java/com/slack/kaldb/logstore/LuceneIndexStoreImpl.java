@@ -62,6 +62,11 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
   private final io.micrometer.core.instrument.Timer commitsTimer;
   private final io.micrometer.core.instrument.Timer refreshesTimer;
 
+  // We think if the segments being flushed to disk are smaller than this then we should use
+  // compound files or not.
+  // If we ever revisit this - the value was picked thinking it's a good "default"
+  private final Integer CFS_FILES_SIZE_MB_CUTOFF = 128;
+
   // TODO: Set the policy via a lucene config file.
   public static LuceneIndexStoreImpl makeLogStore(
       File dataDirectory, KaldbConfigs.LuceneConfig luceneConfig, MeterRegistry metricsRegistry)
@@ -143,15 +148,37 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
         "Created a lucene index {} at: {}", id, indexDirectory.getDirectory().toAbsolutePath());
   }
 
+  /**
+   * Attempts to determine an optimal ram buffer size based on the size of the heap. The target of
+   * 10% matches that of the defaults of ES.
+   *
+   * @see {https://www.elastic.co/guide/en/elasticsearch/reference/current/indexing-buffer.html}
+   */
+  protected static long getRAMBufferSizeMB(long heapMaxBytes) {
+    long targetBufferSize = 256;
+    if (heapMaxBytes != Long.MAX_VALUE) {
+      targetBufferSize = Math.min(2048, Math.round(heapMaxBytes / 1e6 * 0.10));
+    }
+    LOG.info(
+        "Setting max ram buffer size to {}mb, heap max bytes detected as {}",
+        targetBufferSize,
+        heapMaxBytes);
+    return targetBufferSize;
+  }
+
   private IndexWriterConfig buildIndexWriterConfig(
       Analyzer analyzer,
       SnapshotDeletionPolicy snapshotDeletionPolicy,
       LuceneIndexStoreConfig config,
       MeterRegistry metricsRegistry) {
+    long ramBufferSizeMb = getRAMBufferSizeMB(Runtime.getRuntime().maxMemory());
+    boolean useCFSFiles = ramBufferSizeMb <= CFS_FILES_SIZE_MB_CUTOFF;
     final IndexWriterConfig indexWriterCfg =
         new IndexWriterConfig(analyzer)
             .setOpenMode(IndexWriterConfig.OpenMode.CREATE)
             .setMergeScheduler(new KalDBMergeScheduler(metricsRegistry))
+            .setRAMBufferSizeMB(ramBufferSizeMb)
+            .setUseCompoundFile(useCFSFiles)
             // we sort by timestamp descending, as that is the order we expect to return results the
             // majority of the time
             .setIndexSort(
@@ -161,6 +188,12 @@ public class LuceneIndexStoreImpl implements LogStore<LogMessage> {
                         SortField.Type.LONG,
                         true)))
             .setIndexDeletionPolicy(snapshotDeletionPolicy);
+
+    // This applies to segments when they are being merged
+    // Use the default in case the ramBufferSize is below the cutoff
+    if (!useCFSFiles) {
+      indexWriterCfg.getMergePolicy().setNoCFSRatio(0.0);
+    }
 
     if (config.enableTracing) {
       indexWriterCfg.setInfoStream(System.out);
