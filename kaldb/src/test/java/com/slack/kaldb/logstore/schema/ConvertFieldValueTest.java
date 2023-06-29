@@ -60,7 +60,7 @@ public class ConvertFieldValueTest {
                 "1"));
 
     Document msg1Doc = convertFieldBuilder.fromMessage(msg1);
-    assertThat(msg1Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg1Doc.getFields().size()).isEqualTo(17);
     assertThat(
             msg1Doc.getFields().stream()
                 .filter(f -> f.name().equals(conflictingFieldName))
@@ -90,7 +90,7 @@ public class ConvertFieldValueTest {
                 conflictingFieldName,
                 1));
     Document msg2Doc = convertFieldBuilder.fromMessage(msg2);
-    assertThat(msg2Doc.getFields().size()).isEqualTo(14);
+    assertThat(msg2Doc.getFields().size()).isEqualTo(17);
     // Value is converted for conflicting field.
     assertThat(
             msg2Doc.getFields().stream()
@@ -148,7 +148,7 @@ public class ConvertFieldValueTest {
                     Map.of("leaf2", "value2", "leaf21", 3, "nestedList", List.of(1)))));
 
     Document testDocument1 = docBuilder.fromMessage(msg1);
-    final int expectedDocFieldsAfterMsg1 = 22;
+    final int expectedDocFieldsAfterMsg1 = 23;
     assertThat(testDocument1.getFields().size()).isEqualTo(expectedDocFieldsAfterMsg1);
     final int expectedFieldsAfterMsg1 = 23;
     assertThat(docBuilder.getSchema().size()).isEqualTo(expectedFieldsAfterMsg1);
