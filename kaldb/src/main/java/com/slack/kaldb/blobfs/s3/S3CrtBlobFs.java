@@ -26,7 +26,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.SdkSystemSetting;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.regions.Region;
@@ -79,13 +78,9 @@ public class S3CrtBlobFs extends BlobFs {
         awsCredentialsProvider = DefaultCredentialsProvider.create();
       }
 
-      // TODO: Remove hard coded HTTP IMPL property setting by only having 1 http client on the
-      // classpath.
-      System.setProperty(
-          SdkSystemSetting.SYNC_HTTP_SERVICE_IMPL.property(),
-          "software.amazon.awssdk.http.apache.ApacheSdkHttpService");
       S3CrtAsyncClientBuilder s3AsyncClient =
           S3AsyncClient.crtBuilder()
+              .targetThroughputInGbps(config.getS3TargetThroughputGbps())
               .region(Region.of(region))
               .credentialsProvider(awsCredentialsProvider);
 
