@@ -25,7 +25,8 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.collect.Maps;
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.blobfs.s3.S3BlobFs;
+import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
+import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.BlobFsUtils;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
 import com.slack.kaldb.metadata.core.KaldbMetadataTestUtils;
@@ -63,7 +64,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.stubbing.Answer;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class RecoveryServiceTest {
 
@@ -84,7 +85,7 @@ public class RecoveryServiceTest {
   private MeterRegistry meterRegistry;
   private BlobFs blobFs;
   private TestKafkaServer kafkaServer;
-  private S3Client s3Client;
+  private S3AsyncClient s3AsyncClient;
   private RecoveryService recoveryService;
   private AsyncCuratorFramework curatorFramework;
 
@@ -94,8 +95,8 @@ public class RecoveryServiceTest {
     kafkaServer = new TestKafkaServer();
     meterRegistry = new SimpleMeterRegistry();
     zkServer = new TestingServer();
-    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
-    blobFs = new S3BlobFs(s3Client);
+    s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+    blobFs = new S3CrtBlobFs(s3AsyncClient);
   }
 
   @AfterEach
@@ -119,8 +120,8 @@ public class RecoveryServiceTest {
     if (meterRegistry != null) {
       meterRegistry.close();
     }
-    if (s3Client != null) {
-      s3Client.close();
+    if (s3AsyncClient != null) {
+      s3AsyncClient.close();
     }
   }
 
@@ -371,9 +372,10 @@ public class RecoveryServiceTest {
     final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name())
+        .isNotEqualTo(fakeS3Bucket);
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
@@ -382,9 +384,10 @@ public class RecoveryServiceTest {
         new RecoveryTaskMetadata("testRecoveryTask", "0", 30, 60, Instant.now().toEpochMilli());
     assertThat(recoveryService.handleRecoveryTask(recoveryTask)).isFalse();
 
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isNotEqualTo(fakeS3Bucket);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name())
+        .isNotEqualTo(fakeS3Bucket);
 
     assertThat(getCount(MESSAGES_RECEIVED_COUNTER, meterRegistry)).isEqualTo(31);
     assertThat(getCount(MESSAGES_FAILED_COUNTER, meterRegistry)).isEqualTo(0);
@@ -408,8 +411,8 @@ public class RecoveryServiceTest {
     final Instant startTime = Instant.now();
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
@@ -449,8 +452,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_FAILED, meterRegistry)).isZero();
 
     // Check metadata
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
 
     // Post recovery checks
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
@@ -493,8 +496,8 @@ public class RecoveryServiceTest {
     produceMessagesToKafka(kafkaServer.getBroker(), startTime, TEST_KAFKA_TOPIC_1, 0);
 
     // fakeS3Bucket is not present.
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
     SnapshotMetadataStore snapshotMetadataStore = new SnapshotMetadataStore(curatorFramework);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore).size()).isZero();
 
@@ -536,8 +539,8 @@ public class RecoveryServiceTest {
     assertThat(getCount(RECOVERY_NODE_ASSIGNMENT_SUCCESS, meterRegistry)).isZero();
 
     // Check metadata
-    assertThat(s3Client.listBuckets().buckets().size()).isEqualTo(1);
-    assertThat(s3Client.listBuckets().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().size()).isEqualTo(1);
+    assertThat(s3AsyncClient.listBuckets().get().buckets().get(0).name()).isEqualTo(TEST_S3_BUCKET);
 
     // Post recovery checks
     assertThat(KaldbMetadataTestUtils.listSyncUncached(recoveryNodeMetadataStore).size())
