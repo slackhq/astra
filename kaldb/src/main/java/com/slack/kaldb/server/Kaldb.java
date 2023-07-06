@@ -363,6 +363,7 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
+              .withAnnotatedService(new ElasticsearchBulkIngestAPI())
               .build();
       services.add(armeriaService);
 

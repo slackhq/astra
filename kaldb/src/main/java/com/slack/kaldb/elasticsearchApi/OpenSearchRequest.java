@@ -23,12 +23,21 @@ import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.VersionType;
+import org.opensearch.ingest.IngestDocument;
+import org.opensearch.rest.action.document.RestUpdateAction;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -40,6 +49,56 @@ public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+  // TODO: *Only* the index and create actions expect a source on the next line
+  public void parseBulkHttpRequest(String postBody) throws JsonProcessingException {
+    //    for (List<String> pair : Lists.partition(Arrays.asList(postBody.split("\n")), 2)) {
+    //      JsonNode header = OM.readTree(pair.get(0));
+    //      JsonNode body = OM.readTree(pair.get(1));
+    //      int x = 10;
+    //    }
+
+    RestUpdateAction action = new RestUpdateAction();
+    BulkRequest bulkRequest = new BulkRequest();
+    try {
+      bulkRequest.add(
+          postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
+      List<DocWriteRequest<?>> requests = bulkRequest.requests();
+      for (DocWriteRequest<?> request : requests) {
+        if (request.opType() == DocWriteRequest.OpType.INDEX) {
+          // 1. convert document to Kaldb span
+          // 2. With a retry+backoff handler produce messages to kafka
+          // 3. RateLimits?
+
+          // Notes
+          // The client makes a DocWriteRequest and sends it to the server
+          // IngestService#innerExecute is where the server eventually reads when request is an
+          // IndexRequest.
+          // It then creates an IngestDocument
+          IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
+          // TransportBulkAction#doInternalExecute
+        } else {
+          // warn that we don't support anything but INDEX
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
+    String index = indexRequest.index();
+    String id = indexRequest.id();
+    String routing = indexRequest.routing();
+    Long version = indexRequest.version();
+    VersionType versionType = indexRequest.versionType();
+    Map<String, Object> sourceAsMap = indexRequest.sourceAsMap();
+    return new IngestDocument(index, id, routing, version, versionType, sourceAsMap);
+
+    // can easily expose Pipeline/CompoundProcessor(list of processors) that take an IngestDocument
+    // and transform it
+  }
+
+  // TODO: rename this to parseMSearchHttpRequest?
   public List<KaldbSearch.SearchRequest> parseHttpPostBody(String postBody)
       throws JsonProcessingException {
     // the body contains an NDJSON format, with alternating rows as header/body
