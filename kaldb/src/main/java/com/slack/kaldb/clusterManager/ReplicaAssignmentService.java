@@ -20,12 +20,15 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -58,10 +61,9 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       "replica_assign_available_capacity";
   public static final String REPLICA_ASSIGN_TIMER = "replica_assign_timer";
 
-  protected final Counter replicaAssignSucceeded;
-  protected final Counter replicaAssignFailed;
-  protected final AtomicInteger replicaAssignAvailableCapacity;
-  private final Timer replicaAssignTimer;
+  private final Counter.Builder replicaAssignSucceeded;
+  private final Counter.Builder replicaAssignFailed;
+  private final Timer.Builder replicaAssignTimer;
 
   private final ScheduledExecutorService executorService =
       Executors.newSingleThreadScheduledExecutor();
@@ -82,14 +84,15 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     this.managerConfig = managerConfig;
     this.meterRegistry = meterRegistry;
 
+    checkArgument(
+        managerConfig.getReplicaAssignmentServiceConfig().getReplicaPartitionsCount() > 0,
+        "replicaPartitions must not be empty");
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
-    replicaAssignSucceeded = meterRegistry.counter(REPLICA_ASSIGN_SUCCEEDED);
-    replicaAssignFailed = meterRegistry.counter(REPLICA_ASSIGN_FAILED);
-    replicaAssignAvailableCapacity =
-        meterRegistry.gauge(REPLICA_ASSIGN_AVAILABLE_CAPACITY, new AtomicInteger(0));
-    replicaAssignTimer = meterRegistry.timer(REPLICA_ASSIGN_TIMER);
+    this.replicaAssignSucceeded = Counter.builder(REPLICA_ASSIGN_SUCCEEDED);
+    this.replicaAssignFailed = Counter.builder(REPLICA_ASSIGN_FAILED);
+    this.replicaAssignTimer = Timer.builder(REPLICA_ASSIGN_TIMER);
   }
 
   @Override
@@ -144,94 +147,121 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
    * @return The count of successfully assigned cache slots
    */
   @SuppressWarnings("UnstableApiUsage")
-  protected int assignReplicasToCacheSlots() {
-    Timer.Sample assignmentTimer = Timer.start(meterRegistry);
+  protected Map<String, Integer> assignReplicasToCacheSlots() {
+    Map<String, Integer> assignments = new HashMap<>();
 
-    List<CacheSlotMetadata> availableCacheSlots =
-        cacheSlotMetadataStore.listSync().stream()
-            .filter(
-                cacheSlotMetadata ->
-                    cacheSlotMetadata.cacheSlotState.equals(
-                        Metadata.CacheSlotMetadata.CacheSlotState.FREE))
-            .collect(Collectors.toList());
+    for (String replicaPartition :
+        managerConfig.getReplicaAssignmentServiceConfig().getReplicaPartitionsList()) {
+      Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
-    // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
-    // assigned chunks that matches all recent queries. This should help balance out the load
-    // across all available hosts.
-    Collections.shuffle(availableCacheSlots);
+      List<CacheSlotMetadata> availableCacheSlots =
+          cacheSlotMetadataStore.listSync().stream()
+              .filter(
+                  cacheSlotMetadata ->
+                      cacheSlotMetadata.cacheSlotState.equals(
+                              Metadata.CacheSlotMetadata.CacheSlotState.FREE)
+                          && cacheSlotMetadata.replicaPartition.equals(replicaPartition))
+              .collect(Collectors.toList());
 
-    Set<String> assignedReplicaIds =
-        cacheSlotMetadataStore.listSync().stream()
-            .filter(cacheSlotMetadata -> !cacheSlotMetadata.replicaId.isEmpty())
-            .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
-            .collect(Collectors.toUnmodifiableSet());
+      // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
+      // assigned chunks that matches all recent queries. This should help balance out the load
+      // across all available hosts.
+      Collections.shuffle(availableCacheSlots);
 
-    long nowMilli = Instant.now().toEpochMilli();
-    List<String> replicaIdsToAssign =
-        replicaMetadataStore.listSync().stream()
-            // only assign replicas that are not expired, and not already assigned
-            .filter(
-                replicaMetadata ->
-                    replicaMetadata.expireAfterEpochMs > nowMilli
-                        && !assignedReplicaIds.contains(replicaMetadata.name))
-            // sort the list by the newest replicas first, in case we run out of available slots
-            .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
-            .map(replicaMetadata -> replicaMetadata.name)
-            .collect(Collectors.toUnmodifiableList());
+      Set<String> assignedReplicaIds =
+          cacheSlotMetadataStore.listSync().stream()
+              .filter(
+                  cacheSlotMetadata ->
+                      !cacheSlotMetadata.replicaId.isEmpty()
+                          && cacheSlotMetadata.replicaPartition.equals(replicaPartition))
+              .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
+              .collect(Collectors.toUnmodifiableSet());
 
-    // Report either a positive value (excess capacity) or a negative value (insufficient capacity)
-    replicaAssignAvailableCapacity.set(availableCacheSlots.size() - replicaIdsToAssign.size());
+      long nowMilli = Instant.now().toEpochMilli();
+      List<String> replicaIdsToAssign =
+          replicaMetadataStore.listSync().stream()
+              // only assign replicas that are not expired, and not already assigned
+              .filter(
+                  replicaMetadata ->
+                      replicaMetadata.expireAfterEpochMs > nowMilli
+                          && !assignedReplicaIds.contains(replicaMetadata.name)
+                          && replicaMetadata.getReplicaPartition().equals(replicaPartition))
+              // sort the list by the newest replicas first, in case we run out of available slots
+              .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
+              .map(replicaMetadata -> replicaMetadata.name)
+              .toList();
 
-    if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
-      LOG.warn(
-          "Insufficient cache slots to assign replicas, wanted {} slots but had {} replicas",
-          replicaIdsToAssign.size(),
-          availableCacheSlots.size());
-    } else if (replicaIdsToAssign.size() == 0) {
-      LOG.info("No replicas found requiring assignment");
-      assignmentTimer.stop(replicaAssignTimer);
-      return 0;
+      // Report either a positive value (excess capacity) or a negative value (insufficient
+      // capacity)
+      Gauge.builder(
+              REPLICA_ASSIGN_AVAILABLE_CAPACITY,
+              () -> availableCacheSlots.size() - replicaIdsToAssign.size())
+          .tag("replicaPartition", replicaPartition)
+          .register(meterRegistry);
+      if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
+        LOG.warn(
+            "Insufficient cache slots to assign replicas for partition {}, wanted {} slots but had {} replicas",
+            replicaPartition,
+            replicaIdsToAssign.size(),
+            availableCacheSlots.size());
+      } else if (replicaIdsToAssign.size() == 0) {
+        LOG.info("No replicas found requiring assignment in partition {}", replicaPartition);
+        assignmentTimer.stop(
+            replicaAssignTimer.tag("replicaPartition", replicaPartition).register(meterRegistry));
+        assignments.put(replicaPartition, 0);
+        continue;
+      }
+
+      AtomicInteger successCounter = new AtomicInteger(0);
+      List<ListenableFuture<?>> replicaAssignments =
+          Streams.zip(
+                  replicaIdsToAssign.stream(),
+                  availableCacheSlots.stream(),
+                  (replicaId, availableCacheSlot) -> {
+                    ListenableFuture<?> future =
+                        cacheSlotMetadataStore.updateCacheSlotStateStateWithReplicaId(
+                            availableCacheSlot,
+                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+                            replicaId);
+                    addCallback(
+                        future,
+                        successCountingCallback(successCounter),
+                        MoreExecutors.directExecutor());
+                    return future;
+                  })
+              .collect(Collectors.toList());
+
+      ListenableFuture<?> futureList = Futures.successfulAsList(replicaAssignments);
+      try {
+        futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        futureList.cancel(true);
+      }
+
+      int successfulAssignments = successCounter.get();
+      int failedAssignments = replicaAssignments.size() - successfulAssignments;
+
+      replicaAssignSucceeded
+          .tag("replicaPartition", replicaPartition)
+          .register(meterRegistry)
+          .increment(successfulAssignments);
+      replicaAssignFailed
+          .tag("replicaPartition", replicaPartition)
+          .register(meterRegistry)
+          .increment(failedAssignments);
+
+      long assignmentDuration =
+          assignmentTimer.stop(
+              replicaAssignTimer.tag("replicaPartition", replicaPartition).register(meterRegistry));
+      LOG.info(
+          "Completed replica assignment for partition {} - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
+          replicaPartition,
+          successfulAssignments,
+          failedAssignments,
+          nanosToMillis(assignmentDuration));
+
+      assignments.put(replicaPartition, successfulAssignments);
     }
-
-    AtomicInteger successCounter = new AtomicInteger(0);
-    List<ListenableFuture<?>> replicaAssignments =
-        Streams.zip(
-                replicaIdsToAssign.stream(),
-                availableCacheSlots.stream(),
-                (replicaId, availableCacheSlot) -> {
-                  ListenableFuture<?> future =
-                      cacheSlotMetadataStore.updateCacheSlotStateStateWithReplicaId(
-                          availableCacheSlot,
-                          Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
-                          replicaId);
-                  addCallback(
-                      future,
-                      successCountingCallback(successCounter),
-                      MoreExecutors.directExecutor());
-                  return future;
-                })
-            .collect(Collectors.toList());
-
-    ListenableFuture<?> futureList = Futures.successfulAsList(replicaAssignments);
-    try {
-      futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
-    } catch (Exception e) {
-      futureList.cancel(true);
-    }
-
-    int successfulAssignments = successCounter.get();
-    int failedAssignments = replicaAssignments.size() - successfulAssignments;
-
-    replicaAssignSucceeded.increment(successfulAssignments);
-    replicaAssignFailed.increment(failedAssignments);
-
-    long assignmentDuration = assignmentTimer.stop(replicaAssignTimer);
-    LOG.info(
-        "Completed replica assignment - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
-        successfulAssignments,
-        failedAssignments,
-        nanosToMillis(assignmentDuration));
-
-    return successfulAssignments;
+    return assignments;
   }
 }

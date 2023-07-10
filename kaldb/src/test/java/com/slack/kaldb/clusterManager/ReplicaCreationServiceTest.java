@@ -29,13 +29,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.curator.test.TestingServer;
 import org.apache.curator.x.async.AsyncCuratorFramework;
@@ -100,15 +100,15 @@ public class ReplicaCreationServiceTest {
 
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
+            snapshotA.snapshotId, "rep1", Instant.now().plusSeconds(60), false));
     replicaMetadataStore.createSync(
         ReplicaCreationService.replicaMetadataFromSnapshotId(
-            snapshotA.snapshotId, Instant.now().plusSeconds(60), false));
+            snapshotA.snapshotId, "rep1", Instant.now().plusSeconds(60), false));
     await().until(() -> replicaMetadataStore.listSync().size() == 2);
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -150,7 +150,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(0)
+            .addAllReplicaPartitions(List.of())
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -193,7 +193,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(4)
+            .addAllReplicaPartitions(List.of("rep1", "rep2", "rep3", "rep4"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -256,7 +256,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(1)
+            .addAllReplicaPartitions(List.of("rep1"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -281,9 +281,10 @@ public class ReplicaCreationServiceTest {
                     && snapshotMetadataStore.listSync().size() == 2);
     assertThat(replicaMetadataStore.listSync().isEmpty()).isTrue();
 
-    int assignReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
+    Map<String, Integer> assignReplicas =
+        replicaCreationService.createReplicasForUnassignedSnapshots();
 
-    assertThat(assignReplicas).isEqualTo(1);
+    assertThat(assignReplicas.get("rep1")).isEqualTo(1);
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
 
     assertThat(replicaMetadataStore.listSync().get(0).snapshotId)
@@ -309,7 +310,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(replicasToCreate)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -386,7 +387,8 @@ public class ReplicaCreationServiceTest {
         new ReplicaCreationService(
             replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry);
 
-    int replicasCreated = replicaCreationService.createReplicasForUnassignedSnapshots();
+    Map<String, Integer> replicasCreated =
+        replicaCreationService.createReplicasForUnassignedSnapshots();
     int expectedReplicas = eligibleSnapshotsToCreate * replicasToCreate;
 
     await()
@@ -396,7 +398,8 @@ public class ReplicaCreationServiceTest {
                     == expectedReplicas);
     await().until(() -> replicaMetadataStore.listSync().size() == expectedReplicas);
 
-    assertThat(replicasCreated).isEqualTo(expectedReplicas);
+    assertThat(replicasCreated.values().stream().mapToInt(i -> i).sum())
+        .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(expectedReplicas);
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_FAILED, meterRegistry))
@@ -405,9 +408,7 @@ public class ReplicaCreationServiceTest {
         .isEqualTo(KaldbMetadataTestUtils.listSyncUncached(snapshotMetadataStore));
 
     List<String> eligibleSnapshotIds =
-        eligibleSnapshots.stream()
-            .map(snapshotMetadata -> snapshotMetadata.snapshotId)
-            .collect(Collectors.toList());
+        eligibleSnapshots.stream().map(snapshotMetadata -> snapshotMetadata.snapshotId).toList();
     assertThat(
             KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).stream()
                 .allMatch(
@@ -420,7 +421,7 @@ public class ReplicaCreationServiceTest {
   public void shouldCreateReplicaWhenSnapshotAddedAfterRunning() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -471,7 +472,7 @@ public class ReplicaCreationServiceTest {
   public void shouldStillCreateReplicaIfFirstAttemptFails() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -583,7 +584,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -605,8 +606,9 @@ public class ReplicaCreationServiceTest {
 
     doCallRealMethod().doReturn(asyncStage).when(replicaMetadataStore).createAsync(any());
 
-    int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
-    assertThat(successfulReplicas).isEqualTo(1);
+    Map<String, Integer> successfulReplicas =
+        replicaCreationService.createReplicasForUnassignedSnapshots();
+    assertThat(successfulReplicas.get("rep1")).isEqualTo(1);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(1);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
@@ -631,7 +633,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -668,8 +670,9 @@ public class ReplicaCreationServiceTest {
         .when(replicaMetadataStore)
         .createAsync(any(ReplicaMetadata.class));
 
-    int successfulReplicas = replicaCreationService.createReplicasForUnassignedSnapshots();
-    assertThat(successfulReplicas).isEqualTo(1);
+    Map<String, Integer> successfulReplicas =
+        replicaCreationService.createReplicasForUnassignedSnapshots();
+    assertThat(successfulReplicas.get("rep1")).isEqualTo(1);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count()).isZero();
     assertThat(MetricsUtil.getCount(ReplicaCreationService.REPLICAS_CREATED, meterRegistry))
         .isEqualTo(1);
@@ -683,7 +686,7 @@ public class ReplicaCreationServiceTest {
   public void shouldThrowOnInvalidAggregationSecs() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -706,32 +709,9 @@ public class ReplicaCreationServiceTest {
   public void shouldThrowOnInvalidLifespanMins() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(2)
+            .addAllReplicaPartitions(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(0)
-            .build();
-
-    KaldbConfigs.ManagerConfig managerConfig =
-        KaldbConfigs.ManagerConfig.newBuilder()
-            .setReplicaCreationServiceConfig(replicaCreationServiceConfig)
-            .setEventAggregationSecs(2)
-            .setScheduleInitialDelayMins(0)
-            .build();
-
-    assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                new ReplicaCreationService(
-                    replicaMetadataStore, snapshotMetadataStore, managerConfig, meterRegistry));
-  }
-
-  @Test
-  public void shouldThrowOnInvalidReplicasPerSnapshot() {
-    KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
-        KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .setReplicasPerSnapshot(-1)
-            .setSchedulePeriodMins(10)
-            .setReplicaLifespanMins(1440)
             .build();
 
     KaldbConfigs.ManagerConfig managerConfig =

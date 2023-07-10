@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 public class ReplicaDeletionServiceTest {
   public static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
   public static final String HOSTNAME = "hostname";
+  private static final String REPLICA_PARTITION = "rep1";
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
 
@@ -146,6 +147,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
+            REPLICA_PARTITION,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
@@ -159,7 +161,8 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -203,6 +206,7 @@ public class ReplicaDeletionServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
+              REPLICA_PARTITION,
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
               false,
@@ -218,7 +222,8 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(0).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
     CacheSlotMetadata cacheSlotMetadataEvict =
@@ -228,7 +233,8 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(1).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvict);
 
     CacheSlotMetadata cacheSlotMetadataEvicting =
@@ -238,7 +244,8 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataEvicting);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 3);
@@ -283,6 +290,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
+            REPLICA_PARTITION,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().plusSeconds(30).toEpochMilli(),
             false,
@@ -296,7 +304,8 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -338,6 +347,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
+            REPLICA_PARTITION,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
@@ -351,7 +361,8 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
@@ -417,6 +428,7 @@ public class ReplicaDeletionServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
+              REPLICA_PARTITION,
               Instant.now().minusSeconds(30).toEpochMilli(),
               Instant.now().minusSeconds(10).toEpochMilli(),
               false,
@@ -433,7 +445,8 @@ public class ReplicaDeletionServiceTest {
               "",
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
-              HOSTNAME);
+              HOSTNAME,
+              REPLICA_PARTITION);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -517,6 +530,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
+            REPLICA_PARTITION,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
@@ -527,6 +541,7 @@ public class ReplicaDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
+            REPLICA_PARTITION,
             Instant.now().minusSeconds(30).toEpochMilli(),
             Instant.now().minusSeconds(10).toEpochMilli(),
             false,
@@ -540,7 +555,8 @@ public class ReplicaDeletionServiceTest {
             "",
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataUnassigned);
 
     CacheSlotMetadata cacheSlotMetadataAssigned =
@@ -550,7 +566,8 @@ public class ReplicaDeletionServiceTest {
             replicaMetadataAssigned.name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
-            HOSTNAME);
+            HOSTNAME,
+            REPLICA_PARTITION);
     cacheSlotMetadataStore.createAsync(cacheSlotMetadataAssigned);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 2);

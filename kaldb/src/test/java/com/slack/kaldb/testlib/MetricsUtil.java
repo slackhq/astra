@@ -1,6 +1,9 @@
 package com.slack.kaldb.testlib;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +33,7 @@ public class MetricsUtil {
 
   public static double getCount(String counterName, MeterRegistry metricsRegistry) {
     try {
-      return metricsRegistry.get(counterName).counter().count();
+      return metricsRegistry.get(counterName).counters().stream().mapToDouble(Counter::count).sum();
     } catch (MeterNotFoundException e) {
       LOG.warn("Metric not found", e);
       return 0;
@@ -42,7 +45,7 @@ public class MetricsUtil {
 
   public static double getValue(String guageName, MeterRegistry metricsRegistry) {
     try {
-      return metricsRegistry.get(guageName).gauge().value();
+      return metricsRegistry.get(guageName).gauges().stream().mapToDouble(Gauge::value).sum();
     } catch (MeterNotFoundException e) {
       LOG.warn("Metric not found", e);
       return 0;
@@ -54,7 +57,7 @@ public class MetricsUtil {
 
   public static double getTimerCount(String timerName, MeterRegistry metricsRegistry) {
     try {
-      return metricsRegistry.get(timerName).timer().count();
+      return metricsRegistry.get(timerName).timers().stream().mapToDouble(Timer::count).sum();
     } catch (MeterNotFoundException e) {
       LOG.warn("Metric not found", e);
       return 0;

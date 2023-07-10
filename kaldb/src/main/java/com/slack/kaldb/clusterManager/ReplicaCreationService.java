@@ -24,6 +24,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,7 +34,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +58,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
   public static final String REPLICAS_FAILED = "replicas_failed";
   public static final String REPLICA_ASSIGNMENT_TIMER = "replica_assignment_timer";
 
-  private final Counter replicasCreated;
-  private final Counter replicasFailed;
-  private final Timer replicaAssignmentTimer;
+  private final Counter.Builder replicasCreated;
+  private final Counter.Builder replicasFailed;
+  private final Timer.Builder replicaAssignmentTimer;
 
   private final ScheduledExecutorService executorService =
       Executors.newSingleThreadScheduledExecutor();
@@ -76,9 +76,6 @@ public class ReplicaCreationService extends AbstractScheduledService {
       MeterRegistry meterRegistry) {
 
     checkArgument(
-        managerConfig.getReplicaCreationServiceConfig().getReplicasPerSnapshot() >= 0,
-        "replicasPerSnapshot must be >= 0");
-    checkArgument(
         managerConfig.getReplicaCreationServiceConfig().getReplicaLifespanMins() > 0,
         "replicaLifespanMins must be > 0");
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
@@ -89,9 +86,10 @@ public class ReplicaCreationService extends AbstractScheduledService {
     this.managerConfig = managerConfig;
 
     this.meterRegistry = meterRegistry;
-    this.replicasCreated = meterRegistry.counter(REPLICAS_CREATED);
-    this.replicasFailed = meterRegistry.counter(REPLICAS_FAILED);
-    this.replicaAssignmentTimer = meterRegistry.timer(REPLICA_ASSIGNMENT_TIMER);
+
+    this.replicasCreated = Counter.builder(REPLICAS_CREATED);
+    this.replicasFailed = Counter.builder(REPLICAS_FAILED);
+    this.replicaAssignmentTimer = Timer.builder(REPLICA_ASSIGNMENT_TIMER);
   }
 
   @Override
@@ -151,96 +149,108 @@ public class ReplicaCreationService extends AbstractScheduledService {
    *
    * @return The count of successful created replicas
    */
-  protected int createReplicasForUnassignedSnapshots() {
-    LOG.info("Starting replica creation for unassigned snapshots");
-    Timer.Sample assignmentTimer = Timer.start(meterRegistry);
+  protected Map<String, Integer> createReplicasForUnassignedSnapshots() {
+    Map<String, Integer> assignments = new HashMap<>();
 
-    // build a map of snapshot ID to how many replicas currently exist for that snapshot ID
-    Map<String, Long> snapshotToReplicas =
-        replicaMetadataStore.listSync().stream()
-            .collect(
-                Collectors.groupingBy(
-                    (replicaMetadata) -> replicaMetadata.snapshotId, Collectors.counting()));
+    for (String replicaPartition :
+        managerConfig.getReplicaCreationServiceConfig().getReplicaPartitionsList()) {
+      LOG.info(
+          "Starting replica creation for unassigned snapshots for partition {}", replicaPartition);
+      Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
-    long snapshotExpiration =
-        Instant.now()
-            .minus(
-                managerConfig.getReplicaCreationServiceConfig().getReplicaLifespanMins(),
-                ChronoUnit.MINUTES)
-            .toEpochMilli();
+      List<String> existingReplicas =
+          replicaMetadataStore.listSync().stream()
+              .filter(
+                  replicaMetadata -> replicaMetadata.getReplicaPartition().equals(replicaPartition))
+              .map(replicaMetadata -> replicaMetadata.snapshotId)
+              .toList();
 
-    AtomicInteger successCounter = new AtomicInteger(0);
-    List<ListenableFuture<?>> createdReplicaMetadataList =
-        snapshotMetadataStore.listSync().stream()
-            // only attempt to create replicas for snapshots that have not expired, and are not live
-            .filter(
-                snapshotMetadata ->
-                    snapshotMetadata.endTimeEpochMs > snapshotExpiration
-                        && !SnapshotMetadata.isLive(snapshotMetadata))
-            .map(
-                (snapshotMetadata) ->
-                    LongStream.range(
-                            snapshotToReplicas.getOrDefault(snapshotMetadata.snapshotId, 0L),
-                            managerConfig
-                                .getReplicaCreationServiceConfig()
-                                .getReplicasPerSnapshot())
-                        .mapToObj(
-                            (i) -> {
-                              // todo - consider refactoring this to return a completable future
-                              // instead
-                              ListenableFuture<?> future =
-                                  JdkFutureAdapters.listenInPoolThread(
-                                      replicaMetadataStore
-                                          .createAsync(
-                                              replicaMetadataFromSnapshotId(
-                                                  snapshotMetadata.snapshotId,
-                                                  Instant.ofEpochMilli(
-                                                          snapshotMetadata.endTimeEpochMs)
-                                                      .plus(
-                                                          managerConfig
-                                                              .getReplicaCreationServiceConfig()
-                                                              .getReplicaLifespanMins(),
-                                                          ChronoUnit.MINUTES),
-                                                  false))
-                                          .toCompletableFuture());
-                              addCallback(
-                                  future,
-                                  successCountingCallback(successCounter),
-                                  MoreExecutors.directExecutor());
-                              return future;
-                            })
-                        .collect(Collectors.toList()))
-            .flatMap(List::stream)
-            .collect(Collectors.toUnmodifiableList());
+      long snapshotExpiration =
+          Instant.now()
+              .minus(
+                  managerConfig.getReplicaCreationServiceConfig().getReplicaLifespanMins(),
+                  ChronoUnit.MINUTES)
+              .toEpochMilli();
 
-    ListenableFuture<?> futureList = Futures.successfulAsList(createdReplicaMetadataList);
-    try {
-      futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
-    } catch (Exception e) {
-      futureList.cancel(true);
+      AtomicInteger successCounter = new AtomicInteger(0);
+      List<ListenableFuture<?>> createdReplicaMetadataList =
+          snapshotMetadataStore.listSync().stream()
+              // only attempt to create replicas for snapshots that have not expired, not live, and
+              // do not already exist
+              .filter(
+                  snapshotMetadata ->
+                      snapshotMetadata.endTimeEpochMs > snapshotExpiration
+                          && !SnapshotMetadata.isLive(snapshotMetadata)
+                          && !existingReplicas.contains(snapshotMetadata.snapshotId))
+              .map(
+                  (snapshotMetadata) -> {
+                    // todo - consider refactoring this to return a completable future //
+                    // instead
+                    ListenableFuture<?> future =
+                        JdkFutureAdapters.listenInPoolThread(
+                            replicaMetadataStore
+                                .createAsync(
+                                    replicaMetadataFromSnapshotId(
+                                        snapshotMetadata.snapshotId,
+                                        replicaPartition,
+                                        Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
+                                            .plus(
+                                                managerConfig
+                                                    .getReplicaCreationServiceConfig()
+                                                    .getReplicaLifespanMins(),
+                                                ChronoUnit.MINUTES),
+                                        false))
+                                .toCompletableFuture());
+                    addCallback(
+                        future,
+                        successCountingCallback(successCounter),
+                        MoreExecutors.directExecutor());
+                    return future;
+                  })
+              .collect(Collectors.toUnmodifiableList());
+
+      ListenableFuture<?> futureList = Futures.successfulAsList(createdReplicaMetadataList);
+      try {
+        futureList.get(futuresListTimeoutSecs, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        futureList.cancel(true);
+      }
+
+      int createdReplicas = successCounter.get();
+      int failedReplicas = createdReplicaMetadataList.size() - createdReplicas;
+
+      replicasCreated
+          .tag("replicaPartition", replicaPartition)
+          .register(meterRegistry)
+          .increment(createdReplicas);
+      replicasFailed
+          .tag("replicaPartition", replicaPartition)
+          .register(meterRegistry)
+          .increment(failedReplicas);
+
+      long assignmentDuration =
+          assignmentTimer.stop(
+              replicaAssignmentTimer
+                  .tag("replicaPartition", replicaPartition)
+                  .register(meterRegistry));
+      LOG.info(
+          "Completed replica creation for unassigned snapshots in partition {} - successfully created {} replicas, failed {} replicas in {} ms",
+          replicaPartition,
+          createdReplicas,
+          failedReplicas,
+          nanosToMillis(assignmentDuration));
+      assignments.put(replicaPartition, createdReplicas);
     }
 
-    int createdReplicas = successCounter.get();
-    int failedReplicas = createdReplicaMetadataList.size() - createdReplicas;
-
-    replicasCreated.increment(createdReplicas);
-    replicasFailed.increment(failedReplicas);
-
-    long assignmentDuration = assignmentTimer.stop(replicaAssignmentTimer);
-    LOG.info(
-        "Completed replica creation for unassigned snapshots - successfully created {} replicas, failed {} replicas in {} ms",
-        createdReplicas,
-        failedReplicas,
-        nanosToMillis(assignmentDuration));
-
-    return createdReplicas;
+    return assignments;
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(
-      String snapshotId, Instant expireAfter, boolean isRestored) {
+      String snapshotId, String replicaPartition, Instant expireAfter, boolean isRestored) {
     return new ReplicaMetadata(
         String.format("%s-%s", snapshotId, UUID.randomUUID()),
         snapshotId,
+        replicaPartition,
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
         isRestored,

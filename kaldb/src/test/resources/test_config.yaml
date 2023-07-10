@@ -70,11 +70,14 @@ managerConfig:
     serverPort: 8083
     serverAddress: localhost
   replicaCreationServiceConfig:
-    replicasPerSnapshot: 2
     schedulePeriodMins: 15
     replicaLifespanMins: 1440
+    replicaPartitions:
+      - rep1
   replicaAssignmentServiceConfig:
     schedulePeriodMins: 10
+    replicaPartitions:
+      - rep1
   replicaEvictionServiceConfig:
     schedulePeriodMins: 10
   replicaDeletionServiceConfig:

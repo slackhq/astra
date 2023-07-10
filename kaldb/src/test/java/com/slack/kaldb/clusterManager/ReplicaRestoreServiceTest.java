@@ -15,6 +15,7 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadata;
 import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.metadata.snapshot.SnapshotMetadata;
 import com.slack.kaldb.proto.config.KaldbConfigs;
+import com.slack.kaldb.testlib.MetricsUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -56,6 +57,7 @@ public class ReplicaRestoreServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
+            .addAllReplicaPartitions(List.of("rep1"))
             .setMaxReplicasPerRequest(200)
             .setReplicaLifespanMins(60)
             .setSchedulePeriodMins(30)
@@ -101,12 +103,20 @@ public class ReplicaRestoreServiceTest {
     }
 
     await().until(() -> replicaMetadataStore.listSync().size() == 7);
-    assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
-        .isEqualTo(1);
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(
+                    ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
+            (value) -> value == 1);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 10);
-    assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
-        .isEqualTo(2);
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(
+                    ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
+            (value) -> value == 2);
   }
 
   @Test
@@ -142,12 +152,19 @@ public class ReplicaRestoreServiceTest {
     }
 
     await().until(() -> replicaMetadataStore.listSync().size() == 14);
-    assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
-        .isEqualTo(1);
-
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(
+                    ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
+            (value) -> value == 1);
     await().until(() -> replicaMetadataStore.listSync().size() == 20);
-    assertThat(meterRegistry.timer(ReplicaRestoreService.REPLICAS_RESTORE_TIMER).count())
-        .isEqualTo(2);
+    await()
+        .until(
+            () ->
+                MetricsUtil.getTimerCount(
+                    ReplicaRestoreService.REPLICAS_RESTORE_TIMER, meterRegistry),
+            (value) -> value == 2);
 
     executorService.shutdown();
   }
@@ -156,6 +173,7 @@ public class ReplicaRestoreServiceTest {
   public void shouldRemoveDuplicates() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
+            .addAllReplicaPartitions(List.of("rep1"))
             .setMaxReplicasPerRequest(200)
             .setReplicaLifespanMins(60)
             .setSchedulePeriodMins(30)
@@ -179,8 +197,14 @@ public class ReplicaRestoreServiceTest {
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 1);
-    assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_SKIPPED).count()).isEqualTo(9);
-    assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_CREATED).count()).isEqualTo(1);
+    await()
+        .until(
+            () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_SKIPPED, meterRegistry),
+            (value) -> value == 9);
+    await()
+        .until(
+            () -> MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry),
+            (value) -> value == 1);
 
     List<SnapshotMetadata> snapshots = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
@@ -193,8 +217,10 @@ public class ReplicaRestoreServiceTest {
     replicaRestoreService.queueSnapshotsForRestoration(duplicateSnapshots);
 
     await().until(() -> replicaMetadataStore.listSync().size() == 4);
-    assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_SKIPPED).count()).isEqualTo(19);
-    assertThat(meterRegistry.counter(ReplicaRestoreService.REPLICAS_CREATED).count()).isEqualTo(4);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_SKIPPED, meterRegistry))
+        .isEqualTo(19);
+    assertThat(MetricsUtil.getCount(ReplicaRestoreService.REPLICAS_CREATED, meterRegistry))
+        .isEqualTo(4);
     assertThat(replicaMetadataStore.listSync().stream().filter(r -> r.isRestored).count())
         .isEqualTo(4);
   }

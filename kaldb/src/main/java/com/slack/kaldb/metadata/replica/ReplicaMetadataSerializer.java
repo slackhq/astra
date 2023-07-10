@@ -11,6 +11,7 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
     return new ReplicaMetadata(
         replicaMetadataProto.getName(),
         replicaMetadataProto.getSnapshotId(),
+        replicaMetadataProto.getReplicaPartition(),
         replicaMetadataProto.getCreatedTimeEpochMs(),
         replicaMetadataProto.getExpireAfterEpochMs(),
         replicaMetadataProto.getIsRestored(),
@@ -21,6 +22,7 @@ public class ReplicaMetadataSerializer implements MetadataSerializer<ReplicaMeta
     return Metadata.ReplicaMetadata.newBuilder()
         .setName(metadata.name)
         .setSnapshotId(metadata.snapshotId)
+        .setReplicaPartition(metadata.replicaPartition)
         .setCreatedTimeEpochMs(metadata.createdTimeEpochMs)
         .setExpireAfterEpochMs(metadata.expireAfterEpochMs)
         .setIsRestored(metadata.isRestored)

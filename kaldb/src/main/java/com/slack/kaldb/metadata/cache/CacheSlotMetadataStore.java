@@ -51,7 +51,8 @@ public class CacheSlotMetadataStore extends KaldbPartitioningMetadataStore<Cache
             replicaId,
             Instant.now().toEpochMilli(),
             cacheSlotMetadata.supportedIndexTypes,
-            cacheSlotMetadata.hostname);
+            cacheSlotMetadata.hostname,
+            cacheSlotMetadata.replicaPartition);
     // todo - consider refactoring this to return a completable future instead
     return JdkFutureAdapters.listenInPoolThread(
         updateAsync(updatedChunkMetadata).toCompletableFuture());
