@@ -57,7 +57,7 @@ metadataStoreConfig:
 
 cacheConfig:
   slotsPerInstance: ${KALDB_CACHE_SLOTS_PER_INSTANCE:-10}
-  replicaPartition: ${KALDB_CACHE_PARTITION:-rep1}
+  replicaSet: ${KALDB_CACHE_REPLICA_SET:-rep1}
   dataDirectory: ${KALDB_CACHE_DATA_DIR:-/tmp}
   defaultQueryTimeoutMs: ${KALDB_CACHE_DEFAULT_QUERY_TIMEOUT_MS:-2500}
   serverConfig:
@@ -75,10 +75,10 @@ managerConfig:
   replicaCreationServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICAS_PERIOD_MINS:-15}
     replicaLifespanMins: ${KALDB_MANAGER_REPLICA_LIFESPAN_MINS:-1440}
-    replicaPartitions: [${KALDB_MANAGER_REPLICA_PARTITIONS:-rep1}]
+    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
   replicaAssignmentServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_CACHE_SLOT_PERIOD_MINS:-15}
-    replicaPartitions: [${KALDB_MANAGER_REPLICA_PARTITIONS:-rep1}]
+    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
   replicaEvictionServiceConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICA_EVICT_PERIOD_MINS:-15}
   replicaDeletionServiceConfig:
@@ -92,7 +92,7 @@ managerConfig:
     schedulePeriodMins: ${KALDB_MANAGER_REPLICA_RESTORE_PERIOD_MINS:-15}
     maxReplicasPerRequest: ${KALDB_MANAGER_REPLICA_RESTORE_MAX_REPLICAS_PER_REQUEST:-200}
     replicaLifespanMins: ${KALDB_MANAGER_REPLICA_RESTORE_LIFESPAN_MINS:-60}
-    replicaPartitions: [${KALDB_MANAGER_REPLICA_PARTITIONS:-rep1}]
+    replicaSets: [${KALDB_MANAGER_REPLICA_SETS:-rep1}]
 
 clusterConfig:
   clusterName: ${KALDB_CLUSTER_NAME:-kaldb_local}

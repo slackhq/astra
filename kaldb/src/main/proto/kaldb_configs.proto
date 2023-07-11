@@ -132,7 +132,7 @@ message CacheConfig {
   // Path on local disk to store downloaded files.
   ServerConfig server_config = 3;
   int32 default_query_timeout_ms = 4;
-  string replica_partition = 5;
+  string replica_set = 5;
 }
 
 // Cluster manager config. As a convention we define a config struct for
@@ -141,12 +141,12 @@ message ManagerConfig {
   message ReplicaCreationServiceConfig {
     int32 schedule_period_mins = 1;
     int32 replica_lifespan_mins = 2;
-    repeated string replica_partitions = 3;
+    repeated string replica_sets = 3;
   }
 
   message ReplicaAssignmentServiceConfig {
     int32 schedule_period_mins = 1;
-    repeated string replica_partitions = 2;
+    repeated string replica_sets = 2;
   }
 
   message ReplicaEvictionServiceConfig {
@@ -170,7 +170,7 @@ message ManagerConfig {
     int32 schedule_period_mins = 1;
     int32 max_replicas_per_request = 2;
     int32 replica_lifespan_mins = 3;
-    repeated string replica_partitions = 4;
+    repeated string replica_sets = 4;
   }
 
   // Event aggregation secs is a de-bounce setting. It's the time

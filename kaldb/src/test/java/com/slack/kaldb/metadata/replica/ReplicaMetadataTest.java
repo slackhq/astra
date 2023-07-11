@@ -13,7 +13,7 @@ public class ReplicaMetadataTest {
   public void testReplicaMetadata() {
     String name = "name";
     String snapshotId = "snapshotId";
-    String replicaPartition = "rep1";
+    String replicaSet = "rep1";
     long createdTimeEpochMs = Instant.now().toEpochMilli();
     long expireAfterEpochMs = Instant.now().toEpochMilli();
 
@@ -21,7 +21,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             false,
@@ -29,7 +29,7 @@ public class ReplicaMetadataTest {
 
     assertThat(replicaMetadata.name).isEqualTo(name);
     assertThat(replicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(replicaMetadata.replicaPartition).isEqualTo(replicaPartition);
+    assertThat(replicaMetadata.replicaSet).isEqualTo(replicaSet);
     assertThat(replicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(replicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(replicaMetadata.isRestored).isFalse();
@@ -39,7 +39,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             true,
@@ -47,7 +47,7 @@ public class ReplicaMetadataTest {
 
     assertThat(restoredReplicaMetadata.name).isEqualTo(name);
     assertThat(restoredReplicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(restoredReplicaMetadata.replicaPartition).isEqualTo(replicaPartition);
+    assertThat(restoredReplicaMetadata.replicaSet).isEqualTo(replicaSet);
     assertThat(restoredReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(restoredReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(restoredReplicaMetadata.isRestored).isTrue();
@@ -58,7 +58,7 @@ public class ReplicaMetadataTest {
   public void testReplicaMetadataEqualsHashcode() {
     String name = "name";
     String snapshotId = "snapshotId";
-    String replicaPartition = "rep1";
+    String replicaSet = "rep1";
     long createdTimeEpochMs = Instant.now().toEpochMilli();
     long expireAfterEpochMs = Instant.now().toEpochMilli();
 
@@ -66,7 +66,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             true,
@@ -75,7 +75,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             true,
@@ -84,7 +84,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             "nameC",
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             true,
@@ -93,7 +93,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs + 1,
             expireAfterEpochMs,
             false,
@@ -102,7 +102,7 @@ public class ReplicaMetadataTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs + 1,
             false,

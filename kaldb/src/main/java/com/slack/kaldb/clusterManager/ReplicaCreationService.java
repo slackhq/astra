@@ -152,16 +152,13 @@ public class ReplicaCreationService extends AbstractScheduledService {
   protected Map<String, Integer> createReplicasForUnassignedSnapshots() {
     Map<String, Integer> assignments = new HashMap<>();
 
-    for (String replicaPartition :
-        managerConfig.getReplicaCreationServiceConfig().getReplicaPartitionsList()) {
-      LOG.info(
-          "Starting replica creation for unassigned snapshots for partition {}", replicaPartition);
+    for (String replicaSet : managerConfig.getReplicaCreationServiceConfig().getReplicaSetsList()) {
+      LOG.info("Starting replica creation for unassigned snapshots for replicaSet {}", replicaSet);
       Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
       List<String> existingReplicas =
           replicaMetadataStore.listSync().stream()
-              .filter(
-                  replicaMetadata -> replicaMetadata.getReplicaPartition().equals(replicaPartition))
+              .filter(replicaMetadata -> replicaMetadata.getReplicaSet().equals(replicaSet))
               .map(replicaMetadata -> replicaMetadata.snapshotId)
               .toList();
 
@@ -192,7 +189,7 @@ public class ReplicaCreationService extends AbstractScheduledService {
                                 .createAsync(
                                     replicaMetadataFromSnapshotId(
                                         snapshotMetadata.snapshotId,
-                                        replicaPartition,
+                                        replicaSet,
                                         Instant.ofEpochMilli(snapshotMetadata.endTimeEpochMs)
                                             .plus(
                                                 managerConfig
@@ -220,37 +217,35 @@ public class ReplicaCreationService extends AbstractScheduledService {
       int failedReplicas = createdReplicaMetadataList.size() - createdReplicas;
 
       replicasCreated
-          .tag("replicaPartition", replicaPartition)
+          .tag("replicaSet", replicaSet)
           .register(meterRegistry)
           .increment(createdReplicas);
       replicasFailed
-          .tag("replicaPartition", replicaPartition)
+          .tag("replicaSet", replicaSet)
           .register(meterRegistry)
           .increment(failedReplicas);
 
       long assignmentDuration =
           assignmentTimer.stop(
-              replicaAssignmentTimer
-                  .tag("replicaPartition", replicaPartition)
-                  .register(meterRegistry));
+              replicaAssignmentTimer.tag("replicaSet", replicaSet).register(meterRegistry));
       LOG.info(
-          "Completed replica creation for unassigned snapshots in partition {} - successfully created {} replicas, failed {} replicas in {} ms",
-          replicaPartition,
+          "Completed replica creation for unassigned snapshots in replicaSet {} - successfully created {} replicas, failed {} replicas in {} ms",
+          replicaSet,
           createdReplicas,
           failedReplicas,
           nanosToMillis(assignmentDuration));
-      assignments.put(replicaPartition, createdReplicas);
+      assignments.put(replicaSet, createdReplicas);
     }
 
     return assignments;
   }
 
   public static ReplicaMetadata replicaMetadataFromSnapshotId(
-      String snapshotId, String replicaPartition, Instant expireAfter, boolean isRestored) {
+      String snapshotId, String replicaSet, Instant expireAfter, boolean isRestored) {
     return new ReplicaMetadata(
         String.format("%s-%s", snapshotId, UUID.randomUUID()),
         snapshotId,
-        replicaPartition,
+        replicaSet,
         Instant.now().toEpochMilli(),
         expireAfter.toEpochMilli(),
         isRestored,

@@ -15,7 +15,7 @@ public class ReplicaMetadataSerializerTest {
   public void testReplicaMetadataSerializer() throws InvalidProtocolBufferException {
     String name = "name";
     String snapshotId = "snapshotId";
-    String replicaPartition = "rep1";
+    String replicaSet = "rep1";
     long createdTimeEpochMs = Instant.now().toEpochMilli();
     long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
@@ -23,7 +23,7 @@ public class ReplicaMetadataSerializerTest {
         new ReplicaMetadata(
             name,
             snapshotId,
-            replicaPartition,
+            replicaSet,
             createdTimeEpochMs,
             expireAfterEpochMs,
             true,
@@ -37,7 +37,7 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
-    assertThat(deserializedReplicaMetadata.replicaPartition).isEqualTo(replicaPartition);
+    assertThat(deserializedReplicaMetadata.replicaSet).isEqualTo(replicaSet);
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(deserializedReplicaMetadata.isRestored).isTrue();

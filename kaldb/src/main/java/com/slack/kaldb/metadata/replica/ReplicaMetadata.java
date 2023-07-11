@@ -18,7 +18,7 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
 
   public final String snapshotId;
 
-  public final String replicaPartition;
+  public final String replicaSet;
 
   public final long createdTimeEpochMs;
   public final long expireAfterEpochMs;
@@ -28,7 +28,7 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
   public ReplicaMetadata(
       String name,
       String snapshotId,
-      String replicaPartition,
+      String replicaSet,
       long createdTimeEpochMs,
       long expireAfterEpochMs,
       boolean isRestored,
@@ -40,7 +40,7 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
         snapshotId != null && !snapshotId.isEmpty(), "SnapshotId must not be null or empty");
 
     this.snapshotId = snapshotId;
-    this.replicaPartition = replicaPartition;
+    this.replicaSet = replicaSet;
     this.createdTimeEpochMs = createdTimeEpochMs;
     this.expireAfterEpochMs = expireAfterEpochMs;
     this.isRestored = isRestored;
@@ -51,8 +51,8 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
     return snapshotId;
   }
 
-  public String getReplicaPartition() {
-    return replicaPartition;
+  public String getReplicaSet() {
+    return replicaSet;
   }
 
   public long getCreatedTimeEpochMs() {
@@ -77,7 +77,7 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
     if (expireAfterEpochMs != that.expireAfterEpochMs) return false;
     if (isRestored != that.isRestored) return false;
     if (!snapshotId.equals(that.snapshotId)) return false;
-    if (!replicaPartition.equals(that.replicaPartition)) return false;
+    if (!replicaSet.equals(that.replicaSet)) return false;
     return indexType == that.indexType;
   }
 
@@ -85,7 +85,7 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
   public int hashCode() {
     int result = super.hashCode();
     result = 31 * result + snapshotId.hashCode();
-    result = 31 * result + replicaPartition.hashCode();
+    result = 31 * result + replicaSet.hashCode();
     result = 31 * result + (int) (createdTimeEpochMs ^ (createdTimeEpochMs >>> 32));
     result = 31 * result + (int) (expireAfterEpochMs ^ (expireAfterEpochMs >>> 32));
     result = 31 * result + (isRestored ? 1 : 0);
@@ -99,8 +99,8 @@ public class ReplicaMetadata extends KaldbPartitionedMetadata {
         + "snapshotId='"
         + snapshotId
         + '\''
-        + ", replicaPartition='"
-        + replicaPartition
+        + ", replicaSet='"
+        + replicaSet
         + '\''
         + ", createdTimeEpochMs="
         + createdTimeEpochMs

@@ -57,7 +57,7 @@ public class ReplicaRestoreServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1"))
+            .addAllReplicaSets(List.of("rep1"))
             .setMaxReplicasPerRequest(200)
             .setReplicaLifespanMins(60)
             .setSchedulePeriodMins(30)
@@ -173,7 +173,7 @@ public class ReplicaRestoreServiceTest {
   public void shouldRemoveDuplicates() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRecreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1"))
+            .addAllReplicaSets(List.of("rep1"))
             .setMaxReplicasPerRequest(200)
             .setReplicaLifespanMins(60)
             .setSchedulePeriodMins(30)

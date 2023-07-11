@@ -130,9 +130,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
       return;
     }
 
-    // foreach partition
-    for (String replicaPartition :
-        managerConfig.getReplicaRestoreServiceConfig().getReplicaPartitionsList()) {
+    for (String replicaSet : managerConfig.getReplicaRestoreServiceConfig().getReplicaSetsList()) {
       Timer.Sample restoreReplicasTimer = Timer.start(meterRegistry);
 
       List<SnapshotMetadata> snapshotsToRestore = new ArrayList<>();
@@ -146,30 +144,26 @@ public class ReplicaRestoreService extends AbstractScheduledService {
 
       for (SnapshotMetadata snapshotMetadata : snapshotsToRestore) {
         try {
-          restoreOrSkipSnapshot(snapshotMetadata, replicaPartition, createdReplicas);
+          restoreOrSkipSnapshot(snapshotMetadata, replicaSet, createdReplicas);
           createdReplicas.add(snapshotMetadata.snapshotId);
         } catch (InterruptedException e) {
           LOG.error(
-              "Something went wrong dequeueing snapshot ID {} for partition {}",
+              "Something went wrong dequeueing snapshot ID {} for replicaSet {}",
               snapshotMetadata.snapshotId,
-              replicaPartition,
+              replicaSet,
               e);
-          replicasFailed
-              .tag("replicaPartition", replicaPartition)
-              .register(meterRegistry)
-              .increment();
+          replicasFailed.tag("replicaSet", replicaSet).register(meterRegistry).increment();
         }
       }
       restoreReplicasTimer.stop(
-          replicasRestoreTimer.tag("replicaPartition", replicaPartition).register(meterRegistry));
-      LOG.info(
-          "Restored {} snapshots for partition {}.", snapshotsToRestore.size(), replicaPartition);
+          replicasRestoreTimer.tag("replicaSet", replicaSet).register(meterRegistry));
+      LOG.info("Restored {} snapshots for replicaSet {}.", snapshotsToRestore.size(), replicaSet);
     }
   }
 
   /** Creates replica from given snapshot if its ID doesn't already exist in createdReplicas */
   private void restoreOrSkipSnapshot(
-      SnapshotMetadata snapshot, String replicaPartition, Set<String> createdReplicas)
+      SnapshotMetadata snapshot, String replicaSet, Set<String> createdReplicas)
       throws InterruptedException {
     if (!createdReplicas.contains(snapshot.snapshotId)) {
       LOG.info("Restoring replica with ID {}", snapshot.snapshotId);
@@ -178,7 +172,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
         replicaMetadataStore.createSync(
             replicaMetadataFromSnapshotId(
                 snapshot.snapshotId,
-                replicaPartition,
+                replicaSet,
                 Instant.now()
                     .plus(
                         managerConfig.getReplicaRestoreServiceConfig().getReplicaLifespanMins(),
@@ -188,10 +182,10 @@ public class ReplicaRestoreService extends AbstractScheduledService {
         LOG.error("Error restoring replica for snapshot {}", snapshot.snapshotId, e);
       }
       createdReplicas.add(snapshot.snapshotId);
-      replicasCreated.tag("replicaPartition", replicaPartition).register(meterRegistry).increment();
+      replicasCreated.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     } else {
       LOG.info("Skipping Snapshot ID {} ", snapshot.snapshotId);
-      replicasSkipped.tag("replicaPartition", replicaPartition).register(meterRegistry).increment();
+      replicasSkipped.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     }
   }
 }

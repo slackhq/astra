@@ -88,13 +88,13 @@
     "replicaCreationServiceConfig": {
       "schedulePeriodMins": 15,
       "replicaLifespanMins": 1440,
-      "replicaPartitions": [
+      "replicaSets": [
         "rep1"
       ]
     },
     "replicaAssignmentServiceConfig": {
       "schedulePeriodMins": 10,
-      "replicaPartitions": [
+      "replicaSets": [
         "rep1"
       ]
     },

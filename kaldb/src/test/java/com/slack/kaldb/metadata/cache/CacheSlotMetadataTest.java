@@ -18,7 +18,7 @@ public class CacheSlotMetadataTest {
   public void testCacheSlotMetadata() {
     String hostname = "hostname";
     String name = "name";
-    String replicaPartition = "rep1";
+    String replicaSet = "rep1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     String replicaId = "";
@@ -32,10 +32,10 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.hostname).isEqualTo(hostname);
-    assertThat(cacheSlotMetadata.replicaPartition).isEqualTo(replicaPartition);
+    assertThat(cacheSlotMetadata.replicaSet).isEqualTo(replicaSet);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
     assertThat(cacheSlotMetadata.updatedTimeEpochMs).isEqualTo(updatedTimeEpochMs);
@@ -46,7 +46,7 @@ public class CacheSlotMetadataTest {
   public void testCacheSlotEqualsHashcode() {
     String hostname = "hostname";
     String name = "name";
-    String replicaPartition = "rep1";
+    String replicaSet = "rep1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED;
     String replicaId = "123";
@@ -60,7 +60,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDuplicate =
         new CacheSlotMetadata(
             name,
@@ -69,7 +69,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDifferentState =
         new CacheSlotMetadata(
             name,
@@ -78,7 +78,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDifferentReplicaId =
         new CacheSlotMetadata(
             name,
@@ -87,7 +87,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDifferentUpdatedTime =
         new CacheSlotMetadata(
             name,
@@ -96,7 +96,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs + 1,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDifferentSupportedIndexType =
         new CacheSlotMetadata(
             name,
@@ -105,7 +105,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs + 1,
             List.of(LOGS_LUCENE9, LOGS_LUCENE9),
             hostname,
-            replicaPartition);
+            replicaSet);
     CacheSlotMetadata cacheSlotDifferentHostname =
         new CacheSlotMetadata(
             name,
@@ -114,7 +114,7 @@ public class CacheSlotMetadataTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             "hostname2",
-            replicaPartition);
+            replicaSet);
 
     CacheSlotMetadata cacheSlotDifferentReplicaPartition =
         new CacheSlotMetadata(

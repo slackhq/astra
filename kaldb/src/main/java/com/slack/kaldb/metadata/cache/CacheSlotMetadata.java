@@ -14,7 +14,7 @@ import java.util.Objects;
  */
 public class CacheSlotMetadata extends KaldbPartitionedMetadata {
   public final String hostname;
-  public final String replicaPartition;
+  public final String replicaSet;
   public final Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState;
   public final String replicaId;
   public final long updatedTimeEpochMs;
@@ -27,7 +27,7 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
       long updatedTimeEpochMs,
       List<Metadata.IndexType> supportedIndexTypes,
       String hostname,
-      String replicaPartition) {
+      String replicaSet) {
     super(name);
     checkArgument(hostname != null && !hostname.isEmpty(), "Hostname cannot be null or empty");
     checkArgument(cacheSlotState != null, "Cache slot state cannot be null");
@@ -46,7 +46,7 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
     }
 
     this.hostname = hostname;
-    this.replicaPartition = replicaPartition;
+    this.replicaSet = replicaSet;
     this.cacheSlotState = cacheSlotState;
     this.replicaId = replicaId;
     this.updatedTimeEpochMs = updatedTimeEpochMs;
@@ -61,7 +61,7 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
 
     if (updatedTimeEpochMs != that.updatedTimeEpochMs) return false;
     if (!hostname.equals(that.hostname)) return false;
-    if (!Objects.equals(replicaPartition, that.replicaPartition)) return false;
+    if (!Objects.equals(replicaSet, that.replicaSet)) return false;
     if (cacheSlotState != that.cacheSlotState) return false;
     if (!replicaId.equals(that.replicaId)) return false;
     return supportedIndexTypes.equals(that.supportedIndexTypes);
@@ -71,7 +71,7 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
   public int hashCode() {
     int result = super.hashCode();
     result = 31 * result + hostname.hashCode();
-    result = 31 * result + (replicaPartition != null ? replicaPartition.hashCode() : 0);
+    result = 31 * result + (replicaSet != null ? replicaSet.hashCode() : 0);
     result = 31 * result + cacheSlotState.hashCode();
     result = 31 * result + replicaId.hashCode();
     result = 31 * result + (int) (updatedTimeEpochMs ^ (updatedTimeEpochMs >>> 32));
@@ -85,8 +85,8 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
         + "hostname='"
         + hostname
         + '\''
-        + ", replicaPartition='"
-        + replicaPartition
+        + ", replicaSet='"
+        + replicaSet
         + '\''
         + ", cacheSlotState="
         + cacheSlotState

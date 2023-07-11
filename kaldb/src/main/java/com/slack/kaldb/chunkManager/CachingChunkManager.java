@@ -31,7 +31,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
   private final SearchContext searchContext;
   private final String s3Bucket;
   private final String dataDirectoryPrefix;
-  private final String replicaPartition;
+  private final String replicaSet;
   private final int slotCountPerInstance;
   private ReplicaMetadataStore replicaMetadataStore;
   private SnapshotMetadataStore snapshotMetadataStore;
@@ -46,7 +46,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      String replicaPartition,
+      String replicaSet,
       int slotCountPerInstance) {
     this.meterRegistry = registry;
     this.curatorFramework = curatorFramework;
@@ -54,7 +54,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
     this.searchContext = searchContext;
     this.s3Bucket = s3Bucket;
     this.dataDirectoryPrefix = dataDirectoryPrefix;
-    this.replicaPartition = replicaPartition;
+    this.replicaSet = replicaSet;
     this.slotCountPerInstance = slotCountPerInstance;
 
     // todo - consider making the thread count a config option; this would allow for more
@@ -88,7 +88,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
               searchContext,
               s3Bucket,
               dataDirectoryPrefix,
-              replicaPartition,
+              replicaSet,
               cacheSlotMetadataStore,
               replicaMetadataStore,
               snapshotMetadataStore,
@@ -136,7 +136,7 @@ public class CachingChunkManager<T> extends ChunkManagerBase<T> {
         SearchContext.fromConfig(cacheConfig.getServerConfig()),
         s3Config.getS3Bucket(),
         cacheConfig.getDataDirectory(),
-        cacheConfig.getReplicaPartition(),
+        cacheConfig.getReplicaSet(),
         cacheConfig.getSlotsPerInstance());
   }
 

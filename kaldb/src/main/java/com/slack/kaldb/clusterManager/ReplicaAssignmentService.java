@@ -85,8 +85,8 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     this.meterRegistry = meterRegistry;
 
     checkArgument(
-        managerConfig.getReplicaAssignmentServiceConfig().getReplicaPartitionsCount() > 0,
-        "replicaPartitions must not be empty");
+        managerConfig.getReplicaAssignmentServiceConfig().getReplicaSetsCount() > 0,
+        "replicaSets must not be empty");
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
 
@@ -150,8 +150,8 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   protected Map<String, Integer> assignReplicasToCacheSlots() {
     Map<String, Integer> assignments = new HashMap<>();
 
-    for (String replicaPartition :
-        managerConfig.getReplicaAssignmentServiceConfig().getReplicaPartitionsList()) {
+    for (String replicaSet :
+        managerConfig.getReplicaAssignmentServiceConfig().getReplicaSetsList()) {
       Timer.Sample assignmentTimer = Timer.start(meterRegistry);
 
       List<CacheSlotMetadata> availableCacheSlots =
@@ -160,7 +160,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                   cacheSlotMetadata ->
                       cacheSlotMetadata.cacheSlotState.equals(
                               Metadata.CacheSlotMetadata.CacheSlotState.FREE)
-                          && cacheSlotMetadata.replicaPartition.equals(replicaPartition))
+                          && cacheSlotMetadata.replicaSet.equals(replicaSet))
               .collect(Collectors.toList());
 
       // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
@@ -173,7 +173,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
               .filter(
                   cacheSlotMetadata ->
                       !cacheSlotMetadata.replicaId.isEmpty()
-                          && cacheSlotMetadata.replicaPartition.equals(replicaPartition))
+                          && cacheSlotMetadata.replicaSet.equals(replicaSet))
               .map(cacheSlotMetadata -> cacheSlotMetadata.replicaId)
               .collect(Collectors.toUnmodifiableSet());
 
@@ -185,7 +185,7 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                   replicaMetadata ->
                       replicaMetadata.expireAfterEpochMs > nowMilli
                           && !assignedReplicaIds.contains(replicaMetadata.name)
-                          && replicaMetadata.getReplicaPartition().equals(replicaPartition))
+                          && replicaMetadata.getReplicaSet().equals(replicaSet))
               // sort the list by the newest replicas first, in case we run out of available slots
               .sorted(Comparator.comparingLong(ReplicaMetadata::getCreatedTimeEpochMs).reversed())
               .map(replicaMetadata -> replicaMetadata.name)
@@ -196,19 +196,19 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       Gauge.builder(
               REPLICA_ASSIGN_AVAILABLE_CAPACITY,
               () -> availableCacheSlots.size() - replicaIdsToAssign.size())
-          .tag("replicaPartition", replicaPartition)
+          .tag("replicaSet", replicaSet)
           .register(meterRegistry);
       if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
         LOG.warn(
-            "Insufficient cache slots to assign replicas for partition {}, wanted {} slots but had {} replicas",
-            replicaPartition,
+            "Insufficient cache slots to assign replicas for replicaSet {}, wanted {} slots but had {} replicas",
+            replicaSet,
             replicaIdsToAssign.size(),
             availableCacheSlots.size());
       } else if (replicaIdsToAssign.size() == 0) {
-        LOG.info("No replicas found requiring assignment in partition {}", replicaPartition);
+        LOG.info("No replicas found requiring assignment in replicaSet {}", replicaSet);
         assignmentTimer.stop(
-            replicaAssignTimer.tag("replicaPartition", replicaPartition).register(meterRegistry));
-        assignments.put(replicaPartition, 0);
+            replicaAssignTimer.tag("replicaSet", replicaSet).register(meterRegistry));
+        assignments.put(replicaSet, 0);
         continue;
       }
 
@@ -242,25 +242,25 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
       int failedAssignments = replicaAssignments.size() - successfulAssignments;
 
       replicaAssignSucceeded
-          .tag("replicaPartition", replicaPartition)
+          .tag("replicaSet", replicaSet)
           .register(meterRegistry)
           .increment(successfulAssignments);
       replicaAssignFailed
-          .tag("replicaPartition", replicaPartition)
+          .tag("replicaSet", replicaSet)
           .register(meterRegistry)
           .increment(failedAssignments);
 
       long assignmentDuration =
           assignmentTimer.stop(
-              replicaAssignTimer.tag("replicaPartition", replicaPartition).register(meterRegistry));
+              replicaAssignTimer.tag("replicaSet", replicaSet).register(meterRegistry));
       LOG.info(
-          "Completed replica assignment for partition {} - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
-          replicaPartition,
+          "Completed replica assignment for replicaSet {} - successfully assigned {} replicas, failed to assign {} replicas in {} ms",
+          replicaSet,
           successfulAssignments,
           failedAssignments,
           nanosToMillis(assignmentDuration));
 
-      assignments.put(replicaPartition, successfulAssignments);
+      assignments.put(replicaSet, successfulAssignments);
     }
     return assignments;
   }

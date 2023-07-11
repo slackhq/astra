@@ -108,7 +108,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -150,7 +150,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of())
+            .addAllReplicaSets(List.of())
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -193,7 +193,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2", "rep3", "rep4"))
+            .addAllReplicaSets(List.of("rep1", "rep2", "rep3", "rep4"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -256,7 +256,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1"))
+            .addAllReplicaSets(List.of("rep1"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -310,7 +310,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -421,7 +421,7 @@ public class ReplicaCreationServiceTest {
   public void shouldCreateReplicaWhenSnapshotAddedAfterRunning() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -472,7 +472,7 @@ public class ReplicaCreationServiceTest {
   public void shouldStillCreateReplicaIfFirstAttemptFails() throws Exception {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -584,7 +584,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -633,7 +633,7 @@ public class ReplicaCreationServiceTest {
 
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -686,7 +686,7 @@ public class ReplicaCreationServiceTest {
   public void shouldThrowOnInvalidAggregationSecs() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(1440)
             .build();
@@ -709,7 +709,7 @@ public class ReplicaCreationServiceTest {
   public void shouldThrowOnInvalidLifespanMins() {
     KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of("rep1", "rep2"))
+            .addAllReplicaSets(List.of("rep1", "rep2"))
             .setSchedulePeriodMins(10)
             .setReplicaLifespanMins(0)
             .build();

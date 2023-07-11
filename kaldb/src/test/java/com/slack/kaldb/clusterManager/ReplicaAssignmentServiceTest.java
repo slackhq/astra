@@ -44,7 +44,7 @@ public class ReplicaAssignmentServiceTest {
 
   private static final List<Metadata.IndexType> SUPPORTED_INDEX_TYPES = List.of(LOGS_LUCENE9);
   public static final String HOSTNAME = "hostname";
-  public static final String REPLICA_PARTITION = "rep1";
+  public static final String REPLICA_SET = "rep1";
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
@@ -87,7 +87,7 @@ public class ReplicaAssignmentServiceTest {
   public void shouldCheckInvalidEventAggregation() {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
@@ -109,7 +109,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(-1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -131,7 +131,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -171,7 +171,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -190,7 +190,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -231,7 +231,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -254,7 +254,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -291,7 +291,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -310,7 +310,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -329,7 +329,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -343,7 +343,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -384,7 +384,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -403,7 +403,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -421,7 +421,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
     unmutatedSlots.add(cacheSlotWithAssignment);
     cacheSlotMetadataStore.createAsync(cacheSlotWithAssignment);
 
@@ -433,7 +433,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
     unmutatedSlots.add(cacheSlotLive);
     cacheSlotMetadataStore.createAsync(cacheSlotLive);
 
@@ -445,7 +445,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
     unmutatedSlots.add(cacheSlotEvicting);
     cacheSlotMetadataStore.createAsync(cacheSlotEvicting);
 
@@ -457,7 +457,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
     cacheSlotMetadataStore.createAsync(cacheSlotFree);
 
     await().until(() -> cacheSlotMetadataStore.listSync().size() == 4);
@@ -502,7 +502,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -521,7 +521,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -540,7 +540,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataList.add(cacheSlotMetadata);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
@@ -581,7 +581,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -600,7 +600,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
               Instant.now().minusSeconds(60).toEpochMilli(),
               false,
@@ -614,7 +614,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
-            REPLICA_PARTITION,
+            REPLICA_SET,
             Instant.now().minus(1500, ChronoUnit.MINUTES).toEpochMilli(),
             0,
             false,
@@ -627,7 +627,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -644,7 +644,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -702,7 +702,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -720,7 +720,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -737,7 +737,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -751,7 +751,7 @@ public class ReplicaAssignmentServiceTest {
     doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     Map<String, Integer> firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
-    assertThat(firstAssignment.get(REPLICA_PARTITION)).isEqualTo(1);
+    assertThat(firstAssignment.get(REPLICA_SET)).isEqualTo(1);
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(3);
@@ -790,7 +790,7 @@ public class ReplicaAssignmentServiceTest {
     doCallRealMethod().when(cacheSlotMetadataStore).updateAsync(any());
 
     Map<String, Integer> secondAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
-    assertThat(secondAssignment.get(REPLICA_PARTITION)).isEqualTo(1);
+    assertThat(secondAssignment.get(REPLICA_SET)).isEqualTo(1);
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(3);
@@ -830,7 +830,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -848,7 +848,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -865,7 +865,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -890,7 +890,7 @@ public class ReplicaAssignmentServiceTest {
     doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     Map<String, Integer> firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
-    assertThat(firstAssignment.get(REPLICA_PARTITION)).isEqualTo(1);
+    assertThat(firstAssignment.get(REPLICA_SET)).isEqualTo(1);
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(3);
@@ -932,7 +932,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -950,7 +950,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -967,7 +967,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -981,7 +981,7 @@ public class ReplicaAssignmentServiceTest {
     doCallRealMethod().doReturn(asyncStage).when(cacheSlotMetadataStore).updateAsync(any());
 
     Map<String, Integer> firstAssignment = replicaAssignmentService.assignReplicasToCacheSlots();
-    assertThat(firstAssignment.get(REPLICA_PARTITION)).isEqualTo(1);
+    assertThat(firstAssignment.get(REPLICA_SET)).isEqualTo(1);
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(2);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(3);
@@ -1021,7 +1021,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1043,7 +1043,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -1066,7 +1066,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -1118,7 +1118,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1137,7 +1137,7 @@ public class ReplicaAssignmentServiceTest {
           new ReplicaMetadata(
               UUID.randomUUID().toString(),
               UUID.randomUUID().toString(),
-              REPLICA_PARTITION,
+              REPLICA_SET,
               Instant.now().toEpochMilli(),
               Instant.now().plusSeconds(60).toEpochMilli(),
               false,
@@ -1160,7 +1160,7 @@ public class ReplicaAssignmentServiceTest {
               Instant.now().toEpochMilli(),
               SUPPORTED_INDEX_TYPES,
               HOSTNAME,
-              REPLICA_PARTITION);
+              REPLICA_SET);
       cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     }
 
@@ -1213,7 +1213,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1231,7 +1231,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
-            REPLICA_PARTITION,
+            REPLICA_SET,
             now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
@@ -1242,7 +1242,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
-            REPLICA_PARTITION,
+            REPLICA_SET,
             now.toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
@@ -1262,7 +1262,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
 
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()
@@ -1285,7 +1285,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
-            .addAllReplicaPartitions(List.of(REPLICA_PARTITION))
+            .addAllReplicaSets(List.of(REPLICA_SET))
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1303,7 +1303,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
-            REPLICA_PARTITION,
+            REPLICA_SET,
             now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
@@ -1314,7 +1314,7 @@ public class ReplicaAssignmentServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
-            REPLICA_PARTITION,
+            REPLICA_SET,
             now.toEpochMilli(),
             now.plusSeconds(60).toEpochMilli(),
             false,
@@ -1335,7 +1335,7 @@ public class ReplicaAssignmentServiceTest {
             Instant.now().toEpochMilli(),
             suppportedIndexTypes,
             HOSTNAME,
-            REPLICA_PARTITION);
+            REPLICA_SET);
 
     cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
     await()

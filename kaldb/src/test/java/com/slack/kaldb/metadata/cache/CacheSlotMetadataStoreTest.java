@@ -61,7 +61,7 @@ public class CacheSlotMetadataStoreTest {
   public void testUpdateNonFreeCacheSlotStateSync() throws Exception {
     final String name = "slot1";
     final String hostname = "hostname";
-    final String replicaPartition = "rep1";
+    final String replicaSet = "rep1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
     final String replicaId = "3456";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
@@ -74,7 +74,7 @@ public class CacheSlotMetadataStoreTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
@@ -143,7 +143,7 @@ public class CacheSlotMetadataStoreTest {
   public void testNonFreeCacheSlotState() throws Exception {
     final String name = "slot1";
     final String hostname = "hostname";
-    final String replicaPartition = "rep1";
+    final String replicaSet = "rep1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState = CacheSlotState.ASSIGNED;
     final String replicaId = "3456";
     long updatedTimeEpochMs = Instant.now().toEpochMilli();
@@ -156,7 +156,7 @@ public class CacheSlotMetadataStoreTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(replicaId);
@@ -221,7 +221,7 @@ public class CacheSlotMetadataStoreTest {
   public void testCacheSlotStateWithReplica() throws Exception {
     String name = "slot1";
     final String hostname = "hostname";
-    final String replicaPartition = "rep1";
+    final String replicaSet = "rep1";
     Metadata.CacheSlotMetadata.CacheSlotState cacheSlotState =
         Metadata.CacheSlotMetadata.CacheSlotState.FREE;
     String emptyReplicaId = "";
@@ -235,7 +235,7 @@ public class CacheSlotMetadataStoreTest {
             updatedTimeEpochMs,
             SUPPORTED_INDEX_TYPES,
             hostname,
-            replicaPartition);
+            replicaSet);
     assertThat(cacheSlotMetadata.name).isEqualTo(name);
     assertThat(cacheSlotMetadata.cacheSlotState).isEqualTo(cacheSlotState);
     assertThat(cacheSlotMetadata.replicaId).isEqualTo(emptyReplicaId);

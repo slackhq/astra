@@ -89,7 +89,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
       SearchContext searchContext,
       String s3Bucket,
       String dataDirectoryPrefix,
-      String replicaPartition,
+      String replicaSet,
       CacheSlotMetadataStore cacheSlotMetadataStore,
       ReplicaMetadataStore replicaMetadataStore,
       SnapshotMetadataStore snapshotMetadataStore,
@@ -117,7 +117,7 @@ public class ReadOnlyChunkImpl<T> implements Chunk<T> {
             Instant.now().toEpochMilli(),
             List.of(Metadata.IndexType.LOGS_LUCENE9),
             searchContext.hostname,
-            replicaPartition);
+            replicaSet);
     cacheSlotMetadataStore.createSync(cacheSlotMetadata);
     cacheSlotMetadataStore.addListener(cacheSlotListener);
 
