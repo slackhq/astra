@@ -24,7 +24,7 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
 
   @Override
   public KaldbSearch.SearchResult doSearch(KaldbSearch.SearchRequest request) {
-    LOG.info("Received search request: {}", request);
+    LOG.debug("Received search request: {}", request);
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.doSearch");
     SearchQuery query = SearchResultUtils.fromSearchRequest(request);
     span.tag("query", query.toString());
@@ -36,18 +36,19 @@ public class KaldbLocalQueryService<T> extends KaldbQueryServiceBase {
     span.tag("failedNodes", String.valueOf(result.getFailedNodes()));
     span.tag("hitCount", String.valueOf(result.getHitsCount()));
     span.finish();
-    LOG.info("Finished search request: {}", request);
+    LOG.debug("Finished search request: {}", request);
     return result;
   }
 
   @Override
   public KaldbSearch.SchemaResult getSchema(KaldbSearch.SchemaRequest request) {
-    LOG.info("Received schema request: {}", request);
+    LOG.debug("Received schema request: {}", request);
     ScopedSpan span = Tracing.currentTracer().startScopedSpan("KaldbLocalQueryService.getSchema");
     Map<String, FieldType> schema = chunkManager.getSchema();
     KaldbSearch.SchemaResult schemaResult = SearchResultUtils.toSchemaResultProto(schema);
     span.tag("fieldDefinitionCount", String.valueOf(schemaResult.getFieldDefinitionCount()));
     span.finish();
+    LOG.debug("Finished schema request: {}", request);
     return schemaResult;
   }
 }
