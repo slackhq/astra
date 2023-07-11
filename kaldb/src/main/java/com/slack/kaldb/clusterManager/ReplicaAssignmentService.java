@@ -20,8 +20,8 @@ import com.slack.kaldb.metadata.replica.ReplicaMetadataStore;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.kaldb.proto.metadata.Metadata;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.util.Collections;
@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -64,6 +65,9 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
   private final Counter.Builder replicaAssignSucceeded;
   private final Counter.Builder replicaAssignFailed;
   private final Timer.Builder replicaAssignTimer;
+
+  private final Map<String, AtomicInteger> replicaAssignAvailableCapacity =
+      new ConcurrentHashMap<>();
 
   private final ScheduledExecutorService executorService =
       Executors.newSingleThreadScheduledExecutor();
@@ -193,11 +197,15 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
       // Report either a positive value (excess capacity) or a negative value (insufficient
       // capacity)
-      Gauge.builder(
+      replicaAssignAvailableCapacity.putIfAbsent(
+          replicaSet,
+          meterRegistry.gauge(
               REPLICA_ASSIGN_AVAILABLE_CAPACITY,
-              () -> availableCacheSlots.size() - replicaIdsToAssign.size())
-          .tag("replicaSet", replicaSet)
-          .register(meterRegistry);
+              List.of(Tag.of("replicaSet", replicaSet)),
+              new AtomicInteger(0)));
+      replicaAssignAvailableCapacity
+          .get(replicaSet)
+          .set(availableCacheSlots.size() - replicaIdsToAssign.size());
       if (replicaIdsToAssign.size() > availableCacheSlots.size()) {
         LOG.warn(
             "Insufficient cache slots to assign replicas for replicaSet {}, wanted {} slots but had {} replicas",
@@ -205,7 +213,11 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
             replicaIdsToAssign.size(),
             availableCacheSlots.size());
       } else if (replicaIdsToAssign.size() == 0) {
-        LOG.info("No replicas found requiring assignment in replicaSet {}", replicaSet);
+        LOG.info(
+            "No replicas found requiring assignment in replicaSet {}, had {} available slots with {} replicas assigned",
+            replicaSet,
+            availableCacheSlots.size(),
+            assignedReplicaIds.size());
         assignmentTimer.stop(
             replicaAssignTimer.tag("replicaSet", replicaSet).register(meterRegistry));
         assignments.put(replicaSet, 0);

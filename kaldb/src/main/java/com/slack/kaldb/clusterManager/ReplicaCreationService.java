@@ -229,8 +229,9 @@ public class ReplicaCreationService extends AbstractScheduledService {
           assignmentTimer.stop(
               replicaAssignmentTimer.tag("replicaSet", replicaSet).register(meterRegistry));
       LOG.info(
-          "Completed replica creation for unassigned snapshots in replicaSet {} - successfully created {} replicas, failed {} replicas in {} ms",
+          "Completed replica creation for unassigned snapshots in replicaSet {} - {} existing replicas - successfully created {} replicas, failed {} replicas in {} ms",
           replicaSet,
+          existingReplicas.size(),
           createdReplicas,
           failedReplicas,
           nanosToMillis(assignmentDuration));
