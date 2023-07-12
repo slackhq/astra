@@ -162,7 +162,7 @@ public class OpenSearchAdapter {
           new RangeQueryBuilder(LogMessage.SystemField.TIME_SINCE_EPOCH.fieldName)
               .gte(startTimeMsEpoch)
               .lte(endTimeMsEpoch);
-      boolQueryBuilder.must(rangeQueryBuilder);
+      boolQueryBuilder.filter(rangeQueryBuilder);
 
       // todo - dataset?
 
@@ -187,7 +187,7 @@ public class OpenSearchAdapter {
 
         queryStringQueryBuilder.analyzeWildcard(true);
 
-        boolQueryBuilder.must(queryStringQueryBuilder);
+        boolQueryBuilder.filter(queryStringQueryBuilder);
       }
       return boolQueryBuilder.rewrite(queryShardContext).toQuery(queryShardContext);
     } catch (Exception e) {
