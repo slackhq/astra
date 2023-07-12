@@ -260,6 +260,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+    assertThat(replicaAssignmentServiceConfig.getReplicaSetsList()).containsExactly("rep1");
+    assertThat(replicaAssignmentServiceConfig.getMaxConcurrentPerNode()).isEqualTo(2);
 
     final KaldbConfigs.ManagerConfig.SnapshotDeletionServiceConfig snapshotDeletionServiceConfig =
         managerConfig.getSnapshotDeletionServiceConfig();
@@ -430,6 +432,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isEqualTo(10);
+    assertThat(replicaAssignmentServiceConfig.getReplicaSetsList()).containsExactly("rep1");
+    assertThat(replicaAssignmentServiceConfig.getMaxConcurrentPerNode()).isEqualTo(2);
 
     final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
         managerConfig.getReplicaRestoreServiceConfig();
@@ -587,6 +591,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaAssignmentServiceConfig.getReplicaSetsList()).isEmpty();
+    assertThat(replicaAssignmentServiceConfig.getMaxConcurrentPerNode()).isZero();
 
     final KaldbConfigs.ClusterConfig clusterConfig = config.getClusterConfig();
     assertThat(clusterConfig.getClusterName()).isEmpty();
@@ -723,6 +729,8 @@ public class KaldbConfigTest {
     final KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         managerConfig.getReplicaAssignmentServiceConfig();
     assertThat(replicaAssignmentServiceConfig.getSchedulePeriodMins()).isZero();
+    assertThat(replicaAssignmentServiceConfig.getReplicaSetsList()).isEmpty();
+    assertThat(replicaAssignmentServiceConfig.getMaxConcurrentPerNode()).isZero();
 
     final KaldbConfigs.ManagerConfig.ReplicaRestoreServiceConfig replicaRestoreServiceConfig =
         managerConfig.getReplicaRestoreServiceConfig();

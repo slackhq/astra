@@ -1,5 +1,7 @@
 package com.slack.kaldb.clusterManager;
 
+import static com.slack.kaldb.clusterManager.ReplicaAssignmentService.REPLICA_ASSIGN_PENDING;
+import static com.slack.kaldb.clusterManager.ReplicaAssignmentService.REPLICA_ASSIGN_TIMER;
 import static com.slack.kaldb.proto.metadata.Metadata.IndexType.LOGS_LUCENE9;
 import static com.slack.kaldb.server.KaldbConfig.DEFAULT_START_STOP_DURATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,6 +90,7 @@ public class ReplicaAssignmentServiceTest {
     KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .setSchedulePeriodMins(1)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
@@ -110,6 +113,30 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(-1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
+            .build();
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setEventAggregationSecs(10)
+            .setScheduleInitialDelayMins(1)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
+            .build();
+
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(
+            () ->
+                new ReplicaAssignmentService(
+                        cacheSlotMetadataStore, replicaMetadataStore, managerConfig, meterRegistry)
+                    .scheduler());
+  }
+
+  @Test
+  public void shouldCheckInvalidMaxConcurrentAssignments() {
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+            .setSchedulePeriodMins(10)
+            .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(0)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -132,6 +159,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -161,9 +189,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -172,6 +198,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -221,9 +248,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(-3);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -232,6 +257,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -281,9 +307,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(3);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -292,6 +316,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -374,9 +399,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(2);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -385,6 +408,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -440,7 +464,7 @@ public class ReplicaAssignmentServiceTest {
     CacheSlotMetadata cacheSlotEvicting =
         new CacheSlotMetadata(
             UUID.randomUUID().toString(),
-            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED,
+            Metadata.CacheSlotMetadata.CacheSlotState.EVICTING,
             replicaMetadataList.get(2).name,
             Instant.now().toEpochMilli(),
             SUPPORTED_INDEX_TYPES,
@@ -492,9 +516,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(0);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -503,6 +525,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -571,9 +594,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(-2);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -582,6 +603,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -652,7 +674,8 @@ public class ReplicaAssignmentServiceTest {
     await().until(() -> replicaMetadataStore.listSync().size() == 6);
 
     Map<String, Integer> assignments = replicaAssignmentService.assignReplicasToCacheSlots();
-    assertThat(assignments.values().stream().mapToInt(i -> i).sum()).isEqualTo(3);
+    // this should be 2, even though 3 are eligible - due to MAX_ASSIGNMENTS_PER_CACHE_HOST
+    assertThat(assignments.values().stream().mapToInt(i -> i).sum()).isEqualTo(2);
 
     assertThat(KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).size()).isEqualTo(6);
     assertThat(KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).size()).isEqualTo(4);
@@ -664,7 +687,7 @@ public class ReplicaAssignmentServiceTest {
                         cacheSlotMetadata.cacheSlotState.equals(
                             Metadata.CacheSlotMetadata.CacheSlotState.FREE))
                 .count())
-        .isEqualTo(1);
+        .isEqualTo(2);
     assertThat(
             KaldbMetadataTestUtils.listSyncUncached(cacheSlotMetadataStore).stream()
                 .filter(
@@ -672,7 +695,7 @@ public class ReplicaAssignmentServiceTest {
                         cacheSlotMetadata.cacheSlotState.equals(
                             Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
                 .count())
-        .isEqualTo(3);
+        .isEqualTo(2);
     assertThat(
             replicaMetadataExpiredList.containsAll(
                 KaldbMetadataTestUtils.listSyncUncached(replicaMetadataStore).stream()
@@ -687,14 +710,12 @@ public class ReplicaAssignmentServiceTest {
         .isEqualTo(0);
     assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
-        .isEqualTo(3);
+        .isEqualTo(2);
     assertThat(
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -703,6 +724,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -783,9 +805,7 @@ public class ReplicaAssignmentServiceTest {
     assertThat(
             MetricsUtil.getCount(ReplicaAssignmentService.REPLICA_ASSIGN_SUCCEEDED, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
 
     doCallRealMethod().when(cacheSlotMetadataStore).updateAsync(any());
 
@@ -820,9 +840,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(2);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(2);
   }
 
   @Test
@@ -831,6 +849,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -920,9 +939,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
 
     timeoutServiceExecutor.shutdown();
   }
@@ -933,6 +950,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1011,9 +1029,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
   }
 
   @Test
@@ -1022,6 +1038,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1105,9 +1122,7 @@ public class ReplicaAssignmentServiceTest {
             MetricsUtil.getValue(
                 ReplicaAssignmentService.REPLICA_ASSIGN_AVAILABLE_CAPACITY, meterRegistry))
         .isEqualTo(1);
-    assertThat(
-            MetricsUtil.getTimerCount(ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry))
-        .isEqualTo(1);
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry)).isEqualTo(1);
 
     replicaAssignmentService.stopAsync();
     replicaAssignmentService.awaitTerminated(DEFAULT_START_STOP_DURATION);
@@ -1119,6 +1134,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1199,9 +1215,7 @@ public class ReplicaAssignmentServiceTest {
             (value) -> value == -1);
     await()
         .until(
-            () ->
-                MetricsUtil.getTimerCount(
-                    ReplicaAssignmentService.REPLICA_ASSIGN_TIMER, meterRegistry),
+            () -> MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, meterRegistry),
             (value) -> value == 1);
 
     replicaAssignmentService.stopAsync();
@@ -1214,6 +1228,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1286,6 +1301,7 @@ public class ReplicaAssignmentServiceTest {
         KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
             .setSchedulePeriodMins(1)
             .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
             .build();
     KaldbConfigs.ManagerConfig managerConfig =
         KaldbConfigs.ManagerConfig.newBuilder()
@@ -1353,5 +1369,123 @@ public class ReplicaAssignmentServiceTest {
     assertThat(assignedCacheSlot.get(0).supportedIndexTypes)
         .containsExactlyInAnyOrderElementsOf(suppportedIndexTypes);
     assertThat(assignedCacheSlot.size()).isEqualTo(1);
+  }
+
+  @Test
+  public void shouldPreventConcurrentAssignmentsExceedingLimit() throws Exception {
+    MeterRegistry concurrentAssignmentsRegistry = new SimpleMeterRegistry();
+
+    KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig replicaAssignmentServiceConfig =
+        KaldbConfigs.ManagerConfig.ReplicaAssignmentServiceConfig.newBuilder()
+            .setSchedulePeriodMins(1)
+            .addAllReplicaSets(List.of(REPLICA_SET))
+            .setMaxConcurrentPerNode(2)
+            .build();
+    KaldbConfigs.ManagerConfig managerConfig =
+        KaldbConfigs.ManagerConfig.newBuilder()
+            .setEventAggregationSecs(2)
+            .setScheduleInitialDelayMins(1)
+            .setReplicaAssignmentServiceConfig(replicaAssignmentServiceConfig)
+            .build();
+
+    ReplicaAssignmentService replicaAssignmentService =
+        new ReplicaAssignmentService(
+            cacheSlotMetadataStore,
+            replicaMetadataStore,
+            managerConfig,
+            concurrentAssignmentsRegistry);
+
+    Instant now = Instant.now();
+    ReplicaMetadata expectedAssignedMetadata1 =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            REPLICA_SET,
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createAsync(expectedAssignedMetadata1);
+
+    ReplicaMetadata expectedAssignedMetadata2 =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            REPLICA_SET,
+            now.minus(1, ChronoUnit.HOURS).toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createAsync(expectedAssignedMetadata2);
+
+    ReplicaMetadata expectedUnassignedMetadata =
+        new ReplicaMetadata(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            REPLICA_SET,
+            now.toEpochMilli(),
+            now.plusSeconds(60).toEpochMilli(),
+            false,
+            LOGS_LUCENE9);
+    replicaMetadataStore.createAsync(expectedUnassignedMetadata);
+
+    await().until(() -> replicaMetadataStore.listSync().size() == 3);
+
+    // create a large amount of free slots
+    for (int i = 0; i < 10; i++) {
+      CacheSlotMetadata cacheSlotMetadata =
+          new CacheSlotMetadata(
+              UUID.randomUUID().toString(),
+              Metadata.CacheSlotMetadata.CacheSlotState.FREE,
+              "",
+              Instant.now().toEpochMilli(),
+              List.of(LOGS_LUCENE9, LOGS_LUCENE9),
+              HOSTNAME,
+              REPLICA_SET);
+      cacheSlotMetadataStore.createAsync(cacheSlotMetadata);
+    }
+    await().until(() -> cacheSlotMetadataStore.listSync().size() == 10);
+
+    replicaAssignmentService.startAsync();
+    replicaAssignmentService.awaitRunning(DEFAULT_START_STOP_DURATION);
+
+    // immediately force a run
+    replicaAssignmentService.assignReplicasToCacheSlots();
+
+    await()
+        .until(
+            () ->
+                cacheSlotMetadataStore.listSync().stream()
+                    .filter(
+                        cacheSlotMetadata ->
+                            cacheSlotMetadata.cacheSlotState.equals(
+                                Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                    .count(),
+            (count) -> {
+              System.out.println(count);
+
+              return count == 2;
+            });
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, concurrentAssignmentsRegistry))
+        .isEqualTo(1);
+    assertThat(MetricsUtil.getValue(REPLICA_ASSIGN_PENDING, concurrentAssignmentsRegistry))
+        .isEqualTo(1);
+
+    // force another run
+    replicaAssignmentService.assignReplicasToCacheSlots();
+    assertThat(MetricsUtil.getTimerCount(REPLICA_ASSIGN_TIMER, concurrentAssignmentsRegistry))
+        .isEqualTo(2);
+
+    // verify that we still only have two assigned, and one is pending
+    assertThat(
+            cacheSlotMetadataStore.listSync().stream()
+                .filter(
+                    cacheSlotMetadata ->
+                        cacheSlotMetadata.cacheSlotState.equals(
+                            Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                .count())
+        .isEqualTo(2);
+    assertThat(MetricsUtil.getValue(REPLICA_ASSIGN_PENDING, concurrentAssignmentsRegistry))
+        .isEqualTo(1);
   }
 }
