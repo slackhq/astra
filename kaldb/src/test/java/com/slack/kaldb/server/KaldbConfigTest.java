@@ -240,7 +240,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
-    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaCreationServiceConfig.getReplicaSetsList()).isEqualTo(List.of("rep1"));
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
     assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
@@ -410,7 +410,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
-    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isEqualTo(2);
+    assertThat(replicaCreationServiceConfig.getReplicaSetsList()).isEqualTo(List.of("rep1"));
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isEqualTo(15);
     assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isEqualTo(1440);
 
@@ -567,7 +567,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
-    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaCreationServiceConfig.getReplicaSetsCount()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
     assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isZero();
 
@@ -703,7 +703,7 @@ public class KaldbConfigTest {
 
     final KaldbConfigs.ManagerConfig.ReplicaCreationServiceConfig replicaCreationServiceConfig =
         managerConfig.getReplicaCreationServiceConfig();
-    assertThat(replicaCreationServiceConfig.getReplicasPerSnapshot()).isZero();
+    assertThat(replicaCreationServiceConfig.getReplicaSetsCount()).isZero();
     assertThat(replicaCreationServiceConfig.getSchedulePeriodMins()).isZero();
     assertThat(replicaCreationServiceConfig.getReplicaLifespanMins()).isZero();
 

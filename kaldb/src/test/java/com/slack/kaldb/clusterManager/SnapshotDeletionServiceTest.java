@@ -231,6 +231,7 @@ public class SnapshotDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             snapshotMetadata.name,
+            "rep1",
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(500, ChronoUnit.MINUTES).toEpochMilli(),
             false,
@@ -404,6 +405,7 @@ public class SnapshotDeletionServiceTest {
         new ReplicaMetadata(
             UUID.randomUUID().toString(),
             snapshotMetadata.name,
+            "rep1",
             Instant.now().minus(11000, ChronoUnit.MINUTES).toEpochMilli(),
             Instant.now().minus(10900, ChronoUnit.MINUTES).toEpochMilli(),
             false,

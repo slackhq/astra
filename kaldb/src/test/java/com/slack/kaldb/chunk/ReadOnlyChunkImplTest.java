@@ -132,6 +132,7 @@ public class ReadOnlyChunkImplTest {
             searchContext,
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getReplicaSet(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -261,6 +262,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getReplicaSet(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -327,6 +329,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getReplicaSet(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -394,6 +397,7 @@ public class ReadOnlyChunkImplTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getReplicaSet(),
             cacheSlotMetadataStore,
             replicaMetadataStore,
             snapshotMetadataStore,
@@ -469,7 +473,8 @@ public class ReadOnlyChunkImplTest {
             replicaId,
             Instant.now().toEpochMilli(),
             List.of(LOGS_LUCENE9),
-            readOnlyChunk.searchContext.hostname);
+            readOnlyChunk.searchContext.hostname,
+            "rep1");
     cacheSlotMetadataStore.updateAsync(updatedCacheSlotMetadata);
   }
 
@@ -495,6 +500,7 @@ public class ReadOnlyChunkImplTest {
         new ReplicaMetadata(
             replicaId,
             snapshotId,
+            "rep1",
             Instant.now().toEpochMilli(),
             Instant.now().plusSeconds(60).toEpochMilli(),
             false,
@@ -544,6 +550,7 @@ public class ReadOnlyChunkImplTest {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
+            .setReplicaSet("rep1")
             .setDataDirectory(
                 String.format(
                     "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))

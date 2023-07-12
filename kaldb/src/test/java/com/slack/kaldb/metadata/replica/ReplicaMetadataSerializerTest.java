@@ -15,12 +15,19 @@ public class ReplicaMetadataSerializerTest {
   public void testReplicaMetadataSerializer() throws InvalidProtocolBufferException {
     String name = "name";
     String snapshotId = "snapshotId";
+    String replicaSet = "rep1";
     long createdTimeEpochMs = Instant.now().toEpochMilli();
     long expireAfterEpochMs = Instant.now().plusSeconds(60).toEpochMilli();
 
     ReplicaMetadata replicaMetadata =
         new ReplicaMetadata(
-            name, snapshotId, createdTimeEpochMs, expireAfterEpochMs, true, LOGS_LUCENE9);
+            name,
+            snapshotId,
+            replicaSet,
+            createdTimeEpochMs,
+            expireAfterEpochMs,
+            true,
+            LOGS_LUCENE9);
 
     String serializedReplicaMetadata = serDe.toJsonStr(replicaMetadata);
     assertThat(serializedReplicaMetadata).isNotEmpty();
@@ -30,6 +37,7 @@ public class ReplicaMetadataSerializerTest {
 
     assertThat(deserializedReplicaMetadata.name).isEqualTo(name);
     assertThat(deserializedReplicaMetadata.snapshotId).isEqualTo(snapshotId);
+    assertThat(deserializedReplicaMetadata.replicaSet).isEqualTo(replicaSet);
     assertThat(deserializedReplicaMetadata.createdTimeEpochMs).isEqualTo(createdTimeEpochMs);
     assertThat(deserializedReplicaMetadata.expireAfterEpochMs).isEqualTo(expireAfterEpochMs);
     assertThat(deserializedReplicaMetadata.isRestored).isTrue();

@@ -74,6 +74,7 @@ public class CachingChunkManagerTest {
     KaldbConfigs.CacheConfig cacheConfig =
         KaldbConfigs.CacheConfig.newBuilder()
             .setSlotsPerInstance(3)
+            .setReplicaSet("rep1")
             .setDataDirectory(
                 String.format(
                     "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
@@ -115,6 +116,7 @@ public class CachingChunkManagerTest {
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
+            kaldbConfig.getCacheConfig().getReplicaSet(),
             kaldbConfig.getCacheConfig().getSlotsPerInstance());
 
     cachingChunkManager.startAsync();

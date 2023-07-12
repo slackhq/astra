@@ -36,6 +36,9 @@ message CacheSlotMetadata {
 
   // Unique string identifying the host
   string hostname = 6;
+
+  // String identify the set this cache slot participates in
+  string replica_set = 7;
 }
 
 message ReplicaMetadata {
@@ -44,6 +47,9 @@ message ReplicaMetadata {
 
   // Unique ID for the snapshot blob
   string snapshot_id = 2;
+
+  // String identify the set this replica participates in
+  string replica_set = 3;
 
   // Last updated timestamp
   int64 created_time_epoch_ms = 4;

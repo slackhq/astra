@@ -86,12 +86,17 @@
       "requestTimeoutMs": 3000
     },
     "replicaCreationServiceConfig": {
-      "replicasPerSnapshot": 2,
       "schedulePeriodMins": 15,
-      "replicaLifespanMins": 1440
+      "replicaLifespanMins": 1440,
+      "replicaSets": [
+        "rep1"
+      ]
     },
     "replicaAssignmentServiceConfig": {
-      "schedulePeriodMins": 10
+      "schedulePeriodMins": 10,
+      "replicaSets": [
+        "rep1"
+      ]
     },
     "replicaEvictionServiceConfig": {
       "schedulePeriodMins": 10

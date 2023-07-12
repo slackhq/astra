@@ -43,15 +43,17 @@ public class ReplicaRestoreService extends AbstractScheduledService {
   private final BlockingQueue<SnapshotMetadata> queue = new LinkedBlockingQueue<>();
   private final ReplicaMetadataStore replicaMetadataStore;
   private final MeterRegistry meterRegistry;
-  private final Counter successfullyCreatedReplicas;
-  private final Counter failedReplicas;
-  private final Counter skippedReplicas;
-  private final Timer restoreTimer;
+
   protected static final Logger LOG = LoggerFactory.getLogger(ReplicaCreationService.class);
   public static String REPLICAS_CREATED = "replicas_created";
   public static String REPLICAS_FAILED = "replicas_failed";
   public static String REPLICAS_SKIPPED = "replicas_skipped";
   public static String REPLICAS_RESTORE_TIMER = "replicas_restore_timer";
+
+  private final Counter.Builder replicasCreated;
+  private final Counter.Builder replicasFailed;
+  private final Counter.Builder replicasSkipped;
+  private final Timer.Builder replicasRestoreTimer;
 
   public ReplicaRestoreService(
       ReplicaMetadataStore replicaMetadataStore,
@@ -60,10 +62,11 @@ public class ReplicaRestoreService extends AbstractScheduledService {
     this.managerConfig = managerConfig;
     this.replicaMetadataStore = replicaMetadataStore;
     this.meterRegistry = meterRegistry;
-    this.skippedReplicas = meterRegistry.counter(REPLICAS_SKIPPED);
-    this.successfullyCreatedReplicas = meterRegistry.counter(REPLICAS_CREATED);
-    this.failedReplicas = meterRegistry.counter(REPLICAS_FAILED);
-    this.restoreTimer = meterRegistry.timer(REPLICAS_RESTORE_TIMER);
+
+    this.replicasCreated = Counter.builder(REPLICAS_CREATED);
+    this.replicasFailed = Counter.builder(REPLICAS_FAILED);
+    this.replicasSkipped = Counter.builder(REPLICAS_SKIPPED);
+    this.replicasRestoreTimer = Timer.builder(REPLICAS_RESTORE_TIMER);
   }
 
   @Override
@@ -127,32 +130,40 @@ public class ReplicaRestoreService extends AbstractScheduledService {
       return;
     }
 
-    Timer.Sample restoreReplicasTimer = Timer.start(meterRegistry);
+    for (String replicaSet : managerConfig.getReplicaRestoreServiceConfig().getReplicaSetsList()) {
+      Timer.Sample restoreReplicasTimer = Timer.start(meterRegistry);
 
-    List<SnapshotMetadata> snapshotsToRestore = new ArrayList<>();
-    Set<String> createdReplicas = new HashSet<>();
+      List<SnapshotMetadata> snapshotsToRestore = new ArrayList<>();
+      Set<String> createdReplicas = new HashSet<>();
 
-    for (ReplicaMetadata replicaMetadata : replicaMetadataStore.listSync()) {
-      createdReplicas.add(replicaMetadata.snapshotId);
-    }
-
-    queue.drainTo(snapshotsToRestore);
-
-    for (SnapshotMetadata snapshotMetadata : snapshotsToRestore) {
-      try {
-        restoreOrSkipSnapshot(snapshotMetadata, createdReplicas);
-        createdReplicas.add(snapshotMetadata.snapshotId);
-      } catch (InterruptedException e) {
-        LOG.error("Something went wrong dequeueing snapshot ID {}", snapshotMetadata.snapshotId, e);
-        failedReplicas.increment();
+      for (ReplicaMetadata replicaMetadata : replicaMetadataStore.listSync()) {
+        createdReplicas.add(replicaMetadata.snapshotId);
       }
+
+      queue.drainTo(snapshotsToRestore);
+
+      for (SnapshotMetadata snapshotMetadata : snapshotsToRestore) {
+        try {
+          restoreOrSkipSnapshot(snapshotMetadata, replicaSet, createdReplicas);
+          createdReplicas.add(snapshotMetadata.snapshotId);
+        } catch (InterruptedException e) {
+          LOG.error(
+              "Something went wrong dequeueing snapshot ID {} for replicaSet {}",
+              snapshotMetadata.snapshotId,
+              replicaSet,
+              e);
+          replicasFailed.tag("replicaSet", replicaSet).register(meterRegistry).increment();
+        }
+      }
+      restoreReplicasTimer.stop(
+          replicasRestoreTimer.tag("replicaSet", replicaSet).register(meterRegistry));
+      LOG.info("Restored {} snapshots for replicaSet {}.", snapshotsToRestore.size(), replicaSet);
     }
-    restoreReplicasTimer.stop(restoreTimer);
-    LOG.info("Restored {} snapshots.", snapshotsToRestore.size());
   }
 
   /** Creates replica from given snapshot if its ID doesn't already exist in createdReplicas */
-  private void restoreOrSkipSnapshot(SnapshotMetadata snapshot, Set<String> createdReplicas)
+  private void restoreOrSkipSnapshot(
+      SnapshotMetadata snapshot, String replicaSet, Set<String> createdReplicas)
       throws InterruptedException {
     if (!createdReplicas.contains(snapshot.snapshotId)) {
       LOG.info("Restoring replica with ID {}", snapshot.snapshotId);
@@ -161,6 +172,7 @@ public class ReplicaRestoreService extends AbstractScheduledService {
         replicaMetadataStore.createSync(
             replicaMetadataFromSnapshotId(
                 snapshot.snapshotId,
+                replicaSet,
                 Instant.now()
                     .plus(
                         managerConfig.getReplicaRestoreServiceConfig().getReplicaLifespanMins(),
@@ -170,10 +182,10 @@ public class ReplicaRestoreService extends AbstractScheduledService {
         LOG.error("Error restoring replica for snapshot {}", snapshot.snapshotId, e);
       }
       createdReplicas.add(snapshot.snapshotId);
-      successfullyCreatedReplicas.increment();
+      replicasCreated.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     } else {
       LOG.info("Skipping Snapshot ID {} ", snapshot.snapshotId);
-      skippedReplicas.increment();
+      replicasSkipped.tag("replicaSet", replicaSet).register(meterRegistry).increment();
     }
   }
 }
