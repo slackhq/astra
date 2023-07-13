@@ -230,7 +230,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean mkdir(URI uri) throws IOException {
-    LOG.info("mkdir {}", uri);
+    LOG.debug("mkdir {}", uri);
     try {
       Preconditions.checkNotNull(uri, "uri is null");
       String path = normalizeToDirectoryPrefix(uri);
@@ -253,7 +253,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean delete(URI segmentUri, boolean forceDelete) throws IOException {
-    LOG.info("Deleting uri {} force {}", segmentUri, forceDelete);
+    LOG.debug("Deleting uri {} force {}", segmentUri, forceDelete);
     try {
       if (isDirectory(segmentUri)) {
         if (!forceDelete) {
@@ -316,7 +316,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean copy(URI srcUri, URI dstUri) throws IOException {
-    LOG.info("Copying uri {} to uri {}", srcUri, dstUri);
+    LOG.debug("Copying uri {} to uri {}", srcUri, dstUri);
     Preconditions.checkState(exists(srcUri), "Source URI '%s' does not exist", srcUri);
     if (srcUri.equals(dstUri)) {
       return true;
@@ -415,7 +415,7 @@ public class S3BlobFs extends BlobFs {
         continuationToken = listObjectsV2Response.nextContinuationToken();
       }
       String[] listedFiles = builder.build().toArray(new String[0]);
-      LOG.info(
+      LOG.debug(
           "Listed {} files from URI: {}, is recursive: {}", listedFiles.length, fileUri, recursive);
       return listedFiles;
     } catch (Throwable t) {
