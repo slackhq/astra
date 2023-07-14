@@ -47,10 +47,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
-/**
- * @see S3CrtBlobFs
- */
-@Deprecated
 public class S3BlobFs extends BlobFs {
   public static final String S3_SCHEME = "s3://";
   private static final Logger LOG = LoggerFactory.getLogger(S3BlobFs.class);
@@ -230,7 +226,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean mkdir(URI uri) throws IOException {
-    LOG.debug("mkdir {}", uri);
+    LOG.info("mkdir {}", uri);
     try {
       Preconditions.checkNotNull(uri, "uri is null");
       String path = normalizeToDirectoryPrefix(uri);
@@ -253,7 +249,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean delete(URI segmentUri, boolean forceDelete) throws IOException {
-    LOG.debug("Deleting uri {} force {}", segmentUri, forceDelete);
+    LOG.info("Deleting uri {} force {}", segmentUri, forceDelete);
     try {
       if (isDirectory(segmentUri)) {
         if (!forceDelete) {
@@ -316,7 +312,7 @@ public class S3BlobFs extends BlobFs {
 
   @Override
   public boolean copy(URI srcUri, URI dstUri) throws IOException {
-    LOG.debug("Copying uri {} to uri {}", srcUri, dstUri);
+    LOG.info("Copying uri {} to uri {}", srcUri, dstUri);
     Preconditions.checkState(exists(srcUri), "Source URI '%s' does not exist", srcUri);
     if (srcUri.equals(dstUri)) {
       return true;
@@ -415,7 +411,7 @@ public class S3BlobFs extends BlobFs {
         continuationToken = listObjectsV2Response.nextContinuationToken();
       }
       String[] listedFiles = builder.build().toArray(new String[0]);
-      LOG.debug(
+      LOG.info(
           "Listed {} files from URI: {}, is recursive: {}", listedFiles.length, fileUri, recursive);
       return listedFiles;
     } catch (Throwable t) {

@@ -36,7 +36,6 @@ public class KaldbConfigUtil {
             .setS3Region("us-east-1")
             .setS3AccessKey("")
             .setS3SecretKey("")
-            .setS3TargetThroughputGbps(10D)
             .build();
 
     KaldbConfigs.IndexerConfig indexerConfig =
