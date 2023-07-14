@@ -26,7 +26,7 @@
         <jackson.version>2.15.2</jackson.version>
         <jackson.databind.version>2.15.1</jackson.databind.version>
         <lucene.version>9.5.0</lucene.version>
-        <opensearch.version>2.7.0</opensearch.version>
+        <opensearch.version>2.8.0</opensearch.version>
         <curator.version>5.4.0</curator.version>
         <log4j.version>2.20.0</log4j.version>
         <aws.sdk.version>2.20.97</aws.sdk.version>
