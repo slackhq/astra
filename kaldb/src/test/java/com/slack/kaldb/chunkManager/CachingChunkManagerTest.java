@@ -5,8 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ReadOnlyChunkImpl;
 import com.slack.kaldb.chunk.SearchContext;
@@ -28,14 +27,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class CachingChunkManagerTest {
   private static final String TEST_S3_BUCKET = "caching-chunkmanager-test";
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private S3CrtBlobFs s3CrtBlobFs;
+  private S3BlobFs s3BlobFs;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -53,9 +52,8 @@ public class CachingChunkManagerTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    S3AsyncClient s3AsyncClient =
-        S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+    s3BlobFs = new S3BlobFs(s3Client);
   }
 
   @AfterEach
@@ -67,7 +65,7 @@ public class CachingChunkManagerTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
-    s3CrtBlobFs.close();
+    s3BlobFs.close();
     testingServer.close();
     meterRegistry.close();
   }
@@ -114,7 +112,7 @@ public class CachingChunkManagerTest {
         new CachingChunkManager<>(
             meterRegistry,
             curatorFramework,
-            s3CrtBlobFs,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),

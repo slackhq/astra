@@ -17,7 +17,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOf
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
@@ -58,7 +58,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 
@@ -620,12 +620,11 @@ public class IndexingChunkImplTest {
 
       // create an S3 client for test
       String bucket = "invalid-bucket";
-      S3AsyncClient s3AsyncClient =
-          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
       // Snapshot to S3 without creating the s3 bucket.
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isFalse();
+      assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isFalse();
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
 
       // Metadata checks
@@ -682,14 +681,13 @@ public class IndexingChunkImplTest {
 
       // create an S3 client for test
       String bucket = "test-bucket-with-prefix";
-      S3AsyncClient s3AsyncClient =
-          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
-      s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+      s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Snapshot to S3
       assertThat(chunk.info().getSnapshotPath()).isEqualTo(SnapshotMetadata.LIVE_SNAPSHOT_PATH);
-      assertThat(chunk.snapshotToS3(bucket, "", s3CrtBlobFs)).isTrue();
+      assertThat(chunk.snapshotToS3(bucket, "", s3BlobFs)).isTrue();
       assertThat(chunk.info().getSnapshotPath()).isNotEmpty();
 
       // depending on heap and CFS files this can be 5 or 19.
@@ -699,7 +697,7 @@ public class IndexingChunkImplTest {
 
       // Check schema file exists in s3
       ListObjectsV2Response objectsResponse =
-          s3AsyncClient.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true)).get();
+          s3Client.listObjectsV2(S3TestUtils.getListObjectRequest(bucket, "", true));
       assertThat(
               objectsResponse.contents().stream()
                   .filter(o -> o.key().equals(SCHEMA_FILE_NAME))

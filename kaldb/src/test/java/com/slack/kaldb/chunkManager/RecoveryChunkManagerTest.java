@@ -22,8 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadWriteChunk;
 import com.slack.kaldb.logstore.LogMessage;
@@ -54,7 +53,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class RecoveryChunkManagerTest {
   // TODO: Ensure clean close after all chunks are uploaded.
@@ -75,10 +74,10 @@ public class RecoveryChunkManagerTest {
   private RecoveryChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
-  private S3AsyncClient s3AsyncClient;
+  private S3Client s3Client;
 
   private static final String ZK_PATH_PREFIX = "testZK";
-  private S3CrtBlobFs s3CrtBlobFs;
+  private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SearchMetadataStore searchMetadataStore;
@@ -89,8 +88,8 @@ public class RecoveryChunkManagerTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client.
-    s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+    s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -119,7 +118,7 @@ public class RecoveryChunkManagerTest {
     searchMetadataStore.close();
     snapshotMetadataStore.close();
     curatorFramework.unwrap().close();
-    s3AsyncClient.close();
+    s3Client.close();
     localZkServer.stop();
   }
 
@@ -148,7 +147,7 @@ public class RecoveryChunkManagerTest {
             searchMetadataStore,
             snapshotMetadataStore,
             kaldbCfg.getIndexerConfig(),
-            s3CrtBlobFs,
+            s3BlobFs,
             kaldbCfg.getS3Config());
     chunkManager.startAsync();
     chunkManager.awaitRunning(DEFAULT_START_STOP_DURATION);

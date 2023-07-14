@@ -13,7 +13,6 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
 import com.slack.kaldb.metadata.core.CuratorBuilder;
@@ -51,7 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class KaldbTest {
   private static final Logger LOG = LoggerFactory.getLogger(KaldbTest.class);
@@ -105,13 +104,13 @@ public class KaldbTest {
 
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
-  private S3AsyncClient s3Client;
+  private S3Client s3Client;
 
   @BeforeEach
   public void setUp() throws Exception {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
-    s3Client = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
 
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
