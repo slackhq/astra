@@ -19,7 +19,7 @@ import static org.awaitility.Awaitility.await;
 import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.slack.kaldb.blobfs.LocalBlobFs;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.logstore.LogMessage.ReservedField;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
@@ -372,30 +372,27 @@ public class LuceneIndexStoreImplTest {
           .isGreaterThanOrEqualTo(activeFiles.size());
 
       // create an S3 client
-      S3AsyncClient s3AsyncClient =
-          S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-      S3CrtBlobFs s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
-      s3AsyncClient.createBucket(CreateBucketRequest.builder().bucket(bucket).build()).get();
+      S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+      S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
+      s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
 
       // Copy files to S3.
-      copyToS3(dirPath, activeFiles, bucket, prefix, s3CrtBlobFs);
+      copyToS3(dirPath, activeFiles, bucket, prefix, s3BlobFs);
 
       for (String fileName : activeFiles) {
         File fileToCopy = new File(dirPath.toString(), fileName);
         HeadObjectResponse headObjectResponse =
-            s3AsyncClient
-                .headObject(
-                    S3TestUtils.getHeadObjectRequest(
-                        bucket,
-                        prefix != null && !prefix.isEmpty()
-                            ? prefix + DELIMITER + fileName
-                            : fileName))
-                .get();
+            s3Client.headObject(
+                S3TestUtils.getHeadObjectRequest(
+                    bucket,
+                    prefix != null && !prefix.isEmpty()
+                        ? prefix + DELIMITER + fileName
+                        : fileName));
         assertThat(headObjectResponse.contentLength()).isEqualTo(fileToCopy.length());
       }
 
       // Download files from S3 to local FS.
-      String[] s3Files = copyFromS3(bucket, prefix, s3CrtBlobFs, tmpPath.toAbsolutePath());
+      String[] s3Files = copyFromS3(bucket, prefix, s3BlobFs, tmpPath.toAbsolutePath());
       assertThat(s3Files.length).isEqualTo(activeFiles.size());
 
       // Search files in local FS.
@@ -410,7 +407,7 @@ public class LuceneIndexStoreImplTest {
       // Clean up
       logStore.releaseIndexCommit(indexCommit);
       newSearcher.close();
-      s3CrtBlobFs.close();
+      s3BlobFs.close();
     }
 
     @Test

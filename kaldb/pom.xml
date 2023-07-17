@@ -313,11 +313,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk.crt</groupId>
-            <artifactId>aws-crt</artifactId>
-            <version>0.22.1</version>
-        </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>

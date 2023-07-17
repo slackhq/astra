@@ -4,7 +4,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
 import com.google.common.util.concurrent.ServiceManager;
 import com.slack.kaldb.blobfs.BlobFs;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunkManager.CachingChunkManager;
 import com.slack.kaldb.chunkManager.ChunkCleanerService;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
@@ -53,7 +53,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Main class of Kaldb that sets up the basic infra needed for all the other end points like an a
@@ -65,13 +65,13 @@ public class Kaldb {
   private final PrometheusMeterRegistry prometheusMeterRegistry;
 
   private final KaldbConfigs.KaldbConfig kaldbConfig;
-  private final S3AsyncClient s3Client;
+  private final S3Client s3Client;
   protected ServiceManager serviceManager;
   protected AsyncCuratorFramework curatorFramework;
 
   Kaldb(
       KaldbConfigs.KaldbConfig kaldbConfig,
-      S3AsyncClient s3Client,
+      S3Client s3Client,
       PrometheusMeterRegistry prometheusMeterRegistry) {
     this.prometheusMeterRegistry = prometheusMeterRegistry;
     this.kaldbConfig = kaldbConfig;
@@ -81,7 +81,7 @@ public class Kaldb {
   }
 
   Kaldb(KaldbConfigs.KaldbConfig kaldbConfig, PrometheusMeterRegistry prometheusMeterRegistry) {
-    this(kaldbConfig, S3CrtBlobFs.initS3Client(kaldbConfig.getS3Config()), prometheusMeterRegistry);
+    this(kaldbConfig, S3BlobFs.initS3Client(kaldbConfig.getS3Config()), prometheusMeterRegistry);
   }
 
   public static void main(String[] args) throws Exception {
@@ -130,7 +130,7 @@ public class Kaldb {
             prometheusMeterRegistry, kaldbConfig.getMetadataStoreConfig().getZookeeperConfig());
 
     // Initialize blobfs. Only S3 is supported currently.
-    S3CrtBlobFs s3BlobFs = new S3CrtBlobFs(s3Client);
+    S3BlobFs s3BlobFs = new S3BlobFs(s3Client);
 
     Set<Service> services =
         getServices(curatorFramework, kaldbConfig, s3BlobFs, prometheusMeterRegistry);

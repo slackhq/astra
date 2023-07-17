@@ -14,8 +14,7 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.SearchContext;
 import com.slack.kaldb.chunkManager.IndexingChunkManager;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
@@ -46,7 +45,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class DiskOrMessageCountBasedRolloverStrategyTest {
   private static final String S3_TEST_BUCKET = "test-kaldb-logs";
@@ -65,9 +64,9 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
   private IndexingChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
-  private S3AsyncClient s3AsyncClient;
+  private final S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
   private static final String ZK_PATH_PREFIX = "testZK";
-  private S3CrtBlobFs s3CrtBlobFs;
+  private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
@@ -82,9 +81,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     DiskOrMessageCountBasedRolloverStrategy.DIRECTORY_SIZE_EXECUTOR_PERIOD_MS = 10;
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
-
-    s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -113,8 +110,8 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
     if (curatorFramework != null) {
       curatorFramework.unwrap().close();
     }
-    if (s3AsyncClient != null) {
-      s3AsyncClient.close();
+    if (s3Client != null) {
+      s3Client.close();
     }
     if (localZkServer != null) {
       localZkServer.stop();
@@ -133,7 +130,7 @@ public class DiskOrMessageCountBasedRolloverStrategyTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
             curatorFramework,

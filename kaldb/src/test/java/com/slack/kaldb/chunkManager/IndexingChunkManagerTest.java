@@ -32,8 +32,7 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.chunk.Chunk;
 import com.slack.kaldb.chunk.ChunkInfo;
 import com.slack.kaldb.chunk.ReadWriteChunk;
@@ -87,7 +86,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class IndexingChunkManagerTest {
 
@@ -107,10 +106,10 @@ public class IndexingChunkManagerTest {
   private IndexingChunkManager<LogMessage> chunkManager = null;
 
   private SimpleMeterRegistry metricsRegistry;
-  private S3AsyncClient s3AsyncClient;
+  private S3Client s3Client;
 
   private static final String ZK_PATH_PREFIX = "testZK";
-  private S3CrtBlobFs s3CrtBlobFs;
+  private S3BlobFs s3BlobFs;
   private TestingServer localZkServer;
   private AsyncCuratorFramework curatorFramework;
   private SnapshotMetadataStore snapshotMetadataStore;
@@ -121,8 +120,9 @@ public class IndexingChunkManagerTest {
     Tracing.newBuilder().build();
     metricsRegistry = new SimpleMeterRegistry();
     // create an S3 client and a bucket for test
-    s3AsyncClient = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+
+    s3BlobFs = new S3BlobFs(s3Client);
 
     localZkServer = new TestingServer();
     localZkServer.start();
@@ -149,7 +149,7 @@ public class IndexingChunkManagerTest {
       chunkManager.awaitTerminated(DEFAULT_START_STOP_DURATION);
     }
     curatorFramework.unwrap().close();
-    s3AsyncClient.close();
+    s3Client.close();
     localZkServer.stop();
   }
 
@@ -165,7 +165,7 @@ public class IndexingChunkManagerTest {
             tmpPath.toFile().getAbsolutePath(),
             chunkRollOverStrategy,
             metricsRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             s3TestBucket,
             listeningExecutorService,
             curatorFramework,

@@ -19,8 +19,7 @@ import brave.Tracing;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.slack.kaldb.blobfs.LocalBlobFs;
-import com.slack.kaldb.blobfs.s3.S3CrtBlobFs;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
+import com.slack.kaldb.blobfs.s3.S3BlobFs;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LuceneIndexStoreImpl;
 import com.slack.kaldb.logstore.schema.SchemaAwareLogDocumentBuilderImpl;
@@ -63,14 +62,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class ReadOnlyChunkImplTest {
   private static final String TEST_S3_BUCKET = "read-only-chunk-impl-test";
 
   private TestingServer testingServer;
   private MeterRegistry meterRegistry;
-  private S3CrtBlobFs s3CrtBlobFs;
+  private S3BlobFs s3BlobFs;
 
   @RegisterExtension
   public static final S3MockExtension S3_MOCK_EXTENSION =
@@ -86,14 +85,13 @@ public class ReadOnlyChunkImplTest {
     meterRegistry = new SimpleMeterRegistry();
     testingServer = new TestingServer();
 
-    S3AsyncClient s3AsyncClient =
-        S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
-    s3CrtBlobFs = new S3CrtBlobFs(s3AsyncClient);
+    S3Client s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
+    s3BlobFs = new S3BlobFs(s3Client);
   }
 
   @AfterEach
   public void shutdown() throws IOException {
-    s3CrtBlobFs.close();
+    s3BlobFs.close();
     testingServer.close();
     meterRegistry.close();
   }
@@ -130,7 +128,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             searchContext,
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
@@ -260,7 +258,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
@@ -327,7 +325,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
@@ -395,7 +393,7 @@ public class ReadOnlyChunkImplTest {
         new ReadOnlyChunkImpl<>(
             curatorFramework,
             meterRegistry,
-            s3CrtBlobFs,
+            s3BlobFs,
             SearchContext.fromConfig(kaldbConfig.getCacheConfig().getServerConfig()),
             kaldbConfig.getS3Config().getS3Bucket(),
             kaldbConfig.getCacheConfig().getDataDirectory(),
@@ -545,7 +543,7 @@ public class ReadOnlyChunkImplTest {
         .isGreaterThanOrEqualTo(filesToUpload.size());
 
     // Copy files to S3.
-    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3CrtBlobFs);
+    copyToS3(dirPath, filesToUpload, TEST_S3_BUCKET, snapshotId, s3BlobFs);
   }
 
   private KaldbConfigs.KaldbConfig makeCacheConfig() {
@@ -555,8 +553,7 @@ public class ReadOnlyChunkImplTest {
             .setReplicaSet("rep1")
             .setDataDirectory(
                 String.format(
-                    "/tmp/%s/%s",
-                    this.getClass().getSimpleName(), RandomStringUtils.randomAlphabetic(10)))
+                    "/tmp/%s/%s", this.getClass().getSimpleName(), RandomStringUtils.random(10)))
             .setServerConfig(
                 KaldbConfigs.ServerConfig.newBuilder()
                     .setServerAddress("localhost")

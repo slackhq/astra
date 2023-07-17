@@ -14,7 +14,6 @@ import static org.awaitility.Awaitility.await;
 import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.slack.kaldb.blobfs.s3.S3TestUtils;
 import com.slack.kaldb.chunkManager.RollOverChunkTask;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.logstore.LogWireMessage;
@@ -48,7 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class ZipkinServiceTest {
 
@@ -72,13 +71,13 @@ public class ZipkinServiceTest {
 
   private TestKafkaServer kafkaServer;
   private TestingServer zkServer;
-  private S3AsyncClient s3Client;
+  private S3Client s3Client;
 
   @BeforeEach
   public void setUp() throws Exception {
     zkServer = new TestingServer();
     kafkaServer = new TestKafkaServer();
-    s3Client = S3TestUtils.createS3CrtClient(S3_MOCK_EXTENSION.getServiceEndpoint());
+    s3Client = S3_MOCK_EXTENSION.createS3ClientV2();
 
     // We side load a service metadata entry telling it to create an entry with the partitions that
     // we use in test
