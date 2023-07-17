@@ -147,6 +147,7 @@ message ManagerConfig {
   message ReplicaAssignmentServiceConfig {
     int32 schedule_period_mins = 1;
     repeated string replica_sets = 2;
+    int32 max_concurrent_per_node = 3;
   }
 
   message ReplicaEvictionServiceConfig {

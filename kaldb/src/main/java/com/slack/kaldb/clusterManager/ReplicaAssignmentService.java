@@ -56,7 +56,10 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
   @VisibleForTesting protected int futuresListTimeoutSecs = DEFAULT_ZK_TIMEOUT_SECS;
 
+  private final int maxConcurrentAssignmentsPerNode;
+
   public static final String REPLICA_ASSIGN_SUCCEEDED = "replica_assign_succeeded";
+  public static final String REPLICA_ASSIGN_PENDING = "replica_assign_pending";
   public static final String REPLICA_ASSIGN_FAILED = "replica_assign_failed";
   public static final String REPLICA_ASSIGN_AVAILABLE_CAPACITY =
       "replica_assign_available_capacity";
@@ -68,6 +71,8 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
 
   private final Map<String, AtomicInteger> replicaAssignAvailableCapacity =
       new ConcurrentHashMap<>();
+
+  private final Map<String, AtomicInteger> replicaAssignPending = new ConcurrentHashMap<>();
 
   private final ScheduledExecutorService executorService =
       Executors.newSingleThreadScheduledExecutor();
@@ -89,10 +94,16 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
     this.meterRegistry = meterRegistry;
 
     checkArgument(
+        managerConfig.getReplicaAssignmentServiceConfig().getMaxConcurrentPerNode() > 0,
+        "maxConcurrentPerNode must be > 0");
+    checkArgument(
         managerConfig.getReplicaAssignmentServiceConfig().getReplicaSetsCount() > 0,
         "replicaSets must not be empty");
     checkArgument(managerConfig.getEventAggregationSecs() > 0, "eventAggregationSecs must be > 0");
     // schedule configs checked as part of the AbstractScheduledService
+
+    this.maxConcurrentAssignmentsPerNode =
+        managerConfig.getReplicaAssignmentServiceConfig().getMaxConcurrentPerNode();
 
     this.replicaAssignSucceeded = Counter.builder(REPLICA_ASSIGN_SUCCEEDED);
     this.replicaAssignFailed = Counter.builder(REPLICA_ASSIGN_FAILED);
@@ -165,12 +176,38 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
                       cacheSlotMetadata.cacheSlotState.equals(
                               Metadata.CacheSlotMetadata.CacheSlotState.FREE)
                           && cacheSlotMetadata.replicaSet.equals(replicaSet))
+              .toList();
+
+      // only allow N pending assignments per host at once
+      List<CacheSlotMetadata> assignableCacheSlots =
+          cacheSlotMetadataStore.listSync().stream()
+              .filter(cacheSlotMetadata -> cacheSlotMetadata.replicaSet.equals(replicaSet))
+              .collect(Collectors.groupingBy(CacheSlotMetadata::getHostname))
+              .values()
+              .stream()
+              .flatMap(
+                  (cacheSlotsPerHost) -> {
+                    int currentlyAssigned =
+                        cacheSlotsPerHost.stream()
+                            .filter(
+                                cacheSlotMetadata ->
+                                    cacheSlotMetadata.cacheSlotState.equals(
+                                        Metadata.CacheSlotMetadata.CacheSlotState.ASSIGNED))
+                            .toList()
+                            .size();
+                    return cacheSlotsPerHost.stream()
+                        .filter(
+                            cacheSlotMetadata ->
+                                cacheSlotMetadata.cacheSlotState.equals(
+                                    Metadata.CacheSlotMetadata.CacheSlotState.FREE))
+                        .limit(Math.max(0, maxConcurrentAssignmentsPerNode - currentlyAssigned));
+                  })
               .collect(Collectors.toList());
 
-      // Force a shuffle of the available slots, to reduce the chance of a single cache node getting
-      // assigned chunks that matches all recent queries. This should help balance out the load
-      // across all available hosts.
-      Collections.shuffle(availableCacheSlots);
+      // Force a shuffle of the assignable slots, to reduce the chance of a single cache node
+      // getting assigned chunks that matches all recent queries. This should help balance
+      // out the load across all available hosts.
+      Collections.shuffle(assignableCacheSlots);
 
       Set<String> assignedReplicaIds =
           cacheSlotMetadataStore.listSync().stream()
@@ -224,11 +261,23 @@ public class ReplicaAssignmentService extends AbstractScheduledService {
         continue;
       }
 
+      // report the number of things that need assigning, but aren't getting assigned in this pass
+      // due to the maxConcurrentAssignmentsPerNode limit
+      replicaAssignPending.putIfAbsent(
+          replicaSet,
+          meterRegistry.gauge(
+              REPLICA_ASSIGN_PENDING,
+              List.of(Tag.of("replicaSet", replicaSet)),
+              new AtomicInteger(0)));
+      replicaAssignPending
+          .get(replicaSet)
+          .set(Math.max(0, replicaIdsToAssign.size() - assignableCacheSlots.size()));
+
       AtomicInteger successCounter = new AtomicInteger(0);
       List<ListenableFuture<?>> replicaAssignments =
           Streams.zip(
                   replicaIdsToAssign.stream(),
-                  availableCacheSlots.stream(),
+                  assignableCacheSlots.stream(),
                   (replicaId, availableCacheSlot) -> {
                     ListenableFuture<?> future =
                         cacheSlotMetadataStore.updateCacheSlotStateStateWithReplicaId(

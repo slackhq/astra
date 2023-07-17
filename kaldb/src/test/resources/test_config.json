@@ -96,7 +96,8 @@
       "schedulePeriodMins": 10,
       "replicaSets": [
         "rep1"
-      ]
+      ],
+      "maxConcurrentPerNode": 2
     },
     "replicaEvictionServiceConfig": {
       "schedulePeriodMins": 10

@@ -53,6 +53,10 @@ public class CacheSlotMetadata extends KaldbPartitionedMetadata {
     this.supportedIndexTypes = Collections.unmodifiableList(supportedIndexTypes);
   }
 
+  public String getHostname() {
+    return hostname;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
