@@ -23,6 +23,8 @@ import com.slack.kaldb.logstore.search.aggregations.SumAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.TermsAggBuilder;
 import com.slack.kaldb.logstore.search.aggregations.UniqueCountAggBuilder;
 import com.slack.kaldb.proto.service.KaldbSearch;
+import com.slack.kaldb.writer.MurronLogFormatter;
+import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -37,7 +39,8 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.VersionType;
 import org.opensearch.ingest.IngestDocument;
-import org.opensearch.rest.action.document.RestUpdateAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for parsing an OpenSearch NDJSON search request into a list of appropriate
@@ -46,18 +49,15 @@ import org.opensearch.rest.action.document.RestUpdateAction;
  * building a complete working list of queries to be performed.
  */
 public class OpenSearchRequest {
+  public static final Logger LOG = LoggerFactory.getLogger(OpenSearchRequest.class);
+
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   // TODO: *Only* the index and create actions expect a source on the next line
-  public void parseBulkHttpRequest(String postBody) throws JsonProcessingException {
-    //    for (List<String> pair : Lists.partition(Arrays.asList(postBody.split("\n")), 2)) {
-    //      JsonNode header = OM.readTree(pair.get(0));
-    //      JsonNode body = OM.readTree(pair.get(1));
-    //      int x = 10;
-    //    }
+  public List<Trace.Span> parseBulkHttpRequest(String postBody) {
 
-    RestUpdateAction action = new RestUpdateAction();
+    List<Trace.Span> docs = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
     try {
       bulkRequest.add(
@@ -72,26 +72,28 @@ public class OpenSearchRequest {
           // Notes
           // The client makes a DocWriteRequest and sends it to the server
           // IngestService#innerExecute is where the server eventually reads when request is an
-          // IndexRequest.
-          // It then creates an IngestDocument
+          // IndexRequest. It then creates an IngestDocument
           IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
-          // TransportBulkAction#doInternalExecute
+          docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
         } else {
-          // warn that we don't support anything but INDEX
+          LOG.warn(
+              "request=" + request + " of type " + request.opType().toString() + "not supported");
         }
       }
     } catch (IOException e) {
       e.printStackTrace();
     }
+    return docs;
   }
 
-  private IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
+  protected IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
     String index = indexRequest.index();
     String id = indexRequest.id();
     String routing = indexRequest.routing();
     Long version = indexRequest.version();
     VersionType versionType = indexRequest.versionType();
     Map<String, Object> sourceAsMap = indexRequest.sourceAsMap();
+
     return new IngestDocument(index, id, routing, version, versionType, sourceAsMap);
 
     // can easily expose Pipeline/CompoundProcessor(list of processors) that take an IngestDocument

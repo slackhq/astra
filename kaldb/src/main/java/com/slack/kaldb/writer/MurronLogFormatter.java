@@ -3,13 +3,17 @@ package com.slack.kaldb.writer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.slack.kaldb.logstore.LogMessage;
 import com.slack.kaldb.util.JsonUtil;
 import com.slack.service.murron.Murron;
 import com.slack.service.murron.trace.Trace;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.opensearch.ingest.IngestDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +46,36 @@ public class MurronLogFormatter {
         1,
         LogMessage.ReservedField.TRACE_ID.fieldName,
         "");
+  }
+
+  public static Trace.Span fromIngestDocument(IngestDocument ingestDocument) {
+    ZonedDateTime timestamp =
+        (ZonedDateTime)
+            ingestDocument
+                .getIngestMetadata()
+                .getOrDefault("timestamp", ZonedDateTime.now(ZoneOffset.UTC));
+    // Trace.Span expects duration in microseconds today
+    long epochMicro = timestamp.toInstant().toEpochMilli() / 1000;
+    Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
+    String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
+    String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
+
+    Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
+    spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
+    spanBuilder.setName(index);
+    spanBuilder.setTimestamp(epochMicro);
+
+    // Remove the following internal metadata fields that OpenSearch adds
+    sourceAndMetadata.remove(IngestDocument.Metadata.ROUTING.getFieldName());
+    sourceAndMetadata.remove(IngestDocument.Metadata.VERSION.getFieldName());
+    sourceAndMetadata.remove(IngestDocument.Metadata.VERSION_TYPE.getFieldName());
+    // these two fields don't need to be tags as they have been explicitly set already
+    sourceAndMetadata.remove(IngestDocument.Metadata.ID.getFieldName());
+    sourceAndMetadata.remove(IngestDocument.Metadata.INDEX.getFieldName());
+
+    sourceAndMetadata.forEach(
+        (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value)));
+    return spanBuilder.build();
   }
 
   private static Trace.Span toSpan(
