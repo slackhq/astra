@@ -352,6 +352,8 @@ public class Kaldb {
     }
 
     if (roles.contains(KaldbConfigs.NodeRole.PREPROCESSOR)) {
+      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
+
       final KaldbConfigs.PreprocessorConfig preprocessorConfig =
           kaldbConfig.getPreprocessorConfig();
       final int serverPort = preprocessorConfig.getServerConfig().getServerPort();
@@ -363,11 +365,12 @@ public class Kaldb {
           new ArmeriaService.Builder(serverPort, "kalDbPreprocessor", meterRegistry)
               .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
-              .withAnnotatedService(new ElasticsearchBulkIngestAPI())
+              .withAnnotatedService(
+                  new ElasticsearchBulkIngestAPI(
+                      datasetMetadataStore, preprocessorConfig, meterRegistry))
               .build();
       services.add(armeriaService);
 
-      DatasetMetadataStore datasetMetadataStore = new DatasetMetadataStore(curatorFramework, true);
       services.add(
           new CloseableLifecycleManager(
               KaldbConfigs.NodeRole.RECOVERY, List.of(datasetMetadataStore)));

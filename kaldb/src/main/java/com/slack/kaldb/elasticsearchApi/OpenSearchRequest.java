@@ -54,27 +54,27 @@ public class OpenSearchRequest {
   private static final ObjectMapper OM =
       new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-  // TODO: *Only* the index and create actions expect a source on the next line
-  public List<Trace.Span> parseBulkHttpRequest(String postBody) {
+  public static Map<String, List<Trace.Span>> parseBulkHttpRequest(String postBody) {
 
-    List<Trace.Span> docs = new ArrayList<>();
     BulkRequest bulkRequest = new BulkRequest();
+    // Should always be one - using it as a tuple
+    Map<String, List<Trace.Span>> indexDocs = new HashMap<>();
     try {
       bulkRequest.add(
           postBody.getBytes(StandardCharsets.UTF_8), 0, postBody.length(), null, XContentType.JSON);
       List<DocWriteRequest<?>> requests = bulkRequest.requests();
       for (DocWriteRequest<?> request : requests) {
         if (request.opType() == DocWriteRequest.OpType.INDEX) {
-          // 1. convert document to Kaldb span
-          // 2. With a retry+backoff handler produce messages to kafka
-          // 3. RateLimits?
 
-          // Notes
           // The client makes a DocWriteRequest and sends it to the server
           // IngestService#innerExecute is where the server eventually reads when request is an
           // IndexRequest. It then creates an IngestDocument
+          String index = ((IndexRequest) request).index();
           IngestDocument ingestDocument = convertRequestToDocument((IndexRequest) request);
+          List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
           docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
+          indexDocs.put(index, docs);
+
         } else {
           LOG.warn(
               "request=" + request + " of type " + request.opType().toString() + "not supported");
@@ -83,10 +83,10 @@ public class OpenSearchRequest {
     } catch (IOException e) {
       e.printStackTrace();
     }
-    return docs;
+    return indexDocs;
   }
 
-  protected IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
+  protected static IngestDocument convertRequestToDocument(IndexRequest indexRequest) {
     String index = indexRequest.index();
     String id = indexRequest.id();
     String routing = indexRequest.routing();

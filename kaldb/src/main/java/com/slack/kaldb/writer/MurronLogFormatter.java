@@ -1,5 +1,7 @@
 package com.slack.kaldb.writer;
 
+import static com.slack.kaldb.preprocessor.PreprocessorValueMapper.SERVICE_NAME_KEY;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
@@ -59,10 +61,12 @@ public class MurronLogFormatter {
     Map<String, Object> sourceAndMetadata = ingestDocument.getSourceAndMetadata();
     String id = (String) sourceAndMetadata.get(IngestDocument.Metadata.ID.getFieldName());
     String index = (String) sourceAndMetadata.get(IngestDocument.Metadata.INDEX.getFieldName());
+    //    if (index == null) {
+    //      index = "_all";
+    //    }
 
     Trace.Span.Builder spanBuilder = Trace.Span.newBuilder();
     spanBuilder.setId(ByteString.copyFrom(id.getBytes()));
-    spanBuilder.setName(index);
     spanBuilder.setTimestamp(epochMicro);
 
     // Remove the following internal metadata fields that OpenSearch adds
@@ -75,6 +79,12 @@ public class MurronLogFormatter {
 
     sourceAndMetadata.forEach(
         (key, value) -> spanBuilder.addTags(SpanFormatter.convertKVtoProto(key, value)));
+    spanBuilder.addTags(
+        Trace.KeyValue.newBuilder()
+            .setKey(SERVICE_NAME_KEY)
+            .setVType(Trace.ValueType.STRING)
+            .setVStr(index)
+            .build());
     return spanBuilder.build();
   }
 

@@ -34,7 +34,7 @@ public class PreprocessorPartitioner<K, V> implements StreamPartitioner<String, 
    * while producing data into kafka and thereby improving the efficiency We use Guava's
    * Suppliers.memoizeWithExpiration library which gives us a nice construct to achieve this
    */
-  private ConcurrentHashMap<String, Supplier<Integer>> getDatasetPartitionSuppliers(
+  private static ConcurrentHashMap<String, Supplier<Integer>> getDatasetPartitionSuppliers(
       List<DatasetMetadata> datasetMetadataList, int kafkaPartitionStickyTimeoutMs) {
     ConcurrentHashMap<String, Supplier<Integer>> datasetPartitionSuppliers =
         new ConcurrentHashMap<>();

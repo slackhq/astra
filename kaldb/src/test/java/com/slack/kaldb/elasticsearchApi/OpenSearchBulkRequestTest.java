@@ -7,6 +7,7 @@ import com.slack.service.murron.trace.Trace;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 public class OpenSearchBulkRequestTest {
@@ -22,10 +23,11 @@ public class OpenSearchBulkRequestTest {
     String rawRequest = getRawQueryString("index_simple");
 
     OpenSearchRequest openSearchRequest = new OpenSearchRequest();
-    List<Trace.Span> docs = openSearchRequest.parseBulkHttpRequest(rawRequest);
+    Map<String, List<Trace.Span>> docs = openSearchRequest.parseBulkHttpRequest(rawRequest);
     assertThat(docs.size()).isEqualTo(1);
-    assertThat(docs.get(0).getTagsList().size()).isEqualTo(2);
-    assertThat(docs.get(0).getName()).isEqualTo("test");
-    assertThat(docs.get(0).getTimestamp()).isGreaterThan(0);
+    assertThat(docs.get("test").get(0).getTagsList().size()).isEqualTo(3);
+    //
+    // assertThat(docs.get("test").get(0).getTagsList().contains("service_name")).isEqualTo(true);
+    assertThat(docs.get("test").get(0).getTimestamp()).isGreaterThan(0);
   }
 }
