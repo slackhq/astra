@@ -1,6 +1,7 @@
 package com.slack.kaldb.server;
 
 import static com.linecorp.armeria.common.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.linecorp.armeria.common.HttpStatus.TOO_MANY_REQUESTS;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_ALL_SERVICE;
 import static com.slack.kaldb.metadata.dataset.DatasetMetadata.MATCH_STAR_SERVICE;
 import static com.slack.kaldb.preprocessor.PreprocessorService.INITIALIZE_RATE_LIMIT_WARM;
@@ -8,6 +9,7 @@ import static com.slack.kaldb.preprocessor.PreprocessorService.filterValidDatase
 import static com.slack.kaldb.preprocessor.PreprocessorService.sortDatasetsOnThroughput;
 
 import com.google.common.util.concurrent.AbstractService;
+import com.google.common.util.concurrent.RateLimiter;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.annotation.Post;
@@ -53,6 +55,7 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
 
   private PreprocessorRateLimiter rateLimiter;
   private Predicate<String, Trace.Span> rateLimiterPredicate;
+  private Map<String, RateLimiter> rateLimiterMap;
 
   @Override
   protected void doStart() {
@@ -83,6 +86,8 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
             preprocessorConfig.getPreprocessorInstanceCount(),
             preprocessorConfig.getRateLimiterMaxBurstSeconds(),
             INITIALIZE_RATE_LIMIT_WARM);
+    this.throughputSortedDatasets = sortDatasetsOnThroughput(datasetMetadataList);
+    this.rateLimiterMap = rateLimiter.getRateLimiterMap(throughputSortedDatasets);
     this.rateLimiterPredicate = rateLimiter.createRateLimiter(datasetMetadataList);
   }
 
@@ -109,21 +114,20 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
       Map<String, List<Trace.Span>> docs = OpenSearchRequest.parseBulkHttpRequest(bulkRequest);
       // our rate limiter doesn't have a way to acquire permits across multiple datasets
       // so today as a limitation we reject any request that has documents against multiple indexes
-      // We think most indexing requests will be against 1 index anyways
+      // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
         BulkIngestResponse response = new BulkIngestResponse(0, 0, "request must contain only 1 index");
         return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
       }
-      Map<String, List<Trace.Span>> rateLimitedDocs = new HashMap<>();
+
       for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
         final String index = indexDoc.getKey();
-        rateLimitedDocs.put(
-            index,
-            indexDoc.getValue().stream()
-                .filter(doc -> rateLimiterPredicate.test(index, doc))
-                .collect(Collectors.toList()));
+        if (!rateLimiter.allowBulkRequest(throughputSortedDatasets, rateLimiterMap, index, indexDoc.getValue())) {
+          BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
+          return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
+        }
       }
-      BulkIngestResponse response = produceDocuments(rateLimitedDocs);
+      BulkIngestResponse response = produceDocuments(docs);
       return HttpResponse.ofJson(response);
     } catch (Exception e) {
       LOG.error("Request failed ", e);
