@@ -22,14 +22,12 @@ import com.slack.kaldb.preprocessor.PreprocessorService;
 import com.slack.kaldb.proto.config.KaldbConfigs;
 import com.slack.service.murron.trace.Trace;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -116,13 +114,15 @@ public class OpenSearchBulkIngestAPI extends AbstractService {
       // so today as a limitation we reject any request that has documents against multiple indexes
       // We think most indexing requests will be against 1 index
       if (docs.keySet().size() > 1) {
-        BulkIngestResponse response = new BulkIngestResponse(0, 0, "request must contain only 1 index");
+        BulkIngestResponse response =
+            new BulkIngestResponse(0, 0, "request must contain only 1 index");
         return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
       }
 
       for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
         final String index = indexDoc.getKey();
-        if (!rateLimiter.allowBulkRequest(throughputSortedDatasets, rateLimiterMap, index, indexDoc.getValue())) {
+        if (!rateLimiter.allowBulkRequest(
+            throughputSortedDatasets, rateLimiterMap, index, indexDoc.getValue())) {
           BulkIngestResponse response = new BulkIngestResponse(0, 0, "rate limit exceeded");
           return HttpResponse.ofJson(TOO_MANY_REQUESTS, response);
         }

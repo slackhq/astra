@@ -107,17 +107,21 @@ public class PreprocessorRateLimiter {
     }
   }
 
-  public boolean allowBulkRequest(List<DatasetMetadata> throughputSortedDatasets, Map<String, RateLimiter> rateLimiterMap, String index, List<Trace.Span> docs) {
+  public boolean allowBulkRequest(
+      List<DatasetMetadata> throughputSortedDatasets,
+      Map<String, RateLimiter> rateLimiterMap,
+      String index,
+      List<Trace.Span> docs) {
     int totalBytes = docs.stream().mapToInt(Trace.Span::getSerializedSize).sum();
     if (index == null) {
       // index name wasn't provided
       LOG.debug("Message was dropped due to missing index name - '{}'", index);
       meterRegistry
-              .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-              .increment();
+          .counter(MESSAGES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+          .increment();
       meterRegistry
-              .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
-              .increment(totalBytes);
+          .counter(BYTES_DROPPED, getMeterTags("", MessageDropReason.MISSING_SERVICE_NAME))
+          .increment(totalBytes);
       return false;
     }
     for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
@@ -127,51 +131,53 @@ public class PreprocessorRateLimiter {
         serviceNamePattern = datasetMetadata.getName();
       }
       if (serviceNamePattern.equals(MATCH_ALL_SERVICE)
-              || serviceNamePattern.equals(MATCH_STAR_SERVICE)
-              || index.equals(serviceNamePattern)) {
+          || serviceNamePattern.equals(MATCH_STAR_SERVICE)
+          || index.equals(serviceNamePattern)) {
         RateLimiter rateLimiter = rateLimiterMap.get(datasetMetadata.getName());
         if (rateLimiter.tryAcquire(totalBytes)) {
           return true;
         }
         // message should be dropped due to rate limit
         meterRegistry
-                .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
-                .increment();
+            .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+            .increment();
         meterRegistry
-                .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
-                .increment(totalBytes);
+            .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.OVER_LIMIT))
+            .increment(totalBytes);
         LOG.debug(
-                "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
-                index,
-                rateLimiter.getRate());
+            "Message was dropped for dataset '{}' due to rate limiting ({} bytes per second)",
+            index,
+            rateLimiter.getRate());
         return false;
       }
     }
     // message should be dropped due to no matching service name being provisioned
     meterRegistry
-            .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
-            .increment();
+        .counter(MESSAGES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+        .increment();
     meterRegistry
-            .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
-            .increment(totalBytes);
+        .counter(BYTES_DROPPED, getMeterTags(index, MessageDropReason.NOT_PROVISIONED))
+        .increment(totalBytes);
     return false;
   }
 
-  public Map<String, RateLimiter> getRateLimiterMap(List<DatasetMetadata> throughputSortedDatasets) {
+  public Map<String, RateLimiter> getRateLimiterMap(
+      List<DatasetMetadata> throughputSortedDatasets) {
     Map<String, RateLimiter> rateLimiterMap = new HashMap<>(throughputSortedDatasets.size());
 
     for (DatasetMetadata datasetMetadata : throughputSortedDatasets) {
       double permitsPerSecond = (double) datasetMetadata.getThroughputBytes() / preprocessorCount;
       LOG.info(
-              "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
-              datasetMetadata.getName(),
-              permitsPerSecond,
-              datasetMetadata.getThroughputBytes(),
-              preprocessorCount);
+          "Rate limiter initialized for {} at {} bytes per second (target throughput {} / processorCount {})",
+          datasetMetadata.getName(),
+          permitsPerSecond,
+          datasetMetadata.getThroughputBytes(),
+          preprocessorCount);
       RateLimiter rateLimiter =
-              smoothBurstyRateLimiter(permitsPerSecond, maxBurstSeconds, initializeWarm);
+          smoothBurstyRateLimiter(permitsPerSecond, maxBurstSeconds, initializeWarm);
       rateLimiterMap.put(datasetMetadata.getName(), rateLimiter);
     }
+    return rateLimiterMap;
   }
 
   public Predicate<String, Trace.Span> createRateLimiter(
