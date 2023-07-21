@@ -107,6 +107,13 @@ public class ElasticsearchBulkIngestAPI extends AbstractService {
   public HttpResponse addDocument(String bulkRequest) {
     try {
       Map<String, List<Trace.Span>> docs = OpenSearchRequest.parseBulkHttpRequest(bulkRequest);
+      // our rate limiter doesn't have a way to acquire permits across multiple datasets
+      // so today as a limitation we reject any request that has documents against multiple indexes
+      // We think most indexing requests will be against 1 index anyways
+      if (docs.keySet().size() > 1) {
+        BulkIngestResponse response = new BulkIngestResponse(0, 0, "request must contain only 1 index");
+        return HttpResponse.ofJson(INTERNAL_SERVER_ERROR, response);
+      }
       Map<String, List<Trace.Span>> rateLimitedDocs = new HashMap<>();
       for (Map.Entry<String, List<Trace.Span>> indexDoc : docs.entrySet()) {
         final String index = indexDoc.getKey();

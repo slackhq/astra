@@ -73,7 +73,6 @@ public class OpenSearchRequest {
         List<Trace.Span> docs = indexDocs.getOrDefault(index, new ArrayList<>());
         docs.add(MurronLogFormatter.fromIngestDocument(ingestDocument));
         indexDocs.put(index, docs);
-
       } else {
         LOG.warn(
             "request=" + request + " of type " + request.opType().toString() + "not supported");
