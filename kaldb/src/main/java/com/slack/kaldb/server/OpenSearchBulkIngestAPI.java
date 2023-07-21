@@ -37,9 +37,9 @@ import org.apache.kafka.streams.kstream.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ElasticsearchBulkIngestAPI extends AbstractService {
+public class OpenSearchBulkIngestAPI extends AbstractService {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchBulkIngestAPI.class);
+  private static final Logger LOG = LoggerFactory.getLogger(OpenSearchBulkIngestAPI.class);
   private final PrometheusMeterRegistry meterRegistry;
 
   private final KaldbConfigs.PreprocessorConfig preprocessorConfig;
@@ -88,7 +88,7 @@ public class ElasticsearchBulkIngestAPI extends AbstractService {
 
   record BulkIngestResponse(int totalDocs, long failedDocs, String errorMessage) {}
 
-  public ElasticsearchBulkIngestAPI(
+  public OpenSearchBulkIngestAPI(
       DatasetMetadataStore datasetMetadataStore,
       KaldbConfigs.PreprocessorConfig preprocessorConfig,
       PrometheusMeterRegistry meterRegistry) {

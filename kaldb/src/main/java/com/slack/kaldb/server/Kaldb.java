@@ -366,7 +366,7 @@ public class Kaldb {
               .withRequestTimeout(requestTimeout)
               .withTracing(kaldbConfig.getTracingConfig())
               .withAnnotatedService(
-                  new ElasticsearchBulkIngestAPI(
+                  new OpenSearchBulkIngestAPI(
                       datasetMetadataStore, preprocessorConfig, meterRegistry))
               .build();
       services.add(armeriaService);
